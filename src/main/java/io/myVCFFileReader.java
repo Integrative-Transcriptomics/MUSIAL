@@ -36,6 +36,7 @@ public class myVCFFileReader {
 	private Map<Integer, Double> coverage;
 	private Set<Integer> lowCoverageRegions;
 	private String contigName = "";
+	private String sequenceHeader = "";
 
 //	private Set<Integer> insertions;
 	private Set<Pair<Integer,Integer>> deletions;
@@ -58,7 +59,7 @@ public class myVCFFileReader {
 //	private Long noCalls = 0l;
 
 
-	public myVCFFileReader(String file, String sampleName, Integer genomeSize, Double minCovGood, Double minCovAdd, Double minFreq, Double genQual, Boolean callHeterozygous, Double minHet, Double maxHet){
+	public myVCFFileReader(String file, String sampleName, Integer genomeSize, Double minCovGood, Double minCovAdd, Double minFreq, Double genQual, Boolean callHeterozygous, Double minHet, Double maxHet, String sequenceHeader){
 		this.filename = file;
 		this.sampleName = sampleName;
 		this.genomeSize = genomeSize;
@@ -79,6 +80,7 @@ public class myVCFFileReader {
 		this.callHeterozygous = callHeterozygous;
 		this.minHet = minHet;
 		this.maxHet = maxHet;
+		this.sequenceHeader = sequenceHeader;
 		//		run();
 	}
 
@@ -116,9 +118,13 @@ public class myVCFFileReader {
 		}
 		while(iter.hasNext()){
 			VariantContext variantContext = iter.next();
-			if(this.contigName.length() == 0) {
+			if(this.contigName.length() == 0 || !this.contigName.equals(variantContext.getContig())) {
 				this.contigName = variantContext.getContig();
 			}
+			if(!this.sequenceHeader.equals(this.contigName)) {
+				continue;
+			}
+//			System.exit(1);//TODO
 //			this.totalCalls++;
 			int pos = variantContext.getStart();
 			if(!(pos-lastPos==1)){
