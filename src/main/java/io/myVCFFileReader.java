@@ -288,9 +288,7 @@ public class myVCFFileReader {
 							if(allele.isReference()) {
 								if(allele.getBaseString().length()>currentGenotype.length()) {
 									this.currDeletions = allele.getBaseString().length()-currentGenotype.length();
-									System.out.println("longer snp here?\t"+pos+"\t"+(allele.getBaseString().length()-currentGenotype.length()));
 								}else if(allele.getBaseString().length()<currentGenotype.length()) {
-//										Integer refLength = allele.getBaseString().length();
 										Integer lengthDiff = (currentGenotype.length()-allele.getBaseString().length());
 										Pair<Integer, Integer> p = new Pair<Integer, Integer>(pos, lengthDiff);
 										this.deletions.add(p);

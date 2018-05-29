@@ -91,7 +91,7 @@ public class SNPTable {
 				}
 			}
 			if(currSnpCalls.size()==0) {
-				System.out.println("Remove SNP: "+pos);
+//				System.out.println("Remove SNP: "+pos);
 				toRemove.add(pos);
 			}
 		}

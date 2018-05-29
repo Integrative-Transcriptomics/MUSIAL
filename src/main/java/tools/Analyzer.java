@@ -96,7 +96,7 @@ public class Analyzer extends ATool {
 
 	private FastaReader fr;
 
-	private boolean writeVCFFileListFile = false;
+	private boolean writeVCFFileListFile = true;
 	
 	private Integer finished = 0;
 	
@@ -226,7 +226,6 @@ public class Analyzer extends ATool {
 					} catch (Exception e) {
 						e.printStackTrace();
 					}
-					
 				}
 			}
 			if(this.vcfFiles.size() == 0) {
@@ -403,7 +402,7 @@ public class Analyzer extends ATool {
 			if(originalVCF.endsWith(".gz"))
 				vcfFile += ".gz";
 			Utilities.generateSymlink(originalVCF, vcfFile);
-			this.vcfFiles.add(vcfFile);
+			this.vcfFiles.add(new File(vcfFile).getAbsolutePath());
 		}
 	}
 
@@ -579,8 +578,8 @@ public class Analyzer extends ATool {
 		Utilities.createOutFolder(outdir);
 		if(this.writeVCFFileListFile) {
 			StringBuffer vcfFileListFile = new StringBuffer();
-			for(String sampleName: this.vcfFilePaths.keySet()) {
-				vcfFileListFile.append(this.vcfFilePaths.get(sampleName));
+			for(String vcfFile: this.vcfFiles) {
+				vcfFileListFile.append(vcfFile);
 				vcfFileListFile.append("\n");
 			}
 			Utilities.writeToFile(vcfFileListFile.toString(), new File(this.outputFolder+"/vcfFilesUsed.txt"));
@@ -813,6 +812,7 @@ public class Analyzer extends ATool {
 		// check for duplicate sample names
 //		if(firstRun) {
 			System.out.println("There are "+this.vcfFiles.size()+" input samples");
+			this.finished = 0;
 			for(String vcf: this.vcfFiles){
 				vcf = new File(vcf).getAbsolutePath();
 				String sampleName = new File(vcf).getParentFile().getName();
