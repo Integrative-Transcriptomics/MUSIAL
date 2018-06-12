@@ -7,7 +7,7 @@ package datastructure;
  * @author Alexander Seitz
  *
  */
-public class SNPStatistics {
+public class SNVStatistics {
 	
 	private String SampleName;
 	private Long numSNPs;
@@ -27,7 +27,7 @@ public class SNPStatistics {
 	 * @param foldCoverage
 	 * @param percentCoverage
 	 */
-	public SNPStatistics(String sampleName, Long numSNPs, Long numHetSNPs, Long totalCalls, Long refCalls, Long noCalls, Double foldCoverage, Double percentCoverage) {
+	public SNVStatistics(String sampleName, Long numSNPs, Long numHetSNPs, Long totalCalls, Long refCalls, Long noCalls, Double foldCoverage, Double percentCoverage) {
 		SampleName = sampleName;
 		this.numSNPs = numSNPs;
 		this.numHetSNPs = numHetSNPs;

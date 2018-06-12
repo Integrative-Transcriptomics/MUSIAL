@@ -19,7 +19,8 @@ project.ext{
 }
 
 task downloadFile(type: Download) {
-    src 'http://sourceforge.net/projects/snpeff/files/snpEff_latest_core.zip'
+    //src 'http://sourceforge.net/projects/snpeff/files/snpEff_latest_core.zip'
+    src 'https://sourceforge.net/projects/snpeff/files/latest/download'
     dest 'src/main/resources'
 }
 

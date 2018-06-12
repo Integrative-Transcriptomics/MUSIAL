@@ -32,8 +32,8 @@ import org.apache.commons.cli.ParseException;
 
 import datastructure.FastAEntry;
 import datastructure.Gene;
-import datastructure.SNPStatistics;
-import datastructure.SNPTable;
+import datastructure.SNVStatistics;
+import datastructure.SNVTable;
 import io.FastaReader;
 import io.GFFParser;
 import io.myVCFFileReader;
@@ -57,7 +57,7 @@ public class Analyzer extends ATool {
 	private Map<String, myVCFFileReader> vcfFileReader;
 	private Map<Integer, List<String>> lowCovRegions;
 	private Map<Integer, Map<String, Integer>> deletions;
-	private Map<String, SNPStatistics> statistics;
+	private Map<String, SNVStatistics> statistics;
 	private Integer threads = 1;
 
 	private String gffFile;
@@ -77,12 +77,13 @@ public class Analyzer extends ATool {
 	private Boolean hasOutgroupName = false;
 	private Boolean calculatePhylos = false;
 	private Boolean runSnpEff = false;
+	private Boolean writeLowCoverages = false;
 
 //	private String snpEffDir = "";
 	private String snpEffName = "mySample";
-	private String snpEffOutputFile = "";
+	private List<String> snpEffOutputFile = new LinkedList<String>();
 //	private File snpEffJar;
-	String snpEffInput = "";
+	List<String> snpEffInput = new LinkedList<String>();
 	
 	private String referenceAlignmentName = "";
 	private String outGroupName = "";
@@ -92,7 +93,7 @@ public class Analyzer extends ATool {
 	private Set<String> geneNames = new TreeSet<String>();
 	private Set<Gene> genes = new HashSet<Gene>();
 
-	private SNPTable snpTable;
+	private SNVTable snvTable;
 
 	private FastaReader fr;
 
@@ -101,6 +102,7 @@ public class Analyzer extends ATool {
 	private Integer finished = 0;
 	
 //	private List<String> differences = new LinkedList<String>();
+	private String compareTo = "";
 
 	/**
 	 * @param args
@@ -117,9 +119,10 @@ public class Analyzer extends ATool {
 		options.addOption("t", "threads", true, "number of threads to use ["+this.threads+"]");
 		options.addOption("c", "coverage", true, "min coverage to make call ["+this.minCovGood+"]");
 		options.addOption("ca", "covAdd", true, "minCoverage to make additional call ["+this.minCovAdd+"]");
-		//		options.addOption("c", "compare", true, "compare to other SNPTable");
-		options.addOption("f", "frequency", true, "minimum frequency to call a SNP ["+this.minFreq+"]");
+		options.addOption("d", "compare", true, "calculate differences compared to other SNVTable");
+		options.addOption("f", "frequency", true, "minimum frequency to call a SNV ["+this.minFreq+"]");
 		options.addOption("g", "gff", true, "the gff file");
+		options.addOption("lc", "lowCov", false, "calculate low coverage reagions");
 		options.addOption("u", "uncovered", false, "write uncovered positions for each sample");
 		options.addOption("s", "sharedAlleleFreq", false, "write shared allele frequencies for each position");
 		options.addOption("ar", "addReference", true, "add reference under given name to alignment");
@@ -260,6 +263,9 @@ public class Analyzer extends ATool {
 			if(cmd.hasOption("g")) {
 				this.gffFile = cmd.getOptionValue("g");
 			}
+			if(cmd.hasOption("lc")) {
+				this.writeLowCoverages = true;
+			}
 			if(cmd.hasOption("gn")) {
 				if(!cmd.hasOption("g")) {
 					System.err.println("Gene alignments only with option -g possible");
@@ -313,11 +319,11 @@ public class Analyzer extends ATool {
 					System.err.println("Given value for additional coverage not Integer: "+cmd.getOptionValue("ca"));
 				}
 			}
-			//			if(cmd.hasOption("c")) {
-			//				this.compareTo = cmd.getOptionValue("c");
-			//			}else {
-			//				this.compareTo = "";
-			//			}
+			if(cmd.hasOption("d")) {
+				this.compareTo = cmd.getOptionValue("d");
+			}else {
+				this.compareTo = "";
+			}
 			if(cmd.hasOption("f")) {
 				if(Utilities.isDouble(cmd.getOptionValue("f"))) {
 					this.minFreq = Double.parseDouble(cmd.getOptionValue("f"));
@@ -455,8 +461,6 @@ public class Analyzer extends ATool {
 		}
 
 		// set variables
-
-		//				this.differences = new LinkedList<String>();
 		this.fr = new FastaReader(this.referenceFile);
 //		boolean firstRun = true;
 
@@ -476,16 +480,23 @@ public class Analyzer extends ATool {
 			System.out.println("finished parsing vcf files");
 			System.out.println("\ttime:\t"+ ((end-start)/1000) + "s");
 
-			// calculate the differences TODO maybe add
-			//		if(this.compareTo.length()>0 && new File(this.compareTo).exists()) {
-			//			System.out.println("calculating differences");
-			//			start = System.currentTimeMillis();
-			//			this.differences = this.snpTable.compareTo(new SNPTable("/share/projects/Lepra/results/All_newMappingSameParameters/multivcf/2017_02_08_MVCF_results_GC_comb_newSamples/snpTable.tsv"));
-			//			this.differences = addAdditionalInformationToDifferences();
-			//			end = System.currentTimeMillis();
-			//			System.out.println("finished calculating differences");
-			//			System.out.println("\ttime:\t"+ ((end-start)/1000) + "s");			
-			//		}
+			//calculate the differences
+			if(this.compareTo.length()>0 && new File(this.compareTo).exists()) {
+				System.out.println("calculating differences");
+				start = System.currentTimeMillis();
+				List<String> differences = new LinkedList<String>();
+				differences = this.snvTable.compareTo(new SNVTable(this.compareTo));
+				StringBuffer diffs = new StringBuffer();
+				for(String diff: differences) {
+					diffs.append(diff);
+					diffs.append("\n");
+				}
+				Utilities.writeToFile(diffs.toString(), new File(this.outputFolder+"/"+header+"_differences.tsv"));
+//				this.differences = addAdditionalInformationToDifferences(); //TODO
+				end = System.currentTimeMillis();
+				System.out.println("finished calculating differences");
+				System.out.println("\ttime:\t"+ ((end-start)/1000) + "s");			
+			}
 
 			// if set, get the desired genes
 
@@ -506,16 +517,27 @@ public class Analyzer extends ATool {
 			System.out.println("finished writing output");
 			System.out.println("\ttime:\t"+ ((end-start)/1000) + "s");
 
-			//TODO
 
 			if(this.runSnpEff){
 				System.out.println("running SNPEff");
 				start = System.currentTimeMillis();
 				// download snpEff
 				System.out.println("\tDownloading SNPEff");
+				String snpEffZip = this.outputFolder+"/snpEff_latest_core.zip";
+				String snpEffDir = this.outputFolder+"/snpEff";
+				String clinEffDir = this.outputFolder+"/clinEff";
+				// delete the files/folders if they already exist and overwrite them with the newest version
+				if(Utilities.fileExists(snpEffZip)) {
+					Utilities.deleteFile(snpEffZip);
+				}
+				if(Utilities.fileExists(snpEffDir)) {
+					Utilities.deleteFolder(snpEffDir);
+				}
+				if(Utilities.fileExists(clinEffDir)) {
+					Utilities.deleteFolder(clinEffDir);
+				}
 				String[] downloadSnpEff = {"wget", "http://sourceforge.net/projects/snpeff/files/snpEff_latest_core.zip"};
 				Utilities.runCommand(downloadSnpEff, this.outputFolder+"/download.error", this.outputFolder+"/download.output", this.outputFolder);
-				String snpEffZip = this.outputFolder+"/snpEff_latest_core.zip";
 				// if download was unsuccessful, copy from internal jar
 				if(!new File(snpEffZip).exists()) {
 					Utilities.ExportResource("snpEff_latest_core.zip", snpEffZip);
@@ -524,12 +546,13 @@ public class Analyzer extends ATool {
 				System.out.println("\tExtracting SNPEff");
 				String[] unpackSnpEff = {"unzip", snpEffZip};
 				Utilities.runCommand(unpackSnpEff, "", "", this.outputFolder);
-				String snpEffDir = this.outputFolder+"/snpEff";
 				System.out.println("\tCreating SNPEff database");
 				createSNPEffDatabase(snpEffDir);
 				runSnpEff(snpEffDir);
 				// create new SNPTable with SNPEff infos
-				Utilities.writeToFile(this.snpTable.toStringWithSNPEffInfos(this.snpEffOutputFile), new File(this.outputFolder+"/snpTableWithSnpEffInfos.tsv"));
+				for(String currSNPEffOutputFile: this.snpEffOutputFile) {
+					Utilities.writeToFile(this.snvTable.toStringWithSNPEffInfos(currSNPEffOutputFile), new File(currSNPEffOutputFile+"_snvTableWithSnpEffInfos.tsv"));
+				}
 				end = System.currentTimeMillis();
 				System.out.println("\ttime:\t"+ ((end-start)/1000) + "s");
 			}
@@ -564,9 +587,12 @@ public class Analyzer extends ATool {
 	}
 
 	private void runSnpEff(String snpEffDir) {
-		this.snpEffOutputFile = this.outputFolder+"/snpeff_output.out";
-		String[] runSNPEff = {"java", "-jar", "snpEff.jar", this.snpEffName, this.snpEffInput};
-		Utilities.runCommand(runSNPEff, this.outputFolder+"/snpEff.error", this.snpEffOutputFile, snpEffDir);
+		for(String snpEffInputFile: this.snpEffInput) {
+			String currSNPEffOutputFile = snpEffInputFile+"_snpeff_output.out";
+			this.snpEffOutputFile.add(currSNPEffOutputFile);
+			String[] runSNPEff = {"java", "-jar", "snpEff.jar", this.snpEffName, snpEffInputFile};
+			Utilities.runCommand(runSNPEff, this.outputFolder+"/snpEff.error", currSNPEffOutputFile, snpEffDir);
+		}
 	}
 	
 	private void writeOutput(String header) {
@@ -585,21 +611,21 @@ public class Analyzer extends ATool {
 			Utilities.writeToFile(vcfFileListFile.toString(), new File(this.outputFolder+"/vcfFilesUsed.txt"));
 		}
 		// write the snpTable
-		Utilities.writeToFile(this.snpTable.toString(), new File(outdir+"/"+header+"_snpTable.tsv"));
+		Utilities.writeToFile(this.snvTable.toString(), new File(outdir+"/"+header+"_snvTable.tsv"));
 		
 		// write the snpTable with only heterozygous calls
 		if(this.callHeterozygous) {
-			Utilities.writeToFile(this.snpTable.toStringHeterozygousOnly(), new File(outdir+"/"+header+"_snpTable_only_heterozybous.tsv"));
+			Utilities.writeToFile(this.snvTable.toStringHeterozygousOnly(), new File(outdir+"/"+header+"_snpTable_only_heterozybous.tsv"));
 		}
 		
 		// write the vcf file for SNPEff
-		File snpEffVcfFile = new File(outdir+"/"+header+"_snpVcfForSnpEff.vcf");
-		this.snpEffInput = snpEffVcfFile.getAbsolutePath();
-		Utilities.writeToFile(this.snpTable.toSnpVcfForSnpEffString(this.fr.getEntry(header).getHeader()), snpEffVcfFile);
+		File snpEffVcfFile = new File(outdir+"/"+header+"_snvVcfForSnpEff.vcf");
+		this.snpEffInput.add(snpEffVcfFile.getAbsolutePath());
+		Utilities.writeToFile(this.snvTable.toSnpVcfForSnpEffString(this.fr.getEntry(header).getHeader()), snpEffVcfFile);
 		
 		// write the SNPalignment File
-		File snpAlignmentFile = new File(outdir+"/"+header+"_snpAlignment.fasta");
-		Utilities.writeToFile(this.snpTable.toAlignment(this.deletions), snpAlignmentFile);
+		File snvAlignmentFile = new File(outdir+"/"+header+"_snvAlignment.fasta");
+		Utilities.writeToFile(this.snvTable.toAlignment(this.deletions), snvAlignmentFile);
 		
 		// write the genome alignment File
 		File genomeAlignmentFile = new File(outdir+"/"+header+"_genomeAlignment.fasta");
@@ -614,11 +640,13 @@ public class Analyzer extends ATool {
 				geneAlignmentFiles.add(currGeneAlignmentFile);
 			}
 		}
-		writeLowCoveragePositions(new File(outdir+"/"+header+"_lowCoveragePositions.tsv"));
-		File excludedSNPAlignmentFile = null;
+		if(this.writeLowCoverages) {
+			writeLowCoveragePositions(new File(outdir+"/"+header+"_lowCoveragePositions.tsv"));
+		}
+		File excludedSNVAlignmentFile = null;
 		if(this.toExclude.size()>0){
-			excludedSNPAlignmentFile = new File(outdir+"/"+header+"_snpAlignment_excluded.fasta");
-			Utilities.writeToFile(this.snpTable.toAlignment(this.toExclude, this.deletions), excludedSNPAlignmentFile);
+			excludedSNVAlignmentFile = new File(outdir+"/"+header+"_snvAlignment_excluded.fasta");
+			Utilities.writeToFile(this.snvTable.toAlignment(this.toExclude, this.deletions), excludedSNVAlignmentFile);
 		}
 		if(this.writeUncovered) {
 			for(String sample: vcfFileReader.keySet()) {
@@ -629,7 +657,7 @@ public class Analyzer extends ATool {
 			writeAlleleFrequencies(new File(outdir+"/"+header+"_alleleFrequencies.tsv"), header);
 		}
 //		Utilities.writeToFile(gatherDifferences(), new File(outdir+"/differences.txt"));
-		Utilities.writeToFile(gatherStatistics(), new File(outdir+"/"+header+"_snpStatistics.tsv"));
+		Utilities.writeToFile(gatherStatistics(), new File(outdir+"/"+header+"_snvStatistics.tsv"));
 		Map<Integer, String> heterozygousCalls = getHeterozygousCalls();
 		if(heterozygousCalls.size()>0) {
 			StringBuffer hetCallsOutput = new StringBuffer();
@@ -644,13 +672,13 @@ public class Analyzer extends ATool {
 		if(this.calculatePhylos) {
 			System.out.println("\tcalculating phylogenies");
 			long startPhylo = System.currentTimeMillis();
-			calculatePhylogeny(snpAlignmentFile);
+			calculatePhylogeny(snvAlignmentFile);
 //			calculatePhylogeny(genomeAlignmentFile);
 //			for(File f: geneAlignmentFiles) {
 //				calculatePhylogeny(f);
 //			}
-//			if(excludedSNPAlignmentFile != null) {
-//				calculatePhylogeny(excludedSNPAlignmentFile);
+//			if(excludedSNVAlignmentFile != null) {
+//				calculatePhylogeny(excludedSNVAlignmentFile);
 //			}
 			long endPhylo = System.currentTimeMillis();
 			System.out.println("\tfinished calculating phylogenies");
@@ -659,10 +687,11 @@ public class Analyzer extends ATool {
 	}
 	
 	/**
-	 * @param snpTableFile
+	 * @param snvTableFile
 	 */
 	private void calculatePhylogeny(File alignmentFile) {
-		String[] runPhylogeny = new String[] {"raxml-ng-mpi", "--all", "--msa", alignmentFile.getAbsolutePath(), "--model", "GTR+G", "--tree", "pars{10}", "--bs-trees", "200"};
+		System.out.println("\tfor file:\t"+alignmentFile.getAbsolutePath());
+		String[] runPhylogeny = new String[] {"raxml-ng-mpi", "--all", "--msa", alignmentFile.getAbsolutePath(), "--model", "GTR+G", "--tree", "pars{10}", "--bs-trees", "200", "--threads", ""+this.threads};
 		Process process;
 		try {
 			process = new ProcessBuilder(runPhylogeny).redirectError(new File(alignmentFile.getAbsolutePath()+".error")).redirectOutput(new File(alignmentFile.getAbsolutePath()+".output")).start();
@@ -682,28 +711,28 @@ public class Analyzer extends ATool {
 		for(int i=1; i<=this.fr.getEntry(sequenceHeader).getSequence().length(); i++) {
 			result.append(i);
 			result.append("\t");
-			Map<String, Integer> freq = new HashMap<String, Integer>();
+			Map<String, Double> freq = new HashMap<String, Double>();
 			for(String sample: this.vcfFileReader.keySet()) {
 				String base = this.vcfFileReader.get(sample).get(i);
 				if(freq.containsKey(base)) {
 					freq.put(base, freq.get(base)+1);
 				}else {
-					freq.put(base, 1);
+					freq.put(base, 1.0);
 				}
 			}
-			if(freq.size() == 1) {
-				result.append(1d);
-			}else {
-				double max = 0;
-				double all = 0;
-				for(int value: freq.values()) {
+//			if(freq.size() == 1) {
+//				result.append(1d);
+//			}else {
+				double max = 0.0;
+				double all = 0.0;
+				for(double value: freq.values()) {
 					all += value;
 					if(value > max) {
 						max = value;
 					}
 				}
 				result.append(max/all);
-			}
+//			}
 			result.append("\n");
 		}
 		Utilities.writeToFile(result.toString(), file);
@@ -742,9 +771,14 @@ public class Analyzer extends ATool {
 		List<StringBuffer> regions = new LinkedList<StringBuffer>();
 		int regionID = 0;
 		Integer lastPos = 1;
-		StringBuffer currRegion = new StringBuffer();
+//		result.append("position\tregionID\tnumLowCovSamples\tnumSamples\tSampleNames\n");
+		Utilities.writeToFile("position\tregionID\tnumLowCovSamples\tnumSamples\tSampleNames\n", file);
+		StringBuffer result = new StringBuffer();
+		Integer num = 0;
 		for(Integer pos: this.lowCovRegions.keySet()){
+			StringBuffer currRegion = new StringBuffer();
 			if(this.lowCovRegions.get(pos).size() >3){
+				num++;
 				if(pos != lastPos+1){
 					regionID++;
 					regions.add(currRegion);
@@ -765,26 +799,32 @@ public class Analyzer extends ATool {
 					currRegion.append(this.vcfFileReader.get(sample).getCoverage(pos));
 					currRegion.append(",");
 				}
-				currRegion.append("\n");
+				if(num>=100000) {
+					Utilities.appendToFile(result.toString(), file);
+					result = new StringBuffer();
+					num=0;
+				}else {
+					currRegion.append("\n");
+					result.append(currRegion.toString());
+				}
 			}
 		}
-		StringBuffer result = new StringBuffer();
-		result.append("position\tregionID\tnumLowCovSamples\tnumSamples\tSampleNames\n");
-		for(StringBuffer sb: regions){
-			if(sb.toString().split("\n").length>=10){
-				result.append(sb.toString());
-			}
-		}
-		Utilities.writeToFile(result.toString(), file);
+		
+//		for(StringBuffer sb: regions){
+//			if(sb.toString().split("\n").length>=10){
+//				result.append(sb.toString());
+//			}
+//		}
+//		Utilities.writeToFile(result.toString(), file);
 	}
 	
 	private String gatherStatistics() {
 		StringBuffer result = new StringBuffer();
-		result.append("SNP Statistics for "+this.vcfFileReader.size()+" samples\n");
+		result.append("SNV Statistics for "+this.vcfFileReader.size()+" samples\n");
 		result.append("Coverage Threshold: "+this.minCovGood+"\n");
-		result.append("Minimum SNP allele frequency: "+this.minFreq+"\n"
+		result.append("Minimum SNV allele frequency: "+this.minFreq+"\n"
 				);
-		result.append("sample\tSNP Calls (all)\tSNP Calls (het)\tCoverage (fold)\tCoverage(%)\tReference Calls\ttotal Calls\tno Calls\n");
+		result.append("sample\tSNV Calls (all)\tSNV Calls (het)\tCoverage (fold)\tCoverage(%)\tReference Calls\ttotal Calls\tno Calls\n");
 		for(String sample: this.statistics.keySet()) {
 			result.append(this.statistics.get(sample).generateLine());
 			result.append("\n");
@@ -880,10 +920,10 @@ public class Analyzer extends ATool {
 		System.out.println("resolving possible maybe calls");
 		resolveMaybeCalls();
 
-		System.out.println("generating SNP table");
+		System.out.println("generating SNV table");
 
-		// generating SNPTable and statistics
-		this.statistics = new TreeMap<String, SNPStatistics>();
+		// generating SNVTable and statistics
+		this.statistics = new TreeMap<String, SNVStatistics>();
 
 		Map<String, Map<Integer,String>> table = new TreeMap<String, Map<Integer,String>>();
 		for(String sampleName: this.sampleNames.keySet()){
@@ -892,36 +932,38 @@ public class Analyzer extends ATool {
 				System.out.println("Error: "+sampleName);
 				System.exit(1);
 			}
-			Map<Integer, String> snps = new TreeMap<Integer, String>();
+			Map<Integer, String> snvs = new TreeMap<Integer, String>();
 			for(Integer pos: variablePositions){
-				String snp = reader.get(pos);
-				snps.put(pos, snp);
+				String snv = reader.get(pos);
+				snvs.put(pos, snv);
 			}
-			table.put(sampleName, snps);
-			SNPStatistics snpStatistics = new SNPStatistics(sampleName, reader.getNumSNPs(), reader.getNumHetSNPs(), reader.getTotalCalls(), reader.getRefCalls(), reader.getNoCalls(), reader.getFoldCoverage(), reader.getPercentCoverage());
-			this.statistics.put(sampleName, snpStatistics);
+			table.put(sampleName, snvs);
+			SNVStatistics snvStatistics = new SNVStatistics(sampleName, reader.getNumSNVs(), reader.getNumHetSNVs(), reader.getTotalCalls(), reader.getRefCalls(), reader.getNoCalls(), reader.getFoldCoverage(), reader.getPercentCoverage());
+			this.statistics.put(sampleName, snvStatistics);
 		}
-		this.snpTable = new SNPTable(table, this.fr.getEntry(sequenceHeader));
+		this.snvTable = new SNVTable(table, this.fr.getEntry(sequenceHeader));
 		for(String outgroupName: this.outgroupSamples.keySet()) {
 			System.out.println("adding outgroup: "+outgroupName);
 			String outgroupFile = this.outgroupSamples.get(outgroupName);
 			myVCFFileReader reader  = new myVCFFileReader(outgroupFile, outgroupName, genomeSize, minCovGood, minCovAdd, minFreq, genQual, callHeterozygous, minHet,maxHet, sequenceHeader);
 			reader.parseVCFFile();
-			this.snpTable.add(outgroupName, reader);
+			this.snvTable.add(outgroupName, reader);
 		}
 
-		System.out.println("generating low coverage regions");
+		if(this.writeLowCoverages) {
+			System.out.println("generating low coverage regions");
 
-		this.lowCovRegions = new TreeMap<Integer, List<String>>();
-		for(String sampleName: this.sampleNames.keySet()){
-			myVCFFileReader reader = this.vcfFileReader.get(sampleName);
-			for(Integer pos: reader.getLowCoverageRegions()){
-				List<String> lowCovSample = new LinkedList<String>();
-				if(this.lowCovRegions.containsKey(pos)){
-					lowCovSample = this.lowCovRegions.get(pos);
+			this.lowCovRegions = new TreeMap<Integer, List<String>>();
+			for(String sampleName: this.sampleNames.keySet()){
+				myVCFFileReader reader = this.vcfFileReader.get(sampleName);
+				for(Integer pos: reader.getLowCoverageRegions()){
+					List<String> lowCovSample = new LinkedList<String>();
+					if(this.lowCovRegions.containsKey(pos)){
+						lowCovSample = this.lowCovRegions.get(pos);
+					}
+					lowCovSample.add(sampleName);
+					this.lowCovRegions.put(pos, lowCovSample);
 				}
-				lowCovSample.add(sampleName);
-				this.lowCovRegions.put(pos, lowCovSample);
 			}
 		}
 		//		

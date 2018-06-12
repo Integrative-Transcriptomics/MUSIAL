@@ -83,6 +83,17 @@ public class Utilities {
 		}
 	}
 	
+	public static void appendToFile(String s, File f){
+		try {
+			PrintWriter outMerged = new PrintWriter(new BufferedWriter(new FileWriter(f, true)));
+			outMerged.println(s);
+			outMerged.flush();
+			outMerged.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
 	public static String removeTrailingSlashFromFolder(String name) {
 		if (name.endsWith("/")) {
 			name = name.substring(0, name.length() - 1);
@@ -93,6 +104,16 @@ public class Utilities {
 	public static void createOutFolder(String folder) {
 		String[] createOutputFolder = { "mkdir", "-p", folder };
 		runCommand(createOutputFolder, "", "", "");
+	}
+	
+	public static void deleteFile(String file) {
+		String[] deleteFolder = {"rm", file};
+		runCommand(deleteFolder, "", "", "");
+	}
+	
+	public static void deleteFolder(String folder) {
+		String[] deleteFile = {"rm", "-r", folder};
+		runCommand(deleteFile, "", "", "");
 	}
 	
 	

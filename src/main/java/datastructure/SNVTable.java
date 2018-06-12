@@ -24,7 +24,7 @@ import io.myVCFFileReader;
  * @author Alexander Seitz
  *
  */
-public class SNPTable {
+public class SNVTable {
 
 	private String inputFile;
 
@@ -37,7 +37,7 @@ public class SNPTable {
 	/**
 	 * 
 	 */
-	public SNPTable(String inputFile) {
+	public SNVTable(String inputFile) {
 		this.inputFile = inputFile;
 		readSNPTable();
 	}
@@ -55,7 +55,7 @@ public class SNPTable {
 	 * @param table
 	 * @param fastAEntry
 	 */
-	public SNPTable(Map<String, Map<Integer, String>> table, FastAEntry fastAEntry) {
+	public SNVTable(Map<String, Map<Integer, String>> table, FastAEntry fastAEntry) {
 		for(String sampleName : table.keySet()){
 			this.sampleNames.add(sampleName);
 			Map<Integer, String> snpMap = table.get(sampleName);
@@ -125,7 +125,7 @@ public class SNPTable {
 			String[] names = new String[0];
 			while((line = br.readLine()) != null){
 				String[] splitted = line.split("\t");
-				if(lineNum>0){
+				if(lineNum>0 && line.length()>0){
 					Integer SNP = Integer.parseInt(splitted[0]);
 					this.snpPosNum.put(SNP, lineNum);
 					this.snpPos.add(SNP);
@@ -615,40 +615,58 @@ public class SNPTable {
 		return result.toString();
 	}
 
-	public List<String> compareTo(SNPTable table){
+	public List<String> compareTo(SNVTable table){
 		List<String> result = new LinkedList<String>();
 		List<String> otherSampleNames = table.getSampleNames();
-		List<String> bothSampleNames = new ArrayList<String>();;
-		for(String sample: this.sampleNames){
-			if(otherSampleNames.contains(sample)){
-				bothSampleNames.add(sample);
-			}
-		}
+		Set<String> bothSampleNames = new TreeSet<String>();
+		result.add("Difference\tPosition\tSample\tCurent\tOther");
+		bothSampleNames.addAll(this.sampleNames);
+		bothSampleNames.addAll(otherSampleNames);
+//		for(String sample: this.sampleNames){
+//			if(otherSampleNames.contains(sample)){
+//				bothSampleNames.add(sample);
+//			}
+//		}
 		List<Integer> othersnps = table.getSNPs();
 		TreeSet<Integer> allPositions = new TreeSet<Integer>();
 		allPositions.addAll(this.snpPos);
 		allPositions.addAll(othersnps);
 		for(Integer pos: allPositions){
 			if(this.snpPos.contains(pos) && othersnps.contains(pos)){
-				for(String s: bothSampleNames){
-					String s1 = getSnp(pos, s);
-					String s2 = table.getSnp(pos, s);
-					if(!s1.equals(s2)){
-						result.add("=\t"+pos+"\t"+s+"\t"+s1+"/"+s2);
+				for(String sample: bothSampleNames){
+					String thisSNP = "";
+					String otherSNP = "";
+					if(this.sampleNames.contains(sample)) {
+						thisSNP = getSnp(pos, sample);
+					}
+					if(otherSampleNames.contains(sample)) {
+						otherSNP = table.getSnp(pos, sample);
+					}
+					Set<String> snps = new HashSet<String>();
+					snps.add(thisSNP);
+					snps.add(otherSNP);
+					Boolean meaningfullDifference = false;
+					for(String snp: snps) {
+						if(!"".equals(snp) && !".".equals(snp) && !"N".equals(snp)) {
+							meaningfullDifference = true;
+						}
+					}
+					if(!thisSNP.equals(otherSNP) && meaningfullDifference){
+						result.add("=\t"+pos+"\t"+sample+"\t"+thisSNP+"\t"+otherSNP);
 					}
 				}
 			}else if(this.snpPos.contains(pos)){
-				for(String s: this.sampleNames){
-					String snp = getSnp(pos, s);
+				for(String sample: this.sampleNames){
+					String snp = getSnp(pos, sample);
 					if(!"N".equals(snp) && !".".equals(snp)){
-						result.add("+\t"+pos+"\t"+s+"\t"+snp);
+						result.add("+\t"+pos+"\t"+sample+"\t"+snp+"\t");
 					}
 				}
 			}else{
-				for(String s: table.getSampleNames()){
-					String snp = table.getSnp(pos, s);
+				for(String sample: table.getSampleNames()){
+					String snp = table.getSnp(pos, sample);
 					if(!"N".equals(snp) && !".".equals(snp)){
-						result.add("-\t"+pos+"\t"+s+"\t"+snp);
+						result.add("-\t"+pos+"\t"+sample+"\t\t"+snp);
 					}
 				}
 			}

@@ -124,8 +124,6 @@ public class myVCFFileReader {
 			if(!this.sequenceHeader.equals(this.contigName)) {
 				continue;
 			}
-//			System.exit(1);//TODO
-//			this.totalCalls++;
 			int pos = variantContext.getStart();
 			if(!(pos-lastPos==1)){
 				while(this.currDeletions>0 && !(pos-lastPos==1)) {
@@ -579,7 +577,7 @@ public class myVCFFileReader {
 	/**
 	 * @return
 	 */
-	public Long getNumSNPs() {
+	public Long getNumSNVs() {
 //		return (long) this.varPos.size();
 		long result = 0l;
 		for(Integer pos: this.genotypes.keySet()) {
@@ -595,7 +593,7 @@ public class myVCFFileReader {
 	/**
 	 * @return
 	 */
-	public Long getNumHetSNPs() {
+	public Long getNumHetSNVs() {
 //		return (long) this.heterozygousPos.size();
 		long result = 0l;
 		for(Integer pos: this.genotypes.keySet()) {
