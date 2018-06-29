@@ -672,7 +672,7 @@ public class myVCFFileReader {
 				coverage++;
 			}
 		}
-		return coverage/this.coverage.size();
+		return 100d*coverage/this.coverage.size();
 	}
 
 	public Double getCoverage(Integer pos) {

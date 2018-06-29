@@ -160,7 +160,7 @@ public class SNVTable {
 	/**
 	 * @return
 	 */
-	public List<Integer> getSNPs() {
+	public List<Integer> getSNVs() {
 		return this.snpPos;
 
 	}
@@ -627,7 +627,7 @@ public class SNVTable {
 //				bothSampleNames.add(sample);
 //			}
 //		}
-		List<Integer> othersnps = table.getSNPs();
+		List<Integer> othersnps = table.getSNVs();
 		TreeSet<Integer> allPositions = new TreeSet<Integer>();
 		allPositions.addAll(this.snpPos);
 		allPositions.addAll(othersnps);

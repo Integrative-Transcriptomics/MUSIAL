@@ -128,7 +128,7 @@ public class Analyzer extends ATool {
 		options.addOption("ar", "addReference", true, "add reference under given name to alignment");
 		options.addOption("ogf", "outgroupFile", true, "vcfFile for outgroup");
 		options.addOption("ogn", "outgroupName", true, "name for outgroup (contained in input)");
-		options.addOption("p", "phylogenetics", false, "calculate phylogenetic trees");
+		options.addOption("p", "phylogenetics", false, "calculate a phylogenetic tree");
 		options.addOption("sf", "snpEff", false, "run SNPEff");
 		options.addOption(Option.builder("gn")
 				.longOpt("geneNames")
@@ -615,7 +615,7 @@ public class Analyzer extends ATool {
 		
 		// write the snpTable with only heterozygous calls
 		if(this.callHeterozygous) {
-			Utilities.writeToFile(this.snvTable.toStringHeterozygousOnly(), new File(outdir+"/"+header+"_snpTable_only_heterozybous.tsv"));
+			Utilities.writeToFile(this.snvTable.toStringHeterozygousOnly(), new File(outdir+"/"+header+"_snpTable_only_heterozygous.tsv"));
 		}
 		
 		// write the vcf file for SNPEff
@@ -708,7 +708,8 @@ public class Analyzer extends ATool {
 	private void writeAlleleFrequencies(File file, String sequenceHeader) {
 		StringBuffer result = new StringBuffer();
 		result.append("Position\tFrequency\n");
-		for(int i=1; i<=this.fr.getEntry(sequenceHeader).getSequence().length(); i++) {
+//		for(int i=1; i<=this.fr.getEntry(sequenceHeader).getSequence().length(); i++) {
+		for(int i: this.snvTable.getSNVs()) {
 			result.append(i);
 			result.append("\t");
 			Map<String, Double> freq = new HashMap<String, Double>();
@@ -820,10 +821,12 @@ public class Analyzer extends ATool {
 	
 	private String gatherStatistics() {
 		StringBuffer result = new StringBuffer();
-		result.append("SNV Statistics for "+this.vcfFileReader.size()+" samples\n");
+		result.append("SNV statistics for "+this.vcfFileReader.size()+" samples\n");
 		result.append("Coverage Threshold: "+this.minCovGood+"\n");
-		result.append("Minimum SNV allele frequency: "+this.minFreq+"\n"
-				);
+		result.append("Minimum homozygous SNV allele frequency: "+this.minFreq+"\n");
+		if(this.callHeterozygous) {
+			result.append("Minimum homozygous SNV allele frequencies: "+this.minHet+" - "+this.maxHet+"\n");
+		}
 		result.append("sample\tSNV Calls (all)\tSNV Calls (het)\tCoverage (fold)\tCoverage(%)\tReference Calls\ttotal Calls\tno Calls\n");
 		for(String sample: this.statistics.keySet()) {
 			result.append(this.statistics.get(sample).generateLine());
