@@ -14,6 +14,8 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import org.omg.Messaging.SyncScopeHelper;
+
 import datastructure.FastAEntry;
 import htsjdk.variant.variantcontext.Allele;
 import htsjdk.variant.variantcontext.Genotype;
@@ -135,7 +137,7 @@ public class myVCFFileReader {
 				addGenos(lastPos,pos,previousGenotype);
 			}
 			if(this.currDeletions>0) {
-				System.out.println("now: "+this.sampleName+" "+pos);
+//				System.out.println("now: "+this.sampleName+" "+pos);
 				this.genotypes.put(pos, "-");
 				this.currDeletions--;
 				lastPos = pos;

@@ -315,6 +315,10 @@ public class Analyzer extends ATool {
 			if(cmd.hasOption("ca")) {
 				if(Utilities.isInteger(cmd.getOptionValue("c"))) {
 					this.minCovAdd = (double) Integer.parseInt(cmd.getOptionValue("ca"));
+					if(this.minCovAdd >= this.minCovGood) {
+						System.err.println("WARNING: The additional coverage is not smaller than the normal coverage");
+						System.err.println("Running the analysis without the additional coverage parameter");
+					}
 				}else{
 					System.err.println("Given value for additional coverage not Integer: "+cmd.getOptionValue("ca"));
 				}
@@ -823,7 +827,7 @@ public class Analyzer extends ATool {
 		StringBuffer result = new StringBuffer();
 		result.append("SNV statistics for "+this.vcfFileReader.size()+" samples\n");
 		result.append("Coverage Threshold: "+this.minCovGood+"\n");
-		result.append("Minimum homozygous SNV allele frequency: "+this.minFreq+"\n");
+		result.append("Minimum homozygous SNV allele frequency: "+this.minFreq+" ("+this.minFreq*100+"%)\n");
 		if(this.callHeterozygous) {
 			result.append("Minimum homozygous SNV allele frequencies: "+this.minHet+" - "+this.maxHet+"\n");
 		}

@@ -33,6 +33,7 @@ public class SNVTable {
 	//	Map<Integer, Set<String>> deletions = new HashMap<Integer, Set<String>>();
 	private List<Integer> snpPos = new ArrayList<Integer>();
 	private List<String> sampleNames = new LinkedList<String>();
+	private FastAEntry reference;
 
 	/**
 	 * 
@@ -56,6 +57,7 @@ public class SNVTable {
 	 * @param fastAEntry
 	 */
 	public SNVTable(Map<String, Map<Integer, String>> table, FastAEntry fastAEntry) {
+		this.reference = fastAEntry;
 		for(String sampleName : table.keySet()){
 			this.sampleNames.add(sampleName);
 			Map<Integer, String> snpMap = table.get(sampleName);
@@ -184,6 +186,16 @@ public class SNVTable {
 
 	public String getReferenceSnp(Integer snpPos){
 		return getSnp(snpPos, "Ref");
+	}
+	
+	public String getReferencePos(Integer snpPos){
+		if(snpPos==144242) {
+			System.out.println("snpPos: "+this.reference==null);
+		}
+		if(this.reference != null) {
+			return this.reference.getIthChar(snpPos-1);
+		}
+		return getReferenceSnp(snpPos);
 	}
 
 	/**
@@ -525,29 +537,57 @@ public class SNVTable {
 
 	public String toSnpVcfForSnpEffString(String referenceName) {
 		StringBuffer result = new StringBuffer();
+		Set<String> alreadyDone = new HashSet<String>();
 		for(Integer pos: this.snpPos) {
-			String refSNP = getReferenceSnp(pos); 
+			String refSNV = getReferenceSnp(pos); 
 			Set<String> snps = new TreeSet<String>();
 			for(String sample: this.getSampleNames()) {
+				StringBuffer intermediateResult = new StringBuffer(); 
+				if(alreadyDone.contains(sample+pos)) {
+					continue;
+				}
 				String snp = getSnp(pos,sample);
 				if(!"N".equals(snp) && !".".equals(snp)) {
 					if(".".equals(snp)){
 						snp = getSnp(pos, "Ref");
 					}
-					snps.add(snp);
+					if("-".equals(snp)) {
+						snp = getReferencePos(pos-1);
+						refSNV = getReferencePos(pos-1);
+						Integer tmpPos = pos;
+						while(this.snpPos.contains(tmpPos) && "-".equals(getSnp(tmpPos, sample))) {
+							refSNV += getReferencePos(tmpPos);
+							tmpPos++;
+							alreadyDone.add(sample+tmpPos);
+						}
+						pos--;
+					}
+//					snps.add(snp);
+					intermediateResult.append(referenceName);
+					intermediateResult.append("\t");
+					intermediateResult.append(pos);
+					intermediateResult.append("\t");
+					intermediateResult.append(".");
+					intermediateResult.append("\t");
+					intermediateResult.append(refSNV);
+					intermediateResult.append("\t");
+					intermediateResult.append(snp);
+					intermediateResult.append("\n");
+					snps.add(intermediateResult.toString());
 				}
 			}
 			for(String snp: snps) {
-				result.append(referenceName);
-				result.append("\t");
-				result.append(pos);
-				result.append("\t");
-				result.append(".");
-				result.append("\t");
-				result.append(refSNP);
-				result.append("\t");
 				result.append(snp);
-				result.append("\n");
+//				result.append(referenceName);
+//				result.append("\t");
+//				result.append(pos);
+//				result.append("\t");
+//				result.append(".");
+//				result.append("\t");
+//				result.append(refSNV);
+//				result.append("\t");
+//				result.append(snp);
+//				result.append("\n");
 			}
 		}
 		return result.toString();
