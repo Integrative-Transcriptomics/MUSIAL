@@ -113,7 +113,7 @@ public class GFFParser {
 				if(attributes.containsKey("Name")){
 					name = attributes.get("Name");
 				}else{
-					name = "";
+					name = id;
 				}
 				//locus tag to desc mapping
 				if(attributes.containsKey("locus_tag"))
@@ -146,10 +146,10 @@ public class GFFParser {
 					position2ExonSet.add(start+"_"+end+"_"+strand);
 				}
 				//create gene
-				if(type.equalsIgnoreCase("gene") || type.equalsIgnoreCase("mRNA")){
+				//if(type.equalsIgnoreCase("gene") || type.equalsIgnoreCase("mRNA")){
 					// set type to RNA to avoid lost of information
 					this.geneList.add(new Gene(source,source,id,name,type,start,end,strand,this.genomeID,desc,idAsParent));
-				}
+				//}
 			}
 			r.close();
 			//set descriptions

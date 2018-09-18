@@ -595,6 +595,11 @@ public class Analyzer extends ATool {
 			String currSNPEffOutputFile = snpEffInputFile+"_snpeff_output.out";
 			this.snpEffOutputFile.add(currSNPEffOutputFile);
 			String[] runSNPEff = {"java", "-jar", "snpEff.jar", this.snpEffName, snpEffInputFile};
+			System.out.println("SNPEffCommand: ");
+			for(String s: runSNPEff) {
+				System.out.print(s+" ");
+			}
+			System.out.println();
 			Utilities.runCommand(runSNPEff, this.outputFolder+"/snpEff.error", currSNPEffOutputFile, snpEffDir);
 		}
 	}
@@ -623,7 +628,7 @@ public class Analyzer extends ATool {
 		}
 		
 		// write the vcf file for SNPEff
-		File snpEffVcfFile = new File(outdir+"/"+header+"_snvVcfForSnpEff.vcf");
+		File snpEffVcfFile = new File(outdir+"/"+header.replace("|", "")+"_snvVcfForSnpEff.vcf");
 		this.snpEffInput.add(snpEffVcfFile.getAbsolutePath());
 		Utilities.writeToFile(this.snvTable.toSnpVcfForSnpEffString(this.fr.getEntry(header).getHeader()), snpEffVcfFile);
 		
@@ -695,7 +700,7 @@ public class Analyzer extends ATool {
 	 */
 	private void calculatePhylogeny(File alignmentFile) {
 		System.out.println("\tfor file:\t"+alignmentFile.getAbsolutePath());
-		String[] runPhylogeny = new String[] {"raxml-ng-mpi", "--all", "--msa", alignmentFile.getAbsolutePath(), "--model", "GTR+G", "--tree", "pars{10}", "--bs-trees", "200", "--threads", ""+this.threads};
+		String[] runPhylogeny = new String[] {"raxml-ng-mpi", "--all", "--msa", alignmentFile.getAbsolutePath(), "--model", "GTR+G", "--tree", "pars{10}", "--bs-trees", "200", "--threads", ""+1};
 		Process process;
 		try {
 			process = new ProcessBuilder(runPhylogeny).redirectError(new File(alignmentFile.getAbsolutePath()+".error")).redirectOutput(new File(alignmentFile.getAbsolutePath()+".output")).start();

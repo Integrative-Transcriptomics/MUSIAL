@@ -687,7 +687,7 @@ public class SNVTable {
 					snps.add(otherSNP);
 					Boolean meaningfullDifference = false;
 					for(String snp: snps) {
-						if(!"".equals(snp) && !".".equals(snp) && !"N".equals(snp)) {
+						if(!"".equals(snp) && !"N".equals(snp)) { //TODO && !".".equals(snp)
 							meaningfullDifference = true;
 						}
 					}

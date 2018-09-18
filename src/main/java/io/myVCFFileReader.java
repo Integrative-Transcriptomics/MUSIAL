@@ -529,12 +529,12 @@ public class myVCFFileReader {
 			}
 		}
 		// this sample has the respective SNP maybe called
-		if(this.maybeGenotypes.containsKey(pos)){
-			String snp = this.maybeGenotypes.get(pos);
-			if(snp.equals(otherCall)){
-				return true;
-			}
-		}
+		//if(this.maybeGenotypes.containsKey(pos)){
+		//	String snp = this.maybeGenotypes.get(pos);
+		//	if(snp.equals(otherCall)){
+		//		return true;
+		//	}
+		//}
 		return false;
 	}
 
