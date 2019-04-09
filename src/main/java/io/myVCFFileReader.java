@@ -123,7 +123,7 @@ public class myVCFFileReader {
 			if(this.contigName.length() == 0 || !this.contigName.equals(variantContext.getContig())) {
 				this.contigName = variantContext.getContig();
 			}
-			if(!this.sequenceHeader.equals(this.contigName)) {
+			if(!this.sequenceHeader.equals(this.contigName) && !this.sequenceHeader.split(" ")[0].equals(this.contigName)) {
 				continue;
 			}
 			int pos = variantContext.getStart();
