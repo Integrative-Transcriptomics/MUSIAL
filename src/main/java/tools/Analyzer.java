@@ -129,6 +129,7 @@ public class Analyzer extends ATool {
 		options.addOption("ogf", "outgroupFile", true, "vcfFile for outgroup");
 		options.addOption("ogn", "outgroupName", true, "name for outgroup (contained in input)");
 		options.addOption("p", "phylogenetics", false, "calculate a phylogenetic tree");
+		options.addOption("q", "minQual", true, "the minimum Quality to use a variant [" + this.genQual + "]");
 		options.addOption("sf", "snpEff", false, "run SNPEff");
 		options.addOption(Option.builder("gn")
 				.longOpt("geneNames")
@@ -238,6 +239,20 @@ public class Analyzer extends ATool {
 			}
 			if(cmd.hasOption("p")) {
 				this.calculatePhylos = true;
+			}
+			if(cmd.hasOption("q")) {
+				if(Utilities.isDouble(cmd.getOptionValue("q"))) {
+					this.genQual = Double.parseDouble(cmd.getOptionValue("q"));
+					if(this.genQual < 0.0) {
+						System.err.println("Wrong parameter for minimum quality: "+this.minFreq);
+						System.err.println("please choose a value larger or equal to 0.0");
+						System.exit(1);
+					}
+				}else {
+					System.err.println("Value for minimum quality no Double: "+this.minFreq);
+					System.err.println("please choose a value between (0.0,1.0]");
+					System.exit(1);
+				}
 			}
 			if(cmd.hasOption("ogf")) {
 				String outGroupFile = cmd.getOptionValue("ogf");
