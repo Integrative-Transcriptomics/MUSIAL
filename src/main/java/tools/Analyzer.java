@@ -81,9 +81,9 @@ public class Analyzer extends ATool {
 
 //	private String snpEffDir = "";
 	private String snpEffName = "mySample";
-	private List<String> snpEffOutputFile = new LinkedList<String>();
-//	private File snpEffJar;
-	List<String> snpEffInput = new LinkedList<String>();
+	private String snpEffOutputFile = "";
+	//	private File snpEffJar;
+	private String snpEffInput = "";
 	
 	private String referenceAlignmentName = "";
 	private String outGroupName = "";
@@ -361,12 +361,7 @@ public class Analyzer extends ATool {
 				this.callHeterozygous = true;
 				String[] percentages = cmd.getOptionValues("y");
 				if(percentages != null) {
-					if(percentages.length != 0 || percentages.length != 2) {
-						System.err.println("Wrong number of parameters for option: -y");
-						System.err.println("given: "+Arrays.asList(percentages));
-						System.err.println("Call: -y <minPercentage> <maxPercentage>");
-						System.err.println("Using default values: "+this.minHet+","+this.maxHet);
-					}else if(percentages.length == 2) {
+					if(percentages.length == 2) {
 						if(Utilities.isDouble(percentages[0]) && Utilities.isDouble(percentages[1])) {
 							Double min = Double.parseDouble(percentages[0]);
 							Double max = Double.parseDouble(percentages[1]);
@@ -391,6 +386,11 @@ public class Analyzer extends ATool {
 							System.err.println("Given: "+Arrays.asList(percentages));
 							System.err.println("Using default values: "+this.minHet+","+this.maxHet);
 						}
+					} else {
+						System.err.println("Wrong number of parameters for option: -y");
+						System.err.println("given: "+Arrays.asList(percentages));
+						System.err.println("Call: -y <minPercentage> <maxPercentage>");
+						System.err.println("Using default values: "+this.minHet+","+this.maxHet);
 					}
 				}
 			}
@@ -483,6 +483,40 @@ public class Analyzer extends ATool {
 		this.fr = new FastaReader(this.referenceFile);
 //		boolean firstRun = true;
 
+		String snpEffZip = this.outputFolder+"/snpEff_latest_core.zip";
+		String snpEffDir = this.outputFolder+"/snpEff";
+		String clinEffDir = this.outputFolder+"/clinEff";
+		if(this.runSnpEff){
+			System.out.println("Downloading SNPEff");
+			long start = System.currentTimeMillis();
+			// download snpEff
+			// delete the files/folders if they already exist and overwrite them with the newest version
+			if(Utilities.fileExists(snpEffZip)) {
+				Utilities.deleteFile(snpEffZip);
+			}
+			if(Utilities.fileExists(snpEffDir)) {
+				Utilities.deleteFolder(snpEffDir);
+			}
+			if(Utilities.fileExists(clinEffDir)) {
+				Utilities.deleteFolder(clinEffDir);
+			}
+			String[] downloadSnpEff = {"wget", "http://sourceforge.net/projects/snpeff/files/snpEff_latest_core.zip"};
+			Utilities.runCommand(downloadSnpEff, this.outputFolder+"/download.error", this.outputFolder+"/download.output", this.outputFolder);
+			// if download was unsuccessful, copy from internal jar
+			if(!new File(snpEffZip).exists()) {
+				Utilities.ExportResource("snpEff_latest_core.zip", snpEffZip);
+			}
+			// extract the SNPEff zip file
+			System.out.println("\tExtracting SNPEff");
+			String[] unpackSnpEff = {"unzip", snpEffZip};
+			Utilities.runCommand(unpackSnpEff, "", "", this.outputFolder);
+			System.out.println("\tCreating SNPEff database");
+			createSNPEffDatabase(snpEffDir);
+			// create new SNPTable with SNPEff infos
+			long end = System.currentTimeMillis();
+			System.out.println("\ttime:\t"+ ((end-start)/1000) + "s");
+		}
+
 		for(String header: this.fr.getHeaders()) {
 			this.vcfFileReader = new HashMap<String, myVCFFileReader>();
 			this.sampleNames = new TreeMap<String,String>();
@@ -540,38 +574,9 @@ public class Analyzer extends ATool {
 			if(this.runSnpEff){
 				System.out.println("running SNPEff");
 				start = System.currentTimeMillis();
-				// download snpEff
-				System.out.println("\tDownloading SNPEff");
-				String snpEffZip = this.outputFolder+"/snpEff_latest_core.zip";
-				String snpEffDir = this.outputFolder+"/snpEff";
-				String clinEffDir = this.outputFolder+"/clinEff";
-				// delete the files/folders if they already exist and overwrite them with the newest version
-				if(Utilities.fileExists(snpEffZip)) {
-					Utilities.deleteFile(snpEffZip);
-				}
-				if(Utilities.fileExists(snpEffDir)) {
-					Utilities.deleteFolder(snpEffDir);
-				}
-				if(Utilities.fileExists(clinEffDir)) {
-					Utilities.deleteFolder(clinEffDir);
-				}
-				String[] downloadSnpEff = {"wget", "http://sourceforge.net/projects/snpeff/files/snpEff_latest_core.zip"};
-				Utilities.runCommand(downloadSnpEff, this.outputFolder+"/download.error", this.outputFolder+"/download.output", this.outputFolder);
-				// if download was unsuccessful, copy from internal jar
-				if(!new File(snpEffZip).exists()) {
-					Utilities.ExportResource("snpEff_latest_core.zip", snpEffZip);
-				}
-				// extract the SNPEff zip file
-				System.out.println("\tExtracting SNPEff");
-				String[] unpackSnpEff = {"unzip", snpEffZip};
-				Utilities.runCommand(unpackSnpEff, "", "", this.outputFolder);
-				System.out.println("\tCreating SNPEff database");
-				createSNPEffDatabase(snpEffDir);
-				runSnpEff(snpEffDir);
+				runSnpEff(snpEffDir, header);
 				// create new SNPTable with SNPEff infos
-				for(String currSNPEffOutputFile: this.snpEffOutputFile) {
-					Utilities.writeToFile(this.snvTable.toStringWithSNPEffInfos(currSNPEffOutputFile), new File(currSNPEffOutputFile+"_snvTableWithSnpEffInfos.tsv"));
-				}
+				Utilities.writeToFile(this.snvTable.toStringWithSNPEffInfos(this.snpEffOutputFile), new File(this.snpEffOutputFile+"_snvTableWithSnpEffInfos.tsv"));
 				end = System.currentTimeMillis();
 				System.out.println("\ttime:\t"+ ((end-start)/1000) + "s");
 			}
@@ -605,19 +610,17 @@ public class Analyzer extends ATool {
 		
 	}
 
-	private void runSnpEff(String snpEffDir) {
-		for(String snpEffInputFile: this.snpEffInput) {
-			String currSNPEffOutputFile = snpEffInputFile+"_snpeff_output.out";
-			this.snpEffOutputFile.add(currSNPEffOutputFile);
-			String[] runSNPEff = {"java", "-jar", "snpEff.jar", this.snpEffName, snpEffInputFile};
-			System.out.println("SNPEffCommand: ");
-			for(String s: runSNPEff) {
-				System.out.print(s+" ");
-			}
-			System.out.println();
-			Utilities.runCommand(runSNPEff, this.outputFolder+"/snpEff.error", currSNPEffOutputFile, snpEffDir);
+	private void runSnpEff(String snpEffDir, String header) {
+		this.snpEffOutputFile = this.snpEffInput+"_snpeff_output.out";
+		String[] runSNPEff = {"java", "-jar", "snpEff.jar","-s",this.outputFolder+"/"+header+"_snpEff_summary.html", this.snpEffName, this.snpEffInput};
+		System.out.println("SNPEffCommand: ");
+		for(String s: runSNPEff) {
+			System.out.print(s+" ");
 		}
+		System.out.println();
+		Utilities.runCommand(runSNPEff,  this.outputFolder+"/"+header+"_snpEff.error", this.snpEffOutputFile, snpEffDir);
 	}
+
 	
 	private void writeOutput(String header) {
 		// create the output folder
@@ -644,7 +647,7 @@ public class Analyzer extends ATool {
 		
 		// write the vcf file for SNPEff
 		File snpEffVcfFile = new File(outdir+"/"+header.replace("|", "")+"_snvVcfForSnpEff.vcf");
-		this.snpEffInput.add(snpEffVcfFile.getAbsolutePath());
+		this.snpEffInput = snpEffVcfFile.getAbsolutePath();
 		Utilities.writeToFile(this.snvTable.toSnpVcfForSnpEffString(this.fr.getEntry(header).getHeader()), snpEffVcfFile);
 		
 		// write the SNPalignment File
