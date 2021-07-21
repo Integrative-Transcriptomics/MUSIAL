@@ -2,3 +2,7 @@
 /.vscode/*
 /.project
 /.settings
+/build
+/resources/snpEff
+/resources/snpEff.zip
+/src/main/resources/download
