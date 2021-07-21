@@ -3,6 +3,6 @@
 /.project
 /.settings
 /build
-/resources/snpEff
-/resources/snpEff.zip
+/src/main/resources/snpEff/*
+/src/main/resources/snpEff.zip
 /src/main/resources/download
