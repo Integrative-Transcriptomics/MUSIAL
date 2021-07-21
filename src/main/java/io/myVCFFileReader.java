@@ -14,7 +14,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-import org.omg.Messaging.SyncScopeHelper;
+// import org.omg.Messaging.SyncScopeHelper;
 
 import datastructure.FastAEntry;
 import htsjdk.variant.variantcontext.Allele;
