@@ -1,7 +1,7 @@
 /*
 Set meta-information for the project build.
 */
-version '2.0.0'
+version '2.0'
 group 'de.tue.it'
 
 println "Project: $project" 
@@ -39,37 +39,46 @@ established on different tasks.
 */
 tasks.whenTaskAdded { task ->
     if ( task.name == 'jar' || task.name == 'processResources' ) {
+        task.dependsOn unpackSnpEff // The `jar` task is executed after SnpEff was unpacked and the original .zip deleted.
+    }
+    /*
+    if ( task.name == 'jar' || task.name == 'processResources' ) {
         task.dependsOn deleteSnpEffZip // The `jar` task is executed after SnpEff was unpacked and the original .zip deleted.
 	} else if ( task.name == 'unpackSnpEff' ) {
         task.dependsOn downloadSnpEff // The `unpackSnpEff` task is executed after SnpEff was downloaded.
     } else if ( task.name == 'deleteSnpEffZip' ) {
         task.dependsOn unpackSnpEff // The `deleteSnpEffZip` task is executed after SNPEff was unpacked.
     }
+    */
 }
 
 /*
 This task downloads the latest version of SnpEff into the src/main/resources directory.
 */
+/*
 task downloadSnpEff( type: Download ) {
     src 'https://snpeff.blob.core.windows.net/versions/snpEff_latest_core.zip'
     dest 'src/main/resources/snpEff.zip'
 }
+*/
 
 /*
 This task unzips SnpEff.
 */
 task unpackSnpEff( type: Copy ) {
-    mkdir 'src/main/resources/snpEff'
+    mkdir 'src/main/resources/'
     from zipTree( 'src/main/resources/snpEff.zip' )
-    into 'src/main/resources/snpEff'
+    into 'src/main/resources/'
 }
 
 /*
 This task deletes the zipped SnpEff file.
 */
+/*
 task deleteSnpEffZip( type: Delete ) {
     delete "${rootDir}/src/main/resources/snpEff.zip"
 }
+*/
 
 /*
 After building, the Jar is copied into the `releases` directory.
@@ -103,6 +112,11 @@ dependencies {
 	implementation 'com.github.samtools:htsjdk:2.+'
 	implementation 'com.google.guava:guava:+'
 	implementation 'args4j:args4j:2.+'
+    implementation 'org.apache.logging.log4j:log4j-core:+'
+    implementation 'org.apache.logging.log4j:log4j-api:+'
+    implementation 'org.biojava:biojava-core:5.+'
+    implementation 'org.biojava:biojava-genome:5.+'
+    implementation 'me.tongfei:progressbar:0.9.2'
 }
 
 /*
@@ -113,7 +127,8 @@ configurations {
     includeJars.extendsFrom implementation
 }
 
-sourceCompatibility = 1.8
+sourceCompatibility = JavaVersion.VERSION_11
+targetCompatibility = JavaVersion.VERSION_11
 
 /*
 Defines the source directories for the tasks executed by the `java` plugin.
@@ -160,7 +175,6 @@ Defines steps executed by calling `gradle clean`.
 clean.doFirst {
 	delete "${rootDir}/releases/"
     delete "${rootDir}/build"
-    delete "${rootDir}/src/main/resources/snpEff.zip"
     delete "${rootDir}/src/main/resources/snpEff"
 }
 
