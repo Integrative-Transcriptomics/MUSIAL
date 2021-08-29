@@ -1,0 +1,395 @@
+package utility;
+
+import datastructure.FastaEntry;
+import datastructure.VariablePositionsTable;
+import exceptions.MusialIOException;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Objects;
+import java.util.Scanner;
+import main.Musial;
+import org.biojava.nbio.genome.parsers.gff.FeatureList;
+import org.biojava.nbio.genome.parsers.gff.GFF3Reader;
+
+/**
+ * This class comprises static methods used for reading and writing files.
+ *
+ * @author Simon Hackl
+ * @version 2.0
+ * @since 2.0
+ */
+public final class IO {
+  /**
+   * Directory suffix of a EAGER output folder pointing to the used .vcf file
+   */
+  private static final String EAGER_VCF_SUFFIX = "/10-GATKGenotype";
+  /**
+   * OS dependent line separator
+   */
+  public static final String LINE_SEPARATOR = System.getProperty("line.separator");
+
+  /**
+   * Reads a file and returns its content line-wise as list.
+   *
+   * @param filePath {@link String} representing a file path.
+   * @return {@link ArrayList} of {@link String} objects, each representing one line of the file accessed via the
+   * passed file path.
+   * @throws FileNotFoundException If the specified file path does not lead to any file.
+   */
+  public static List<String> getLinesFromFile(String filePath) throws FileNotFoundException {
+    ArrayList<String> lines = new ArrayList<>();
+    Scanner scanner = new Scanner(new File(filePath));
+    while (scanner.hasNextLine()) {
+      String nextLine = scanner.nextLine();
+      if (!nextLine.trim().isEmpty()) {
+        lines.add(nextLine.trim());
+      }
+    }
+    scanner.close();
+    return lines;
+  }
+
+  /**
+   * Scans an EAGER output directory for .vcf files and returns, for each sample, the sample name and .vcf files path.
+   *
+   * @param outputDirectory {@link String} specifying an EAGER output directory.
+   * @return A size two array containing two {@link ArrayList} objects, the first comprising the .vcf file paths and
+   * the second comprising the sample names.
+   */
+  public static ArrayList<ArrayList<String>> getInputFromEagerOutput(String outputDirectory) {
+    ArrayList<String> vcfFilePaths = new ArrayList<>();
+    ArrayList<String> sampleNameList = new ArrayList<>();
+    File eagerOutput = new File(outputDirectory);
+    for (File sampleDir : Objects.requireNonNull(eagerOutput.listFiles())) {
+      if (sampleDir.isDirectory()) {
+        File vcfDirectory = new File(sampleDir.getAbsolutePath() + EAGER_VCF_SUFFIX);
+        sampleNameList.add(sampleDir.getName());
+        for (File vcfFile : Objects.requireNonNull(vcfDirectory.listFiles())) {
+          if (vcfFile.getName().endsWith(".vcf") || vcfFile.getName().endsWith(".vcf.gz")) {
+            vcfFilePaths.add(vcfFile.getName());
+            break;
+          }
+        }
+      }
+    }
+    ArrayList<ArrayList<String>> result = new ArrayList<>();
+    result.add(vcfFilePaths);
+    result.add(sampleNameList);
+    return result;
+  }
+
+  /**
+   * Reads a .gff file from the path specified by a {@link File} object and returns a
+   * {@link FeatureList} object.
+   *
+   * @param file {@link File} specifying a .gff file.
+   * @return {@link FeatureList} comprising the entries from the read .gff file.
+   * @throws IOException If the {@link GFF3Reader} throws any {@link IOException}.
+   */
+  public static FeatureList readGFF(File file) throws IOException {
+    System.setOut(Musial.EMPTY_STREAM);
+    System.setErr(Musial.EMPTY_STREAM);
+    FeatureList features = GFF3Reader.read(file.getCanonicalPath());
+    System.setOut(Musial.ORIGINAL_OUT_STREAM);
+    System.setErr(Musial.ORIGINAL_ERR_STREAM);
+    return features;
+  }
+
+  /**
+   * Reads a .fasta file from a {@link File} object into a {@link HashSet} of {@link FastaEntry} instances. Each
+   * element contains the header and sequence of the respective entry from the .fasta file.
+   *
+   * @param file {@link File} specifying a .fasta file.
+   * @return {@link HashSet} of {@link FastaEntry} instances.
+   * @throws IOException If the respective file can not be found or accessed.
+   */
+  public static HashSet<FastaEntry> readFasta(File file) throws IOException {
+    HashSet<FastaEntry> fastaEntries = new HashSet<>();
+    @SuppressWarnings("resource")
+    BufferedReader br = new BufferedReader(new FileReader(file));
+    String currLine;
+    String currHeader = "";
+    StringBuilder currSequence = new StringBuilder();
+    while ((currLine = br.readLine()) != null) {
+      if (currLine.startsWith(">")) {
+        if (currHeader.length() > 0) {
+          fastaEntries.add(new FastaEntry(currHeader, currSequence.toString()));
+          currSequence = new StringBuilder();
+        }
+        currHeader = currLine.substring(1);
+      } else if (!currLine.startsWith(";")) {
+        currSequence.append(currLine.trim());
+      }
+    }
+    fastaEntries.add(new FastaEntry(currHeader, currSequence.toString()));
+    return fastaEntries;
+  }
+
+  /**
+   * Accepts a {@link File} object representing a directory that is subject to deletion.
+   *
+   * @param file {@link File} specifying the directory to delete.
+   */
+  public static void deleteDirectory(File file) throws IOException {
+    if (file.isDirectory()) {
+      //noinspection ResultOfMethodCallIgnored
+      Files.walk(file.toPath())
+          .sorted(Comparator.reverseOrder())
+          .map(Path::toFile)
+          .forEach(File::delete);
+    }
+  }
+
+  /**
+   * Tries to generate the directory specified by the passed {@link File} object.
+   *
+   * @param file {@link File} object representing a directory.
+   * @throws MusialIOException If the directory could not be generated.
+   */
+  public static void generateDirectory(File file) throws MusialIOException {
+    if (!file.mkdirs()) {
+      throw new MusialIOException("Failed to generate output directory:\t" + file.getAbsolutePath());
+    }
+
+  }
+
+  /**
+   * Tries to generate the file specified by the passed {@link File} object.
+   *
+   * @param file {@link File} object representing a file.
+   * @throws MusialIOException If the file could not be generated.
+   */
+  public static void generateFile(File file) throws MusialIOException {
+    try {
+      if (!file.createNewFile()) {
+        throw new MusialIOException("Failed to generate output directory:\t" + file.getAbsolutePath());
+      }
+    } catch (IOException e) {
+      throw new MusialIOException("Failed to generate output directory:\t" + file.getAbsolutePath());
+    }
+
+  }
+
+  /**
+   * Writes output `.tsv` file containing nucleotide variants in a tab delimited format.
+   * <p>
+   * The expected output format is:
+   * Position \t Reference (optional) \t [SAMPLE_1_NAME] \t ...
+   * x (Integer) \t [Nucleotide at position x in reference] (optional) \t [Nucleotide at position x in sample 1] \t ...
+   *
+   * @param outFile                {@link File} instance pointing to the output file.
+   * @param referenceAnalysisId    {@link String} internal reference feature identifier of which the output is written.
+   * @param variablePositionsTable {@link VariablePositionsTable} instance containing variant information.
+   * @param addReference           {@link Boolean} whether reference information should be added.
+   * @throws MusialIOException If the output file could not be generated or not written to.
+   */
+  public static void writeSnvTable(File outFile, String referenceAnalysisId,
+                                   VariablePositionsTable variablePositionsTable, boolean addReference)
+      throws MusialIOException {
+    if (!outFile.exists()) {
+      throw new MusialIOException("The specified output file does not exist:\t" + outFile.getAbsolutePath());
+    }
+    try {
+      FileWriter snvTableWriter = new FileWriter(outFile.getAbsolutePath());
+      snvTableWriter.write(
+          variablePositionsTable.getSampleNamesHeaderTabDelimited(referenceAnalysisId, addReference) + LINE_SEPARATOR
+      );
+      Iterator<String> variantPositions = variablePositionsTable.getVariantPositions(referenceAnalysisId);
+      // Initialize the shift caused by any insertions with 0.
+      int shift = 0;
+      while (variantPositions.hasNext()) {
+        String variantPosition = variantPositions.next();
+        // If the current position contains an "I" the shift is increased by one. As the positions are sorted with
+        // respect to the number of "I" characters, e.g. 1,2,2I,2II,2III,3 for an insertion of length 3 at position
+        // 2, and positions are iterated over in ascending order, the number of "I"s is not relevant.
+        if (variantPosition.contains("I")) {
+          shift += 1;
+        }
+        snvTableWriter.write(
+            variablePositionsTable
+                .getPositionContentTabDelimited(referenceAnalysisId, variantPosition, shift, addReference) +
+                LINE_SEPARATOR
+        );
+      }
+      snvTableWriter.close();
+    } catch (IOException e) {
+      throw new MusialIOException("Failed to write to output file:\t" + outFile.getAbsolutePath());
+    }
+  }
+
+  /**
+   * Writes output `.fasta` file containing the full length sequences of all samples and the reference (optional).
+   *
+   * @param outFile                {@link File} instance pointing to the output file.
+   * @param referenceAnalysisId    {@link String} internal reference feature identifier of which the output is written.
+   * @param variablePositionsTable {@link VariablePositionsTable} instance containing variant information.
+   * @param addReference           {@link Boolean} whether reference information should be added.
+   * @throws MusialIOException If the output file could not be generated or not written to.
+   */
+  public static void writeSequenceAlignment(File outFile, String referenceAnalysisId,
+                                            VariablePositionsTable variablePositionsTable, boolean addReference)
+      throws MusialIOException {
+    if (!outFile.exists()) {
+      throw new MusialIOException("The specified output file does not exist:\t" + outFile.getAbsolutePath());
+    }
+    try {
+      FileWriter sequenceAlignmentWriter = new FileWriter(outFile.getAbsolutePath());
+      if (addReference) {
+        sequenceAlignmentWriter.write(variablePositionsTable.getSampleFullSequence(referenceAnalysisId,
+            "Reference"));
+      }
+      for (String sampleName : variablePositionsTable.getSampleNamesOf(referenceAnalysisId)) {
+        sequenceAlignmentWriter.write(variablePositionsTable.getSampleFullSequence(referenceAnalysisId, sampleName));
+      }
+      sequenceAlignmentWriter.close();
+    } catch (IOException e) {
+      throw new MusialIOException("Failed to write to output file:\t" + outFile.getAbsolutePath());
+    }
+  }
+
+  /**
+   * Writes output `.fasta` file containing the sequence of variants of all samples and the reference (optional).
+   *
+   * @param outFile                {@link File} instance pointing to the output file.
+   * @param referenceAnalysisId    {@link String} internal reference feature identifier of which the output is written.
+   * @param variablePositionsTable {@link VariablePositionsTable} instance containing variant information.
+   * @param addReference           {@link Boolean} whether reference information should be added.
+   * @throws MusialIOException If the output file could not be generated or not written to.
+   */
+  public static void writeVariantAlignment(File outFile, String referenceAnalysisId,
+                                           VariablePositionsTable variablePositionsTable, boolean addReference)
+      throws MusialIOException {
+    if (!outFile.exists()) {
+      throw new MusialIOException("The specified output file does not exist:\t" + outFile.getAbsolutePath());
+    }
+    try {
+      FileWriter variantAlignmentWriter = new FileWriter(outFile.getAbsolutePath());
+      if (addReference) {
+        variantAlignmentWriter.write(variablePositionsTable.getSampleVariantsSequence(referenceAnalysisId,
+            "Reference"));
+      }
+      for (String sampleName : variablePositionsTable.getSampleNamesOf(referenceAnalysisId)) {
+        variantAlignmentWriter.write(variablePositionsTable.getSampleVariantsSequence(referenceAnalysisId, sampleName));
+      }
+      variantAlignmentWriter.close();
+    } catch (IOException e) {
+      throw new MusialIOException("Failed to write to output file:\t" + outFile.getAbsolutePath());
+    }
+  }
+
+  /**
+   * Writes a `.tsv` file containing per sample statistics.
+   *
+   * @param outFile                {@link File} instance pointing to the output file.
+   * @param referenceAnalysisId    {@link String} internal reference feature identifier of which the output is written.
+   * @param variablePositionsTable {@link VariablePositionsTable} instance containing variant information.
+   * @throws MusialIOException If the output file could not be generated or not written to.
+   */
+  public static void writeSampleStatistics(File outFile, String referenceAnalysisId,
+                                           VariablePositionsTable variablePositionsTable) throws MusialIOException {
+    if (!outFile.exists()) {
+      throw new MusialIOException("The specified output file does not exist:\t" + outFile.getAbsolutePath());
+    }
+    try {
+      FileWriter sampleStatisticsWriter = new FileWriter(outFile.getAbsolutePath());
+      /*
+        TODO
+       */
+      sampleStatisticsWriter.close();
+    } catch (IOException e) {
+      throw new MusialIOException("Failed to write to output file:\t" + outFile.getAbsolutePath());
+    }
+  }
+
+  /**
+   * Writes a `.tsv` file containing per position statistics.
+   * <p>
+   * One row contains information about the counts of each possible variant content (see {@link datastructure.VariablePosition})
+   *
+   * @param outFile                {@link File} instance pointing to the output file.
+   * @param referenceAnalysisId    {@link String} internal reference feature identifier of which the output is written.
+   * @param variablePositionsTable {@link VariablePositionsTable} instance containing variant information.
+   * @throws MusialIOException If the output file could not be generated or not written to.
+   */
+  public static void writePositionStatistics(File outFile, String referenceAnalysisId,
+                                             VariablePositionsTable variablePositionsTable) throws MusialIOException {
+    if (!outFile.exists()) {
+      throw new MusialIOException("The specified output file does not exist:\t" + outFile.getAbsolutePath());
+    }
+    try {
+      FileWriter positionStatisticsWriter = new FileWriter(outFile.getAbsolutePath());
+      positionStatisticsWriter.write(
+          variablePositionsTable.getPositionStatisticsHeaderTabDelimited() + LINE_SEPARATOR
+      );
+      Iterator<String> variantPositions = variablePositionsTable.getVariantPositions(referenceAnalysisId);
+      int shift = 0;
+      while (variantPositions.hasNext()) {
+        String variantPosition = variantPositions.next();
+        if (variantPosition.contains("I")) {
+          shift += 1;
+        }
+        positionStatisticsWriter.write(
+            variablePositionsTable.getPositionStatisticsTabDelimited(referenceAnalysisId, variantPosition, shift) +
+                LINE_SEPARATOR
+        );
+      }
+
+      positionStatisticsWriter.close();
+    } catch (IOException e) {
+      throw new MusialIOException("Failed to write to output file:\t" + outFile.getAbsolutePath());
+    }
+  }
+
+  /**
+   * Writes output `.tsv` file containing annotations in a tab delimited format.
+   * <p>
+   * The expected output format is:
+   * Position \t [SAMPLE_1_NAME] \t ...
+   * x (Integer) \t [Quality,Coverage,...] \t ...
+   *
+   * @param outFile                {@link File} instance pointing to the output file.
+   * @param referenceAnalysisId    {@link String} internal reference feature identifier of which the output is written.
+   * @param variablePositionsTable {@link VariablePositionsTable} instance containing variant information.
+   * @throws MusialIOException If the output file could not be generated or not written to.
+   */
+  public static void writeSnvAnnotations(File outFile, String referenceAnalysisId,
+                                         VariablePositionsTable variablePositionsTable) throws MusialIOException {
+    if (!outFile.exists()) {
+      throw new MusialIOException("The specified output file does not exist:\t" + outFile.getAbsolutePath());
+    }
+    try {
+      FileWriter snvAnnotationsWriter = new FileWriter(outFile.getAbsolutePath());
+      snvAnnotationsWriter.write(
+          variablePositionsTable.getSampleNamesHeaderTabDelimited(referenceAnalysisId, false) + LINE_SEPARATOR
+      );
+      Iterator<String> variantPositions = variablePositionsTable.getVariantPositions(referenceAnalysisId);
+      int shift = 0;
+      while (variantPositions.hasNext()) {
+        String variantPosition = variantPositions.next();
+        if (variantPosition.contains("I")) {
+          shift += 1;
+        }
+        snvAnnotationsWriter.write(
+            variablePositionsTable.getPositionAnnotationTabDelimited(referenceAnalysisId, variantPosition, shift) +
+                LINE_SEPARATOR
+        );
+      }
+      snvAnnotationsWriter.close();
+    } catch (IOException e) {
+      throw new MusialIOException("Failed to write to output file:\t" + outFile.getAbsolutePath());
+    }
+  }
+
+
+}
