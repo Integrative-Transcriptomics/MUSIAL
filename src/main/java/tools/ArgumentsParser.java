@@ -129,6 +129,18 @@ public final class ArgumentsParser {
    * Whether heterozygous SNV calls should be considered.
    */
   private Boolean callHeterozygous = false;
+  /**
+   * Whether config files for the interactive visualization extension should be generated.
+   */
+  private Boolean generateIveConfigs = false;
+  /**
+   * {@link ArrayList} of {@link File} objects pointing to .pdb files, one for each gene name.
+   */
+  private final ArrayList<File> pdInputFiles = new ArrayList<>();
+  /**
+   * Whether information parsed from `.pdb` files should be included in the analysis.
+   */
+  private boolean includeStructureInformation = false;
 
   /**
    * Constructor of the ArgumentParser class.
@@ -225,6 +237,17 @@ public final class ArgumentsParser {
         .hasArg()
         .hasArgs()
         .build());
+    options.addOption(Option.builder("pf")
+        .longOpt("proteinFile")
+        .desc("Paths to protein data `.pdb` files parsed from a file. Each line has to contain one path and the " +
+            "number of `.pdb` files is expected to match any passed number of genes to analyze. In advance the first " +
+            "file should represent the protein structure of the first gene passed.")
+        .hasArg()
+        .hasArgs()
+        .build());
+    options.addOption("ive", "generateIveConfig", false,
+        "Generate config files for the interactive visualization extension. [" + this.generateIveConfigs +
+            "]");
     options.addOption(Option.builder("y")
         .longOpt("heterozygous")
         .desc("Call heterozygous positions, if set. Expected format is min,max. [" + this.minHet + "," + this.maxHet +
@@ -476,6 +499,25 @@ public final class ArgumentsParser {
         }
       }
     }
+    if ( cmd.hasOption("ive") ) {
+      this.generateIveConfigs = true;
+    }
+    if ( cmd.hasOption("pf") ) {
+      List<String> proteinFilePaths;
+      try {
+        proteinFilePaths = IO.getLinesFromFile(cmd.getOptionValue("pf"));
+      } catch (FileNotFoundException e) {
+        throw new MusialCLAException("`-pf` The specified input file does not exist:\t" + cmd.getOptionValue("pf"));
+      }
+      if ( proteinFilePaths.size() != geneNames.size() ) {
+        throw new MusialCLAException("`-pf` The number of specified protein files (" + proteinFilePaths.size() + ") " +
+            "and gene names (" + geneNames.size() + ") do not match.");
+      }
+      for (String proteinFilePath : proteinFilePaths) {
+        this.pdInputFiles.add(new File(proteinFilePath));
+      }
+      this.includeStructureInformation = true;
+    }
     if (cmd.hasOption("y")) {
       this.callHeterozygous = true;
       String[] percentages = cmd.getOptionValues("y");
@@ -630,6 +672,27 @@ public final class ArgumentsParser {
   }
 
   /**
+   * @return Whether config files for the interactive visualization extension should be generated.
+   */
+  public Boolean isGenerateIveConfigs() {
+    return generateIveConfigs;
+  }
+
+  /**
+   * @return Whether protein structure information is passed and can be included into the analysis.
+   */
+  public boolean isIncludeStructureInformation() {
+    return includeStructureInformation;
+  }
+
+  /**
+   * @return {@link ArrayList<File>} pointing to `.pdb` files, one for each parsed gene name.
+   */
+  public ArrayList<File> getPdInputFiles() {
+    return pdInputFiles;
+  }
+
+  /**
    * Prints help information for command line arguments.
    *
    * @param options       The specified command line argument {@link Options}.
@@ -682,7 +745,7 @@ public final class ArgumentsParser {
   /**
    * Sets the input `.vcf` file of a sample to a new {@link File}.
    *
-   * @param newFile The {@link File} the samples input should be set to.
+   * @param newFile     The {@link File} the samples input should be set to.
    * @param sampleIndex The index of the sample in the samplesInput property.
    */
   public void setSampleInput(File newFile, int sampleIndex) {
