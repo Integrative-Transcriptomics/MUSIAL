@@ -27,6 +27,7 @@ public final class OutputWriter {
    * - .tsv file storing the variant content for each sample and each position.
    * - .tsv file storing the variant annotations for each sample and each position.
    * - .tsv file storing the per position sum of all possible variant contents over all samples.
+   * - (optional) .json file storing information for the interactive visualization extension.
    *
    * @param arguments {@link ArgumentsParser} arguments parsed from the command line.
    * @param variablePositionsTable The {@link VariablePositionsTable} of which the output should be generated,
@@ -37,7 +38,8 @@ public final class OutputWriter {
     ProgressBar progress = Musial.buildProgress();
     try (progress) {
       List<String> referenceLocations = variablePositionsTable.getReferenceAnalysisIds();
-      progress.maxHint(5L * referenceLocations.size());
+      int isGenerateIveConfigs = arguments.isGenerateIveConfigs() ? 1 : 0;
+      progress.maxHint((long) (5 + isGenerateIveConfigs) * referenceLocations.size());
       String outputDirectory = arguments.getOutputDirectory().getAbsolutePath();
       if (!outputDirectory.endsWith("/")) {
         outputDirectory += "/";
@@ -79,6 +81,13 @@ public final class OutputWriter {
         IO.generateFile(positionStatisticsOutFile);
         IO.writePositionStatistics(positionStatisticsOutFile, referenceAnalysisId, variablePositionsTable);
         progress.step();
+        // 7. Generate IVE config files if specified by the user.
+        if ( arguments.isGenerateIveConfigs() ) {
+          File iveConfigOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/iveConfig.json");
+          IO.generateFile(iveConfigOutFile);
+          IO.writeIveConfig(iveConfigOutFile,referenceAnalysisId,variablePositionsTable,arguments);
+          progress.step();
+        }
       }
       progress.setExtraMessage(Logging.getDoneMessage());
     }

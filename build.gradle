@@ -116,7 +116,9 @@ dependencies {
     implementation 'org.apache.logging.log4j:log4j-api:+'
     implementation 'org.biojava:biojava-core:5.+'
     implementation 'org.biojava:biojava-genome:5.+'
+    implementation 'org.biojava:biojava-structure:5.+'
     implementation 'me.tongfei:progressbar:0.9.2'
+    implementation 'com.googlecode.json-simple:json-simple:1.1.1'
 }
 
 /*

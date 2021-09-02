@@ -11,6 +11,7 @@ import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -35,7 +36,7 @@ import utility.Validation;
  * <p>
  * Used to parse, validate and access all passed command line options or print help information to the user.
  * <p>
- * TODO: The following options are deprecated since version 2.0:
+ * TODO: The following options are currently deprecated in version 2.0:
  * options.addOption("u", "uncovered", false, "write uncovered positions for each sample");
  * options.addOption("lc", "lowCov", false, "calculate low coverage regions");
  * options.addOption("ca", "covAdd", true, "minCoverage to make additional call ["+this.minCovAdd+"]");
@@ -134,9 +135,10 @@ public final class ArgumentsParser {
    */
   private Boolean generateIveConfigs = false;
   /**
-   * {@link ArrayList} of {@link File} objects pointing to .pdb files, one for each gene name.
+   * {@link HashMap} mapping {@link String} objects representing gene names to {@link File} objects pointing to `
+   * .pdb` files, one for each gene name.
    */
-  private final ArrayList<File> pdInputFiles = new ArrayList<>();
+  private final HashMap<String, File> pdInputFiles = new HashMap<>();
   /**
    * Whether information parsed from `.pdb` files should be included in the analysis.
    */
@@ -499,22 +501,22 @@ public final class ArgumentsParser {
         }
       }
     }
-    if ( cmd.hasOption("ive") ) {
+    if (cmd.hasOption("ive")) {
       this.generateIveConfigs = true;
     }
-    if ( cmd.hasOption("pf") ) {
+    if (cmd.hasOption("pf")) {
       List<String> proteinFilePaths;
       try {
         proteinFilePaths = IO.getLinesFromFile(cmd.getOptionValue("pf"));
       } catch (FileNotFoundException e) {
         throw new MusialCLAException("`-pf` The specified input file does not exist:\t" + cmd.getOptionValue("pf"));
       }
-      if ( proteinFilePaths.size() != geneNames.size() ) {
+      if (proteinFilePaths.size() != geneNames.size()) {
         throw new MusialCLAException("`-pf` The number of specified protein files (" + proteinFilePaths.size() + ") " +
             "and gene names (" + geneNames.size() + ") do not match.");
       }
-      for (String proteinFilePath : proteinFilePaths) {
-        this.pdInputFiles.add(new File(proteinFilePath));
+      for (int i = 0; i < proteinFilePaths.size(); i++) {
+        this.pdInputFiles.put(this.getIncludedGeneFeatures().get(i).featureName, new File(proteinFilePaths.get(i)));
       }
       this.includeStructureInformation = true;
     }
@@ -686,9 +688,9 @@ public final class ArgumentsParser {
   }
 
   /**
-   * @return {@link ArrayList<File>} pointing to `.pdb` files, one for each parsed gene name.
+   * @return {@link HashMap} mapping gene names to `.pdb` files, one for each parsed gene name.
    */
-  public ArrayList<File> getPdInputFiles() {
+  public HashMap<String,File> getPdInputFiles() {
     return pdInputFiles;
   }
 

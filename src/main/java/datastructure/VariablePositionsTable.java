@@ -138,12 +138,15 @@ public final class VariablePositionsTable {
    *
    * @param referenceAnalysisId {@link String} the name of the reference location.
    * @param sampleName          {@link String} the name of the sample.
+   * @param fastaFormat         {@link Boolean} whether the sequence should be returned in Fasta format.
    * @return {@link String} representing the concatenation of all variant position contents.
    */
-  public String getSampleVariantsSequence(String referenceAnalysisId, String sampleName) {
+  public String getSampleVariantsSequence(String referenceAnalysisId, String sampleName, boolean fastaFormat) {
     StringBuilder variantSequenceBuilder = new StringBuilder();
     // Append `.fasta` header to variant sequence builder.
-    variantSequenceBuilder.append("> ").append(sampleName).append(IO.LINE_SEPARATOR);
+    if (fastaFormat) {
+      variantSequenceBuilder.append("> ").append(sampleName).append(IO.LINE_SEPARATOR);
+    }
     // Append base symbol of each single position.
     int lineBreak = 0;
     for (String variantPosition : this.variantPositions.get(referenceAnalysisId)) {
@@ -170,7 +173,9 @@ public final class VariablePositionsTable {
         variantSequenceBuilder.append(variablePosition.content.get(maxIndex));
       }
       // Add a line break after 80 symbols to match maximal line length of the `.fasta` format.
-      lineBreak += 1;
+      if (fastaFormat) {
+        lineBreak += 1;
+      }
       if (lineBreak == 80) {
         variantSequenceBuilder.append(IO.LINE_SEPARATOR);
         lineBreak = 0;
@@ -187,12 +192,15 @@ public final class VariablePositionsTable {
    *
    * @param referenceAnalysisId {@link String} the name of the reference location.
    * @param sampleName          {@link String} the name of the sample.
+   * @param fastaFormat         {@link Boolean} whether the sequence should be returned in Fasta format.
    * @return {@link String} representing the concatenation of all position contents.
    */
-  public String getSampleFullSequence(String referenceAnalysisId, String sampleName) {
+  public String getSampleFullSequence(String referenceAnalysisId, String sampleName, boolean fastaFormat) {
     StringBuilder fullSequenceBuilder = new StringBuilder();
     // Append `.fasta` header to full sequence builder.
-    fullSequenceBuilder.append("> ").append(sampleName).append(IO.LINE_SEPARATOR);
+    if (fastaFormat) {
+      fullSequenceBuilder.append("> ").append(sampleName).append(IO.LINE_SEPARATOR);
+    }
     // Append base symbol of each single position.
     int lineBreak = 0;
     for (String position : this.getAllPositions(referenceAnalysisId)) {
@@ -219,13 +227,18 @@ public final class VariablePositionsTable {
         fullSequenceBuilder.append(variablePosition.content.get(maxIndex));
       }
       // Add a line break after 80 symbols to match maximal line length of the `.fasta` format.
-      lineBreak += 1;
+      if (fastaFormat) {
+        lineBreak += 1;
+      }
       if (lineBreak == 80) {
         fullSequenceBuilder.append(IO.LINE_SEPARATOR);
         lineBreak = 0;
       }
     }
-    return fullSequenceBuilder.append(IO.LINE_SEPARATOR).toString();
+    if (fastaFormat) {
+      fullSequenceBuilder.append(IO.LINE_SEPARATOR);
+    }
+    return fullSequenceBuilder.toString();
   }
 
   /**
@@ -359,7 +372,7 @@ public final class VariablePositionsTable {
    */
   public String getPositionStatisticsTabDelimited(String referenceAnalysisId, String position, int shift) {
     // First, initialize a counter for each possible variant content. See the documentation of the VariablePosition
-    // class for more information.
+    // class for more information.String referenceAnalysisId, String position, int shift
     int ref = 0;
     int refLowQual = 0;
     int refLowCov = 0;

@@ -1,6 +1,9 @@
 package utility;
 
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import datastructure.FastaEntry;
+import datastructure.GeneFeature;
 import datastructure.VariablePositionsTable;
 import exceptions.MusialIOException;
 import java.io.BufferedReader;
@@ -12,15 +15,25 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Scanner;
 import main.Musial;
+import org.biojava.nbio.core.exceptions.CompoundNotFoundException;
 import org.biojava.nbio.genome.parsers.gff.FeatureList;
 import org.biojava.nbio.genome.parsers.gff.GFF3Reader;
+import org.biojava.nbio.structure.Chain;
+import org.biojava.nbio.structure.Structure;
+import org.biojava.nbio.structure.io.FileParsingParameters;
+import org.biojava.nbio.structure.io.PDBFileReader;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import tools.ArgumentsParser;
 
 /**
  * This class comprises static methods used for reading and writing files.
@@ -58,6 +71,54 @@ public final class IO {
     }
     scanner.close();
     return lines;
+  }
+
+  /**
+   * @param file
+   * @return
+   * @throws MusialIOException
+   */
+  public static String getSequenceFromPdb(File file) throws MusialIOException {
+    // Initialize pdbReader.
+    PDBFileReader pdbReader = new PDBFileReader();
+    FileParsingParameters params = new FileParsingParameters();
+    params.setParseSecStruc(true);
+    params.setAlignSeqRes(true);
+    pdbReader.setFileParsingParameters(params);
+    // Initialize string builders for amino-acid and nucleotide sequence.
+    StringBuilder aaSequenceStringBuilder = new StringBuilder();
+    StringBuilder nucleotideSequenceStringBuilder = new StringBuilder();
+    // Read the `.pdb` file.
+    Structure pdbStructure;
+    try {
+      pdbStructure = pdbReader.getStructure(file);
+    } catch (IOException e) {
+      throw new MusialIOException("Failed to read file:\t" + file.getAbsolutePath());
+    }
+    // Parse nucleotide information from chains.
+    int modelNr = 0;
+    List<Chain> chains = pdbStructure.getChains(modelNr);
+    for (Chain chain : chains) {
+      aaSequenceStringBuilder.append(chain.getAtomSequence());
+    }
+    return aaSequenceStringBuilder.toString();
+  }
+
+  /**
+   * @param file
+   * @return
+   * @throws FileNotFoundException
+   */
+  public static String getPdbAsString(File file) throws FileNotFoundException {
+    StringBuilder pdbStringBuilder = new StringBuilder();
+    List<String> pdbLines = IO.getLinesFromFile(file.getAbsolutePath());
+    for (int i = 0; i < pdbLines.size(); i++) {
+      pdbStringBuilder.append(pdbLines.get(i));
+      if (i != (pdbLines.size() - 1)) {
+        pdbStringBuilder.append(IO.LINE_SEPARATOR);
+      }
+    }
+    return pdbStringBuilder.toString();
   }
 
   /**
@@ -247,10 +308,11 @@ public final class IO {
       FileWriter sequenceAlignmentWriter = new FileWriter(outFile.getAbsolutePath());
       if (addReference) {
         sequenceAlignmentWriter.write(variablePositionsTable.getSampleFullSequence(referenceAnalysisId,
-            "Reference"));
+            "Reference", true));
       }
       for (String sampleName : variablePositionsTable.getSampleNamesOf(referenceAnalysisId)) {
-        sequenceAlignmentWriter.write(variablePositionsTable.getSampleFullSequence(referenceAnalysisId, sampleName));
+        sequenceAlignmentWriter.write(variablePositionsTable.getSampleFullSequence(referenceAnalysisId, sampleName,
+            true));
       }
       sequenceAlignmentWriter.close();
     } catch (IOException e) {
@@ -277,10 +339,11 @@ public final class IO {
       FileWriter variantAlignmentWriter = new FileWriter(outFile.getAbsolutePath());
       if (addReference) {
         variantAlignmentWriter.write(variablePositionsTable.getSampleVariantsSequence(referenceAnalysisId,
-            "Reference"));
+            "Reference", true));
       }
       for (String sampleName : variablePositionsTable.getSampleNamesOf(referenceAnalysisId)) {
-        variantAlignmentWriter.write(variablePositionsTable.getSampleVariantsSequence(referenceAnalysisId, sampleName));
+        variantAlignmentWriter.write(variablePositionsTable.getSampleVariantsSequence(referenceAnalysisId, sampleName
+            , true));
       }
       variantAlignmentWriter.close();
     } catch (IOException e) {
@@ -388,6 +451,101 @@ public final class IO {
       snvAnnotationsWriter.close();
     } catch (IOException e) {
       throw new MusialIOException("Failed to write to output file:\t" + outFile.getAbsolutePath());
+    }
+  }
+
+  /**
+   * @param outFile
+   * @param referenceAnalysisId
+   * @param variablePositionsTable
+   * @param arguments
+   */
+  public static void writeIveConfig(File outFile, String referenceAnalysisId,
+                                    VariablePositionsTable variablePositionsTable, ArgumentsParser arguments)
+      throws MusialIOException {
+    if (!outFile.exists()) {
+      throw new MusialIOException("The specified output file does not exist:\t" + outFile.getAbsolutePath());
+    }
+    try {
+      // Initialize JSON object.
+      JSONObject mainObj = new JSONObject();
+      // If protein information is not added, simply add reference sequence information.
+      String referenceSequence = variablePositionsTable.getSampleFullSequence(referenceAnalysisId,
+          "Reference", false);
+      if (!arguments.isIncludeStructureInformation()) {
+        mainObj.put("ReferenceSequence", referenceSequence);
+      } else {
+        // Otherwise, first match protein and reference sequence before adding them to JSON.
+        File pdbFile = arguments.getPdInputFiles().get(referenceAnalysisId);
+        String proteinStructure = getPdbAsString(pdbFile);
+        String proteinSequence = getSequenceFromPdb(pdbFile);
+        ArrayList<String> matchedSequences = Bio.matchSequences(proteinSequence, referenceSequence);
+        proteinSequence = matchedSequences.get(0);
+        referenceSequence = matchedSequences.get(1);
+        mainObj.put("ReferenceSequence", referenceSequence);
+        mainObj.put("ProteinSequence", proteinSequence);
+        mainObj.put("ProteinStructure", proteinStructure);
+      }
+      // Add sample names.
+      JSONArray sampleNames = new JSONArray();
+      sampleNames.addAll(variablePositionsTable.getSampleNamesOf(referenceAnalysisId));
+      mainObj.put("SampleNames", sampleNames);
+      // For each variant position, add sample variants, annotation and overall counts.
+      JSONObject perPositionVariants = new JSONObject();
+      JSONObject perPositionAnnotations = new JSONObject();
+      JSONObject perPositionCounts = new JSONObject();
+      int shift = 0;
+      // TODO: Temporary solution to get correct reference position offset/start.
+      int locationOffset = 0;
+      if ( arguments.getIncludedGeneFeatures().size() > 0 ) {
+        for (GeneFeature includedGeneFeature : arguments.getIncludedGeneFeatures()) {
+          if (includedGeneFeature.featureName.equals(referenceAnalysisId)) {
+            locationOffset = includedGeneFeature.startPosition;
+          }
+        }
+      }
+      for (Iterator<String> it = variablePositionsTable.getVariantPositions(referenceAnalysisId); it.hasNext(); ) {
+        String variantPosition = it.next();
+        int position = Integer.parseInt( variantPosition ) - locationOffset;
+        if (variantPosition.contains("I")) {
+          shift += 1;
+        }
+        JSONArray positionVariants = new JSONArray();
+        JSONArray positionAnnotations = new JSONArray();
+        JSONArray positionCounts = new JSONArray();
+        ArrayList<String> positionVariantsList =
+            Lists.newArrayList(variablePositionsTable
+                .getPositionContentTabDelimited(referenceAnalysisId, variantPosition, shift, false).split("\t"));
+        positionVariantsList.remove(0);
+        ArrayList<String> positionAnnotationsList =
+            Lists.newArrayList(variablePositionsTable.getPositionAnnotationTabDelimited(referenceAnalysisId,
+                variantPosition, shift).split("\t"));
+        positionAnnotationsList.remove(0);
+        ArrayList<String> positionCountsList =
+            Lists.newArrayList(variablePositionsTable.getPositionStatisticsTabDelimited(referenceAnalysisId,
+                variantPosition, shift).split("\t"));
+        positionCountsList.remove(0);
+        positionVariants.addAll(positionVariantsList);
+        positionAnnotations.addAll(positionAnnotationsList);
+        positionCounts.addAll(positionCountsList);
+        perPositionVariants.put(position,positionVariants);
+        perPositionAnnotations.put(position,positionAnnotations);
+        perPositionCounts.put(position,positionCounts);
+      }
+      mainObj.put("PerPositionVariants",perPositionVariants);
+      mainObj.put("PerPositionAnnotations",perPositionAnnotations);
+      mainObj.put("PerPositionCounts",perPositionCounts);
+      // Write JSON to file.
+      FileWriter iveConfigWriter = new FileWriter(outFile.getAbsolutePath());
+      iveConfigWriter.write(mainObj.toString());
+      iveConfigWriter.close();
+    } catch (FileNotFoundException e) {
+      throw new MusialIOException(e.getMessage());
+    } catch (IOException e) {
+      throw new MusialIOException("Failed to write to output file:\t" + outFile.getAbsolutePath());
+    } catch (CompoundNotFoundException e) {
+      e.printStackTrace();
+      //throw new MusialIOException();
     }
   }
 
