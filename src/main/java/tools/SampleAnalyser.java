@@ -18,16 +18,35 @@ import runnables.SampleAnalyserRunnable;
 import utility.Logging;
 
 /**
+ * Comprises static methods to analyze samples.
+ * <p>
+ * In MUSIAL this is done by multi-threading. In detail the cartesian product of a set of
+ * {@link ReferenceAnalysisEntry} and a set of {@link SampleAnalysisEntry} instances is generated. For more detail
+ * view the respective class documentations.
+ * <p>
+ * This results in a set of pairs of {@link ReferenceAnalysisEntry} and {@link SampleAnalysisEntry} objects, each
+ * specifying a sample that is analyzed against a reference genome region (which may be a single gene or the whole
+ * genome). For each such pair a {@link SampleAnalyserRunnable} is initialized and run.
  *
+ * @author Simon Hackl
+ * @version 2.0
+ * @since 2.0
  */
 public final class SampleAnalyser {
 
   /**
-   * @param referenceEntries
-   * @param sampleEntries
-   * @param arguments
-   * @return
-   * @throws InterruptedException
+   * Runs multi-threaded sample analysis.
+   * <p>
+   * Constructs each possible pair of the passed referenceEntries and sampleEntries elements. For each pair a new
+   * single-threaded {@link SampleAnalyserRunnable} is initialized.
+   *
+   * @param referenceEntries Set of {@link ReferenceAnalysisEntry} instances. Each specifies a locus on the reference
+   *                         genome.
+   * @param sampleEntries    Set of {@link SampleAnalysisEntry} instances. Each specifies the `.vcf` file content from
+   *                         one sample.
+   * @param arguments        {@link ArgumentsParser} containing arguments parsed from command line.
+   * @return {@link VariablePositionsTable} containing the information returned from each single
+   * {@link SampleAnalyserRunnable}.
    */
   public static VariablePositionsTable run(HashSet<ReferenceAnalysisEntry> referenceEntries,
                                            CopyOnWriteArraySet<SampleAnalysisEntry> sampleEntries,
@@ -59,6 +78,7 @@ public final class SampleAnalyser {
         );
       }
       executor.shutdown();
+      //noinspection ResultOfMethodCallIgnored
       executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
       addReferenceToVariablePositionsTable(variablePositionsTable, referenceEntries, progress);
       progress.setExtraMessage(Logging.getDoneMessage());
@@ -67,8 +87,12 @@ public final class SampleAnalyser {
   }
 
   /**
-   * @param variablePositionsTable
-   * @param referenceEntries
+   * Adds information from the reference genome specified by the single elements of referenceEntries to the passed
+   * variablePositionsTable.
+   *
+   * @param variablePositionsTable {@link VariablePositionsTable} containing information about the variant sites of a
+   *                               set of samples against possibly multiple reference loci.
+   * @param referenceEntries       Set of {@link ReferenceAnalysisEntry} instances, each specifying a reference locus.
    */
   private static void addReferenceToVariablePositionsTable(
       VariablePositionsTable variablePositionsTable, HashSet<ReferenceAnalysisEntry> referenceEntries,
