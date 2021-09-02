@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+
+    <head>
+        <!-- Meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <meta name="description" content="Dashboard for multiple sequence alignment analysis.">
+        <meta name="author" content="Simon Hackl">
+
+        <title>MUSIALᴵⱽᴱ</title>
+        <link rel="stylesheet" href="./css//main.css">
+        <link rel="stylesheet" href="./css//spinner.css">
+    </head>
+
+    <div id="main">
+        
+        <div id="headerMenu">
+            <div id="title">
+                <b style = "color: var(--background-color)">MUSIAL<sup>IVE</sup></b>
+            </div>
+            <div class="dropdown">
+                <button class="dropbtn">Data</button>
+                <div class="dropdown-content">
+                    <button>Option I</button>
+                    <button>Option II</button>
+                    <button>Option III</button>
+                    <button>Option IV</button>
+                </div>
+            </div>
+            <div class="dropdown">
+                <button class="dropbtn">View</button>
+                <div class="dropdown-content">
+                    <button>Option I</button>
+                    <button>Option II</button>
+                    <button>Option III</button>
+                    <button>Option IV</button>
+                </div>
+            </div>
+            <button id="aboutButton" class="menuButton"><i class="fas fa-info-circle"></i></button>
+            <button id="settingsButton" class="menuButton"><i class="fas fa-user-cog"></i></button>
+            <button id="fullscreenButton" class="menuButton"><i class="fas fa-expand"></i></button>
+            <button id="trashButton" class="menuButton"><i class="fas fa-trash"></i></button>
+        </div>
+        
+        <div id="input">
+            <i id="fileInputIcon" class="fas fa-folder-open"></i>
+            <b id="fileInputText">Click to open a <i>iveConfig.json</i> file to start!</b>
+            <input id="fileInput" type="file" onchange="fileInputHandler( event )">
+            <span style="display: none;" id="fileInputProcessLoader" class="loader"></span>
+        </div>
+
+        <div id="view">
+            <div id="proteinView" class="mol-container"></div>
+            <div id="eChartsView"></div>
+        </div>
+
+    </div>
+
+    <script src="./main.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js" async></script>
+    <script src="https://3Dmol.org/build/3Dmol-min.js" async></script>
+    <script src="./scripts/fontawesome.js" async></script>
+    <script src="./scripts/ResizeSensor.js" async></script>
+    <script src="./scripts/echarts.min.js" async></script>
+</body>
+
+</html>

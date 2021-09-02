@@ -1,0 +1,188 @@
+/* Root properties and definition of variables. */
+:root {
+  font-family: Arial, Helvetica, sans-serif;
+  --border-radius: 0.2em;
+  --font-size: 1.2em;
+  --background-color: #EFF0F8;
+  --background-color-2: #E4E5ED;
+  --color-1: #607196;
+  --color-2: #BABFD1;
+  --color-3: #FFBE0B;
+  --text-color: #292926;
+  --margin: 1em;
+  --shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+}
+
+b {
+  color: var(--text-color);
+  margin: var(--margin);
+}
+
+#main {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--background-color);
+}
+
+#title {
+  position: fixed;
+  display: inline-block;
+  top: 0;
+  right: 0;
+  margin: 0.7em;
+  border-left: 1px solid var(--background-color);
+}
+
+#headerMenu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4%;
+  background: var(--color-1);
+  box-shadow: var(--shadow);
+  z-index: 3;
+}
+
+.menuButton  {
+  background-color: var(--color-1);
+  color: var(--background-color);
+  width: 3em;
+  min-width: 3em;
+  font-size: var(--font-size);
+  border: none;
+}
+
+.menuButton:hover {
+  box-shadow: var(--shadow);
+}
+
+/* Definition of dropdown-menu components.
+dropdown: Container to position the dropdown content.
+dropbtn: Placeholder to visualize the existance of a dropdown menu.
+dopdown-content: Container to hold dropdown menu options. Hidden by default.
+*/
+.dropdown {
+  display: inline-block;
+  position: relative;
+  margin: calc( var(--margin) / 2 );
+  min-width: 6em;
+}
+.dropdown:hover .dropdown-content {
+  display: block;
+}
+.dropdown:hover .dropbtn {
+  box-shadow: var(--shadow);
+}
+.dropbtn {
+  background-color: var(--color-1);
+  color: var(--background-color);
+  width: 6em;
+  min-width: 6em;
+  font-size: var(--font-size);
+  border: none;
+}
+.dropdown-content {
+  display: none;
+  position: absolute;
+  background-color: var(--color-1);
+  min-width: 7.2em;
+  box-shadow: var(--shadow);
+}
+.dropdown-content button {
+  background-color: transparent;
+  color: var(--background-color);
+  width: 100%;
+  font-size: calc( var(--font-size) / 1.8 );
+  min-width: 6em;
+  height: 2.4em;
+  text-decoration: none;
+  display: block;
+  border: none;
+}
+.dropdown-content button:hover {
+  background-color: var(--color-2);
+}
+
+#fileInput {
+  opacity: 0.0;
+  -ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=0)"; /* IE 8 */
+  filter: alpha(opacity=0); /* IE 5-7 */
+  -moz-opacity: 0.0; /* Netscape or and older firefox browsers */
+  -khtml-opacity: 0.0; /* older Safari browsers */
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  width: 100%;
+  height:100%;
+}
+
+#input {
+  position: fixed;
+  display: flex;
+  margin: 1%;
+  top: 4%;
+  left: 0;
+  width: 98%;
+  height: 93%;
+  background-color: var(--background-color-2);
+  border: 1px double var(--color-2);
+  border-radius: 1px;
+  align-items: center;
+  justify-content: center;
+}
+
+#input .fa-folder-open {
+  font-size: calc( var(--font-size) * 8 );
+  color: var(--color-2);
+}
+
+#input b {
+  font-size: calc( var(--font-size) * 2 );
+  color: var(--color-2);
+}
+
+#view {
+  position: fixed;
+  display: none;
+  flex-direction: column;
+  margin: 1%;
+  top: 4%;
+  left: 0;
+  width: 98%;
+  height: 93%;
+  background-color: var(--background-color-2);
+  border: 1px double var(--color-2);
+  border-radius: 1px;
+}
+
+#proteinView {
+  position: relative;
+  top: 0;
+  left: 0;
+  margin: 0;
+  width: 100%;
+  height: 40%;
+  max-height: 98%;
+  /* resize: vertical; */
+  overflow: hidden;
+  background-color: #FFFFFF;
+}
+
+#eChartsView {
+  position: relative;
+  top: 0;
+  left: 0;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 60%;
+  overflow-y: hidden;
+  background-color: #FFFFFF;
+  border-top: 1px solid var(--color-2);
+}
