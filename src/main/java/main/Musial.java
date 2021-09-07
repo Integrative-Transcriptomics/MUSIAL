@@ -27,12 +27,11 @@ import utility.Logging;
  * @author Alexander Seitz
  * @author Simon Hackl
  * @version 2.0
- * @TODO: 25.08.2021 : Genes from negative sense strand.
  * @TODO: 25.08.2021 : Missing components; Heterozygous calling, phylogenetics, SnpEff output.
  * @TODO: 27.08.2021 : Change output if multiple quality criteria are not met?
  * @TODO: 27.08.2021 : Multi threading for single genomic location?
  * @TODO: 28.08.2021 : Which fields to use for snv statistics.
- * @TODO: 28.08.2021 : Remove per position per sample frequency. Does not make any sense?
+ * @TODO: 07.09.2021 : Something seems to be wrong with .pdb parser.
  */
 public final class Musial {
 
@@ -88,12 +87,6 @@ public final class Musial {
         arguments);
     // 7. Generate output.
     writeOutput(arguments, variablePositionsTable);
-    // (DEV ONLY) Check memory usage.
-    Runtime runtime = Runtime.getRuntime();
-    runtime.gc();
-    long memory = runtime.totalMemory() - runtime.freeMemory();
-    System.out.println("Used memory is megabytes: " + (memory / (1024L * 1024L)));
-    System.exit(0);
   }
 
   /**

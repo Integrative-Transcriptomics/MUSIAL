@@ -3,6 +3,7 @@ package utility;
 import com.google.common.base.Splitter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import org.biojava.nbio.alignment.Alignments;
 import org.biojava.nbio.alignment.SimpleGapPenalty;
 import org.biojava.nbio.core.alignment.matrices.SimpleSubstitutionMatrix;
@@ -23,7 +24,6 @@ import org.biojava.nbio.core.sequence.compound.AminoAcidCompound;
  *
  * @author Simon Hackl
  * @version 2.0
- * @TODO: 02.09.2021: Store stop codon positions in nucleotide sequence and re-insert after alignment.
  * @since 2.0
  */
 public final class Bio {
@@ -31,11 +31,7 @@ public final class Bio {
   /**
    * Character to indicate a gap/missing information regarding a nucleotide and amino acid sequence.
    */
-  private static final char NO_MATCH_CHAR = '$';
-  /**
-   * Character to pad an amino acid sequence if the corresponding nucleotide sequence was truncated due to a frameshift.
-   */
-  public static final char TRUNCATED_CHAR = '&';
+  public static final char NO_MATCH_CHAR = '?';
   /**
    * Hash map mapping nucleotide codons to single-letter amino acids. Stop codons map to no character.
    */
@@ -126,7 +122,11 @@ public final class Bio {
   public static ArrayList<String> matchSequences(String aaSequence, String nucSequence)
       throws CompoundNotFoundException {
     // Initialize hash map to store matched sequences.
-    HashMap<Integer, ArrayList<String>> paddedSequences = new HashMap<>();
+    HashMap<Integer, ArrayList<String>> alignedSequences = new HashMap<>();
+    // Remove, but store index of, all gap symbols in the nucleotide sequence (this would rise errors in the sequence
+    // alignment process).
+    HashSet<Integer> gapsFromSamples = getGapsFromSequence(nucSequence);
+    nucSequence = removeGapsFromSequence(nucSequence);
     // Check if nucleotide sequence is fully coding sequence, i.e. divisible by three.
     int residual = nucSequence.length() % 3;
     // Based on the residual assign frame shift and split nucleotide sequence.
@@ -138,51 +138,52 @@ public final class Bio {
         splitNucSequence.add(s);
       }
       translatedNucSequence = translateNucSequence(splitNucSequence);
-      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, "", "", paddedSequences);
+      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, "", "", alignedSequences, gapsFromSamples);
     } else if (residual == 1) {
       // Truncate character at start.
       for (String s : Splitter.fixedLength(3).split(nucSequence.substring(1))) {
         splitNucSequence.add(s);
       }
       translatedNucSequence = translateNucSequence(splitNucSequence);
-      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, nucSequence.substring(0, 1)
-          , "", paddedSequences);
+      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, nucSequence.substring(0, 1), "",
+          alignedSequences, gapsFromSamples);
       // Truncate character at end.
       for (String s : Splitter.fixedLength(3).split(nucSequence.substring(0, nucSequence.length() - 1))) {
         splitNucSequence.add(s);
       }
       translatedNucSequence = translateNucSequence(splitNucSequence);
       alignSequences(aaSequence, translatedNucSequence, splitNucSequence, "",
-          nucSequence.substring(nucSequence.length() - 1), paddedSequences);
+          nucSequence.substring(nucSequence.length() - 1), alignedSequences, gapsFromSamples);
     } else {
       // Truncate two characters at start.
       for (String s : Splitter.fixedLength(3).split(nucSequence.substring(2))) {
         splitNucSequence.add(s);
       }
       translatedNucSequence = translateNucSequence(splitNucSequence);
-      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, nucSequence.substring(0, 2)
-          , "", paddedSequences);
+      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, nucSequence.substring(0, 2), "",
+          alignedSequences, gapsFromSamples);
       // Truncate two characters at end.
       for (String s : Splitter.fixedLength(3).split(nucSequence.substring(0, nucSequence.length() - 2))) {
         splitNucSequence.add(s);
       }
       translatedNucSequence = translateNucSequence(splitNucSequence);
       alignSequences(aaSequence, translatedNucSequence, splitNucSequence, "",
-          nucSequence.substring(nucSequence.length() - 2), paddedSequences);
+          nucSequence.substring(nucSequence.length() - 2), alignedSequences, gapsFromSamples);
       // Truncate one character at start and end.
       for (String s : Splitter.fixedLength(3).split(nucSequence.substring(1, nucSequence.length() - 1))) {
         splitNucSequence.add(s);
       }
       translatedNucSequence = translateNucSequence(splitNucSequence);
-      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, nucSequence.substring(0, 1)
-          , nucSequence.substring(nucSequence.length() - 1), paddedSequences);
+      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, nucSequence.substring(0, 1),
+          nucSequence.substring(nucSequence.length() - 1), alignedSequences, gapsFromSamples);
     }
-    // Next we choose the sequences as correct with the fewest number of padding characters, i.e. alignment gaps.
+    // The sequences with the fewest number of mismatches characters, i.e. alignment gaps, are chosen as the correct
+    // ones.
     int minScore = Integer.MAX_VALUE;
     ArrayList<String> bestAlignment = new ArrayList<>();
-    for (Integer score : paddedSequences.keySet()) {
+    for (Integer score : alignedSequences.keySet()) {
       if (score < minScore) {
-        bestAlignment = paddedSequences.get(score);
+        bestAlignment = alignedSequences.get(score);
       }
       minScore = score;
     }
@@ -217,26 +218,30 @@ public final class Bio {
    * The aligned translated nucleotide sequence is mapped back to a nucleotide sequence and, both, the nucleotide
    * sequence and amino acid sequence are stored in a map accessible via the number of gaps in the alignment.
    *
-   * @param aaSequence           {@link String} representing a non-nucleotide-derived amino acid sequence.
-   * @param translatedAASequence {@link String} representing a amino acid sequence that originates from translating a
-   *                             nucleotide sequence.
-   * @param splitNucSequence     {@link String} the original nucleotide sequence split into chunks of length three, i.e.
-   *                             codons.
-   * @param truncatedStart       {@link String} nucleotides that were truncated from the start of the nucleotide sequence
-   *                             due to a frameshift.
-   * @param truncatedEnd         {@link String} nucleotides that were truncated from the end of the nucleotide sequence due
-   *                             to a frameshift.
-   * @param resultsMap           {@link HashMap} mapping the alignment score, here the number of gaps, to the aligned sequences.
+   * @param aaSequence              {@link String} representing a non-nucleotide-derived amino acid sequence.
+   * @param translatedAASequence    {@link String} representing a amino acid sequence that originates from translating a
+   *                                nucleotide sequence.
+   * @param splitNucleotideSequence {@link String} the original nucleotide sequence split into chunks of length three, i.e.
+   *                                codons.
+   * @param truncatedStart          {@link String} nucleotides that were truncated from the start of the nucleotide sequence
+   *                                due to a frameshift.
+   * @param truncatedEnd            {@link String} nucleotides that were truncated from the end of the nucleotide sequence due
+   *                                to a frameshift.
+   * @param resultsMap              {@link HashMap} mapping the alignment score, here the number of gaps, to the aligned sequences.
+   * @param gapPositions            {@link HashSet<Integer>} containing positions at which a gap was removed from the
+   *                                original nucleotide sequence.
    * @throws CompoundNotFoundException If a compound, i.e. amino acid, could not be translated.
    */
-  private static void alignSequences(String aaSequence, String translatedAASequence, ArrayList<String> splitNucSequence,
-                                     String truncatedStart, String truncatedEnd, HashMap<Integer,
-      ArrayList<String>> resultsMap)
+  private static void alignSequences(String aaSequence, String translatedAASequence,
+                                     ArrayList<String> splitNucleotideSequence, String truncatedStart,
+                                     String truncatedEnd, HashMap<Integer, ArrayList<String>> resultsMap,
+                                     HashSet<Integer> gapPositions)
       throws CompoundNotFoundException {
     StringBuilder paddedNucSequenceBuilder = new StringBuilder();
     StringBuilder paddedAASequenceBuilder = new StringBuilder();
-    String alignedAASequence;
-    String alignedTranslatedAASequence;
+    StringBuilder paddedAASequenceAnnotations = new StringBuilder();
+    char[] alignedAASequence;
+    char[] alignedTranslatedAASequence;
     SequencePair<ProteinSequence, AminoAcidCompound> alignedSequences;
     if (aaSequence.length() > translatedAASequence.length()) {
       // Align translated amino acid sequence against non-translated amino acid sequence.
@@ -248,8 +253,8 @@ public final class Bio {
           // substitution.
           BLOSUM62
       );
-      alignedTranslatedAASequence = alignedSequences.getAlignedSequences().get(0).toString();
-      alignedAASequence = alignedSequences.getAlignedSequences().get(1).toString();
+      alignedTranslatedAASequence = alignedSequences.getAlignedSequences().get(0).toString().toCharArray();
+      alignedAASequence = alignedSequences.getAlignedSequences().get(1).toString().toCharArray();
     } else {
       // Align non-translated amino acid sequence with translated amino acid sequence.
       alignedSequences = Alignments.getPairwiseAlignment(
@@ -260,35 +265,116 @@ public final class Bio {
           // substitution.
           BLOSUM62
       );
-      alignedTranslatedAASequence = alignedSequences.getAlignedSequences().get(1).toString();
-      alignedAASequence = alignedSequences.getAlignedSequences().get(0).toString();
+      alignedTranslatedAASequence = alignedSequences.getAlignedSequences().get(1).toString().toCharArray();
+      alignedAASequence = alignedSequences.getAlignedSequences().get(0).toString().toCharArray();
     }
-    // Replace gap characters of aligned amino acid sequence with padding characters.
-    paddedAASequenceBuilder.append(String.valueOf(TRUNCATED_CHAR).repeat(truncatedStart.length()));
-    paddedAASequenceBuilder.append(alignedAASequence.replace('-', NO_MATCH_CHAR));
-    paddedAASequenceBuilder.append(String.valueOf(TRUNCATED_CHAR).repeat(truncatedEnd.length()));
-    String paddedAASequence = paddedAASequenceBuilder.toString();
-    int paddingAASequence = (int) paddedAASequence.codePoints().filter(c -> c == NO_MATCH_CHAR).count();
-    // Translate translated aligned nucleotide sequence back into padded nucleotide sequence.
+    /*
+    (1) Characters truncated at the start are re-appended.
+     */
     paddedNucSequenceBuilder.append(truncatedStart);
-    char[] alignedTranslatedAASequenceChars = alignedTranslatedAASequence.toCharArray();
-    int gapShift = 0;
-    for (int i = 0; i < alignedTranslatedAASequenceChars.length; i++) {
-      char c = alignedTranslatedAASequenceChars[i];
-      if (c == '-') {
-        paddedNucSequenceBuilder.append(String.valueOf(NO_MATCH_CHAR).repeat(3));
-        gapShift += 1;
+    paddedAASequenceBuilder.append(String.valueOf(NO_MATCH_CHAR).repeat(truncatedStart.length()));
+    paddedAASequenceAnnotations.append("T".repeat(truncatedStart.length()));
+    /*
+    (2) Iterate over split nucleotide sequence.
+    */
+    int alignmentIndex = 0;
+    String currentCodon;
+    for (String s : splitNucleotideSequence) {
+      currentCodon = s;
+      if (CODON_MAP.get(currentCodon).equals("")) {
+        // CASE: Stop codon is stored in split nucleotide sequence.
+        // Add coding nucleotides to nucleotide sequence.
+        paddedNucSequenceBuilder.append(currentCodon);
+        // Add NO_MATCH_CHAR to amino acid sequence.
+        paddedAASequenceBuilder.append(String.valueOf(NO_MATCH_CHAR).repeat(3));
+        // Add annotation to amino acid sequence annotations.
+        paddedAASequenceAnnotations.append("@".repeat(3));
       } else {
-        paddedNucSequenceBuilder.append(splitNucSequence.get(i - gapShift));
+        // CASE: AA coding codon is stored in split nucleotide sequence.
+        // Check if any gaps are inserted into the translated amino-acid sequence before the next matching alignment
+        // position.
+        char alignedTranslatedAAChar = alignedTranslatedAASequence[alignmentIndex];
+        char alignedAAChar = alignedAASequence[alignmentIndex];
+        if (alignedTranslatedAAChar == '-') {
+          while (alignedTranslatedAAChar == '-') {
+            // Add NO_MATCH_CHAR to nucleotide sequence.
+            paddedNucSequenceBuilder.append(String.valueOf(NO_MATCH_CHAR).repeat(3));
+            // Add content to amino acid sequence.
+            paddedAASequenceBuilder.append(String.valueOf(alignedAAChar).repeat(3));
+            // Add annotation to amino acid sequence annotations.
+            paddedAASequenceAnnotations.append("X".repeat(3));
+            alignmentIndex += 1;
+            alignedTranslatedAAChar = alignedTranslatedAASequence[alignmentIndex];
+            alignedAAChar = alignedAASequence[alignmentIndex];
+          }
+        }
+        // Add content to nucleotide sequence.
+        paddedNucSequenceBuilder.append(currentCodon);
+        // Add content to amino acid sequence.
+        paddedAASequenceBuilder
+            .append(String.valueOf((alignedAAChar == '-') ? NO_MATCH_CHAR : alignedAAChar).repeat(3));
+        // Add annotation to amino acid sequence annotations.
+        if (alignedAAChar != alignedTranslatedAAChar) {
+          paddedAASequenceAnnotations.append("X".repeat(3));
+        } else {
+          paddedAASequenceAnnotations.append("O".repeat(3));
+        }
+        alignmentIndex += 1;
       }
     }
+    // If alignmentIndex does not match alignment length remaining symbols exist.
+    while (alignmentIndex < (alignedAASequence.length - 1)) {
+      char alignedTranslatedAAChar = alignedTranslatedAASequence[alignmentIndex];
+      char alignedAAChar = alignedAASequence[alignmentIndex];
+      // Add content to nucleotide sequence.
+      paddedNucSequenceBuilder
+          .append(String.valueOf((alignedTranslatedAAChar == '-') ? NO_MATCH_CHAR : alignedTranslatedAAChar).repeat(3));
+      // Add content to amino acid sequence.
+      paddedAASequenceBuilder.append(String.valueOf((alignedAAChar == '-') ? NO_MATCH_CHAR : alignedAAChar).repeat(3));
+      // Add annotation to amino acid sequence annotations.
+      if (alignedAAChar != alignedTranslatedAAChar) {
+        paddedAASequenceAnnotations.append("X".repeat(3));
+      } else {
+        paddedAASequenceAnnotations.append("O".repeat(3));
+      }
+      alignmentIndex += 1;
+    }
+    /*
+    (3) Characters truncated at the end are re-appended.
+     */
     paddedNucSequenceBuilder.append(truncatedEnd);
+    paddedAASequenceBuilder.append(String.valueOf(NO_MATCH_CHAR).repeat(truncatedEnd.length()));
+    paddedAASequenceAnnotations.append("T".repeat(truncatedEnd.length()));
+    /*
+    (4) Insert gaps in both sequences that are caused by sample insertions.
+     */
+    int insertedGapsShift = 0;
+    for (Integer gapPosition : gapPositions) {
+      char[] currentPaddedNucChars = paddedNucSequenceBuilder.toString().toCharArray();
+      int noMatchShift = 0;
+      for (int i = 0; i < currentPaddedNucChars.length; i++) {
+        if (i < gapPosition + noMatchShift) {
+          if (currentPaddedNucChars[i] == NO_MATCH_CHAR) {
+            noMatchShift += 1;
+          }
+        }
+      }
+      paddedNucSequenceBuilder.insert(gapPosition + noMatchShift + insertedGapsShift, "-");
+      paddedAASequenceBuilder.insert(gapPosition + noMatchShift + insertedGapsShift, "-");
+      paddedAASequenceAnnotations.insert(gapPosition + noMatchShift + insertedGapsShift, "-");
+      insertedGapsShift += 1;
+    }
+    /*
+    (5) Insert results into results map.
+     */
     String paddedNucSequence = paddedNucSequenceBuilder.toString();
     int paddingNucSequence = (int) paddedNucSequence.codePoints().filter(c -> c == NO_MATCH_CHAR).count();
-    // Insert results into results map.
+    String paddedAASequence = paddedAASequenceBuilder.toString();
+    int paddingAASequence = (int) paddedAASequence.codePoints().filter(c -> c == NO_MATCH_CHAR).count();
     ArrayList<String> resultsList = new ArrayList<>();
     resultsList.add(paddedAASequence);
     resultsList.add(paddedNucSequence);
+    resultsList.add(paddedAASequenceAnnotations.toString());
     resultsMap.put((paddingAASequence + paddingNucSequence), resultsList);
   }
 
@@ -352,6 +438,33 @@ public final class Bio {
    */
   public static int getPositionOnReverseComplement(int position, int start, int end) {
     return end - (position - start);
+  }
+
+  /**
+   * Computes the positions (0-based indexed) at which a gap symbol ("-") is present in a {@link String}.
+   *
+   * @param sequence The sequence for which gap indices should be computed.
+   * @return {@link HashSet<Integer>} of indices at which a gap symbol is present in the passed sequence.
+   */
+  public static HashSet<Integer> getGapsFromSequence(String sequence) {
+    HashSet<Integer> gapIndices = new HashSet<>();
+    char[] sequenceCharArray = sequence.toCharArray();
+    for (int i = 0; i < sequenceCharArray.length; i++) {
+      if (sequenceCharArray[i] == '-') {
+        gapIndices.add(i);
+      }
+    }
+    return gapIndices;
+  }
+
+  /**
+   * Removes all gap symbols ("-") from the passed sequence.
+   *
+   * @param sequence The sequence from which gaps should be removed.
+   * @return {@link String}, the passed sequence without any gap symbols.
+   */
+  public static String removeGapsFromSequence(String sequence) {
+    return sequence.replace("-", "");
   }
 
 }

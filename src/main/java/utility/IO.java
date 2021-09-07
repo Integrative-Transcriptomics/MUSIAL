@@ -486,9 +486,9 @@ public final class IO {
     try {
       // Initialize JSON object.
       JSONObject mainObj = new JSONObject();
-      // If protein information is not added, simply add reference sequence information.
       String referenceSequence = variablePositionsTable.getSampleFullSequence(referenceAnalysisId,
           "Reference", false);
+      // If protein information is not added, simply add reference sequence information.
       if (!arguments.isIncludeStructureInformation()) {
         mainObj.put("ReferenceSequence", referenceSequence);
         mainObj.put("ReferenceName", referenceAnalysisId);
@@ -501,7 +501,7 @@ public final class IO {
         proteinSequence = matchedSequences.get(0);
         referenceSequence = matchedSequences.get(1);
         mainObj.put("ReferenceSequence", referenceSequence);
-        mainObj.put("ReferenceSequenceName", referenceAnalysisId);
+        mainObj.put("ReferenceName", referenceAnalysisId);
         mainObj.put("ProteinSequence", proteinSequence);
         mainObj.put("ProteinStructure", proteinStructure);
         mainObj.put("ProteinName",
@@ -525,9 +525,13 @@ public final class IO {
           }
         }
       }
+      // Access aligned reference sequence to account for mismatch characters from alignment later on.
+      char[] referenceSequenceChars = referenceSequence.toCharArray();
+      int foo = 0;
       for (Iterator<String> it = variablePositionsTable.getVariantPositions(referenceAnalysisId); it.hasNext(); ) {
+        foo += 1;
+        // Access the next variant position and add one to the shift value if the position represents an insertion.
         String variantPosition = it.next();
-        int position = Integer.parseInt(variantPosition) - locationOffset + 1; // Add 1 due to 1-based indexing.
         if (variantPosition.contains("I")) {
           shift += 1;
         }
@@ -545,13 +549,25 @@ public final class IO {
         ArrayList<String> positionCountsList =
             Lists.newArrayList(variablePositionsTable.getPositionStatisticsTabDelimited(referenceAnalysisId,
                 variantPosition, shift).split("\t"));
+        // Construct position relative to the reference feature coordinates used to write into the output file.
+        int variantPositionValue = Integer.parseInt( positionCountsList.get(0) ) - locationOffset + 1;
         positionCountsList.remove(0);
         positionVariants.addAll(positionVariantsList);
         positionAnnotations.addAll(positionAnnotationsList);
         positionCounts.addAll(positionCountsList);
-        perPositionVariants.put(position, positionVariants);
-        perPositionAnnotations.put(position, positionAnnotations);
-        perPositionCounts.put(position, positionCounts);
+        // Position value is adjusted according to the number of mismatch symbols in the aligned reference sequence.
+        int noMatchShift = 0;
+        for (int i = 0; i < referenceSequenceChars.length; i++) {
+          if (i < (variantPositionValue + noMatchShift)) {
+            if (referenceSequenceChars[i] == Bio.NO_MATCH_CHAR) {
+              noMatchShift += 1;
+            }
+          }
+        }
+        variantPositionValue += noMatchShift;
+        perPositionVariants.put(variantPositionValue, positionVariants);
+        perPositionAnnotations.put(variantPositionValue, positionAnnotations);
+        perPositionCounts.put(variantPositionValue, positionCounts);
       }
       mainObj.put("PerPositionVariants", perPositionVariants);
       mainObj.put("PerPositionAnnotations", perPositionAnnotations);
