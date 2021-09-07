@@ -54,6 +54,68 @@ showLabels.registerListener( function( val ) {
         } );
     }
 });
+var colorSchemes = {
+    "nucleotides": {
+        "A": "#3E885B",
+        "dA": "#93CDAA", 
+        "C": "#0471A6",
+        "dC": "#79D0FC",
+        "G": "#E8C547",
+        "dG": "#F3E1A0",
+        "T": "#DB5461",
+        "dT": "#ECA7AE",
+        "del": "transparent",
+        "ref": "#EEEEEE",
+        "dref": "#9093A7",
+        "nomatch": "transparent"
+    },
+    "aminoacids": {
+        "H": "#87ABFF", // Polar (positive), Basic
+        "K": "#87ABFF",
+        "R": "#87ABFF",
+        "D": "#F75050", // Polar (negative), Acidic
+        "E": "#F75050",
+        "S": "#AEDEAA", // Polar (neutral)
+        "T": "#AEDEAA",
+        "N": "#AEDEAA",
+        "Q": "#AEDEAA",
+        "C": "#AEDEAA",
+        "F": "#FFEAB1", // Aromatic
+        "W": "#FFEAB1",
+        "Y": "#FFEAB1",
+        "A": "#D387F3", // Aliphatic
+        "V": "#D387F3",
+        "L": "#D387F3",
+        "I": "#D387F3",
+        "M": "#D387F3",
+        "P": "#D387F3",
+        "G": "#D387F3",
+        "del": "transparent",
+        "nomatch": "transparent"
+    },
+    "mol3d": {
+        "HIS": "#87ABFF", // Polar (positive), Basic
+        "LYS": "#87ABFF",
+        "ARG": "#87ABFF",
+        "ASP": "#F75050", // Polar (negative), Acidic
+        "GLU": "#F75050",
+        "SER": "#AEDEAA", // Polar (neutral)
+        "THR": "#AEDEAA",
+        "ASN": "#AEDEAA",
+        "GLN": "#AEDEAA",
+        "CYS": "#AEDEAA",
+        "PHE": "#FFEAB1", // Aromatic
+        "TRP": "#FFEAB1",
+        "TYR": "#FFEAB1",
+        "ALA": "#D387F3", // Aliphatic
+        "VAL": "#D387F3",
+        "LEU": "#D387F3",
+        "ILE": "#D387F3",
+        "MET": "#D387F3",
+        "PRO": "#D387F3",
+        "GLY": "#D387F3"
+    }
+};
 
 function fileInputHandler( event ) {
     document.getElementById( "fileInput" ).style.display = "none";
@@ -92,7 +154,7 @@ window.onload = _ => {
 };
 
 function dnaIntToChar( i ) {
-    let dnaSymbols = "ACGT$.:;-aqycvdgfhtrz".split( "" );
+    let dnaSymbols = "ACGT?.:;-aqycvdgfhtrz".split( "" );
     if ( i > 0 & i < 21 ) {
         let dnaSymbol = dnaSymbols[ i - 1 ];
         if ( "Aaqy".split( "" ).includes( dnaSymbol ) ) {
@@ -106,9 +168,9 @@ function dnaIntToChar( i ) {
         } else if ( ".:;".split( "" ).includes( dnaSymbol ) ) {
             return "Reference";
         } else if ( dnaSymbol == "-" ) {
-            return "Deletion";
-        } else if ( dnaSymbol == "$" ) {
-            return "No information";
+            return "-";
+        } else if ( dnaSymbol == "?" ) {
+            return "?";
         }
     } else {
         return "";
@@ -116,18 +178,18 @@ function dnaIntToChar( i ) {
 }
 
 function dnaCharToInt( c ) {
-    let dnaSymbols = "ACGT$.:;-aqycvdgfhtrz".split( "" );
+    let dnaSymbols = "ACGT?.:;-aqycvdgfhtrz".split( "" );
     return ( dnaSymbols.indexOf( c ) + 1 );
 }
 
 function aaIntToChar( i ) {
-    let aaSymbols = "HKRDESTNQAVLIMFWYPGC$&-".split( "" );
-    if ( i > 0 & i < 24 ) {
+    let aaSymbols = "HKRDESTNQCFWYAVLIMPG-?".split( "" );
+    if ( i > 0 & i < 23 ) {
         let aaSymbol = aaSymbols[ i - 1 ];
         if ( aaSymbol == "-" ) {
-            return "Deletion";
-        } else if ( "$&".split( "" ).includes( aaSymbol ) ) {
-            return "No information";
+            return "-";
+        } else if ( aaSymbol == "?" ) {
+            return "?";
         } else {
             return aaSymbols[ i - 1 ];
         }
@@ -137,7 +199,7 @@ function aaIntToChar( i ) {
 }
 
 function aaCharToInt( c ) {
-    let aaSymbols = "HKRDESTNQAVLIMFWYPGC$&-".split( "" );
+    let aaSymbols = "HKRDESTNQCFWYAVLIMPG-?".split( "" );
     return ( aaSymbols.indexOf( c ) + 1 );
 }
 
@@ -145,39 +207,16 @@ function loadEChartsView( ) {
     var chartDom = document.getElementById('eChartsView');
     echart = echarts.init(chartDom, { "renderer": "svg" } );
 
-    var referenceLabel = [ "Ref. Gene" ];
+    var referenceLabel = [ jsonInput.ReferenceName ];
     let referenceSequence = jsonInput.ReferenceSequence;
     var length = referenceSequence.length;
     var referenceData = Array.from(Array(length).keys()).map( position => [ position, 0, dnaCharToInt( referenceSequence[ position ] ) ] );
 
     var positions = Array.from(Array(length).keys()).map( position => ( position + 1 ).toString( ) );
 
-    var proteinLabel = [ "Ref. Protein" ];
+    var proteinLabel = [ jsonInput.ProteinName ];
     let proteinSequence = jsonInput.ProteinSequence;
-    let frameShiftStart = 0;
-    let frameShiftEnd = 0;
-    if ( proteinSequence.startsWith( "&&" ) ) {
-        proteinSequence = proteinSequence.substring( 2, proteinSequence.length );
-        frameShiftStart = 2;
-    } else if ( proteinSequence.startsWith( "&" ) ) {
-        proteinSequence = proteinSequence.substring( 1, proteinSequence.length );
-        frameShiftStart = 1;
-    }
-    if ( proteinSequence.endsWith( "&&" ) ) {
-        proteinSequence = proteinSequence.substring( 0, proteinSequence.length - 2 );
-        frameShiftEnd = 2;
-    } else if ( proteinSequence.endsWith( "&" ) ) {
-        proteinSequence = proteinSequence.substring( 0, proteinSequence.length - 1 );
-        frameShiftEnd = 1;
-    }
-    var proteinSequenceData = Array.from(Array(length - frameShiftStart - frameShiftEnd).keys()).map( position => [ position + frameShiftStart, 0, aaCharToInt( proteinSequence[ Math.ceil( ( position + 1 ) / 3 ) - 1 ] ) ] );
-    for ( let i = 0; i < frameShiftStart; i ++ ) {
-        proteinSequenceData.unshift( [ i, 0, aaCharToInt( "&" ) ] );
-    }
-    for ( let i = 0; i < frameShiftEnd; i ++ ) {
-        proteinSequenceData.push( [ length + i, 0, aaCharToInt( "&" ) ] );
-    }
-
+    var proteinData = Array.from(Array(length).keys()).map( position => [ position, 0, aaCharToInt( proteinSequence[ position ] ) ] );
     var samplesLabels = jsonInput.SampleNames;
     var samplesData = [ ];
     var samplesAnnotation = [ ];
@@ -197,49 +236,46 @@ function loadEChartsView( ) {
     var variantPositions = Object.keys( jsonInput.PerPositionVariants );
     for ( let j = 0; j < length; j ++ ) {
         let variantPosition = false;
-        if ( variantPositions.includes( String( j + 1 ) ) ) {
-            variantPosition = true;
-        }
-        for ( let i = 0; i < samplesLabels.length; i++ ) {
-            let dnaChar = ".";
-            let annotation = "";
-            if ( variantPosition ) {
-                dnaChar = jsonInput.PerPositionVariants[ String( j + 1 ) ][ i ];
-                annotation = jsonInput.PerPositionAnnotations[ String( j + 1 ) ][ i ];
+        if ( variantPositions.includes( String( j + 1 ) ) ) variantPosition = true;
+        if ( variantPosition ) {
+            let index = j + 1;
+            
+            for ( let i = 0; i < samplesLabels.length; i++ ) {
+                let dnaChar = jsonInput.PerPositionVariants[ String( index ) ][ i ];
+                let annotation = jsonInput.PerPositionAnnotations[ String( index ) ][ i ];
                 samplesData.push( [ j, i, dnaCharToInt( dnaChar ) ] );
                 samplesAnnotation.push( [ j, i, annotation ] );
-            }    
-        }
-        if ( variantPosition ) {
-            snvCounts[ "Ref." ].push( parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 0 ] ) );
+            }
+            
+            snvCounts[ "Ref." ].push( parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 0 ] ) );
             snvCounts[ "Ref. discarded" ].push( 
-                parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 1 ] ) + 
-                parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 2 ] )
+                parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 1 ] ) + 
+                parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 2 ] )
             );
-            snvCounts[ "Del." ].push( parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 3 ] ) );
-            snvCounts[ "A" ].push( parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 4 ] ) );
+            snvCounts[ "Del." ].push( parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 3 ] ) );
+            snvCounts[ "A" ].push( parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 4 ] ) );
             snvCounts[ "A discarded" ].push(
-                parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 5 ] ) +
-                parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 6 ] ) +
-                parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 7 ] )
+                parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 5 ] ) +
+                parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 6 ] ) +
+                parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 7 ] )
             );
-            snvCounts[ "C" ].push( parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 8 ] ) );
+            snvCounts[ "C" ].push( parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 8 ] ) );
             snvCounts[ "C discarded" ].push(
-                parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 9 ] ) +
-                parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 10 ] ) +
-                parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 11 ] )
+                parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 9 ] ) +
+                parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 10 ] ) +
+                parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 11 ] )
             );
-            snvCounts[ "G" ].push( parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 12 ] ) );
+            snvCounts[ "G" ].push( parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 12 ] ) );
             snvCounts[ "G discarded" ].push(
-                parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 13 ] ) +
-                parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 14 ] ) +
-                parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 15 ] )
+                parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 13 ] ) +
+                parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 14 ] ) +
+                parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 15 ] )
             );
-            snvCounts[ "T" ].push( parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 16 ] ) );
+            snvCounts[ "T" ].push( parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 16 ] ) );
             snvCounts[ "T discarded" ].push(
-                parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 17 ] ) +
-                parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 18 ] ) +
-                parseInt( jsonInput.PerPositionCounts[ String( j + 1 ) ][ 19 ] )
+                parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 17 ] ) +
+                parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 18 ] ) +
+                parseInt( jsonInput.PerPositionCounts[ String( index ) ][ 19 ] )
             );
         } else {
             Object.keys( snvCounts ).forEach( ( key ) => {
@@ -290,13 +326,13 @@ function loadEChartsView( ) {
                 }
                 position = dataIndex + 1;
                 referenceContent = dnaIntToChar( referenceData[ dataIndex ][ 2 ] );
-                proteinSequenceContent = aaIntToChar( proteinSequenceData[ dataIndex ][ 2 ] );
+                proteinSequenceContent = aaIntToChar( proteinData[ dataIndex ][ 2 ] );
                 if ( seriesIndex == 1 ) {
                     // CASE: Item is from samples chart.
                     let index = params.data[ 1 ];
                     sampleName = samplesLabels[ index ];
                     sampleContent = dnaIntToChar( params.data[ 2 ] );
-                    let annotationString = samplesAnnotation[ dataIndex ][ 2 ];
+                    let annotationString = samplesAnnotation[ params.dataIndex ][ 2 ];
                     if ( annotationString != "." ) {
                         for ( let annotation of annotationString.split( ";" ) ) {
                             let annotationFields = annotation.split( "=" );
@@ -344,29 +380,20 @@ function loadEChartsView( ) {
                 return tooltipHtmlString;
             }
         },
-        /*
-        toolbox: {
-            orient: 'vertical',
-            feature: {
-                saveAsImage: {},
-                dataView: {}
-            }
-        },
-        */
         grid: [
-            {
+            {   // Grid to display protein sequence information.
                 top: '10',
                 left: '17%',
                 height: '5%',
                 width: '77%'
             },
-            {
-                top: '50', //'14.5%',
+            {   // Grid to display reference sequence information.
+                top: '50',
                 left: '17%',
                 height: '5%',
                 width: '77%'
             },
-            {
+            {   // Grid to display sample content and annotation information.
                 top: '90', //'21.5%',
                 left: '17%',
                 height: '54%',
@@ -374,17 +401,17 @@ function loadEChartsView( ) {
                 show: true,
                 backgroundColor: '#EEEEEE'
             },
-            {
-                top: '410', // 73.5%',
-                left: '17%',
-                height: '16%',
-                width: '77%',
+            {   // Grid to display global composition of variants.
+                top: 490,
+                bottom: 10,
+                left: '17.2%',
+                width: '76.9%',
                 show: true,
                 backgroundColor: '#EEEEEE'
             }
         ],
         xAxis: [
-            {
+            {   // X axis to display reference sequence information.
                 type: 'category',
                 data: positions,
                 splitArea: {
@@ -393,24 +420,25 @@ function loadEChartsView( ) {
                 show: false,
                 gridIndex: 1
             },
-            {
+            {   // X axis to display sample content and annotation information.
+                type: 'category',
+                data: positions,
+                splitArea: {
+                    show: false
+                },
+                show: true,
+                gridIndex: 2
+            },
+            {   // X axis to display global composition of variants.
                 type: 'category',
                 data: positions,
                 splitArea: {
                     show: false
                 },
                 show: false,
-                gridIndex: 2
-            },
-            {
-                type: 'category',
-                data: positions,
-                splitArea: {
-                    show: false
-                },
                 gridIndex: 3
             },
-            {
+            {   // X axis to display protein sequence information.
                 type: 'category',
                 data: positions,
                 splitArea: {
@@ -421,7 +449,7 @@ function loadEChartsView( ) {
             }
         ],
         yAxis: [
-            {
+            {   // Y axis to display reference sequence information.
                 type: 'category',
                 data: referenceLabel,
                 splitArea: {
@@ -429,7 +457,7 @@ function loadEChartsView( ) {
                 },
                 gridIndex: 1
             },
-            {
+            {   // Y axis to display sample content and annotation information.
                 type: 'category',
                 data: samplesLabels,
                 axisTick: {
@@ -441,16 +469,17 @@ function loadEChartsView( ) {
                 gridIndex: 2,
                 inverse: true
             },
-            {
+            {   // Y axis to display global composition of variants.
                 type: 'value',
                 min: 0,
                 max: samplesLabels.length,
                 splitArea: {
                     show: false
                 },
+                show: false,
                 gridIndex: 3
             },
-            {
+            {  // Y axis to display protein sequence information.
                 type: 'category',
                 data: proteinLabel,
                 splitArea: {
@@ -460,64 +489,64 @@ function loadEChartsView( ) {
             }
         ],
         visualMap: [
-            {
+            {   // Visual map to color nucleotide information.
                 type: 'piecewise',
                 pieces: [
                     // ACGT$.:;-aqygfhtrzcvd
-                    { min: 1, max: 1, color: "#12e049" }, // A
-                    { min: 2, max: 2, color: "#4B90DE" }, // C
-                    { min: 3, max: 3, color: "#DEC54B" }, // G
-                    { min: 4, max: 4, color: "#DF4B4B" }, // T
-                    { min: 5, max: 5, color: "#ed4ce5" }, // No match with protein sequence.
-                    { min: 6, max: 6, color: "#DDDDDD" }, // Reference
-                    { min: 7, max: 7, color: "#999999" }, // Reference, low quality
-                    { min: 8, max: 8, color: "#999999"}, // Reference, low coverage
-                    { min: 9, max: 9, color: "#333333" }, // Deletion
-                    { min: 10, max: 10, color: "#8bd6a0" }, // A, low quality
-                    { min: 11, max: 11, color: "#8bd6a0" }, // A, low coverage
-                    { min: 12, max: 12, color: "#8bd6a0" }, // A, low frequency
-                    { min: 13, max: 13, color: "#a7bcd4" }, // C, low quality
-                    { min: 14, max: 14, color: "#a7bcd4" }, // C, low coverage
-                    { min: 15, max: 15, color: "#a7bcd4" }, // C, low frequency
-                    { min: 16, max: 16, color: "#e0d59f" }, // G, low quality
-                    { min: 17, max: 17, color: "#e0d59f" }, // G, low coverage
-                    { min: 18, max: 18, color: "#e0d59f" }, // G, low frequency
-                    { min: 19, max: 19, color: "#e39f9f" }, // T, low quality
-                    { min: 20, max: 20, color: "#e39f9f" }, // T, low coverage
-                    { min: 21, max: 21, color: "#e39f9f" } // T, low frequency
+                    { min: 1, max: 1, color: colorSchemes.nucleotides.A }, // A
+                    { min: 2, max: 2, color: colorSchemes.nucleotides.C }, // C
+                    { min: 3, max: 3, color: colorSchemes.nucleotides.G }, // G
+                    { min: 4, max: 4, color: colorSchemes.nucleotides.T }, // T
+                    { min: 5, max: 5, color: colorSchemes.nucleotides.nomatch }, // No match with protein sequence.
+                    { min: 6, max: 6, color: colorSchemes.nucleotides.ref }, // Reference
+                    { min: 7, max: 7, color: colorSchemes.nucleotides.dref }, // Reference, low quality
+                    { min: 8, max: 8, color: colorSchemes.nucleotides.dref }, // Reference, low coverage
+                    { min: 9, max: 9, color: colorSchemes.nucleotides.del }, // Deletion
+                    { min: 10, max: 10, color: colorSchemes.nucleotides.dA }, // A, low quality
+                    { min: 11, max: 11, color: colorSchemes.nucleotides.dA }, // A, low coverage
+                    { min: 12, max: 12, color: colorSchemes.nucleotides.dA }, // A, low frequency
+                    { min: 13, max: 13, color: colorSchemes.nucleotides.dC }, // C, low quality
+                    { min: 14, max: 14, color: colorSchemes.nucleotides.dC }, // C, low coverage
+                    { min: 15, max: 15, color: colorSchemes.nucleotides.dC }, // C, low frequency
+                    { min: 16, max: 16, color: colorSchemes.nucleotides.dG }, // G, low quality
+                    { min: 17, max: 17, color: colorSchemes.nucleotides.dG }, // G, low coverage
+                    { min: 18, max: 18, color: colorSchemes.nucleotides.dG }, // G, low frequency
+                    { min: 19, max: 19, color: colorSchemes.nucleotides.dT }, // T, low quality
+                    { min: 20, max: 20, color: colorSchemes.nucleotides.dT }, // T, low coverage
+                    { min: 21, max: 21, color: colorSchemes.nucleotides.dT } // T, low frequency
                 ],
                 seriesIndex: [ 0, 1 ],
                 show: false
             },
-            {
-            type: 'piecewise',
+            {   // Visual map to color amino-acid information.
+                type: 'piecewise',
                 pieces: [
-                    { min: 1, max: 3, color: "#ADF5FF" },
-                    { min: 4, max: 5, color: "#D55672" },
-                    { min: 6, max: 9, color: "#81D488" },
-                    { min: 10, max: 14, color: "#EDC79B" },
-                    { min: 15, max: 17, color: "#E5BEED" },
-                    { min: 18, max: 19, color: "#93827F" },
-                    { min: 20, max: 20, color: "#FFE66D" },
-                    { min: 21, max: 22, color: "#ed4ce5" },
-                    { min: 23, max: 23, color: "#333333" }
+                    { min: 1, max: 3, color: colorSchemes.aminoacids.H },
+                    { min: 4, max: 5, color: colorSchemes.aminoacids.D },
+                    { min: 6, max: 10, color: colorSchemes.aminoacids.S },
+                    { min: 11, max: 13, color: colorSchemes.aminoacids.F },
+                    { min: 14, max: 20, color: colorSchemes.aminoacids.A },
+                    { min: 21, max: 21, color: colorSchemes.aminoacids.del },
+                    { min: 22, max: 23, color: colorSchemes.aminoacids.nomatch }
                 ],
                 seriesIndex: [ 13 ],
                 show: false
             }
         ],
-        legend: {
+        legend: { // Disable default legend.
             show: false
         },
         dataZoom: [
-            {
+            {   // Data zoom to zoom into position intervals.
                 type: 'slider',
                 xAxisIndex: [ 0, 1, 3 ],
                 minValueSpan: 30,
-                maxValueSpan: length,
+                maxValueSpan: 2900,
                 realtime: false,
                 throttle: 100,
-                bottom: 10,
+                top: 482,
+                bottom: 14,
+                left: '17%',
                 id: "positionZoom",
                 showDataShadow: false,
                 backgroundColor: "transparent",
@@ -535,10 +564,9 @@ function loadEChartsView( ) {
                     }
                 }
             },
-            {
+            {   // Data zoom to zoom into single samples.
                 type: 'slider',
                 yAxisIndex: [ 1 ],
-                minValueSpan: 8,
                 maxValueSpan: samplesLabels.length,
                 throttle: 5,
                 right: "4%",
@@ -611,7 +639,7 @@ function loadEChartsView( ) {
                 type: 'bar',
                 stack: 'SNV_AGGREGATED',
                 itemStyle: {
-                    color: "#12e049"
+                    color: colorSchemes.nucleotides.A
                 },
                 data: snvCounts[ "A" ],
                 xAxisIndex: 2,
@@ -622,7 +650,7 @@ function loadEChartsView( ) {
                 type: 'bar',
                 stack: 'SNV_AGGREGATED',
                 itemStyle: {
-                    color: "#8bd6a0"
+                    color: colorSchemes.nucleotides.dA
                 },
                 data: snvCounts[ "A discarded" ],
                 xAxisIndex: 2,
@@ -633,7 +661,7 @@ function loadEChartsView( ) {
                 type: 'bar',
                 stack: 'SNV_AGGREGATED',
                 itemStyle: {
-                    color: "#4B90DE"
+                    color: colorSchemes.nucleotides.C
                 },
                 data: snvCounts[ "C" ],
                 xAxisIndex: 2,
@@ -644,7 +672,7 @@ function loadEChartsView( ) {
                 type: 'bar',
                 stack: 'SNV_AGGREGATED',
                 itemStyle: {
-                    color: "#a7bcd4"
+                    color: colorSchemes.nucleotides.dC
                 },
                 data: snvCounts[ "C discarded" ],
                 xAxisIndex: 2,
@@ -655,7 +683,7 @@ function loadEChartsView( ) {
                 type: 'bar',
                 stack: 'SNV_AGGREGATED',
                 itemStyle: {
-                    color: "#DEC54B"
+                    color: colorSchemes.nucleotides.G
                 },
                 data: snvCounts[ "G" ],
                 xAxisIndex: 2,
@@ -666,7 +694,7 @@ function loadEChartsView( ) {
                 type: 'bar',
                 stack: 'SNV_AGGREGATED',
                 itemStyle: {
-                    color: "#e0d59f"
+                    color: colorSchemes.nucleotides.dG
                 },
                 data: snvCounts[ "G discarded" ],
                 xAxisIndex: 2,
@@ -677,7 +705,7 @@ function loadEChartsView( ) {
                 type: 'bar',
                 stack: 'SNV_AGGREGATED',
                 itemStyle: {
-                    color: "#DF4B4B"
+                    color: colorSchemes.nucleotides.T
                 },
                 data: snvCounts[ "T" ],
                 xAxisIndex: 2,
@@ -688,7 +716,7 @@ function loadEChartsView( ) {
                 type: 'bar',
                 stack: 'SNV_AGGREGATED',
                 itemStyle: {
-                    color: "#e39f9f"
+                    color: colorSchemes.nucleotides.dT
                 },
                 data: snvCounts[ "T discarded" ],
                 xAxisIndex: 2,
@@ -699,7 +727,7 @@ function loadEChartsView( ) {
                 type: 'bar',
                 stack: 'SNV_AGGREGATED',
                 itemStyle: {
-                    color: "#333333"
+                    color: colorSchemes.nucleotides.del
                 },
                 data: snvCounts[ "Del." ],
                 xAxisIndex: 2,
@@ -710,7 +738,7 @@ function loadEChartsView( ) {
                 type: 'bar',
                 stack: 'SNV_AGGREGATED',
                 itemStyle: {
-                    color: "#999999"
+                    color: colorSchemes.nucleotides.dref
                 },
                 data: snvCounts[ "Ref. discarded" ],
                 xAxisIndex: 2,
@@ -721,7 +749,7 @@ function loadEChartsView( ) {
                 type: 'bar',
                 stack: 'SNV_AGGREGATED',
                 itemStyle: {
-                    color: "#DDDDDD"
+                    color: colorSchemes.nucleotides.ref
                 },
                 data: snvCounts[ "Ref." ],
                 xAxisIndex: 2,
@@ -730,7 +758,7 @@ function loadEChartsView( ) {
             {
                 name: 'Protein',
                 type: 'heatmap',
-                data: proteinSequenceData,
+                data: proteinData,
                 label: {
                     show: false,
                     formatter: function ( params ) {
@@ -760,12 +788,18 @@ function loadEChartsView( ) {
         } else {
             dataIndex = params.dataIndex;
         }
-        let position = Math.ceil( ( dataIndex + 1 ) / 3 );
-        viewer.removeAllLabels();
-        viewer.setStyle({}, {cartoon: {color: 'spectrum'}});
-        viewer.addStyle({resi: [position]},{stick:{radius:1,color:"#FFBE0B"}});
-        viewer.addResLabels({resi: [position]});
-        viewer.render();
+        let proteinSequenceSubstring = proteinSequence.substring( 0, dataIndex + 1 );
+        if ( proteinSequenceSubstring.endsWith( "?" ) ) {
+            return;
+        } else {
+            let noMatchCount = ( proteinSequenceSubstring.match( /\?/g ) || [ ] ).length;
+            let position = Math.ceil( ( dataIndex + 1 - noMatchCount ) / 3 );
+            viewer.removeAllLabels();
+            viewer.setStyle({}, {cartoon: {colorfunc: (atom) => { return colorSchemes.mol3d[ atom.resn ] } }});
+            viewer.addStyle({resi: [position]},{stick:{radius:1,color:"#FFBE0B"}});
+            viewer.addResLabels({resi: [position]});
+            viewer.render();
+        }
     });
     
     echart.on('datazoom', function(params) {
@@ -788,7 +822,7 @@ function loadProteinView( ) {
     let config = { backgroundColor: '#FFFFFF' };
     viewer = $3Dmol.createViewer( element, config );
     viewer.addModel( jsonInput.ProteinStructure, "pdb" );
-    viewer.setStyle({}, {cartoon: {color: 'spectrum'}});
+    viewer.setStyle({}, {cartoon: {colorfunc: (atom) => { return colorSchemes.mol3d[ atom.resn ] } }});
     viewer.setViewStyle({style:"outline"});
     viewer.zoomTo();
     viewer.render();
