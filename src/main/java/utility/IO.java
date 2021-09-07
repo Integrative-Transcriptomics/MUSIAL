@@ -1,6 +1,5 @@
 package utility;
 
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import datastructure.FastaEntry;
 import datastructure.GeneFeature;
@@ -15,15 +14,15 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Scanner;
 import main.Musial;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.biojava.nbio.core.exceptions.CompoundNotFoundException;
 import org.biojava.nbio.genome.parsers.gff.FeatureList;
 import org.biojava.nbio.genome.parsers.gff.GFF3Reader;
@@ -74,9 +73,11 @@ public final class IO {
   }
 
   /**
-   * @param file
-   * @return
-   * @throws MusialIOException
+   * Reads a `.pdb` file and returns the therein stored proteins amino-acid sequence.
+   *
+   * @param file {@link File} object pointing to a `.pdb` file.
+   * @return {@link String} representing the amino acid sequence of the protein stored in the passed `.pdb` file.
+   * @throws MusialIOException If the specified `.pdb` file does not exist or could not be accessed.
    */
   public static String getSequenceFromPdb(File file) throws MusialIOException {
     // Initialize pdbReader.
@@ -85,9 +86,8 @@ public final class IO {
     params.setParseSecStruc(true);
     params.setAlignSeqRes(true);
     pdbReader.setFileParsingParameters(params);
-    // Initialize string builders for amino-acid and nucleotide sequence.
+    // Initialize string builders for amino-acid sequence.
     StringBuilder aaSequenceStringBuilder = new StringBuilder();
-    StringBuilder nucleotideSequenceStringBuilder = new StringBuilder();
     // Read the `.pdb` file.
     Structure pdbStructure;
     try {
@@ -105,9 +105,11 @@ public final class IO {
   }
 
   /**
-   * @param file
-   * @return
-   * @throws FileNotFoundException
+   * Reads a `.pdb` file and returns the file content as a string.
+   *
+   * @param file {@link File} object pointing to a `.pdb` file.
+   * @return {@link String} representing the file content of the specified `.pdb` file.
+   * @throws FileNotFoundException If the specified `.pdb` file does not exist.
    */
   public static String getPdbAsString(File file) throws FileNotFoundException {
     StringBuilder pdbStringBuilder = new StringBuilder();
@@ -201,6 +203,7 @@ public final class IO {
    * Accepts a {@link File} object representing a directory that is subject to deletion.
    *
    * @param file {@link File} specifying the directory to delete.
+   * @throws IOException If any file deletion procedure failed, for example the specified directory does not exist.
    */
   public static void deleteDirectory(File file) throws IOException {
     if (file.isDirectory()) {
@@ -359,6 +362,7 @@ public final class IO {
    * @param variablePositionsTable {@link VariablePositionsTable} instance containing variant information.
    * @throws MusialIOException If the output file could not be generated or not written to.
    */
+  @SuppressWarnings("unused")
   public static void writeSampleStatistics(File outFile, String referenceAnalysisId,
                                            VariablePositionsTable variablePositionsTable) throws MusialIOException {
     if (!outFile.exists()) {
@@ -455,11 +459,24 @@ public final class IO {
   }
 
   /**
-   * @param outFile
-   * @param referenceAnalysisId
-   * @param variablePositionsTable
-   * @param arguments
+   * Writes a `.json` file storing the data for visualization with MUSIAL IVE.
+   * <p>
+   * In the current version 2.0 the file contains the following data:
+   * - The name of the reference feature (e.g. a gene name).
+   * - The reference nucleotide sequence.
+   * - Per sample per (variant) position variant bases.
+   * - Per sample per (variant) position annotations (i.e. coverage and quality).
+   * - (Optional) The name of the protein corresponding to the reference feature, currently the name of the `.pdb` file.
+   * - (Optional) The amino acid sequence of the protein corresponding to the reference feature.
+   *
+   * @param outFile                {@link File} object specifying the output file.
+   * @param referenceAnalysisId    {@link String} used as a key in a {@link VariablePositionsTable} to specify the
+   *                               reference feature for which the config file is generated.
+   * @param variablePositionsTable {@link VariablePositionsTable} storing the corresponding data.
+   * @param arguments              {@link ArgumentsParser} arguments parsed from the command line.
+   * @throws MusialIOException If any output file does not exist or could not be accessed.
    */
+  @SuppressWarnings("unchecked")
   public static void writeIveConfig(File outFile, String referenceAnalysisId,
                                     VariablePositionsTable variablePositionsTable, ArgumentsParser arguments)
       throws MusialIOException {
@@ -474,6 +491,7 @@ public final class IO {
           "Reference", false);
       if (!arguments.isIncludeStructureInformation()) {
         mainObj.put("ReferenceSequence", referenceSequence);
+        mainObj.put("ReferenceName", referenceAnalysisId);
       } else {
         // Otherwise, first match protein and reference sequence before adding them to JSON.
         File pdbFile = arguments.getPdInputFiles().get(referenceAnalysisId);
@@ -483,8 +501,11 @@ public final class IO {
         proteinSequence = matchedSequences.get(0);
         referenceSequence = matchedSequences.get(1);
         mainObj.put("ReferenceSequence", referenceSequence);
+        mainObj.put("ReferenceSequenceName", referenceAnalysisId);
         mainObj.put("ProteinSequence", proteinSequence);
         mainObj.put("ProteinStructure", proteinStructure);
+        mainObj.put("ProteinName",
+            FilenameUtils.removeExtension(FilenameUtils.getBaseName(pdbFile.getAbsolutePath())));
       }
       // Add sample names.
       JSONArray sampleNames = new JSONArray();
@@ -497,7 +518,7 @@ public final class IO {
       int shift = 0;
       // TODO: Temporary solution to get correct reference position offset/start.
       int locationOffset = 0;
-      if ( arguments.getIncludedGeneFeatures().size() > 0 ) {
+      if (arguments.getIncludedGeneFeatures().size() > 0) {
         for (GeneFeature includedGeneFeature : arguments.getIncludedGeneFeatures()) {
           if (includedGeneFeature.featureName.equals(referenceAnalysisId)) {
             locationOffset = includedGeneFeature.startPosition;
@@ -506,7 +527,7 @@ public final class IO {
       }
       for (Iterator<String> it = variablePositionsTable.getVariantPositions(referenceAnalysisId); it.hasNext(); ) {
         String variantPosition = it.next();
-        int position = Integer.parseInt( variantPosition ) - locationOffset;
+        int position = Integer.parseInt(variantPosition) - locationOffset + 1; // Add 1 due to 1-based indexing.
         if (variantPosition.contains("I")) {
           shift += 1;
         }
@@ -528,13 +549,13 @@ public final class IO {
         positionVariants.addAll(positionVariantsList);
         positionAnnotations.addAll(positionAnnotationsList);
         positionCounts.addAll(positionCountsList);
-        perPositionVariants.put(position,positionVariants);
-        perPositionAnnotations.put(position,positionAnnotations);
-        perPositionCounts.put(position,positionCounts);
+        perPositionVariants.put(position, positionVariants);
+        perPositionAnnotations.put(position, positionAnnotations);
+        perPositionCounts.put(position, positionCounts);
       }
-      mainObj.put("PerPositionVariants",perPositionVariants);
-      mainObj.put("PerPositionAnnotations",perPositionAnnotations);
-      mainObj.put("PerPositionCounts",perPositionCounts);
+      mainObj.put("PerPositionVariants", perPositionVariants);
+      mainObj.put("PerPositionAnnotations", perPositionAnnotations);
+      mainObj.put("PerPositionCounts", perPositionCounts);
       // Write JSON to file.
       FileWriter iveConfigWriter = new FileWriter(outFile.getAbsolutePath());
       iveConfigWriter.write(mainObj.toString());
@@ -545,7 +566,6 @@ public final class IO {
       throw new MusialIOException("Failed to write to output file:\t" + outFile.getAbsolutePath());
     } catch (CompoundNotFoundException e) {
       e.printStackTrace();
-      //throw new MusialIOException();
     }
   }
 

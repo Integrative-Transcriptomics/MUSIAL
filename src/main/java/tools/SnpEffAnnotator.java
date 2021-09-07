@@ -41,12 +41,15 @@ public final class SnpEffAnnotator {
    * generating a database with the specified reference files, SnpEff is run on each single sample .vcf file.
    *
    * @param arguments Instance of {@link ArgumentsParser} containing the command line options specified by the user.
+   * @throws IOException          If any copy procedure or writing to a file fails.
+   * @throws MusialIOException    If any generation of output directories or files fails.
+   * @throws InterruptedException If a single thread was interrupted.
    */
   public static void runSnpEff(ArgumentsParser arguments) throws IOException, MusialIOException,
       InterruptedException {
     ProgressBar progress = Musial.buildProgress();
     progress.maxHint(4 + arguments.getSampleInput().size());
-    try ( progress ) {
+    try (progress) {
       // 1. Copy snpEff from internal installation to output directory.
       String snpEffPath = arguments.getOutputDirectory().toString() + "/snpEff/";
       File snpEffFile = new File(snpEffPath);

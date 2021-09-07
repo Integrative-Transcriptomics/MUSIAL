@@ -57,6 +57,7 @@ public final class VariablePositionsTable {
   /**
    * Inserts a new {@link VariablePosition} instance into the table structure.
    *
+   * @param referenceAnalysisId {@link String} the name of the reference feature to access.
    * @param genomePosition   {@link String} representing the analyzed reference feature.
    * @param sampleName       {@link String} representing the name of the sample.
    * @param variablePosition {@link VariablePosition} to insert.

@@ -13,17 +13,29 @@ import java.util.Date;
 public final class Logging {
 
   /**
+   * Prints a status message with time-stamp information.
+   *
    * @param message A {@link String} printed as info message.
    */
   public static void logStatus(String message) {
-    System.out.println( "\n[" + Logging.getTimestampDayTime( ) + "] STATUS: " + message  );
+    System.out.println("\n[" + Logging.getTimestampDayTime() + "] STATUS: " + message);
   }
 
+  /**
+   * Prints a error message with time-stamp information.
+   *
+   * @param message A {@link String} printed as error message.
+   */
   public static void logError(String message) {
-    System.out.println( "\n[" + Logging.getTimestampDayTime( ) + "] ERROR: " + message  );
+    System.out.println("\n[" + Logging.getTimestampDayTime() + "] ERROR: " + message);
     System.exit(-1);
   }
 
+  /**
+   * Generates a {@link String} stating "Done" concatenated with time-stamp information.
+   *
+   * @return {@link String} containing the message.
+   */
   public static String getDoneMessage() {
     return "Done [" + Logging.getTimestampTime() + "]";
   }

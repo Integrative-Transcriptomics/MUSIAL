@@ -151,8 +151,12 @@ public final class ArgumentsParser {
    * stored - and accessible - via class properties.
    *
    * @param args {@link String} {@link Array} containing the command line arguments.
-   * @throws MusialCLAException If any error occurs during parsing or validating an
-   *                            {@link MusialCLAException} is thrown.
+   * @throws MusialCLAException         If any error occurs during parsing or validating an
+   *                                    {@link MusialCLAException} is thrown.
+   * @throws ParseException             If any parsing error occurs.
+   * @throws MusialFaultyDataException  If any faulty data was specified (i.e. features on the reference sequence with
+   *                                    length 0).
+   * @throws MusialDuplicationException If any duplicated entry was generated.
    */
   public ArgumentsParser(String[] args)
       throws MusialCLAException, ParseException, MusialFaultyDataException, MusialDuplicationException {
@@ -234,8 +238,9 @@ public final class ArgumentsParser {
     options.addOption(Option.builder("gf")
         .longOpt("geneFile")
         .desc("Gene names to analyze exclusively instead of the whole genome parsed from a file, each line has to " +
-            "contain one gene name. Requires the specification of a .gff reference genome sequence annotation and " +
-            "each passed gene should be identifiable via this .gff file.")
+            "contain one gene name and may contain an alternative gene name, separated by a comma to the gene name. " +
+            "Requires the specification of a .gff reference genome sequence annotation and each passed gene should " +
+            "be identifiable via this .gff file.")
         .hasArg()
         .hasArgs()
         .build());
@@ -439,6 +444,7 @@ public final class ArgumentsParser {
     boolean hasGeneNames = false;
     String geneInputType = "";
     List<String> geneNames = new ArrayList<>();
+    List<String> alternativeGeneNames = new ArrayList<>();
     if (cmd.hasOption("gn")) {
       if (!cmd.hasOption("g")) {
         throw new MusialCLAException(
@@ -446,6 +452,7 @@ public final class ArgumentsParser {
                 "(see 'g' option).");
       }
       geneNames = Arrays.asList(cmd.getOptionValues("gn"));
+      alternativeGeneNames = geneNames;
       hasGeneNames = true;
       geneInputType = "gn";
     }
@@ -461,7 +468,16 @@ public final class ArgumentsParser {
                 "(see 'g' option).");
       }
       try {
-        geneNames = IO.getLinesFromFile(cmd.getOptionValue("gf"));
+        for (String fileEntry : IO.getLinesFromFile(cmd.getOptionValue("gf"))) {
+          if (fileEntry.contains(",")) {
+            String[] fileEntrySplit = fileEntry.split(",");
+            geneNames.add(fileEntrySplit[0]);
+            alternativeGeneNames.add(fileEntrySplit[1]);
+          } else {
+            geneNames.add(fileEntry);
+            alternativeGeneNames.add(fileEntry);
+          }
+        }
         hasGeneNames = true;
         geneInputType = "gf";
       } catch (FileNotFoundException e) {
@@ -478,26 +494,32 @@ public final class ArgumentsParser {
             "`-" + geneInputType + "` The specified reference genome annotation could not be read:\t" + e.getMessage());
       }
       HashSet<String> parsedGeneNames = new HashSet<>();
-      for (String geneName : geneNames) {
-        FeatureList geneFeatures = referenceAnnotationFeatures.selectByAttribute("Name", geneName);
+      for (int i = 0; i < geneNames.size(); i++) {
+        String geneIdentifier = geneNames.get(i);
+        String geneName = alternativeGeneNames.get(i);
+        FeatureList geneFeatures = referenceAnnotationFeatures.selectByAttribute("Name", geneIdentifier);
         if (geneFeatures.size() == 0) {
           throw new MusialCLAException(
               "`-" + geneInputType + "` The following specified gene was not found in the reference genome " +
-                  "annotation:\t" + geneName);
+                  "annotation:\t" + geneIdentifier);
         } else if (geneFeatures.size() > 1) {
           throw new MusialCLAException(
               "`-" + geneInputType + "` More than one feature was identified for the following gene in the reference " +
-                  "genome annotation:\t" + geneName);
-        } else if (parsedGeneNames.contains(geneName)) {
+                  "genome annotation:\t" + geneIdentifier);
+        } else if (parsedGeneNames.contains(geneIdentifier)) {
           throw new MusialDuplicationException(
-              "`-" + geneInputType + "` The following gene name was specified more than once:\t" + geneName);
+              "`-" + geneInputType + "` The following gene name was specified more than once:\t" + geneIdentifier);
         } else {
           FeatureI geneFeature = geneFeatures.get(0);
           Location geneLocation = geneFeature.location();
           String geneSeqName = geneFeature.seqname();
+          /*
+          TODO: Investigate shift of start position by plus one. The returned value does not match .gff.
+          This is currently fixed in the GeneFeature.java  class.
+           */
           this.includedGeneFeatures.add(new GeneFeature(geneSeqName, geneName, geneLocation.start(),
               geneLocation.end()));
-          parsedGeneNames.add(geneName);
+          parsedGeneNames.add(geneIdentifier);
         }
       }
     }
@@ -690,7 +712,7 @@ public final class ArgumentsParser {
   /**
    * @return {@link HashMap} mapping gene names to `.pdb` files, one for each parsed gene name.
    */
-  public HashMap<String,File> getPdInputFiles() {
+  public HashMap<String, File> getPdInputFiles() {
     return pdInputFiles;
   }
 
@@ -705,7 +727,7 @@ public final class ArgumentsParser {
   }
 
   /**
-   * Populates the {@link ArgumentsParser::sampleInput} property with {@link File} objects pointing to input .vcf files.
+   * Populates the {@link ArgumentsParser} sampleInput property with {@link File} objects pointing to input .vcf files.
    *
    * @param li A {@link String[]} containing paths to .vcf files.
    */
@@ -716,7 +738,7 @@ public final class ArgumentsParser {
   }
 
   /**
-   * Populates the {@link ArgumentsParser::sampleInput} property with {@link File} objects pointing to input .vcf files.
+   * Populates the {@link ArgumentsParser} sampleInput property with {@link File} objects pointing to input .vcf files.
    *
    * @param li A {@link List<String>} containing paths to .vcf files.
    */
@@ -727,7 +749,7 @@ public final class ArgumentsParser {
   }
 
   /**
-   * Populates the {@link ArgumentsParser::sampleNames} property with {@link String} objects specifying sample names.
+   * Populates the {@link ArgumentsParser} sampleNames property with {@link String} objects specifying sample names.
    *
    * @param li A {@link String[]} containing sample names.
    */
@@ -736,7 +758,7 @@ public final class ArgumentsParser {
   }
 
   /**
-   * Populates the {@link ArgumentsParser::sampleNames} property with {@link String} objects specifying sample names.
+   * Populates the {@link ArgumentsParser} sampleNames property with {@link String} objects specifying sample names.
    *
    * @param li A {@link List<String>} containing sample names.
    */

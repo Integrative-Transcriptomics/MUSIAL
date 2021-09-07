@@ -47,6 +47,7 @@ public final class SampleAnalyser {
    * @param arguments        {@link ArgumentsParser} containing arguments parsed from command line.
    * @return {@link VariablePositionsTable} containing the information returned from each single
    * {@link SampleAnalyserRunnable}.
+   * @throws InterruptedException If the thread was interrupted.
    */
   public static VariablePositionsTable run(HashSet<ReferenceAnalysisEntry> referenceEntries,
                                            CopyOnWriteArraySet<SampleAnalysisEntry> sampleEntries,
@@ -93,6 +94,7 @@ public final class SampleAnalyser {
    * @param variablePositionsTable {@link VariablePositionsTable} containing information about the variant sites of a
    *                               set of samples against possibly multiple reference loci.
    * @param referenceEntries       Set of {@link ReferenceAnalysisEntry} instances, each specifying a reference locus.
+   * @param progress {@link ProgressBar} instance to visualize progress information to the user.
    */
   private static void addReferenceToVariablePositionsTable(
       VariablePositionsTable variablePositionsTable, HashSet<ReferenceAnalysisEntry> referenceEntries,
@@ -101,10 +103,11 @@ public final class SampleAnalyser {
       char[] referenceSequenceBases = referenceEntry.analysisSequence.toCharArray();
       int referenceSequenceStart = referenceEntry.analysisSequenceStart;
       for (int i = 0; i < referenceSequenceBases.length; i++) {
+        int position = referenceSequenceStart + i;
         variablePositionsTable.putVariablePosition(
             referenceEntry.analysisIdentifier,
             "Reference",
-            String.valueOf(referenceSequenceStart + i),
+            String.valueOf(position),
             new VariablePosition(
                 referenceSequenceBases[i],
                 Double.POSITIVE_INFINITY,

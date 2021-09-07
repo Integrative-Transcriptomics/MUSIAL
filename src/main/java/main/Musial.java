@@ -36,14 +36,32 @@ import utility.Logging;
  */
 public final class Musial {
 
+  /**
+   * The class name of the software, i.e. MUSIAL.
+   */
   public static String CLASS_NAME = "";
+  /**
+   * The version of the software.
+   */
   public static String VERSION = "";
+  /**
+   * Original out stream.
+   */
   public static final PrintStream ORIGINAL_OUT_STREAM = System.out;
+  /**
+   * Original error stream.
+   */
   public static final PrintStream ORIGINAL_ERR_STREAM = System.err;
+  /**
+   * Alternative output stream to dump log massages.
+   */
   public static final PrintStream EMPTY_STREAM = new PrintStream(new OutputStream() {
     public void write(int b) {
     }
   });
+  /**
+   * Factory to generate {@link ProgressBar} instances with predefined properties.
+   */
   private static final ProgressBarBuilder progressBarBuilder =
       new ProgressBarBuilder().setStyle(ProgressBarStyle.ASCII).setMaxRenderedLength(75);
 
@@ -126,7 +144,7 @@ public final class Musial {
    * <p>
    * The command line arguments specified by the user and accepted by the `main` method are passed to the static method
    * of the {@link SnpEffAnnotator} class. The method does not return any value, but all annotated .vcf files generated
-   * with SnpEff will be stored in the directory <output>/snpEff/results. If any errors arise during the process the
+   * with SnpEff will be stored in the directory [output]/snpEff/results. If any errors arise during the process the
    * program exits.
    *
    * @param arguments Arguments parsed from the command line.

@@ -104,8 +104,7 @@ public final class VariablePosition {
    */
   public final double coverage;
   /**
-   * The Phred scaled quality of the variable position. For more information see: <a href=https://samtools.github
-   * .io/hts-specs/VCFv4.2.pdf>VCFv4.2.pdf</a>.
+   * The Phred scaled quality of the variable position. For more information see: <a href=https://samtools.github.io/hts-specs/VCFv4.2.pdf>VCFv4.2.pdf</a>.
    */
   public final double quality;
   /**
@@ -131,6 +130,7 @@ public final class VariablePosition {
    * @param coverage   The coverage of the alternative.
    * @param quality    The quality score of the alternative.
    * @param annotation Any annotations for the alternative.
+   * @param frequency  The frequency of the alternative.
    */
   public VariablePosition(char content, double coverage, double quality, String annotation,
                           double frequency) {
