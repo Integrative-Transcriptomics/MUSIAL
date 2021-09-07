@@ -8,6 +8,7 @@ import htsjdk.variant.variantcontext.Allele;
 import htsjdk.variant.variantcontext.VariantContext;
 import java.util.List;
 import me.tongfei.progressbar.ProgressBar;
+import utility.Bio;
 
 /**
  * Implementation of the {@link Runnable} interface to analyze a sample.
@@ -136,6 +137,7 @@ public final class SampleAnalyserRunnable implements Runnable {
     // reference calls and other alleles represent deletions wrt. the reference.
     char[] basesArray = referenceAllele.getBaseString().toCharArray();
     char base;
+    String genomePosition;
     // Assume that the reference call passes all filters, thus no further processing is necessary.
     boolean process;
     for (int i = 0; i < basesArray.length; i++) {
@@ -153,11 +155,23 @@ public final class SampleAnalyserRunnable implements Runnable {
         process = false;
       }
       if (process) {
+        // If the reference analysis entry is on the negative sense strand the genome position has to be converted.
+        if ( this.referenceAnalysisEntry.isSense ) {
+          genomePosition = String.valueOf( position + i );
+        } else {
+          genomePosition = String.valueOf(
+              Bio.getPositionOnReverseComplement(
+                  position + i,
+                  referenceAnalysisEntry.analysisSequenceStart,
+                  referenceAnalysisEntry.analysisSequenceEnd
+              )
+          );
+        }
         // Build and pass a variablePosition instance to the variablePositionsTable.
         variablePositionsTable.putVariablePosition(
             referenceAnalysisEntry.analysisIdentifier,
             sampleName,
-            String.valueOf(position + i),
+            genomePosition,
             new VariablePosition(
                 base,
                 coverage,
@@ -191,8 +205,21 @@ public final class SampleAnalyserRunnable implements Runnable {
       // CASE: If the number of characters in the alternative and reference allele are equal, a simple base
       // substitution is observed.
       for (int i = 0; i < alternateBasesArray.length; i++) {
-        base = assignBase(alternateBasesArray[i], variantQuality, variantCoverage, variantFrequency);
-        position = String.valueOf(variantPosition + i);
+        // If the reference analysis entry is on the negative sense strand the genome position and base have to be
+        // converted.
+        if ( this.referenceAnalysisEntry.isSense ) {
+          position = String.valueOf( variantPosition + i );
+          base = assignBase(alternateBasesArray[i], variantQuality, variantCoverage, variantFrequency);
+        } else {
+          position = String.valueOf(
+              Bio.getPositionOnReverseComplement(
+                  variantPosition + i,
+                  referenceAnalysisEntry.analysisSequenceStart,
+                  referenceAnalysisEntry.analysisSequenceEnd
+              )
+          );
+          base = assignBase(Bio.invertBase(alternateBasesArray[i]), variantQuality, variantCoverage, variantFrequency);
+        }
         variablePositionsTable.putVariablePosition(
             referenceAnalysisEntry.analysisIdentifier,
             sampleName,
@@ -211,8 +238,19 @@ public final class SampleAnalyserRunnable implements Runnable {
       // insertion is observed. Currently only the simple case is implemented, i.e. the first base in both alleles is
       // equal and all following bases in the alternative allele are "inserted".
       for (int i = 1; i < alternateBasesArray.length; i++) {
-        base = assignBase(alternateBasesArray[i], variantQuality, variantCoverage, variantFrequency);
-        position = (variantPosition + i) + "I".repeat(i);
+        // If the reference analysis entry is on the negative sense strand the genome position and base have to be
+        // converted.
+        if ( this.referenceAnalysisEntry.isSense ) {
+          position = (variantPosition + i) + "I".repeat(i);
+          base = assignBase(alternateBasesArray[i], variantQuality, variantCoverage, variantFrequency);
+        } else {
+          position = Bio.getPositionOnReverseComplement(
+              variantPosition + i,
+              referenceAnalysisEntry.analysisSequenceStart,
+              referenceAnalysisEntry.analysisSequenceEnd
+          ) + "I".repeat(alternateBasesArray.length - i);
+          base = assignBase(Bio.invertBase(alternateBasesArray[i]), variantQuality, variantCoverage, variantFrequency);
+        }
         variablePositionsTable.putVariablePosition(
             referenceAnalysisEntry.analysisIdentifier,
             sampleName,
@@ -232,7 +270,19 @@ public final class SampleAnalyserRunnable implements Runnable {
       // equal and all following bases in the reference allele were deleted in the alternative allele.
       for (int i = 1; i < referenceBasesArray.length; i++) {
         base = VariablePosition.DELETION;
-        position = String.valueOf(variantPosition + i);
+        // If the reference analysis entry is on the negative sense strand the genome position and base have to be
+        // converted.
+        if ( this.referenceAnalysisEntry.isSense ) {
+          position = String.valueOf( variantPosition + i );
+        } else {
+          position = String.valueOf(
+              Bio.getPositionOnReverseComplement(
+                  variantPosition + i,
+                  referenceAnalysisEntry.analysisSequenceStart,
+                  referenceAnalysisEntry.analysisSequenceEnd
+              )
+          );
+        }
         variablePositionsTable.putVariablePosition(
             referenceAnalysisEntry.analysisIdentifier,
             sampleName,

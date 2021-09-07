@@ -30,12 +30,15 @@ public final class GeneFeature {
    * The end position of the feature.
    */
   public final int endPosition;
-
+  /**
+   * Indicates if the feature is located on the sense strand.
+   */
+  public final boolean isSense;
   /**
    * Constructor of {@link GeneFeature}.
    *
    * @param seqName       {@link String} represents the reference sequence name the feature is located on.
-   * @param featureName   {@link String} represents
+   * @param featureName   {@link String} represents the name of the feature.
    * @param startPosition {@link Integer} 1-based indexed starting position of the feature on the reference sequence.
    * @param endPosition   {@link Integer} 1-based indexed end position of the feature on the reference sequence.
    * @throws MusialFaultyDataException If a feature with faulty start and end position is tried to generate, i.e. if
@@ -43,15 +46,23 @@ public final class GeneFeature {
    */
   public GeneFeature(String seqName, String featureName, int startPosition, int endPosition) throws
       MusialFaultyDataException {
-    if (startPosition < 1 || (startPosition > endPosition) || (endPosition - startPosition) == 0) {
-      throw new MusialFaultyDataException(
-          "It was tried to generate a `GeneFeature` with faulty position data:\t" + startPosition + ", " + endPosition);
-    } else {
-      this.seqName = seqName;
-      this.featureName = featureName;
-      this.startPosition = startPosition;
+
+    if ( startPosition > 0 && endPosition > 0 && (endPosition - startPosition) != 0 ) {
+      // CASE: Feature is on sense strand.
+      this.isSense = true;
+      this.startPosition = startPosition + 1;
       this.endPosition = endPosition;
+    } else if ( startPosition < 0 && endPosition < 0 && (endPosition - startPosition) != 0 ) {
+      // CASE: Feature is on anti-sense strand.
+      this.isSense = false;
+      this.startPosition = (-endPosition) + 1;
+      this.endPosition = -startPosition;
+    } else {
+      throw new MusialFaultyDataException("It was tried to generate a gene feature with faulty position " +
+          "data:");
     }
+    this.seqName = seqName;
+    this.featureName = featureName;
   }
 
 }

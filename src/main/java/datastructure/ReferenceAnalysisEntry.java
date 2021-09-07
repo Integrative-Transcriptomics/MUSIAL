@@ -10,8 +10,8 @@ package datastructure;
  *
  * @author Simon Hackl
  * @version 2.0
- * @since 2.0
  * @TODO: 29.08.2021: This class is highly redundant compared to {@link GeneFeature} class and may extend it.
+ * @since 2.0
  */
 public final class ReferenceAnalysisEntry {
 
@@ -35,6 +35,10 @@ public final class ReferenceAnalysisEntry {
    * The 1-based indexed end position of the feature.
    */
   public final int analysisSequenceEnd;
+  /**
+   * Indicates if the feature is located on the sense strand.
+   */
+  public final boolean isSense;
 
   /**
    * Constructor of {@link ReferenceAnalysisEntry}.
@@ -45,14 +49,16 @@ public final class ReferenceAnalysisEntry {
    *                        is located on.
    * @param entryStart      {@link Integer} The 1-based indexed starting position of the feature on the reference.
    * @param entryEnd        {@link Integer} The 1-based indexed end position of the feature on the reference.
+   * @param isSense         {@link Boolean} indicating the strandedness of the feature.
    */
   public ReferenceAnalysisEntry(String entryIdentifier, String entrySequence, String entryLocation, int entryStart,
-                                int entryEnd) {
+                                int entryEnd, boolean isSense) {
     this.analysisIdentifier = entryIdentifier;
     this.analysisSequence = entrySequence;
     this.analysisSequenceLocation = entryLocation;
     this.analysisSequenceStart = entryStart;
     this.analysisSequenceEnd = entryEnd;
+    this.isSense = isSense;
   }
 
 }

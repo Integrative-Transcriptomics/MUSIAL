@@ -23,6 +23,7 @@ import org.biojava.nbio.core.sequence.compound.AminoAcidCompound;
  *
  * @author Simon Hackl
  * @version 2.0
+ * @TODO: 02.09.2021: Store stop codon positions in nucleotide sequence and re-insert after alignment.
  * @since 2.0
  */
 public final class Bio {
@@ -30,7 +31,7 @@ public final class Bio {
   /**
    * Character to indicate a gap/missing information regarding a nucleotide and amino acid sequence.
    */
-  private static final char PADDING_CHAR = '$';
+  private static final char NO_MATCH_CHAR = '$';
   /**
    * Character to pad an amino acid sequence if the corresponding nucleotide sequence was truncated due to a frameshift.
    */
@@ -120,6 +121,7 @@ public final class Bio {
    * @param nucSequence {@link String} representing a nucleotide sequence.
    * @return {@link ArrayList<String>} comprising the padded amino acid (at index 0) and nucleotide sequence (at
    * index 1) that were derived as the best alignment.
+   * @throws CompoundNotFoundException If a compound, i.e. amino acid, could not be translated.
    */
   public static ArrayList<String> matchSequences(String aaSequence, String nucSequence)
       throws CompoundNotFoundException {
@@ -127,8 +129,6 @@ public final class Bio {
     HashMap<Integer, ArrayList<String>> paddedSequences = new HashMap<>();
     // Check if nucleotide sequence is fully coding sequence, i.e. divisible by three.
     int residual = nucSequence.length() % 3;
-    // Check length difference of sequences.
-    int lengthDifference = aaSequence.length() - (nucSequence.length() / 3);
     // Based on the residual assign frame shift and split nucleotide sequence.
     String translatedNucSequence;
     ArrayList<String> splitNucSequence = new ArrayList<>();
@@ -138,21 +138,21 @@ public final class Bio {
         splitNucSequence.add(s);
       }
       translatedNucSequence = translateNucSequence(splitNucSequence);
-      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, lengthDifference, "", "", paddedSequences);
+      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, "", "", paddedSequences);
     } else if (residual == 1) {
       // Truncate character at start.
       for (String s : Splitter.fixedLength(3).split(nucSequence.substring(1))) {
         splitNucSequence.add(s);
       }
       translatedNucSequence = translateNucSequence(splitNucSequence);
-      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, lengthDifference, nucSequence.substring(0, 1)
+      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, nucSequence.substring(0, 1)
           , "", paddedSequences);
       // Truncate character at end.
       for (String s : Splitter.fixedLength(3).split(nucSequence.substring(0, nucSequence.length() - 1))) {
         splitNucSequence.add(s);
       }
       translatedNucSequence = translateNucSequence(splitNucSequence);
-      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, lengthDifference, "",
+      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, "",
           nucSequence.substring(nucSequence.length() - 1), paddedSequences);
     } else {
       // Truncate two characters at start.
@@ -160,21 +160,21 @@ public final class Bio {
         splitNucSequence.add(s);
       }
       translatedNucSequence = translateNucSequence(splitNucSequence);
-      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, lengthDifference, nucSequence.substring(0, 2)
+      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, nucSequence.substring(0, 2)
           , "", paddedSequences);
       // Truncate two characters at end.
       for (String s : Splitter.fixedLength(3).split(nucSequence.substring(0, nucSequence.length() - 2))) {
         splitNucSequence.add(s);
       }
       translatedNucSequence = translateNucSequence(splitNucSequence);
-      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, lengthDifference, "",
+      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, "",
           nucSequence.substring(nucSequence.length() - 2), paddedSequences);
       // Truncate one character at start and end.
       for (String s : Splitter.fixedLength(3).split(nucSequence.substring(1, nucSequence.length() - 1))) {
         splitNucSequence.add(s);
       }
       translatedNucSequence = translateNucSequence(splitNucSequence);
-      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, lengthDifference, nucSequence.substring(0, 1)
+      alignSequences(aaSequence, translatedNucSequence, splitNucSequence, nucSequence.substring(0, 1)
           , nucSequence.substring(nucSequence.length() - 1), paddedSequences);
     }
     // Next we choose the sequences as correct with the fewest number of padding characters, i.e. alignment gaps.
@@ -222,7 +222,6 @@ public final class Bio {
    *                             nucleotide sequence.
    * @param splitNucSequence     {@link String} the original nucleotide sequence split into chunks of length three, i.e.
    *                             codons.
-   * @param lengthDifference     {@link Integer} the length difference of the two sequences.
    * @param truncatedStart       {@link String} nucleotides that were truncated from the start of the nucleotide sequence
    *                             due to a frameshift.
    * @param truncatedEnd         {@link String} nucleotides that were truncated from the end of the nucleotide sequence due
@@ -231,43 +230,45 @@ public final class Bio {
    * @throws CompoundNotFoundException If a compound, i.e. amino acid, could not be translated.
    */
   private static void alignSequences(String aaSequence, String translatedAASequence, ArrayList<String> splitNucSequence,
-                                     int lengthDifference, String truncatedStart, String truncatedEnd, HashMap<Integer,
+                                     String truncatedStart, String truncatedEnd, HashMap<Integer,
       ArrayList<String>> resultsMap)
       throws CompoundNotFoundException {
     StringBuilder paddedNucSequenceBuilder = new StringBuilder();
     StringBuilder paddedAASequenceBuilder = new StringBuilder();
     String alignedAASequence;
     String alignedTranslatedAASequence;
-    if (lengthDifference > 0) {
-      // CASE: Amino acid sequence is longer.
-      SequencePair<ProteinSequence, AminoAcidCompound> alignedSequences = Alignments.getPairwiseAlignment(
+    SequencePair<ProteinSequence, AminoAcidCompound> alignedSequences;
+    if (aaSequence.length() > translatedAASequence.length()) {
+      // Align translated amino acid sequence against non-translated amino acid sequence.
+      alignedSequences = Alignments.getPairwiseAlignment(
           new ProteinSequence(translatedAASequence),
           new ProteinSequence(aaSequence),
-          Alignments.PairwiseSequenceAlignerType.LOCAL,
+          Alignments.PairwiseSequenceAlignerType.GLOBAL,
           new SimpleGapPenalty(6, 5), // GOP and GEP were adjusted to score one less than the worst amino-acid
           // substitution.
           BLOSUM62
       );
-      alignedTranslatedAASequence = alignedSequences.getQuery().getSequenceAsString();
-      alignedAASequence = alignedSequences.getTarget().getSequenceAsString();
+      alignedTranslatedAASequence = alignedSequences.getAlignedSequences().get(0).toString();
+      alignedAASequence = alignedSequences.getAlignedSequences().get(1).toString();
     } else {
-      // CASE: Translated amino acid sequence is longer or sequences match in their length.
-      SequencePair<ProteinSequence, AminoAcidCompound> alignedSequences = Alignments.getPairwiseAlignment(
+      // Align non-translated amino acid sequence with translated amino acid sequence.
+      alignedSequences = Alignments.getPairwiseAlignment(
           new ProteinSequence(aaSequence),
           new ProteinSequence(translatedAASequence),
-          Alignments.PairwiseSequenceAlignerType.LOCAL,
-          new SimpleGapPenalty(6, 5),
+          Alignments.PairwiseSequenceAlignerType.GLOBAL,
+          new SimpleGapPenalty(6, 5), // GOP and GEP were adjusted to score one less than the worst amino-acid
+          // substitution.
           BLOSUM62
       );
-      alignedTranslatedAASequence = alignedSequences.getTarget().getSequenceAsString();
-      alignedAASequence = alignedSequences.getQuery().getSequenceAsString();
+      alignedTranslatedAASequence = alignedSequences.getAlignedSequences().get(1).toString();
+      alignedAASequence = alignedSequences.getAlignedSequences().get(0).toString();
     }
     // Replace gap characters of aligned amino acid sequence with padding characters.
     paddedAASequenceBuilder.append(String.valueOf(TRUNCATED_CHAR).repeat(truncatedStart.length()));
-    paddedAASequenceBuilder.append(alignedAASequence.replace('-', PADDING_CHAR));
+    paddedAASequenceBuilder.append(alignedAASequence.replace('-', NO_MATCH_CHAR));
     paddedAASequenceBuilder.append(String.valueOf(TRUNCATED_CHAR).repeat(truncatedEnd.length()));
     String paddedAASequence = paddedAASequenceBuilder.toString();
-    int paddingAASequence = (int) paddedAASequence.codePoints().filter(c -> c == PADDING_CHAR).count();
+    int paddingAASequence = (int) paddedAASequence.codePoints().filter(c -> c == NO_MATCH_CHAR).count();
     // Translate translated aligned nucleotide sequence back into padded nucleotide sequence.
     paddedNucSequenceBuilder.append(truncatedStart);
     char[] alignedTranslatedAASequenceChars = alignedTranslatedAASequence.toCharArray();
@@ -275,7 +276,7 @@ public final class Bio {
     for (int i = 0; i < alignedTranslatedAASequenceChars.length; i++) {
       char c = alignedTranslatedAASequenceChars[i];
       if (c == '-') {
-        paddedNucSequenceBuilder.append(String.valueOf(PADDING_CHAR).repeat(3));
+        paddedNucSequenceBuilder.append(String.valueOf(NO_MATCH_CHAR).repeat(3));
         gapShift += 1;
       } else {
         paddedNucSequenceBuilder.append(splitNucSequence.get(i - gapShift));
@@ -283,12 +284,74 @@ public final class Bio {
     }
     paddedNucSequenceBuilder.append(truncatedEnd);
     String paddedNucSequence = paddedNucSequenceBuilder.toString();
-    int paddingNucSequence = (int) paddedNucSequence.codePoints().filter(c -> c == PADDING_CHAR).count();
+    int paddingNucSequence = (int) paddedNucSequence.codePoints().filter(c -> c == NO_MATCH_CHAR).count();
     // Insert results into results map.
     ArrayList<String> resultsList = new ArrayList<>();
     resultsList.add(paddedAASequence);
     resultsList.add(paddedNucSequence);
     resultsMap.put((paddingAASequence + paddingNucSequence), resultsList);
+  }
+
+  /**
+   * Returns the reverse complement of the passed nucleotide sequence.
+   *
+   * @param sequence {@link String} representing a nucleotide sequence.
+   * @return {@link String} representing the reverse complement of the passed sequence.
+   */
+  public static String getReverseComplement(String sequence) {
+    StringBuilder reverseComplementBuilder = new StringBuilder();
+    char[] sequenceCharArray = sequence.toCharArray();
+    for (int i = sequenceCharArray.length - 1; i >= 0; i--) {
+      char sequenceAtI = sequenceCharArray[i];
+      switch (sequenceAtI) {
+        case 'A':
+          reverseComplementBuilder.append('T');
+          continue;
+        case 'C':
+          reverseComplementBuilder.append('G');
+          continue;
+        case 'G':
+          reverseComplementBuilder.append('C');
+          continue;
+        case 'T':
+          reverseComplementBuilder.append('A');
+      }
+    }
+    return reverseComplementBuilder.toString();
+  }
+
+  /**
+   * Returns the complement of a nucleotide base, i.e. switches A to T, C to G and vice versa.
+   *
+   * @param base {@link Character} base to invert.
+   * @return {@link Character} the inverted base.
+   */
+  public static Character invertBase(char base) {
+    switch (base) {
+      case 'A':
+        return 'T';
+      case 'C':
+        return 'G';
+      case 'G':
+        return 'C';
+      case 'T':
+        return 'A';
+      default:
+        return '?';
+    }
+  }
+
+  /**
+   * Returns the position q of a position p on the reverse complement of a genomic feature.
+   * TODO: End should be the full genome length, not only the end position of the feature.
+   *
+   * @param position {@link Integer} the position that should be converted.
+   * @param start    {@link Integer} the start position of the genomic feature on to the full genome.
+   * @param end      {@link Integer} the end position of the genomic feature on to the full genome.
+   * @return {@link Integer} representing the position on the reverse complement strand.
+   */
+  public static int getPositionOnReverseComplement(int position, int start, int end) {
+    return end - (position - start);
   }
 
 }

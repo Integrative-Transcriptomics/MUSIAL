@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 import main.Musial;
 import me.tongfei.progressbar.ProgressBar;
 import runnables.SamplePreprocessorRunnable;
+import utility.Bio;
 import utility.IO;
 import utility.Logging;
 
@@ -61,7 +62,8 @@ public final class InputPreprocessor {
               entrySequence,
               entryLocation,
               1,
-              entrySequence.length()
+              entrySequence.length(),
+              false
           ));
           progress.step();
         }
@@ -73,12 +75,22 @@ public final class InputPreprocessor {
           String entryLocation = fastaEntry.getHeader().split(" ")[0].trim();
           for (GeneFeature geneFeature : geneFeatures) {
             if (entryLocation.equals(geneFeature.seqName)) {
+              String referenceFeatureSequence;
+              if (geneFeature.isSense) {
+                // CASE: Feature is on sense strand.
+                referenceFeatureSequence = fastaEntry.getSequence(geneFeature.startPosition, geneFeature.endPosition);
+              } else {
+                // CASE: Feature is on anti-sense strand.
+                referenceFeatureSequence = Bio.getReverseComplement( fastaEntry.getSequence(geneFeature.startPosition,
+                    geneFeature.endPosition) );
+              }
               analysisEntries.add(new ReferenceAnalysisEntry(
                   geneFeature.featureName,
-                  fastaEntry.getSequence(geneFeature.startPosition, geneFeature.endPosition),
+                  referenceFeatureSequence,
                   entryLocation,
                   geneFeature.startPosition,
-                  geneFeature.endPosition
+                  geneFeature.endPosition,
+                  geneFeature.isSense
               ));
             }
             progress.step();
@@ -123,7 +135,7 @@ public final class InputPreprocessor {
   /**
    * Adjusts a fasta entry header in such a way that no symbols that are not allowed for file names are contained
    * anymore.
-   *
+   * @param header {@link String} representing a header line parsed from a `.fasta` file.
    * @return A adjusted fasta header than can be used safely as filename.
    */
   private static String adjustFastaHeader(String header) {
