@@ -5,6 +5,7 @@ var echartOption;
 var labelsOn = false;
 var viewer;
 var viewerTooltipLabel;
+var proteinResidueNumberMap = { };
 var showLabels = {
     valueInternal: false,
     valueListener: function(val) {},
@@ -796,8 +797,8 @@ function loadEChartsView( ) {
             let position = Math.ceil( ( dataIndex + 1 - noMatchCount ) / 3 );
             viewer.removeAllLabels();
             viewer.setStyle({}, {cartoon: {colorfunc: (atom) => { return colorSchemes.mol3d[ atom.resn ] } }});
-            viewer.addStyle({resi: [position]},{stick:{radius:1,color:"#FFBE0B"}});
-            viewer.addResLabels({resi: [position]});
+            viewer.addStyle({resi: [proteinResidueNumberMap[position]]},{stick:{radius:1,color:"#FFBE0B"}});
+            viewer.addResLabels({resi: [proteinResidueNumberMap[position]]});
             viewer.render();
         }
     });
@@ -818,6 +819,28 @@ function loadEChartsView( ) {
 }
 
 function loadProteinView( ) {
+	let residueIndex = 1;
+    let residueNumber = false;
+    let oldResidueNumber = false;
+    for ( let entry of jsonInput.ProteinStructure.split( "\r\n" ) ) {
+        entry = entry.split( " " ).filter( ( str ) => { return /\S/.test( str ) } );
+        if ( entry[ 0 ] == "ATOM" ) {
+            let resn = parseInt( entry[ 5] );
+            if ( ! residueNumber && ! oldResidueNumber ) {
+                residueNumber = resn;
+                oldResidueNumber = resn;
+                proteinResidueNumberMap[ residueIndex ] = residueNumber;
+                residueIndex += 1;
+            } else {
+                residueNumber = resn;
+                if ( residueNumber != oldResidueNumber ) {
+                    oldResidueNumber = resn;
+                    proteinResidueNumberMap[ residueIndex ] = residueNumber;
+                    residueIndex += 1;
+                }
+            }
+        }
+    }
     let element = $('#proteinView');
     let config = { backgroundColor: '#FFFFFF' };
     viewer = $3Dmol.createViewer( element, config );
