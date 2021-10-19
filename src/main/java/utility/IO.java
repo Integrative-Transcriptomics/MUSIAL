@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Scanner;
 import main.Musial;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.biojava.nbio.core.exceptions.CompoundNotFoundException;
 import org.biojava.nbio.genome.parsers.gff.FeatureList;
@@ -527,9 +526,7 @@ public final class IO {
       }
       // Access aligned reference sequence to account for mismatch characters from alignment later on.
       char[] referenceSequenceChars = referenceSequence.toCharArray();
-      int foo = 0;
       for (Iterator<String> it = variablePositionsTable.getVariantPositions(referenceAnalysisId); it.hasNext(); ) {
-        foo += 1;
         // Access the next variant position and add one to the shift value if the position represents an insertion.
         String variantPosition = it.next();
         if (variantPosition.contains("I")) {
