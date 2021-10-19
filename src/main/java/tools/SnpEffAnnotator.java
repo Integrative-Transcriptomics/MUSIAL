@@ -137,16 +137,14 @@ public final class SnpEffAnnotator {
         throw new MusialIOException(
             "Unable to create SnpEff output directory:\t" + snpEffResultsFile.getAbsolutePath());
       }
-      // (Optional) 6. Only keep results if option `-x`/`clean` is set.
-      if (arguments.isClean()) {
-        IO.deleteDirectory(new File(snpEffPath + "data/"));
-        //noinspection ResultOfMethodCallIgnored
-        new File(snpEffPath + "snpEff.config").delete();
-        //noinspection ResultOfMethodCallIgnored
-        new File(snpEffPath + "snpEff.jar").delete();
-        //noinspection ResultOfMethodCallIgnored
-        new File(snpEffPath + referenceName + "_snpEffDatabase.log").delete();
-      }
+      // 6. Delete temporarily generated files.
+      IO.deleteDirectory(new File(snpEffPath + "data/"));
+      //noinspection ResultOfMethodCallIgnored
+      new File(snpEffPath + "snpEff.config").delete();
+      //noinspection ResultOfMethodCallIgnored
+      new File(snpEffPath + "snpEff.jar").delete();
+      //noinspection ResultOfMethodCallIgnored
+      new File(snpEffPath + referenceName + "_snpEffDatabase.log").delete();
       progress.setExtraMessage(Logging.getDoneMessage());
     }
   }

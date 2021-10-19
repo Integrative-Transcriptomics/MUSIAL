@@ -60,10 +60,6 @@ public final class ArgumentsParser {
    */
   private int numThreads = 1;
   /**
-   * Whether temporary files should be deleted or not.
-   */
-  private boolean clean = false;
-  /**
    * Minimum (read) coverage in order to call a SNV.
    */
   private Double minCoverage = 5d;
@@ -171,8 +167,6 @@ public final class ArgumentsParser {
     options.addOption("c", "coverage", true, "Minimum coverage to call a SNV [" + this.minCoverage + "]");
     options.addOption("f", "frequency", true, "Minimum frequency to call a SNV [" + this.minFrequency + "]");
     options.addOption("q", "minQual", true, "Minimum quality to call a SNV [" + this.minQuality + "]");
-    options.addOption("x", "clean", false, "Whether temporary files should be deleted [" + this.clean +
-        "]");
     // Add options used to specify input data.
     options.addOption(Option.builder("r")
         .longOpt("reference")
@@ -330,9 +324,6 @@ public final class ArgumentsParser {
         throw new MusialCLAException(
             "`-q` Value for min. quality is no positive double:\t" + cmd.getOptionValue("q"));
       }
-    }
-    if (cmd.hasOption("x")) {
-      this.clean = true;
     }
     // Validation of data input parameters:
     this.referenceInput = new File(cmd.getOptionValue('r'));
@@ -686,13 +677,6 @@ public final class ArgumentsParser {
    */
   public Boolean getCallHeterozygous() {
     return callHeterozygous;
-  }
-
-  /**
-   * @return Whether temporary files should be deleted after running the tool.
-   */
-  public boolean isClean() {
-    return clean;
   }
 
   /**
