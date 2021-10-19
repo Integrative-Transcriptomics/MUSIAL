@@ -97,11 +97,6 @@ public final class ArgumentsParser {
    */
   private final File outputDirectory;
   /**
-   * {@link ArrayList} of {@link Integer} objects representing reference genome positions that should not be
-   * considered for SNV calling.
-   */
-  private final ArrayList<Integer> excludedPositions = new ArrayList<>();
-  /**
    * Whether a phylogenetic tree should be computed considering the samples as taxa.
    */
   private boolean computePhylogenetics = false;
@@ -628,13 +623,6 @@ public final class ArgumentsParser {
    */
   public File getOutputDirectory() {
     return outputDirectory;
-  }
-
-  /**
-   * @return The specified excluded positions as {@link ArrayList<Integer>}.
-   */
-  public ArrayList<Integer> getExcludedPositions() {
-    return excludedPositions;
   }
 
   /**
