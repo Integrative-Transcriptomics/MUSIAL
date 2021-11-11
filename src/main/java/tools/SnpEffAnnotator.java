@@ -73,7 +73,7 @@ public final class SnpEffAnnotator {
       }
       progress.step();
       // 2. Copy reference .fasta and .gff into snpEff/data directory.
-      String referenceName = FilenameUtils.removeExtension(arguments.getReferenceInput().getName());
+      String referenceName = FilenameUtils.removeExtension(arguments.getReferenceFile().getName());
       String snpEffDataPath = snpEffPath + "data/" + referenceName + "/";
       File snpEffDataFile = new File(snpEffDataPath);
       if (snpEffDataFile.mkdirs()) {
@@ -89,7 +89,7 @@ public final class SnpEffAnnotator {
       snpEffDataFile = new File(snpEffDataPath);
       if (snpEffDataFile.mkdirs()) {
         Files.copy(
-            arguments.getReferenceInput().toPath(),
+            arguments.getReferenceFile().toPath(),
             Path.of(snpEffDataPath + referenceName + ".fa"),
             StandardCopyOption.REPLACE_EXISTING
         );

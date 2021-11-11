@@ -1,7 +1,7 @@
 package tools;
 
 import com.google.common.collect.Sets;
-import datastructure.ReferenceAnalysisEntry;
+import datastructure.FeatureAnalysisEntry;
 import datastructure.SampleAnalysisEntry;
 import datastructure.VariablePosition;
 import datastructure.VariablePositionsTable;
@@ -21,10 +21,10 @@ import utility.Logging;
  * Comprises static methods to analyze samples.
  * <p>
  * In MUSIAL this is done by multi-threading. In detail the cartesian product of a set of
- * {@link ReferenceAnalysisEntry} and a set of {@link SampleAnalysisEntry} instances is generated. For more detail
+ * {@link FeatureAnalysisEntry} and a set of {@link SampleAnalysisEntry} instances is generated. For more detail
  * view the respective class documentations.
  * <p>
- * This results in a set of pairs of {@link ReferenceAnalysisEntry} and {@link SampleAnalysisEntry} objects, each
+ * This results in a set of pairs of {@link FeatureAnalysisEntry} and {@link SampleAnalysisEntry} objects, each
  * specifying a sample that is analyzed against a reference genome region (which may be a single gene or the whole
  * genome). For each such pair a {@link SampleAnalyserRunnable} is initialized and run.
  *
@@ -40,7 +40,7 @@ public final class SampleAnalyser {
    * Constructs each possible pair of the passed referenceEntries and sampleEntries elements. For each pair a new
    * single-threaded {@link SampleAnalyserRunnable} is initialized.
    *
-   * @param referenceEntries Set of {@link ReferenceAnalysisEntry} instances. Each specifies a locus on the reference
+   * @param referenceEntries Set of {@link FeatureAnalysisEntry} instances. Each specifies a locus on the reference
    *                         genome.
    * @param sampleEntries    Set of {@link SampleAnalysisEntry} instances. Each specifies the `.vcf` file content from
    *                         one sample.
@@ -49,7 +49,7 @@ public final class SampleAnalyser {
    * {@link SampleAnalyserRunnable}.
    * @throws InterruptedException If the thread was interrupted.
    */
-  public static VariablePositionsTable run(HashSet<ReferenceAnalysisEntry> referenceEntries,
+  public static VariablePositionsTable run(HashSet<FeatureAnalysisEntry> referenceEntries,
                                            CopyOnWriteArraySet<SampleAnalysisEntry> sampleEntries,
                                            ArgumentsParser arguments)
       throws InterruptedException {
@@ -58,21 +58,23 @@ public final class SampleAnalyser {
       ExecutorService executor = Executors.newFixedThreadPool(arguments.getNumThreads());
       Set<List<Object>> runEntries = Sets.cartesianProduct(referenceEntries, sampleEntries);
       VariablePositionsTable variablePositionsTable = new VariablePositionsTable();
-      progress.maxHint(runEntries.size() + referenceEntries.size());
+      progress.maxHint(runEntries.size() + 1);
       for (List<Object> runEntry : runEntries) {
-        ReferenceAnalysisEntry referenceAnalysisEntry = (ReferenceAnalysisEntry) runEntry.get(0);
+        FeatureAnalysisEntry featureAnalysisEntry = (FeatureAnalysisEntry) runEntry.get(0);
         SampleAnalysisEntry sampleAnalysisEntry = (SampleAnalysisEntry) runEntry.get(1);
         executor.execute(
             new SampleAnalyserRunnable(
                 sampleAnalysisEntry.sampleName,
-                referenceAnalysisEntry,
+                featureAnalysisEntry,
                 sampleAnalysisEntry.vcfFileReader
-                    .query(referenceAnalysisEntry.analysisSequenceLocation,
-                        referenceAnalysisEntry.analysisSequenceStart,
-                        referenceAnalysisEntry.analysisSequenceEnd),
+                    .query(featureAnalysisEntry.referenceSequenceLocation,
+                        featureAnalysisEntry.locationStart,
+                        featureAnalysisEntry.locationEnd),
                 variablePositionsTable,
                 arguments.getMinCoverage(),
                 arguments.getMinFrequency(),
+                arguments.getMinHet(),
+                arguments.getMaxHet(),
                 arguments.getMinQuality(),
                 progress
             )
@@ -93,28 +95,26 @@ public final class SampleAnalyser {
    *
    * @param variablePositionsTable {@link VariablePositionsTable} containing information about the variant sites of a
    *                               set of samples against possibly multiple reference loci.
-   * @param referenceEntries       Set of {@link ReferenceAnalysisEntry} instances, each specifying a reference locus.
-   * @param progress {@link ProgressBar} instance to visualize progress information to the user.
+   * @param referenceEntries       Set of {@link FeatureAnalysisEntry} instances, each specifying a reference locus.
+   * @param progress               {@link ProgressBar} instance to visualize progress information to the user.
    */
   private static void addReferenceToVariablePositionsTable(
-      VariablePositionsTable variablePositionsTable, HashSet<ReferenceAnalysisEntry> referenceEntries,
+      VariablePositionsTable variablePositionsTable, HashSet<FeatureAnalysisEntry> referenceEntries,
       ProgressBar progress) {
-    for (ReferenceAnalysisEntry referenceEntry : referenceEntries) {
-      char[] referenceSequenceBases = referenceEntry.analysisSequence.toCharArray();
-      int referenceSequenceStart = referenceEntry.analysisSequenceStart;
+    for (FeatureAnalysisEntry referenceEntry : referenceEntries) {
+      char[] referenceSequenceBases = referenceEntry.getReferenceSequence().toCharArray();
+      int referenceSequenceStart = referenceEntry.locationStart;
       for (int i = 0; i < referenceSequenceBases.length; i++) {
         int position = referenceSequenceStart + i;
         variablePositionsTable.putVariablePosition(
-            referenceEntry.analysisIdentifier,
+            referenceEntry.identifier,
             "Reference",
             String.valueOf(position),
             new VariablePosition(
                 referenceSequenceBases[i],
-                Double.POSITIVE_INFINITY,
-                Double.POSITIVE_INFINITY,
-                "",
-                1.0
-            )
+                ""
+            ),
+            0
         );
       }
       progress.step();
