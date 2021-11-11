@@ -1,7 +1,7 @@
 /*
 Set meta-information for the project build.
 */
-version '2.0'
+version 'v2.0'
 group 'de.tue.it'
 
 println "Project: $project" 
@@ -129,8 +129,8 @@ configurations {
     includeJars.extendsFrom implementation
 }
 
-sourceCompatibility = JavaVersion.VERSION_11
-targetCompatibility = JavaVersion.VERSION_11
+sourceCompatibility = JavaVersion.VERSION_16
+targetCompatibility = JavaVersion.VERSION_16
 
 /*
 Defines the source directories for the tasks executed by the `java` plugin.
@@ -176,8 +176,8 @@ Defines steps executed by calling `gradle clean`.
 */
 clean.doFirst {
 	delete "${rootDir}/releases/"
-    delete "${rootDir}/build"
-    delete "${rootDir}/src/main/resources/snpEff"
+    delete "${rootDir}/build/"
+    delete "${rootDir}/src/main/resources/snpEff/"
 }
 
 /*
