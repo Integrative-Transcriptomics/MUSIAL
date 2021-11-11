@@ -1,8 +1,10 @@
 package tools;
 
+import datastructure.FeatureAnalysisEntry;
 import datastructure.VariablePositionsTable;
 import exceptions.MusialIOException;
 import java.io.File;
+import java.util.HashSet;
 import java.util.List;
 import main.Musial;
 import me.tongfei.progressbar.ProgressBar;
@@ -29,65 +31,86 @@ public final class OutputWriter {
    * - .tsv file storing the per position sum of all possible variant contents over all samples.
    * - (optional) .json file storing information for the interactive visualization extension.
    *
-   * @param arguments {@link ArgumentsParser} arguments parsed from the command line.
+   * @param arguments              {@link ArgumentsParser} arguments parsed from the command line.
    * @param variablePositionsTable The {@link VariablePositionsTable} of which the output should be generated,
+   * @param featureAnalysisEntries represents a genomic region of the reference data, for example a single gene, contig,
+   *                               plasmid or full genome. Each such entry contains naming as well as reference sequence information.
    * @throws MusialIOException If any output file generation fails.
    */
-  public static void writeOutput(ArgumentsParser arguments, VariablePositionsTable variablePositionsTable)
+  public static void writeOutput(ArgumentsParser arguments, VariablePositionsTable variablePositionsTable,
+                                 HashSet<FeatureAnalysisEntry> featureAnalysisEntries)
       throws MusialIOException {
     ProgressBar progress = Musial.buildProgress();
     try (progress) {
-      List<String> referenceLocations = variablePositionsTable.getReferenceAnalysisIds();
-      int isGenerateIveConfigs = arguments.isGenerateIveConfigs() ? 1 : 0;
-      progress.maxHint((long) (5 + isGenerateIveConfigs) * referenceLocations.size());
+      // Initialize progress counter.
+      int numOutputFiles = 5;
+      if (arguments.getPdInputFiles().size() != 0) {
+        numOutputFiles += 3;
+      }
+      progress.maxHint((long) numOutputFiles * featureAnalysisEntries.size());
+      // Fix output directory path.
       String outputDirectory = arguments.getOutputDirectory().getAbsolutePath();
       if (!outputDirectory.endsWith("/")) {
         outputDirectory += "/";
       }
-      for (String referenceAnalysisId : referenceLocations) {
+      for (FeatureAnalysisEntry featureAnalysisEntry : featureAnalysisEntries) {
+        String referenceAnalysisId = featureAnalysisEntry.identifier;
         IO.generateDirectory(new File(outputDirectory + "/" + referenceAnalysisId));
         // 1. Generate snv table .tsv output.
         File snvTableOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/snvTable.tsv");
         IO.generateFile(snvTableOutFile);
-        IO.writeSnvTable(snvTableOutFile, referenceAnalysisId, variablePositionsTable, arguments.isAddReference());
+        IO.writeSnvTable(snvTableOutFile, referenceAnalysisId, variablePositionsTable);
         progress.step();
-        // 2. Generate variant alignment .fasta output.
-        File variantAlignmentOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/variantAlignment" +
-            ".fasta");
-        IO.generateFile(variantAlignmentOutFile);
-        IO.writeVariantAlignment(variantAlignmentOutFile, referenceAnalysisId, variablePositionsTable, arguments.isAddReference());
-        progress.step();
-        // 3. Generate full alignment .fasta output.
-        File fullAlignmentOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/fullAlignment.fasta");
-        IO.generateFile(fullAlignmentOutFile);
-        IO.writeSequenceAlignment(fullAlignmentOutFile, referenceAnalysisId, variablePositionsTable, arguments.isAddReference());
-        progress.step();
-        // 4. Generate snv annotations .tsv output.
+        // 2. Generate snv annotations .tsv output.
         File snvAnnotationsOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/snvAnnotations.tsv");
         IO.generateFile(snvAnnotationsOutFile);
         IO.writeSnvAnnotations(snvAnnotationsOutFile, referenceAnalysisId, variablePositionsTable);
         progress.step();
-        // 5. Generate per sample statistics.
-        /* TODO: Not implemented yet.
+        // 3. Generate variant alignment .fasta output.
+        File variantAlignmentOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/variantAlignment" +
+            ".fasta");
+        IO.generateFile(variantAlignmentOutFile);
+        IO.writeVariantAlignment(variantAlignmentOutFile, referenceAnalysisId, variablePositionsTable);
+        progress.step();
+        // 4. Generate full alignment .fasta output.
+        File fullAlignmentOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/fullAlignment.fasta");
+        IO.generateFile(fullAlignmentOutFile);
+        IO.writeFullAlignment(fullAlignmentOutFile, referenceAnalysisId, variablePositionsTable);
+        progress.step();
+        // 6. Generate per sample statistics.
         File sampleStatisticsOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/sampleStatistics" +
             ".tsv");
         IO.generateFile(sampleStatisticsOutFile);
-        IO.writeSampleStatistics(fullAlignmentOutFile, referenceAnalysisId, variablePositionsTable);
+        IO.writeSampleStatistics(sampleStatisticsOutFile, referenceAnalysisId, variablePositionsTable);
         progress.step();
-         */
-        // 6. Generate per position statistics.
+        // 7. Generate per position statistics.
         File positionStatisticsOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/positionStatistics" +
             ".tsv");
         IO.generateFile(positionStatisticsOutFile);
         IO.writePositionStatistics(positionStatisticsOutFile, referenceAnalysisId, variablePositionsTable);
         progress.step();
-        // 7. Generate IVE config files if specified by the user.
-        if ( arguments.isGenerateIveConfigs() ) {
-          File iveConfigOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/iveConfig.json");
-          IO.generateFile(iveConfigOutFile);
-          IO.writeIveConfig(iveConfigOutFile,referenceAnalysisId,variablePositionsTable,arguments);
+        if (arguments.getPdInputFiles().containsKey(referenceAnalysisId)) {
+          // 8. Generate protein data integrated results.
+          File proteinDataIntegratedOutDir = new File(outputDirectory + "/" + referenceAnalysisId +
+              "/proteinDataIntegratedResults");
+          IO.generateDirectory(proteinDataIntegratedOutDir);
+          // Generate protein alignment.
+          IO.writeProteinAlignment(proteinDataIntegratedOutDir, featureAnalysisEntry, variablePositionsTable,
+              arguments);
           progress.step();
+          // Generate protein contact map.
+          File proteinContactsMapOutFile =
+              new File(proteinDataIntegratedOutDir.getAbsolutePath() + "/residueContactMap.tsv");
+          IO.generateFile(proteinContactsMapOutFile);
+          IO.writeProteinContactMap(proteinContactsMapOutFile, referenceAnalysisId, arguments);
+          progress.step();
+          // Copy .pdb file.
+          File pdbFile = arguments.getPdInputFiles().get(referenceAnalysisId);
+          IO.copyFile(pdbFile, new File(proteinDataIntegratedOutDir.getAbsolutePath() + "/" + pdbFile.getName()));
+        } else {
+          progress.stepBy(2);
         }
+
       }
       progress.setExtraMessage(Logging.getDoneMessage());
     }
