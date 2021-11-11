@@ -1,8 +1,13 @@
 package main;
 
-import datastructure.ReferenceAnalysisEntry;
+import datastructure.FeatureAnalysisEntry;
 import datastructure.SampleAnalysisEntry;
 import datastructure.VariablePositionsTable;
+import exceptions.MusialCLAException;
+import exceptions.MusialDuplicationException;
+import exceptions.MusialFaultyDataException;
+import exceptions.MusialIOException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -13,6 +18,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import me.tongfei.progressbar.ProgressBar;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import me.tongfei.progressbar.ProgressBarStyle;
+import org.apache.commons.cli.ParseException;
 import tools.ArgumentsParser;
 import tools.InputPreprocessor;
 import tools.OutputWriter;
@@ -27,11 +33,6 @@ import utility.Logging;
  * @author Alexander Seitz
  * @author Simon Hackl
  * @version 2.0
- * @TODO: 25.08.2021 : Missing components; Heterozygous calling, phylogenetics, SnpEff output.
- * @TODO: 27.08.2021 : Change output if multiple quality criteria are not met?
- * @TODO: 27.08.2021 : Multi threading for single genomic location?
- * @TODO: 28.08.2021 : Which fields to use for snv statistics.
- * @TODO: 07.09.2021 : Something seems to be wrong with .pdb parser.
  */
 public final class Musial {
 
@@ -70,23 +71,28 @@ public final class Musial {
    * @param args Arguments parsed from the command line.
    */
   public static void main(String[] args) {
-    // 1. Load metadata from resource files.
-    loadMetadata();
-    // 2. Parse command line arguments.
-    ArgumentsParser arguments = parseCLArguments(args);
-    // 3. (Optional) Run SnpEff.
-    if (Objects.requireNonNull(arguments).isRunSnpEff()) {
-      runSnpEff(arguments);
+    try {
+      // 1. Load metadata from resource files.
+      loadMetadata();
+      // 2. Parse command line arguments.
+      ArgumentsParser arguments = parseCLArguments(args);
+      // 3. (Optional) Run SnpEff.
+      if (Objects.requireNonNull(arguments).isRunSnpEff()) {
+        runSnpEff(arguments);
+      }
+      // 4. Process input reference sequence and (optional) gene features.
+      HashSet<FeatureAnalysisEntry> referenceEntries = preprocessReferenceInput(arguments);
+      // 5. Generate a pool of VCFFileReader instances, one for each sample.
+      CopyOnWriteArraySet<SampleAnalysisEntry> sampleEntries = preprocessSampleInput(arguments);
+      // 6. Run the analysis
+      VariablePositionsTable variablePositionsTable = invokeSampleAnalyserRunner(referenceEntries, sampleEntries,
+          arguments);
+      // 7. Generate output.
+      writeOutput(arguments, variablePositionsTable, referenceEntries);
+    } catch (Exception e) {
+      e.printStackTrace();
+      Logging.logError(e.getCause() + ": " + e.getMessage());
     }
-    // 4. Process input reference sequence and (optional) gene features.
-    HashSet<ReferenceAnalysisEntry> referenceEntries = preprocessReferenceInput(arguments);
-    // 5. Generate a pool of VCFFileReader instances, one for each sample.
-    CopyOnWriteArraySet<SampleAnalysisEntry> sampleEntries = preprocessSampleInput(arguments);
-    // 6. Run the analysis
-    VariablePositionsTable variablePositionsTable = invokeSampleAnalyserRunner(referenceEntries, sampleEntries,
-        arguments);
-    // 7. Generate output.
-    writeOutput(arguments, variablePositionsTable);
   }
 
   /**
@@ -123,13 +129,10 @@ public final class Musial {
    * @param args Arguments parsed from the command line.
    * @return An instance of the {@link ArgumentsParser} class.
    */
-  private static ArgumentsParser parseCLArguments(String[] args) {
-    try {
-      return new ArgumentsParser(args);
-    } catch (Exception e) {
-      Logging.logError(e.getCause() + ": " + e.getMessage());
-    }
-    return null;
+  private static ArgumentsParser parseCLArguments(String[] args)
+      throws MusialCLAException, MusialIOException, ParseException, MusialFaultyDataException,
+      MusialDuplicationException {
+    return new ArgumentsParser(args);
   }
 
   /**
@@ -142,33 +145,25 @@ public final class Musial {
    *
    * @param arguments Arguments parsed from the command line.
    */
-  private static void runSnpEff(ArgumentsParser arguments) {
+  private static void runSnpEff(ArgumentsParser arguments) throws MusialIOException, IOException, InterruptedException {
     Logging.logStatus("Running SnpEff");
-    try {
-      SnpEffAnnotator.runSnpEff(arguments);
-    } catch (Exception e) {
-      Logging.logError(e.getCause() + ": " + e.getMessage());
-    }
+    SnpEffAnnotator.runSnpEff(arguments);
   }
 
   /**
    * Parses the specified reference data and generates a set of analysis entries.
    * <p>
-   * Each {@link ReferenceAnalysisEntry} represents a genomic region of the reference data, for example a single gene, contig,
+   * Each {@link FeatureAnalysisEntry} represents a genomic region of the reference data, for example a single gene, contig,
    * plasmid or full genome. Each such entry contains naming as well as reference sequence information.
    *
    * @param arguments Arguments parsed from the command line.
-   * @return A {@link HashSet} containing {@link ReferenceAnalysisEntry} instances specifying genomic regions of the specified
+   * @return A {@link HashSet} containing {@link FeatureAnalysisEntry} instances specifying genomic regions of the specified
    * reference data that are subject to further analysis.
    */
-  private static HashSet<ReferenceAnalysisEntry> preprocessReferenceInput(ArgumentsParser arguments) {
+  private static HashSet<FeatureAnalysisEntry> preprocessReferenceInput(ArgumentsParser arguments)
+      throws IOException, MusialFaultyDataException {
     Logging.logStatus("Preparing reference data for analysis");
-    try {
-      return InputPreprocessor.preprocessReferenceInput(arguments);
-    } catch (Exception e) {
-      Logging.logError(e.getCause() + ": " + e.getMessage());
-    }
-    return null;
+    return InputPreprocessor.preprocessReferenceInput(arguments);
   }
 
   /**
@@ -181,14 +176,10 @@ public final class Musial {
    * @return A {@link CopyOnWriteArraySet} containing {@link SampleAnalysisEntry} instances, each specifying the
    * input for one sample to analyze.
    */
-  private static CopyOnWriteArraySet<SampleAnalysisEntry> preprocessSampleInput(ArgumentsParser arguments) {
+  private static CopyOnWriteArraySet<SampleAnalysisEntry> preprocessSampleInput(ArgumentsParser arguments)
+      throws InterruptedException {
     Logging.logStatus("Preparing sample data for analysis");
-    try {
-      return InputPreprocessor.preprocessSampleInput(arguments);
-    } catch (Exception e) {
-      Logging.logError(e.getCause() + ": " + e.getMessage());
-    }
-    return null;
+    return InputPreprocessor.preprocessSampleInput(arguments);
   }
 
   /**
@@ -197,21 +188,17 @@ public final class Musial {
    * The single steps are implemented in the {@link SampleAnalyser} and {@link runnables.SampleAnalyserRunnable}
    * classes.
    *
-   * @param analysisEntries       A set of {@link ReferenceAnalysisEntry}.
+   * @param analysisEntries       A set of {@link FeatureAnalysisEntry}.
    * @param sampleAnalysisEntries A set of {@link SampleAnalysisEntry}.
    * @param arguments             Arguments parsed from the command line.
    * @return A {@link VariablePositionsTable} containing the information processed from the specified input.
    */
-  private static VariablePositionsTable invokeSampleAnalyserRunner(HashSet<ReferenceAnalysisEntry> analysisEntries,
+  private static VariablePositionsTable invokeSampleAnalyserRunner(HashSet<FeatureAnalysisEntry> analysisEntries,
                                                                    CopyOnWriteArraySet<SampleAnalysisEntry> sampleAnalysisEntries,
-                                                                   ArgumentsParser arguments) {
+                                                                   ArgumentsParser arguments)
+      throws InterruptedException {
     Logging.logStatus("Analysing samples");
-    try {
-      return SampleAnalyser.run(analysisEntries, sampleAnalysisEntries, arguments);
-    } catch (Exception e) {
-      Logging.logError(e.getCause() + ": " + e.getMessage());
-    }
-    return null;
+    return SampleAnalyser.run(analysisEntries, sampleAnalysisEntries, arguments);
   }
 
   /**
@@ -221,15 +208,14 @@ public final class Musial {
    *
    * @param arguments              Arguments parsed from the command line.
    * @param variablePositionsTable The {@link VariablePositionsTable} containing the information to write output with.
+   * @param featureAnalysisEntries represents a genomic region of the reference data, for example a single gene, contig,
+   *                               plasmid or full genome. Each such entry contains naming as well as reference sequence information.
    */
-  private static void writeOutput(ArgumentsParser arguments, VariablePositionsTable variablePositionsTable) {
+  private static void writeOutput(ArgumentsParser arguments, VariablePositionsTable variablePositionsTable,
+                                  HashSet<FeatureAnalysisEntry> featureAnalysisEntries)
+      throws MusialIOException {
     Logging.logStatus("Generating output");
-    try {
-      OutputWriter.writeOutput(arguments, variablePositionsTable);
-    } catch (Exception e) {
-      e.printStackTrace();
-      Logging.logError(e.getMessage());
-    }
+    OutputWriter.writeOutput(arguments, variablePositionsTable, featureAnalysisEntries);
   }
 
   /**
