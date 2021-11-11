@@ -5,19 +5,22 @@
   --font-size: 1.2em;
   --background-color: #EFF0F8;
   --background-color-2: #E4E5ED;
+  --background-color-3: #fafafc;
   --color-1: #607196;
   --color-2: #BABFD1;
-  --color-3: #FFBE0B;
+  --color-3: #ff8400;
   --text-color: #292926;
   --margin: 1em;
   --shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
 }
 
+/* Adjust bold text */
 b {
   color: var(--text-color);
   margin: var(--margin);
 }
 
+/* Style for the main div element */
 #main {
   position: fixed;
   top: 0;
@@ -27,6 +30,7 @@ b {
   background-color: var(--background-color);
 }
 
+/* Style for the title element, i.e. the MUSIAL IVE logo */
 #title {
   position: fixed;
   display: inline-block;
@@ -36,6 +40,7 @@ b {
   border-left: 1px solid var(--background-color);
 }
 
+/* Style for the header / top menu */
 #headerMenu {
   position: fixed;
   top: 0;
@@ -46,7 +51,6 @@ b {
   box-shadow: var(--shadow);
   z-index: 3;
 }
-
 .menuButton  {
   background-color: var(--color-1);
   color: var(--background-color);
@@ -55,27 +59,28 @@ b {
   font-size: var(--font-size);
   border: none;
 }
-
 .menuButton:hover {
   box-shadow: var(--shadow);
 }
 
-/* Definition of dropdown-menu components.
+/* Style for dropdown-menu components.
 dropdown: Container to position the dropdown content.
 dropbtn: Placeholder to visualize the existance of a dropdown menu.
-dopdown-content: Container to hold dropdown menu options. Hidden by default.
-*/
+dopdown-content: Container to hold dropdown menu options. Hidden by default. */
 .dropdown {
   display: inline-block;
   position: relative;
   margin: calc( var(--margin) / 2 );
   min-width: 6em;
+  z-index: 4;
 }
 .dropdown:hover .dropdown-content {
   display: block;
+  z-index: 4;
 }
 .dropdown:hover .dropbtn {
   box-shadow: var(--shadow);
+  z-index: 4;
 }
 .dropbtn {
   background-color: var(--color-1);
@@ -84,6 +89,7 @@ dopdown-content: Container to hold dropdown menu options. Hidden by default.
   min-width: 6em;
   font-size: var(--font-size);
   border: none;
+  z-index: 4;
 }
 .dropdown-content {
   display: none;
@@ -91,6 +97,7 @@ dopdown-content: Container to hold dropdown menu options. Hidden by default.
   background-color: var(--color-1);
   min-width: 7.2em;
   box-shadow: var(--shadow);
+  z-index: 4;
 }
 .dropdown-content button {
   background-color: transparent;
@@ -102,12 +109,70 @@ dopdown-content: Container to hold dropdown menu options. Hidden by default.
   text-decoration: none;
   display: block;
   border: none;
+  z-index: 4;
 }
 .dropdown-content button:hover {
   background-color: var(--color-2);
+  z-index: 4;
 }
 
-#fileInput {
+/* Set custom scrollbar design. */
+::-webkit-scrollbar {
+  width: 4px;
+  margin-left: 1px;
+  margin-bottom: 1px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background-color-2);
+  margin-left: 1px;
+  margin-bottom: 1px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-2);
+  margin: 1px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-1);
+}
+
+/* Style for components header buttons */
+.compHeaderBtn {
+  z-index: 11;
+  border: none;
+  background-color: transparent;
+  color: var(--background-color);
+}
+.compHeaderBtn:hover {
+  transition: 0.15s;
+  color: var(--color-3);
+}
+.compHeaderBtnActive {
+  z-index: 11;
+  border: none;
+  background-color: transparent;
+  color: var(--color-3);
+}
+.compHeaderBtnActive:hover {
+  transition: 0.15s;
+  color: var(--color-3);
+}
+
+.compHeaderSel {
+  border-radius: 3px;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  height: 16px;
+}
+.compHeaderSel:hover {
+  transition: 0.15s;
+  border-color: var(--color-3);
+  border-width: 1px;
+}
+
+/* Style for components
+
+/* Style for input component */
+#directoryInput {
   opacity: 0.0;
   -ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=0)"; /* IE 8 */
   filter: alpha(opacity=0); /* IE 5-7 */
@@ -120,8 +185,8 @@ dopdown-content: Container to hold dropdown menu options. Hidden by default.
   right: 0;
   width: 100%;
   height:100%;
+  z-index: 3;
 }
-
 #input {
   position: fixed;
   display: flex;
@@ -132,57 +197,211 @@ dopdown-content: Container to hold dropdown menu options. Hidden by default.
   height: 93%;
   background-color: var(--background-color-2);
   border: 1px double var(--color-2);
-  border-radius: 1px;
+  border-radius: 3px;
   align-items: center;
   justify-content: center;
+  z-index: 3;
 }
-
 #input .fa-folder-open {
   font-size: calc( var(--font-size) * 8 );
   color: var(--color-2);
 }
-
 #input b {
   font-size: calc( var(--font-size) * 2 );
   color: var(--color-2);
 }
 
-#view {
-  position: fixed;
+/* Style for structure view component */
+#structureView {
+  position: absolute;
+  top: 5%;
+  left: 23%;
+  margin: 0;
+  width: 50%;
+  height: 41%;
   display: none;
-  flex-direction: column;
-  margin: 1%;
-  top: 4%;
+  overflow: hidden;
+  background-color: var(--background-color-3);
+  border: 1px solid var(--color-2);
+  border-radius: 3px;
+  z-index: 3;
+}
+#structureViewHeader {
+  top: 0;
+  left: 0;
+  width: 99.5%;
+  height: 16px;
+  padding: 4px;
+  cursor: move;
+  font-size: small;
+  background-color: var(--color-1);
+  color: var(--background-color-3);
+  border-radius: 2px;
+  z-index: 3;
+}
+#structureViewContent {
+  width: 100%;
+  height: 96%;
+  margin-top: 0;
+  bottom: 0;
+  z-index: 3;
+}
+#structureViewContent #structureViewCanvas {
+  width: 100%;
+  height: 96%;
+  display: block;
+  margin-top: 0;
+  top: 16px;
+  z-index: 3;
+}
+
+/* Style for alignment view component */
+#alignmentView {
+  position: absolute;
+  top: 48%;
+  left: 1%;
+  margin: 0;
+  width: 98%;
+  height: 50%;
+  display: none;
+  overflow: hidden;
+  background-color: var(--background-color-3);
+  border: 1px solid var(--color-2);
+  border-radius: 3px;
+  z-index: 2;
+}
+#alignmentViewHeader {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 16px;
+  padding: 4px;
+  cursor: move;
+  font-size: small;
+  background-color: var(--color-1);
+  color: var(--background-color-3);
+  border-radius: 2px;
+  overflow: visible;
+  z-index: 4;
+}
+#alignmentViewContent {
+  width: 100%;
+  height: 92%;
+  margin-top: 0;
+  bottom: 0;
+  z-index: 3;
+}
+
+/* Style for legend component */
+#legend {
+  position: absolute;
+  top: 5%;
+  left: 1%;
+  width: 21%;
+  height: 18%;
+  display: none;
+  background-color: var(--background-color-3);
+  border: 1px solid var(--color-2);
+  border-radius: 3px;
+  z-index: 2;
+}
+#legendHeader {
+  top: 0;
   left: 0;
   width: 98%;
-  height: 93%;
-  background-color: var(--background-color-2);
-  border: 1px double var(--color-2);
-  border-radius: 1px;
+  height: 16px;
+  padding: 4px;
+  cursor: move;
+  font-size: small;
+  background-color: var(--color-1);
+  color: var(--background-color-3);
+  border-radius: 2px;
+  z-index: 2;
+}
+#legendContent {
+  display: inline-grid;
+  grid-template-columns: auto auto auto;
+  overflow-y: scroll;
+  width: 98%;
+  height: 83%;
+  padding: 4px;
+  z-index: 2;
+}
+#legendContent .legendItem {
+  clear: both;
+  width: 100%;
+  font-size: small;
+  z-index: 2;
 }
 
-#proteinView {
-  position: relative;
+/* Style for tooltip component */
+#tooltip {
+  position: absolute;
+  top: 24%;
+  left: 1%;
+  width: 21%;
+  height: 22%;
+  display: none;
+  background-color: var(--background-color-3);
+  border: 1px solid var(--color-2);
+  border-radius: 3px;
+  z-index: 3;
+  resize: both;
+}
+#tooltipHeader {
   top: 0;
   left: 0;
-  margin: 0;
-  width: 100%;
-  height: 40%;
-  max-height: 98%;
-  /* resize: vertical; */
-  overflow: hidden;
-  background-color: #FFFFFF;
+  width: 98%;
+  height: 16px;
+  padding: 4px;
+  cursor: move;
+  font-size: small;
+  background-color: var(--color-1);
+  color: var(--background-color-3);
+  border-radius: 2px;
+  z-index: 2;
+}
+#tooltipContent {
+  display: inline-block;
+  font-size: small;
+  overflow-y: scroll;
+  width: 98%;
+  height: 85%;
+  padding: 4px;
+  z-index: 2;
 }
 
-#eChartsView {
-  position: relative;
+/* Style for position summary view component */
+#positionSummaryView {
+  position: absolute;
+  top: 5%;
+  left: 74%;
+  width: 25%;
+  height: 41%;
+  display: none;
+  background-color: var(--background-color-3);
+  border: 1px solid var(--color-2);
+  border-radius: 3px;
+  z-index: 3;
+}
+#positionSummaryViewHeader {
   top: 0;
   left: 0;
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 60%;
-  overflow-y: hidden;
-  background-color: #FFFFFF;
-  border-top: 1px solid var(--color-2);
+  width: 98.5%;
+  height: 16px;
+  padding: 4px;
+  cursor: move;
+  font-size: small;
+  background-color: var(--color-1);
+  color: var(--background-color-3);
+  border-radius: 2px;
+  z-index: 3;
+}
+#positionSummaryViewContent {
+  display: block;
+  width: 98%;
+  height: 91%;
+  padding: 1%;
+  margin-top: 1%;
+  z-index: 3;
 }
