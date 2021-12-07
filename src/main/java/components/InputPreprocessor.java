@@ -1,4 +1,4 @@
-package tools;
+package components;
 
 import datastructure.FastaEntry;
 import datastructure.FeatureAnalysisEntry;
@@ -54,10 +54,10 @@ public final class InputPreprocessor {
         // into one ReferenceAnalysisEntry.
         progress.maxHint(fastaEntries.size());
         for (FastaEntry fastaEntry : fastaEntries) {
-          String entryName = adjustFastaHeader(fastaEntry.getHeader());
-          String entryLocation = fastaEntry.getHeader().split(" ")[0].trim();
+          String entryName = fastaEntry.getHeader().split( " " )[ 0 ].trim( );
           String entrySequence = fastaEntry.getSequence();
-          FeatureAnalysisEntry featureAnalysisEntry = new FeatureAnalysisEntry(entryName, entryLocation, 1,
+          FeatureAnalysisEntry featureAnalysisEntry = new FeatureAnalysisEntry(entryName, entryName, false,
+              entryName, 1,
               entrySequence.length());
           featureAnalysisEntry.setReferenceSequence(entrySequence);
           analysisEntries.add(featureAnalysisEntry);
@@ -116,8 +116,8 @@ public final class InputPreprocessor {
   }
 
   /**
-   * Adjusts a fasta entry header in such a way that no symbols that are not allowed for file names are contained
-   * anymore.
+   * Adjusts a fasta entry header in such a way that no symbols that are not allowed for file names in certain OS are
+   * contained anymore.
    *
    * @param header {@link String} representing a header line parsed from a `.fasta` file.
    * @return A adjusted fasta header than can be used safely as filename.
@@ -125,7 +125,6 @@ public final class InputPreprocessor {
   private static String adjustFastaHeader(String header) {
     return header
         .trim()
-        .substring(1)
         .replace('/', '_')
         .replace('\\', '_')
         .replace('\0', '_')

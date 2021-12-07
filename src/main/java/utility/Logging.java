@@ -32,6 +32,15 @@ public final class Logging {
   }
 
   /**
+   * Prints a warning message with time-stamp information.
+   *
+   * @param message A {@link String} printed as warning message.
+   */
+  public static void logWarning(String message) {
+    System.out.println("[" + Logging.getTimestampDayTime() + "] WARNING: " + message);
+  }
+
+  /**
    * Generates a {@link String} stating "Done" concatenated with time-stamp information.
    *
    * @return {@link String} containing the message.

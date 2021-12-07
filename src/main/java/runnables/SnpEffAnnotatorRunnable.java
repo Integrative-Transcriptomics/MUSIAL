@@ -2,7 +2,7 @@ package runnables;
 
 import java.io.File;
 import me.tongfei.progressbar.ProgressBar;
-import tools.ArgumentsParser;
+import components.ArgumentsParser;
 import utility.CL;
 
 /**
@@ -14,6 +14,7 @@ import utility.CL;
  * @version 2.0
  * @since 2.0
  */
+@SuppressWarnings("ClassCanBeRecord")
 public final class SnpEffAnnotatorRunnable implements Runnable {
 
   /**
@@ -81,16 +82,23 @@ public final class SnpEffAnnotatorRunnable implements Runnable {
   @Override
   public void run() {
     // String array representation of a command line command.
-    String[] runSNPEff = {"java", "-jar", "snpEff.jar", "-v", "-s", snpEffResultsPath + "/" + sampleName +
-        "_snpEff_summary" +
-        ".html",
-        referenceName, sampleInput.getAbsolutePath()};
+    String[] runSNPEff = {
+        "java",
+        "-jar",
+        "snpEff.jar",
+        "-noLog",
+        "-v",
+        "-s",
+        new File( snpEffResultsPath + sampleName + ".SnpEffSummary.html" ).getAbsolutePath(),
+        referenceName,
+        sampleInput.getAbsolutePath()
+    };
     // Definition of the output file name.
-    String sampleOutputPath = snpEffResultsPath + "/" + sampleName + "_snpEff_annotated.vcf";
+    String sampleOutputPath = snpEffResultsPath + sampleName + ".SnpEffAnn.vcf";
     /*
     Runs the specified command.
      */
-    CL.runCommand(runSNPEff, snpEffResultsPath + "/" + sampleName + "_snpEff.log",
+    CL.runCommand(runSNPEff, snpEffResultsPath + sampleName + "_SnpEff.log",
         sampleOutputPath,
         snpEffPath);
     // Replace the original input `.vcf` file with the annotated version.

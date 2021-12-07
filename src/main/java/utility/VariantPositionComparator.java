@@ -12,7 +12,7 @@ import java.util.Comparator;
  * @author Simon Hackl
  * @version 2.0
  */
-public final class VariablePositionTableComparator implements Comparator<String> {
+public final class VariantPositionComparator implements Comparator<String> {
 
   /**
    * Implementation of the interfaces compare method.
