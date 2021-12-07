@@ -1,4 +1,4 @@
-package tools;
+package components;
 
 import datastructure.FeatureAnalysisEntry;
 import exceptions.MusialBioException;
@@ -9,6 +9,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -22,6 +23,7 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.biojava.nbio.genome.parsers.gff.FeatureI;
 import org.biojava.nbio.genome.parsers.gff.FeatureList;
@@ -30,9 +32,10 @@ import utility.IO;
 import utility.Validation;
 
 /**
- * Parser for command line arguments.
+ * Parses command line arguments.
  * <p>
- * Used to parse, validate and access all passed command line options or print help information to the user.
+ * Used to parse and validate passed command line options or print help information to the user. Parsed arguments are
+ * stored to be accessible for other components of the tool.
  *
  * @author Simon Hackl
  * @version 2.0
@@ -45,7 +48,7 @@ public final class ArgumentsParser {
    */
   private static final String CLASS_NAME = Musial.CLASS_NAME + " [OPTIONS]";
   /**
-   * The specified command line arguments.
+   * The unprocessed command line content passed by the user.
    */
   private final String[] arguments;
   /**
@@ -61,40 +64,6 @@ public final class ArgumentsParser {
    */
   private Double minFrequency = 0.9;
   /**
-   * Minimum (mapping?) quality in order to call a SNV.
-   */
-  private Double minQuality = 30d;
-  /**
-   * {@link File} object representing the reference genome sequence .fasta file.
-   */
-  private final File referenceFile;
-  /**
-   * {@link ArrayList} of {@link File} objects pointing to .vcf files, one for each input sample.
-   */
-  private final List<File> sampleInput = Collections.synchronizedList(new ArrayList<>());
-  /**
-   * {@link ArrayList} of {@link String} objects representing the names for each sample. The i-th entry corresponds
-   * to the name of the i-th .vcf file represented in the `sampleInput` property.
-   */
-  private final List<String> sampleNames = Collections.synchronizedList(new ArrayList<>());
-  /**
-   * {@link File} object representing the reference genome annotation .gff file.
-   */
-  private File annotationInput;
-  /**
-   * {@link File} object representing the output directory.
-   */
-  private final File outputDirectory;
-  /**
-   * Whether SNPEff is called on each input samples .vcf file before further analysis.
-   */
-  private boolean runSnpEff = false;
-  /**
-   * {@link ArrayList} of {@link FeatureAnalysisEntry} objects representing gene names, their parent sequence and locations,
-   * that are exclusively analysed instead of the whole genome.
-   */
-  private final ArrayList<FeatureAnalysisEntry> includedGeneFeatures = new ArrayList<>();
-  /**
    * Minimum allele frequency (with respect to reads) in order to call heterozygous SNVs.
    */
   private Double minHet = 0.45;
@@ -103,23 +72,56 @@ public final class ArgumentsParser {
    */
   private Double maxHet = 0.55;
   /**
-   * {@link HashMap} mapping {@link String} objects representing gene names to {@link File} objects pointing to `
-   * .pdb` files, one for each gene name.
+   * Minimum quality, i.e. the value given in the QUAL field of .vcf files, in order to call a SNV.
+   */
+  private Double minQuality = 30d;
+  /**
+   * {@link File} object specifying the reference genome sequence .fasta file.
+   */
+  private final File referenceFile;
+  /**
+   * {@link ArrayList} of {@link File} objects pointing to .vcf files, one for each sample to analyze.
+   */
+  private final List<File> sampleInput = Collections.synchronizedList(new ArrayList<>());
+  /**
+   * {@link ArrayList} of {@link String} objects representing the names of each sample.
+   */
+  private final List<String> sampleNames = Collections.synchronizedList(new ArrayList<>());
+  /**
+   * {@link File} object specifying the reference genome annotation .gff file.
+   */
+  private File annotationInput;
+  /**
+   * {@link File} object specifying the output directory.
+   */
+  private final File outputDirectory;
+  /**
+   * Whether SnpEff is run on each input samples .vcf file before further analysis.
+   */
+  private boolean runSnpEff = false;
+  /**
+   * {@link ArrayList} of {@link FeatureAnalysisEntry} objects representing features to analyze. Each feature
+   * specifies the genes name, their parent (i.e. the genome) sequence and locus.
+   */
+  private final ArrayList<FeatureAnalysisEntry> includedGeneFeatures = new ArrayList<>();
+  /**
+   * {@link HashMap} mapping {@link String} objects representing gene names to {@link File} objects specifying
+   * .pdb files, one for each reference feature (i.e. gene) to analyze.
    */
   private final HashMap<String, File> pdInputFiles = new HashMap<>();
 
   /**
-   * Constructor of the ArgumentParser class.
+   * Constructor of the {@link ArgumentsParser} class.
    * <p>
-   * The ArgumentParser is used to parse and validate the user command line input for Musial. Parsed arguments are
-   * stored - and accessible - via class properties.
+   * Used to parse and validate the user command line input. Parsed arguments are stored - and accessible by other
+   * components - via class properties.
    *
    * @param args {@link String} {@link Array} containing the command line arguments.
-   * @throws MusialCLAException         If any error occurs during parsing or validating an
-   *                                    {@link MusialCLAException} is thrown.
-   * @throws ParseException             If any parsing error occurs.
-   * @throws MusialBioException  If any faulty data was specified (i.e. features on the reference sequence with
-   *                                    length 0).
+   * @throws MusialCLAException If any error occurs during parsing or validating an
+   *                            {@link MusialCLAException} is thrown.
+   * @throws ParseException     If any parsing error occurs.
+   * @throws MusialBioException If any faulty data was specified (i.e. features on the reference sequence with
+   *                            length 0).
    */
   public ArgumentsParser(String[] args)
       throws MusialCLAException, ParseException, MusialBioException,
@@ -148,18 +150,25 @@ public final class ArgumentsParser {
         .longOpt("sampleSpecification")
         .desc("Text file specifying the sample input files and sample meta-information. Each line has to contain at " +
             "least the path to the samples .vcf file and may contain the following optional comma-separated fields " +
-            "in the given order: <NAME> (a string representing the name to use for the sample).")
+            "in the given order:" + IO.LINE_SEPARATOR + "<NAME> (a string representing the name to use for the " +
+            "sample).")
+        .hasArg()
+        .build());
+    options.addOption(Option.builder("sDir")
+        .longOpt("sampleDirectory")
+        .desc("Directory from which sample input files are collected. The specified directory and all its " +
+            "sub-directories are scanned for .vcf files which are collected as sample input files.")
         .hasArg()
         .build());
     options.addOption(Option.builder("a")
         .longOpt("referenceAnnotation")
-        .desc("Path to a .gff file; The reference genome feature annotations.")
+        .desc("Path to a .gff file; The reference genome feature annotation.")
         .hasArg()
         .hasArgs()
         .build());
     options.addOption(Option.builder("o")
         .longOpt("output")
-        .desc("Path to the directory at which results files are generated.")
+        .desc("Path to the directory at which results files shall be generated.")
         .required()
         .hasArg()
         .build());
@@ -168,20 +177,17 @@ public final class ArgumentsParser {
     options.addOption(Option.builder("gf")
         .longOpt("geneFeatures")
         .desc("Text file specifying gene features to analyze exclusively instead of the whole genome. Each line has " +
-            "to contain at least the identifier to match from the specified .gff file and may contain the following " +
-            "optional comma-separated fields in the given order: <QUERY> (a string used to query the reference " +
-            "genome feature annotation to search for the features locus, should match the .gff NAME attribute), " +
-            "<NAME> (a string representing the name to " +
-            "use for the feature), <PDBPATH> (a string representing the path to a .pdb file specifying the protein " +
-            "product of the feature).")
+            "to contain at least a string to match with the NAME attribute of the specified .gff file and may contain" +
+            " the following optional comma-separated fields in the given order: " + IO.LINE_SEPARATOR +
+            "<NAME> (a string representing the name to use for the feature) " + IO.LINE_SEPARATOR +
+            "<PDBPATH> (a string representing the path to a .pdb file specifying the protein product of the feature).")
         .hasArg()
         .build());
     options.addOption(Option.builder("hf")
         .longOpt("heterozygousFrequencies")
-        .desc("If set, heterozygous calls will be respected by accounting for read frequencies in the set interval. " +
-            "Expected " +
-            " min,max. [" + this.minHet + "," + this.maxHet +
-            "]")
+        .desc("Two comma separated numbers in the interval [0.0,1.0] used for heterozygous calls, i.e. a het. call " +
+            "will be accepted if its read frequency lies in the specified interval." + " [" + this.minHet + ", " +
+            this.maxHet + "]")
         .numberOfArgs(2)
         .valueSeparator(',')
         .build());
@@ -251,13 +257,27 @@ public final class ArgumentsParser {
           "permission:\t" + this.referenceFile.getAbsolutePath());
     }
     // Assert that the sample input option is specified.
-    File sampleFile = new File(cmd.getOptionValue('s'));
-    try {
-      parseSampleInput(sampleFile);
-    } catch (FileNotFoundException e) {
-      throw new MusialCLAException(
-          "`-s` The specified sample input file does not exist or has no read permission:\t" +
-              sampleFile.getAbsolutePath());
+    if (cmd.hasOption("s")) {
+      File sampleFile = new File(cmd.getOptionValue('s'));
+      try {
+        parseSampleInput(sampleFile);
+      } catch (FileNotFoundException e) {
+        throw new MusialCLAException(
+            "`-s` The specified sample input file does not exist or has no read permission:\t" +
+                sampleFile.getAbsolutePath());
+      }
+    } else if (cmd.hasOption("sDir")) {
+      File sampleDirectory = new File(cmd.getOptionValue("sDir"));
+      try {
+        parseSampleInput(sampleDirectory);
+      } catch (FileNotFoundException e) {
+        throw new MusialCLAException(
+            "`-sDir` The specified sample input directory does not exist or has no read permission:\t" +
+                sampleDirectory.getAbsolutePath());
+      }
+    } else {
+      throw new MusialCLAException("No input .vcf files specified. In order to run the tool either `-s` or `-sDir` " +
+          "has to be specified.");
     }
     if (cmd.hasOption("a")) {
       this.annotationInput = new File(cmd.getOptionValue("a"));
@@ -344,7 +364,7 @@ public final class ArgumentsParser {
   }
 
   /**
-   * @return The parsed min. frequency for variant calls.
+   * @return The parsed min. frequency for hom. variant calls.
    */
   public Double getMinFrequency() {
     return minFrequency;
@@ -407,14 +427,14 @@ public final class ArgumentsParser {
   }
 
   /**
-   * @return The minimum (read) frequency to call a heterozygous SNV.
+   * @return The minimum (read) frequency to accept a heterozygous variant call.
    */
   public Double getMinHet() {
     return minHet;
   }
 
   /**
-   * @return The maximum (read) frequency to call a heterozygous SNV.
+   * @return The maximum (read) frequency to accept a heterozygous variant call.
    */
   public Double getMaxHet() {
     return maxHet;
@@ -438,39 +458,58 @@ public final class ArgumentsParser {
   }
 
   /**
-   * Populates the {@link ArgumentsParser} sampleInput and sampleNames property with the content from a {@link File}
-   * object. The {@link File} object is expected to contain per line: A path to a .vcf file and optional
+   * Populates the {@link ArgumentsParser} sampleInput and sampleNames property.
+   * <p>
+   * If the passed {@link File} object points to a file, the properties are populated using the content from this file.
+   * The {@link File} object is expected to contain per line: A path to a .vcf file and optional
    * comma-separated a sample name.
+   * <p>
+   * If the passed {@link File} object points to a directory, the directory and all its sub-directories are searched
+   * for .vcf files which are used as sample input.
    *
-   * @param file A {@link File} pointing to a .txt file specifying the sample input.
+   * @param file A {@link File} pointing to a .txt file specifying the sample input or a directory.
    */
   private void parseSampleInput(File file) throws FileNotFoundException, MusialIOException {
-    List<String> fileContent = IO.getLinesFromFile(file.getAbsolutePath());
-    for (String fileLine : fileContent) {
-      String[] fileLineSplit = fileLine.split(",");
-      int fileLineTags = fileLineSplit.length;
-      File sampleVcfFile;
-      String sampleName;
-      switch (fileLineTags) {
-        case 1 -> {
-          sampleVcfFile = new File(fileLineSplit[0].trim());
-          sampleName = FilenameUtils.removeExtension(sampleVcfFile.getName());
+    if (file.isFile()) {
+      List<String> fileContent = IO.getLinesFromFile(file.getAbsolutePath());
+      for (String fileLine : fileContent) {
+        String[] fileLineSplit = fileLine.split(",");
+        int fileLineNoFields = fileLineSplit.length;
+        File sampleVcfFile;
+        String sampleName;
+        switch (fileLineNoFields) {
+          case 1 -> {
+            sampleVcfFile = new File(fileLineSplit[0].trim());
+            sampleName = FilenameUtils.removeExtension(sampleVcfFile.getName());
+          }
+          case 2 -> {
+            sampleVcfFile = new File(fileLineSplit[0].trim());
+            sampleName = fileLineSplit[1].trim();
+          }
+          default -> {
+            sampleVcfFile = new File("");
+            sampleName = "";
+          }
         }
-        case 2 -> {
-          sampleVcfFile = new File(fileLineSplit[0].trim());
-          sampleName = fileLineSplit[1].trim();
+        if (Validation.validateInputFile(sampleVcfFile)) {
+          throw new MusialIOException(
+              "The following input file does not exist or has no read permission:\t" + sampleVcfFile.getAbsolutePath());
         }
-        default -> {
-          sampleVcfFile = new File("");
-          sampleName = "";
-        }
+        sampleInput.add(sampleVcfFile);
+        sampleNames.add(sampleName);
       }
-      if (Validation.validateInputFile(sampleVcfFile)) {
-        throw new MusialIOException(
-            "The following input file does not exist or has no read permission:\t" + sampleVcfFile.getAbsolutePath());
+    } else if (file.isDirectory()) {
+      String[] extensions = new String[1];
+      extensions[0] = "vcf";
+      Collection<File> inputFiles = FileUtils.listFiles(file, extensions, true);
+      for (File sampleVcfFile : inputFiles) {
+        if (Validation.validateInputFile(sampleVcfFile)) {
+          throw new MusialIOException(
+              "The following input file does not exist or has no read permission:\t" + sampleVcfFile.getAbsolutePath());
+        }
+        sampleInput.add(sampleVcfFile);
+        sampleNames.add(FilenameUtils.removeExtension(sampleVcfFile.getName()));
       }
-      sampleInput.add(sampleVcfFile);
-      sampleNames.add(sampleName);
     }
   }
 
@@ -504,12 +543,18 @@ public final class ArgumentsParser {
         case 2 -> {
           featureQuery = fileLineSplit[0].trim();
           featureName = fileLineSplit[1].trim();
+          if (featureName.equals("")) {
+            featureName = featureQuery;
+          }
           featureQueries.add(featureQuery);
           featureNames.add(featureName);
         }
         case 3 -> {
           featureQuery = fileLineSplit[0].trim();
           featureName = fileLineSplit[1].trim();
+          if (featureName.equals("")) {
+            featureName = featureQuery;
+          }
           featurePDBPath = fileLineSplit[2].trim();
           featureQueries.add(featureQuery);
           featureNames.add(featureName);
@@ -555,12 +600,10 @@ public final class ArgumentsParser {
         FeatureI matchedFeature = matchedFeatures.get(0);
         Location featureCoordinates = matchedFeature.location();
         String featureParentSequence = matchedFeature.seqname();
-        /*
-        TODO:
-        Investigate shift of start position by plus one.The returned value does not match .gff.
-        This is currently fixed in the FeatureAnalysisEntry.java class.
+        /* FIXME: Investigate shift of start position by plus one.The returned value does not match .gff. This is
+            currently fixed in the FeatureAnalysisEntry.java class.
          */
-        this.includedGeneFeatures.add(new FeatureAnalysisEntry(featureName, featureParentSequence,
+        this.includedGeneFeatures.add(new FeatureAnalysisEntry(featureName, featureQuery, true, featureParentSequence,
             featureCoordinates.getBegin(),
             featureCoordinates.getEnd()));
         this.pdInputFiles.put(featureName, new File(featurePDBPath));
