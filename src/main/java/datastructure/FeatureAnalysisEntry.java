@@ -1,6 +1,6 @@
 package datastructure;
 
-import exceptions.MusialFaultyDataException;
+import exceptions.MusialBioException;
 
 /**
  * Internal representation of a reference sequence location that is subject to analysis. May represent the full
@@ -19,15 +19,19 @@ public final class FeatureAnalysisEntry {
   /**
    * The internal name of the entry.
    */
+  public final String name;
+  /**
+   * The identifier used to query this feature, i.e. the gene name value from the .gff file.
+   */
   public final String identifier;
+  /**
+   * Whether the feature represents a single gene.
+   */
+  public final boolean isGene;
   /**
    * The reference DNA sequence of the entry.
    */
   private String referenceSequence;
-  /**
-   *
-   */
-  private int referenceSequenceLength;
   /**
    * The location of the entry on the reference, i.e. for genes the contig or chromosome the feature is found on.
    */
@@ -48,16 +52,21 @@ public final class FeatureAnalysisEntry {
   /**
    * Constructor of {@link FeatureAnalysisEntry}.
    *
-   * @param entryIdentifier {@link String} representing the internal name of the reference feature to analyze.
+   * @param entryName       {@link String} representing the internal name of the reference feature to analyze.
+   * @param entryIdentifier {@link String} representing the name of the reference feature from the .gff file.
+   * @param isGene          {@link Boolean} whether the feature represents a single gene or not.
    * @param entryLocation   {@link String} the name of the reference location (contig, chromosome, plasmid) the feature
    *                        is located on.
    * @param entryStart      {@link Integer} The 1-based indexed starting position of the feature on the reference.
    * @param entryEnd        {@link Integer} The 1-based indexed end position of the feature on the reference.
-   * @throws MusialFaultyDataException If the specified locus is ambiguous.
+   * @throws MusialBioException If the specified locus is ambiguous.
    */
-  public FeatureAnalysisEntry(String entryIdentifier, String entryLocation, int entryStart,
-                              int entryEnd) throws MusialFaultyDataException {
+  public FeatureAnalysisEntry(String entryName, String entryIdentifier, boolean isGene, String entryLocation,
+                              int entryStart,
+                              int entryEnd) throws MusialBioException {
+    this.name = entryName;
     this.identifier = entryIdentifier;
+    this.isGene = isGene;
     this.referenceSequenceLocation = entryLocation;
     if (entryStart > 0 && entryEnd > 0 && (entryEnd - entryStart) != 0) {
       // CASE: Feature is on sense strand.
@@ -70,7 +79,7 @@ public final class FeatureAnalysisEntry {
       this.locationStart = -entryStart + 1;
       this.locationEnd = -entryEnd;
     } else {
-      throw new MusialFaultyDataException("It was tried to generate a gene feature with faulty position " +
+      throw new MusialBioException("It was tried to generate a gene feature with faulty position " +
           "data:\t" + entryStart + ", " + entryEnd);
     }
   }
@@ -89,23 +98,5 @@ public final class FeatureAnalysisEntry {
    */
   public void setReferenceSequence(String referenceSequence) {
     this.referenceSequence = referenceSequence;
-  }
-
-  /**
-   * @return The total length of the parent sequence (if a gene feature is stored) or stored sequence. Used to
-   * compute positions on the reverse complement.
-   */
-  public int getReferenceSequenceLength() {
-    return referenceSequenceLength;
-  }
-
-  /**
-   * Sets the total length of the parent sequence (if a gene feature is stored) or stored sequence. Used to
-   * compute positions on the reverse complement.
-   *
-   * @param referenceSequenceLength A {@link Integer} representing the sequence length to store.
-   */
-  public void setReferenceSequenceLength(int referenceSequenceLength) {
-    this.referenceSequenceLength = referenceSequenceLength;
   }
 }

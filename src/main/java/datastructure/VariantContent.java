@@ -1,18 +1,16 @@
 package datastructure;
 
-import exceptions.MusialBioException;
-import java.util.ArrayList;
 import java.util.HashMap;
 
 /**
- * Represents and stores information about a single genomic position of one sample relative to a reference (genetic
+ * Stores information about the content of a single genomic position of one sample relative to a reference (genetic
  * sequence).
  *
  * @author Simon Hackl
  * @version 2.0
  * @since 2.0
  */
-public final class VariantPosition {
+public final class VariantContent {
 
   /**
    * Character to indicate a reference call, i.e. no variant at the position.
@@ -43,67 +41,56 @@ public final class VariantPosition {
    */
   public static final char NO_CALL = 'N';
   /**
-   * Annotation tag to indicate low coverage.
+   * ...
    */
-  public static final char ANN_SEP = '@';
+  public static final char INSERTION_DUMMY = '~';
+  /**
+   * Separator character used for generating annotation strings.
+   */
+  public static final char SEPARATOR = '@';
   /**
    * The alternate content (base symbol) of the variant position.
    */
-  private final char content;
+  public final char content;
   /**
    * The Phred-scaled quality score of the position.
    */
-  private final double positionQuality;
+  public final double quality;
   /**
    * The depth of coverage of the position
    */
-  private final double positionCoverage;
+  public final double coverage;
   /**
    * The frequency of the alternate content of the variant position.
    */
-  private final double frequency;
-  /**
-   * Additional annotation tags associated with the position.
-   */
-  private final ArrayList<String> annotationTags = new ArrayList<>();
+  public final double frequency;
   /**
    * Additional annotation key, value pairs associated with the position.
    */
-  private final HashMap<String, String> annotationMap = new HashMap<>();
+  public final HashMap<String, String> annotations = new HashMap<>();
   /**
-   * Whether the alleles reflect an insertion
+   * Indicates if the content is of the most frequent allele.
    */
-  private final ArrayList<Boolean> isInsertion = new ArrayList<>();
-  /**
-   * Whether the alleles reflect a deletion.
-   */
-  private final ArrayList<Boolean> isDeletion = new ArrayList<>();
-  /**
-   * Whether the instance reflects not a possible variant of a sample, but the content of the reference.
-   */
-  private final boolean isReference;
+  public final boolean MFA;
 
   /**
-   * Constructor of {@link VariantPosition}.
+   * Constructor of {@link VariantContent}.
    */
-  public VariantPosition(ArrayList<String> contents, double quality, double coverage, ArrayList<Double> frequencies,
-                         boolean isReference) throws MusialBioException {
-    if ( contents.size() != frequencies.size() ) {
-      throw new MusialBioException( "Construction of variant position failed: The number of contents and frequencies did " +
-          "not match" );
-    }
-    if ( contents.size() == 0 ) {
-      throw new MusialBioException( "Construction of variant position failed: An empty content list was passed." );
-    }
-    this.isReference = isReference;
-    this.positionQuality = quality;
-    this.positionCoverage = coverage;
-    for (int i = 0; i < contents.size(); i++) {
-      String content = contents.get( i );
-      double frequency = frequencies.get( i );
-      this.contentList.add( content );
-      this.frequencyList.add( frequency );
-    }
+  public VariantContent(char content, double quality, double coverage,double frequency, boolean isMFA) {
+    this.content = content;
+    this.quality = quality;
+    this.coverage = coverage;
+    this.frequency = frequency;
+    this.MFA = isMFA;
+  }
 
+  /**
+   * Adds a new annotation value accessible via the specified key to the annotations map of this object.
+   *
+   * @param key {@link String} representing the key of the annotation.
+   * @param value {@link String} representing the value of the annotation.
+   */
+  public void addAnnotation( String key, String value ) {
+    this.annotations.put( key, value );
   }
 }

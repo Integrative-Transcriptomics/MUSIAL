@@ -1,9 +1,16 @@
 package utility;
 
+import static org.forester.util.ForesterUtil.round;
+
+import com.google.common.base.Splitter;
+import components.SnpEffAnnotator;
 import datastructure.FastaEntry;
 import datastructure.FeatureAnalysisEntry;
-import datastructure.VariablePosition;
-import datastructure.VariablePositionsTable;
+import datastructure.PositionStatistics;
+import datastructure.SampleStatistics;
+import datastructure.VariantContent;
+import datastructure.VariantPositionsTable;
+import exceptions.MusialBioException;
 import exceptions.MusialIOException;
 import java.io.BufferedReader;
 import java.io.File;
@@ -16,17 +23,16 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Scanner;
-import java.util.TreeSet;
+import java.util.concurrent.ConcurrentSkipListSet;
 import main.Musial;
-import org.apache.commons.io.FilenameUtils;
-import org.biojava.nbio.core.exceptions.CompoundNotFoundException;
 import org.biojava.nbio.genome.parsers.gff.FeatureList;
 import org.biojava.nbio.genome.parsers.gff.GFF3Reader;
 import org.biojava.nbio.structure.Chain;
@@ -34,7 +40,9 @@ import org.biojava.nbio.structure.Group;
 import org.biojava.nbio.structure.Structure;
 import org.biojava.nbio.structure.io.FileParsingParameters;
 import org.biojava.nbio.structure.io.PDBFileReader;
-import tools.ArgumentsParser;
+import org.checkerframework.checker.units.qual.A;
+import org.json.simple.JSONObject;
+import components.ArgumentsParser;
 
 /**
  * This class comprises static methods used for reading and writing files.
@@ -132,7 +140,7 @@ public final class IO {
           fastaEntries.add(new FastaEntry(currHeader, currSequence.toString()));
           currSequence = new StringBuilder();
         }
-        currHeader = currLine.substring(1);
+        currHeader = currLine.replace(">", "");
       } else if (!currLine.startsWith(";")) {
         currSequence.append(currLine.trim());
       }
@@ -204,43 +212,75 @@ public final class IO {
 
   /**
    * Writes output `.tsv` file containing nucleotide variants in a tab delimited format.
-   * <p>
-   * The expected output format is:
-   * Position \t Reference (optional) \t [SAMPLE_1_NAME] \t ...
-   * x (Integer) \t [Nucleotide at position x in reference] (optional) \t [Nucleotide at position x in sample 1] \t ...
    *
-   * @param outFile                {@link File} instance pointing to the output file.
-   * @param referenceAnalysisId    {@link String} internal reference feature identifier of which the output is written.
-   * @param variablePositionsTable {@link VariablePositionsTable} instance containing variant information.
+   * @param outFile               {@link File} instance pointing to the output file.
+   * @param referenceAnalysisId   {@link String} internal reference feature identifier of which the output is written.
+   * @param variantPositionsTable {@link VariantPositionsTable} instance containing variant information.
    * @throws MusialIOException If the output file could not be generated or not written to.
    */
-  public static void writeSnvTable(File outFile, String referenceAnalysisId,
-                                   VariablePositionsTable variablePositionsTable)
+  public static void writeVariantsContentTable(File outFile, String referenceAnalysisId,
+                                               VariantPositionsTable variantPositionsTable)
       throws MusialIOException {
     if (!outFile.exists()) {
       throw new MusialIOException("The specified output file does not exist:\t" + outFile.getAbsolutePath());
     }
     try {
       FileWriter snvTableWriter = new FileWriter(outFile.getAbsolutePath());
-      snvTableWriter.write(
-          variablePositionsTable.getSampleNamesHeaderTabDelimited(referenceAnalysisId) + LINE_SEPARATOR
-      );
-      Iterator<String> variantPositions = variablePositionsTable.getVariantPositions(referenceAnalysisId);
-      // Initialize the shift caused by any insertions with 0.
-      int shift = 0;
+      StringBuilder lineBuilder = new StringBuilder();
+      // Write header with meta-information.
+      lineBuilder.append("#date=")
+          .append(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss").format(LocalDateTime.now())).append(";source=")
+          .append(Musial.CLASS_NAME).append(Musial.VERSION).append(";reference=").append(referenceAnalysisId)
+          .append(";samples=").append(variantPositionsTable.getSampleNames(referenceAnalysisId).size()).append(";" +
+          "variantPositions=").append(variantPositionsTable.getVariantPositionsSet(referenceAnalysisId).size())
+          .append(LINE_SEPARATOR);
+      snvTableWriter.write(lineBuilder.toString());
+      lineBuilder = new StringBuilder();
+      // Write column headers.
+      lineBuilder.append("Position\t").append("Reference\t").append(String.join("\t",
+          variantPositionsTable.getSampleNames(referenceAnalysisId))).append(LINE_SEPARATOR);
+      snvTableWriter.write(lineBuilder.toString());
+      // Iterate over variant positions and write tab delimited content.
+      Iterator<String> variantPositions = variantPositionsTable.getVariantPositions(referenceAnalysisId);
+      HashSet<String> sampleNames = variantPositionsTable.getSampleNames(referenceAnalysisId);
       while (variantPositions.hasNext()) {
         String variantPosition = variantPositions.next();
-        // If the current position contains an "I" the shift is increased by one. As the positions are sorted with
-        // respect to the number of "I" characters, e.g. 1,2,2I,2II,2III,3 for an insertion of length 3 at position
-        // 2, and positions are iterated over in ascending order, the number of "I"s is not relevant.
-        if (variantPosition.contains("I")) {
-          shift += 1;
+        lineBuilder = new StringBuilder();
+        lineBuilder.append(variantPosition).append("\t");
+        // Append content of reference.
+        if (variantPosition.contains("+")) {
+          lineBuilder.append(VariantContent.INSERTION_DUMMY).append("\t");
+        } else {
+          Iterator<VariantContent> referenceContentIterator = variantPositionsTable.getContent(referenceAnalysisId,
+              "Reference", variantPosition);
+          if (referenceContentIterator != null) {
+            lineBuilder.append(referenceContentIterator.next().content).append("\t");
+          }
         }
-        snvTableWriter.write(
-            variablePositionsTable
-                .getPositionContentTabDelimited(referenceAnalysisId, variantPosition, shift) +
-                LINE_SEPARATOR
-        );
+        // Append content of each sample.
+        for (String sampleName : sampleNames) {
+          Iterator<VariantContent> sampleContentIterator =
+              variantPositionsTable.getContent(referenceAnalysisId, sampleName, variantPosition);
+          if (sampleContentIterator == null) {
+            if (variantPosition.contains("I")) {
+              lineBuilder.append(VariantContent.INSERTION_DUMMY).append("\t");
+            } else {
+              lineBuilder.append(VariantContent.REFERENCE).append("\t");
+            }
+          } else {
+            StringBuilder sampleContentBuilder = new StringBuilder();
+            while (sampleContentIterator.hasNext()) {
+              VariantContent sampleContent = sampleContentIterator.next();
+              sampleContentBuilder.append(sampleContent.content);
+              sampleContentBuilder.append(VariantContent.SEPARATOR);
+            }
+            sampleContentBuilder.setLength(sampleContentBuilder.length() - 1);
+            lineBuilder.append(sampleContentBuilder).append("\t");
+          }
+        }
+        lineBuilder.setLength(lineBuilder.length() - 1);
+        lineBuilder.append(LINE_SEPARATOR);
+        snvTableWriter.write(lineBuilder.toString());
       }
       snvTableWriter.close();
     } catch (IOException e) {
@@ -250,37 +290,75 @@ public final class IO {
 
   /**
    * Writes output `.tsv` file containing annotations in a tab delimited format.
-   * <p>
-   * The expected output format is:
-   * Position \t [SAMPLE_1_NAME] \t ...
-   * x (Integer) \t [Quality,Coverage,...] \t ...
    *
-   * @param outFile                {@link File} instance pointing to the output file.
-   * @param referenceAnalysisId    {@link String} internal reference feature identifier of which the output is written.
-   * @param variablePositionsTable {@link VariablePositionsTable} instance containing variant information.
+   * @param outFile               {@link File} instance pointing to the output file.
+   * @param referenceAnalysisId   {@link String} internal reference feature identifier of which the output is written.
+   * @param variantPositionsTable {@link VariantPositionsTable} instance containing variant information.
    * @throws MusialIOException If the output file could not be generated or not written to.
    */
-  public static void writeSnvAnnotations(File outFile, String referenceAnalysisId,
-                                         VariablePositionsTable variablePositionsTable) throws MusialIOException {
+  public static void writeVariantsAnnotationTable(File outFile, String referenceAnalysisId,
+                                                  VariantPositionsTable variantPositionsTable)
+      throws MusialIOException {
     if (!outFile.exists()) {
       throw new MusialIOException("The specified output file does not exist:\t" + outFile.getAbsolutePath());
     }
     try {
       FileWriter snvAnnotationsWriter = new FileWriter(outFile.getAbsolutePath());
-      snvAnnotationsWriter.write(
-          variablePositionsTable.getSampleNamesHeaderTabDelimited(referenceAnalysisId) + LINE_SEPARATOR
-      );
-      Iterator<String> variantPositions = variablePositionsTable.getVariantPositions(referenceAnalysisId);
-      int shift = 0;
+      StringBuilder lineBuilder = new StringBuilder();
+      // Write header with meta-information.
+      lineBuilder.append("#date=")
+          .append(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss").format(LocalDateTime.now())).append(";source=")
+          .append(Musial.CLASS_NAME).append(Musial.VERSION).append(";reference=").append(referenceAnalysisId)
+          .append(";samples=").append(variantPositionsTable.getSampleNames(referenceAnalysisId).size()).append(";" +
+          "variantPositions=").append(variantPositionsTable.getVariantPositionsSet(referenceAnalysisId).size())
+          .append(LINE_SEPARATOR);
+      snvAnnotationsWriter.write(lineBuilder.toString());
+      lineBuilder = new StringBuilder();
+      // Write column headers.
+      lineBuilder.append("Position\t").append(String.join("\t",
+          variantPositionsTable.getSampleNames(referenceAnalysisId))).append(LINE_SEPARATOR);
+      snvAnnotationsWriter.write(lineBuilder.toString());
+      // Iterate over variant positions and write tab delimited content.
+      Iterator<String> variantPositions = variantPositionsTable.getVariantPositions(referenceAnalysisId);
+      HashSet<String> sampleNames = variantPositionsTable.getSampleNames(referenceAnalysisId);
       while (variantPositions.hasNext()) {
         String variantPosition = variantPositions.next();
-        if (variantPosition.contains("I")) {
-          shift += 1;
+        lineBuilder = new StringBuilder();
+        lineBuilder.append(variantPosition).append("\t");
+        // Append annotation of each sample.
+        for (String sampleName : sampleNames) {
+          Iterator<VariantContent> sampleContentIterator =
+              variantPositionsTable.getContent(referenceAnalysisId, sampleName, variantPosition);
+          if (sampleContentIterator != null) {
+            StringBuilder sampleContentBuilder = new StringBuilder();
+            while (sampleContentIterator.hasNext()) {
+              VariantContent sampleContent = sampleContentIterator.next();
+              sampleContentBuilder.append("QUALITY=");
+              sampleContentBuilder.append(round(sampleContent.quality, 2));
+              sampleContentBuilder.append(";");
+              sampleContentBuilder.append("COVERAGE=");
+              sampleContentBuilder.append(round(sampleContent.coverage, 2));
+              sampleContentBuilder.append(";");
+              sampleContentBuilder.append("FREQUENCY=");
+              sampleContentBuilder.append(round(sampleContent.frequency, 2));
+              sampleContentBuilder.append(";");
+              if (sampleContent.annotations.size() > 0) {
+                for (Map.Entry<String, String> entry : sampleContent.annotations.entrySet()) {
+                  sampleContentBuilder.append(entry.getKey()).append("=").append(entry.getValue()).append(";");
+                }
+              }
+              sampleContentBuilder.setLength(sampleContentBuilder.length() - 1);
+              sampleContentBuilder.append(VariantContent.SEPARATOR);
+            }
+            sampleContentBuilder.setLength(sampleContentBuilder.length() - 1);
+            lineBuilder.append(sampleContentBuilder).append("\t");
+          } else {
+            lineBuilder.append("\t");
+          }
         }
-        snvAnnotationsWriter.write(
-            variablePositionsTable.getPositionAnnotationTabDelimited(referenceAnalysisId, variantPosition, shift) +
-                LINE_SEPARATOR
-        );
+        lineBuilder.setLength(lineBuilder.length() - 1);
+        lineBuilder.append(LINE_SEPARATOR);
+        snvAnnotationsWriter.write(lineBuilder.toString());
       }
       snvAnnotationsWriter.close();
     } catch (IOException e) {
@@ -289,85 +367,76 @@ public final class IO {
   }
 
   /**
-   * Writes output `.fasta` file containing the sequence of variants of all samples and the reference (optional).
+   * Writes output `.fasta` file containing the full length sequences of all samples and the reference.
    *
-   * @param outFile                {@link File} instance pointing to the output file.
-   * @param referenceAnalysisId    {@link String} internal reference feature identifier of which the output is written.
-   * @param variablePositionsTable {@link VariablePositionsTable} instance containing variant information.
+   * @param outFile               {@link File} instance pointing to the output file.
+   * @param referenceAnalysisId   {@link String} internal reference feature identifier of which the output is written.
+   * @param variantPositionsTable {@link VariantPositionsTable} instance containing variant information.
    * @throws MusialIOException If the output file could not be generated or not written to.
    */
-  public static void writeVariantAlignment(File outFile, String referenceAnalysisId,
-                                           VariablePositionsTable variablePositionsTable)
+  public static void writeSequences(File outFile, String referenceAnalysisId,
+                                    VariantPositionsTable variantPositionsTable)
       throws MusialIOException {
     if (!outFile.exists()) {
       throw new MusialIOException("The specified output file does not exist:\t" + outFile.getAbsolutePath());
     }
     try {
-      FileWriter variantAlignmentWriter = new FileWriter(outFile.getAbsolutePath());
-      variantAlignmentWriter.write(variablePositionsTable.getSampleVariantsSequence(referenceAnalysisId,
-          "Reference", true));
-      for (String sampleName : variablePositionsTable.getSampleNamesOf(referenceAnalysisId)) {
-        variantAlignmentWriter.write(variablePositionsTable.getSampleVariantsSequence(referenceAnalysisId, sampleName
-            , true));
+      FileWriter sequenceWriter = new FileWriter(outFile.getAbsolutePath());
+      sequenceWriter.write(">Reference|" + referenceAnalysisId + LINE_SEPARATOR);
+      sequenceWriter.write(String.join(LINE_SEPARATOR,
+          Splitter.fixedLength(80).split(Bio.getSequenceFromTable(variantPositionsTable, referenceAnalysisId,
+              "Reference",
+              variantPositionsTable.getAllPositionsIterator(referenceAnalysisId), false, true))));
+      sequenceWriter.write(LINE_SEPARATOR);
+      for (String sampleName : variantPositionsTable.getSampleNames(referenceAnalysisId)) {
+        sequenceWriter.write(">Sample|" + sampleName + LINE_SEPARATOR);
+        sequenceWriter.write(String.join(LINE_SEPARATOR,
+            Splitter.fixedLength(80).split(Bio.getSequenceFromTable(variantPositionsTable, referenceAnalysisId,
+                sampleName, variantPositionsTable.getAllPositionsIterator(referenceAnalysisId), false, true))));
+        sequenceWriter.write(LINE_SEPARATOR);
       }
-      variantAlignmentWriter.close();
+      sequenceWriter.close();
     } catch (IOException e) {
-      throw new MusialIOException("Failed to write to output file:\t" + outFile.getAbsolutePath());
-    }
-  }
-
-  /**
-   * Writes output `.fasta` file containing the full length sequences of all samples and the reference (optional).
-   *
-   * @param outFile                {@link File} instance pointing to the output file.
-   * @param referenceAnalysisId    {@link String} internal reference feature identifier of which the output is written.
-   * @param variablePositionsTable {@link VariablePositionsTable} instance containing variant information.
-   * @throws MusialIOException If the output file could not be generated or not written to.
-   */
-  public static void writeFullAlignment(File outFile, String referenceAnalysisId,
-                                        VariablePositionsTable variablePositionsTable)
-      throws MusialIOException {
-    if (!outFile.exists()) {
-      throw new MusialIOException("The specified output file does not exist:\t" + outFile.getAbsolutePath());
-    }
-    try {
-      FileWriter sequenceAlignmentWriter = new FileWriter(outFile.getAbsolutePath());
-      sequenceAlignmentWriter.write(variablePositionsTable.getSampleFullSequence(referenceAnalysisId,
-          "Reference", true));
-      for (String sampleName : variablePositionsTable.getSampleNamesOf(referenceAnalysisId)) {
-        sequenceAlignmentWriter.write(variablePositionsTable.getSampleFullSequence(referenceAnalysisId, sampleName,
-            true));
-      }
-      sequenceAlignmentWriter.close();
-    } catch (IOException e) {
-      throw new MusialIOException("Failed to write to output file:\t" + outFile.getAbsolutePath());
+      throw new MusialIOException(
+          "Failed to write to output file:\t" + outFile.getAbsolutePath() + ", Caused by: " + e.getMessage());
     }
   }
 
   /**
    * Writes a `.tsv` file containing per sample statistics.
    *
-   * @param outFile                {@link File} instance pointing to the output file.
-   * @param referenceAnalysisId    {@link String} internal reference feature identifier of which the output is written.
-   * @param variablePositionsTable {@link VariablePositionsTable} instance containing variant information.
+   * @param outFile               {@link File} instance pointing to the output file.
+   * @param referenceAnalysisId   {@link String} internal reference feature identifier of which the output is written.
+   * @param variantPositionsTable {@link VariantPositionsTable} instance containing variant information.
    * @throws MusialIOException If the output file could not be generated or not written to.
    */
   public static void writeSampleStatistics(File outFile, String referenceAnalysisId,
-                                           VariablePositionsTable variablePositionsTable) throws MusialIOException {
+                                           VariantPositionsTable variantPositionsTable) throws MusialIOException {
     if (!outFile.exists()) {
       throw new MusialIOException("The specified output file does not exist:\t" + outFile.getAbsolutePath());
     }
     try {
       FileWriter sampleStatisticsWriter = new FileWriter(outFile.getAbsolutePath());
-      sampleStatisticsWriter.write(
-          variablePositionsTable.getStatisticsHeaderTabDelimited("Sample") + LINE_SEPARATOR
-      );
-      List<String> sampleNames = variablePositionsTable.getSampleNamesOf(referenceAnalysisId);
+      StringBuilder lineBuilder = new StringBuilder();
+      // Write header with meta-information.
+      lineBuilder.append("#date=")
+          .append(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss").format(LocalDateTime.now())).append(";source=")
+          .append(Musial.CLASS_NAME).append(Musial.VERSION).append(";reference=").append(referenceAnalysisId)
+          .append(";samples=").append(variantPositionsTable.getSampleNames(referenceAnalysisId).size())
+          .append(LINE_SEPARATOR);
+      sampleStatisticsWriter.write(lineBuilder.toString());
+      lineBuilder = new StringBuilder();
+      // Write column headers.
+      lineBuilder.append(SampleStatistics.getHeaderString());
+      sampleStatisticsWriter.write(lineBuilder.toString());
+      lineBuilder = new StringBuilder();
+      // Write sample statistics.
+      HashSet<String> sampleNames = variantPositionsTable.getSampleNames(referenceAnalysisId);
       for (String sampleName : sampleNames) {
-        sampleStatisticsWriter.write(
-            variablePositionsTable.getSampleStatisticsTabDelimited(referenceAnalysisId, sampleName) +
-                LINE_SEPARATOR
-        );
+        lineBuilder.append(sampleName).append("\t")
+            .append(variantPositionsTable.getSampleStatistics(referenceAnalysisId, sampleName).getContentString());
+        sampleStatisticsWriter.write(lineBuilder.toString());
+        lineBuilder = new StringBuilder();
       }
       sampleStatisticsWriter.close();
     } catch (IOException e) {
@@ -378,34 +447,49 @@ public final class IO {
   /**
    * Writes a `.tsv` file containing per position statistics.
    * <p>
-   * One row contains information about the counts of each possible variant content (see {@link datastructure.VariablePosition})
+   * One row contains information about the counts of each possible variant content (see {@link VariantContent})
    *
-   * @param outFile                {@link File} instance pointing to the output file.
-   * @param referenceAnalysisId    {@link String} internal reference feature identifier of which the output is written.
-   * @param variablePositionsTable {@link VariablePositionsTable} instance containing variant information.
+   * @param outFile               {@link File} instance pointing to the output file.
+   * @param referenceAnalysisId   {@link String} internal reference feature identifier of which the output is written.
+   * @param variantPositionsTable {@link VariantPositionsTable} instance containing variant information.
    * @throws MusialIOException If the output file could not be generated or not written to.
    */
   public static void writePositionStatistics(File outFile, String referenceAnalysisId,
-                                             VariablePositionsTable variablePositionsTable) throws MusialIOException {
+                                             VariantPositionsTable variantPositionsTable) throws MusialIOException {
     if (!outFile.exists()) {
       throw new MusialIOException("The specified output file does not exist:\t" + outFile.getAbsolutePath());
     }
     try {
       FileWriter positionStatisticsWriter = new FileWriter(outFile.getAbsolutePath());
-      positionStatisticsWriter.write(
-          variablePositionsTable.getStatisticsHeaderTabDelimited("Position") + LINE_SEPARATOR
-      );
-      Iterator<String> variantPositions = variablePositionsTable.getVariantPositions(referenceAnalysisId);
-      int shift = 0;
+      StringBuilder lineBuilder = new StringBuilder();
+      // Write header with meta-information.
+      lineBuilder.append("#date=")
+          .append(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss").format(LocalDateTime.now())).append(";source=")
+          .append(Musial.CLASS_NAME).append(Musial.VERSION).append(";reference=").append(referenceAnalysisId)
+          .append(";samples=").append(variantPositionsTable.getSampleNames(referenceAnalysisId).size())
+          .append(LINE_SEPARATOR);
+      positionStatisticsWriter.write(lineBuilder.toString());
+      lineBuilder = new StringBuilder();
+      // Write column headers.
+      lineBuilder.append(PositionStatistics.getHeaderString());
+      positionStatisticsWriter.write(lineBuilder.toString());
+      lineBuilder = new StringBuilder();
+      // Write sample statistics.
+      Iterator<String> variantPositions = variantPositionsTable.getVariantPositions(referenceAnalysisId);
       while (variantPositions.hasNext()) {
         String variantPosition = variantPositions.next();
+        String printablePosition;
         if (variantPosition.contains("I")) {
-          shift += 1;
+          printablePosition =
+              variantPosition.replace("I", "") + "+" + variantPosition.chars().filter(c -> c == 'I').count();
+        } else {
+          printablePosition = variantPosition;
         }
-        positionStatisticsWriter.write(
-            variablePositionsTable.getPositionStatisticsTabDelimited(referenceAnalysisId, variantPosition, shift) +
-                LINE_SEPARATOR
-        );
+        lineBuilder.append(printablePosition).append("\t");
+        lineBuilder.append(
+            variantPositionsTable.getPositionStatistics(referenceAnalysisId, variantPosition).getContentString());
+        positionStatisticsWriter.write(lineBuilder.toString());
+        lineBuilder = new StringBuilder();
       }
       positionStatisticsWriter.close();
     } catch (IOException e) {
@@ -414,257 +498,171 @@ public final class IO {
   }
 
   /**
-   * Writes a nucleotide to amino-acid sequence alignment for a specified feature (referenceAnalysisId) and protein
-   * structure (.pdb file accessed via referenceAnalysisId).
-   * <p>
-   * One alignment and one output file is generated per chain of the protein structure.
+   * Writes an annotated summary of all detected variants into an .tsv file.
    *
-   * @param outDirectory           {@link File} object specifying the output directory.
-   * @param featureAnalysisEntry   {@link FeatureAnalysisEntry} specifying the reference feature to analyze.
-   * @param variablePositionsTable {@link VariablePositionsTable} storing the corresponding data.
-   * @param arguments              {@link ArgumentsParser} arguments parsed from the command line.
-   * @throws MusialIOException If any output file does not exist or could not be accessed.
+   * @param outFile               {@link File} instance pointing to the output file.
+   * @param referenceAnalysisId   {@link String} internal reference feature identifier of which the output is written.
+   * @param variantPositionsTable {@link VariantPositionsTable} instance containing variant information.
+   * @throws MusialIOException  If the output file could not be generated or not written to.
+   * @throws MusialBioException If any position with no reference content entry is accessed.
    */
-  public static void writeProteinAlignment(File outDirectory, FeatureAnalysisEntry featureAnalysisEntry,
-                                           VariablePositionsTable variablePositionsTable, ArgumentsParser arguments)
-      throws MusialIOException {
-    if (!outDirectory.exists()) {
-      throw new MusialIOException("The specified output directory does not exist:\t" + outDirectory.getAbsolutePath());
+  public static void writeSnpEffSummary(File outFile, String referenceAnalysisId,
+                                        VariantPositionsTable variantPositionsTable)
+      throws MusialIOException, MusialBioException {
+    if (!outFile.exists()) {
+      throw new MusialIOException("The specified output file does not exist:\t" + outFile.getAbsolutePath());
     }
-    File proteinAlignmentOutFile = null;
     try {
-      String referenceAnalysisId = featureAnalysisEntry.identifier;
-      String referenceSequence = variablePositionsTable.getSampleFullSequence(referenceAnalysisId,
-          "Reference", false);
-      if (!featureAnalysisEntry.isSense) {
-        referenceSequence = Bio.getReverseComplement(referenceSequence);
-      }
-      File pdbFile = arguments.getPdInputFiles().get(referenceAnalysisId);
-      String pdbName = FilenameUtils.removeExtension(pdbFile.getName());
-      Structure pdbStructure = getStructureFromPdb(pdbFile);
-      HashMap<String, String> proteinSequences = Bio.getSequencesFromPdb(pdbStructure);
-      FileWriter proteinAlignmentWriter;
-      StringBuilder lineStringBuilder = new StringBuilder();
-      for (Chain chain : pdbStructure.getChains()) {
-        String chainId = chain.getName();
-        String chainAsymId = chain.getId();
-        proteinAlignmentOutFile = new File(outDirectory.getAbsolutePath() + "/proteinAlignment_" + chainId +
-            ".tsv");
-        IO.generateFile(proteinAlignmentOutFile);
-        proteinAlignmentWriter = new FileWriter(proteinAlignmentOutFile);
-        // (1) Write file header.
-        proteinAlignmentWriter.write("#fileformat\tASFv1.0" + LINE_SEPARATOR);
-        proteinAlignmentWriter
-            .write("#date\t" + DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss").format(LocalDateTime.now()) +
-                LINE_SEPARATOR);
-        proteinAlignmentWriter.write("#source\t" + Musial.CLASS_NAME + Musial.VERSION + LINE_SEPARATOR);
-        proteinAlignmentWriter
-            .write("#input\tPROTEIN=" + pdbName + "\tNUCLEOTIDES=" + referenceAnalysisId + LINE_SEPARATOR);
-        proteinAlignmentWriter.write("Type\tGenomePositions\tGenomeContent\tEncodedAminoAcid\tProteinPosition" +
-            "\tProteinContent\tMissenseMutations" + LINE_SEPARATOR);
-        // Match amino-acid and nucleotide sequence.
-        String aminoAcidSequence = proteinSequences.get(chainId);
-        ArrayList<String> matchedSequences = Bio.matchSequences(aminoAcidSequence, referenceSequence);
-        String alignedAminoAcidSequence = matchedSequences.get(0);
-        Iterator<String> alignedAminoAcidSequenceIterator =
-            Arrays.stream(alignedAminoAcidSequence.split(String.valueOf(Bio.SEPARATOR_CHAR))).iterator();
-        String alignedReferenceSequence = matchedSequences.get(1);
-        Iterator<String> alignedReferenceSequenceIterator =
-            Arrays.stream(alignedReferenceSequence.split(String.valueOf(Bio.SEPARATOR_CHAR))).iterator();
-        Iterator<String> insertionPositionsIterator =
-            variablePositionsTable.getInsertionPositions(referenceAnalysisId);
-        int aminoAcidGapCount = 0;
-        int aminoAcidPosition = Bio.getFirstResidueNumberFromProteinStructure(pdbStructure, chainAsymId);
-        // TODO: What happens if features positions start with an insertion from any sample? Is this even possible
-        //  from .vcf files?
-        TreeSet<String> featurePositions = variablePositionsTable.getAllPositions(referenceAnalysisId);
-        int referenceGapCount = 0;
-        int referencePosition;
-        if (featureAnalysisEntry.isSense) {
-          referencePosition = Integer.parseInt(featurePositions.first());
-        } else {
-          referencePosition = -Integer.parseInt(featurePositions.last());
+      FileWriter snpEffSummaryWriter = new FileWriter(outFile.getAbsolutePath());
+      StringBuilder lineBuilder = new StringBuilder();
+      // Write header with meta-information.
+      lineBuilder.append("#date=")
+          .append(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss").format(LocalDateTime.now())).append(";source=")
+          .append(Musial.CLASS_NAME).append(Musial.VERSION).append(";reference=").append(referenceAnalysisId)
+          .append(";samples=").append(variantPositionsTable.getSampleNames(referenceAnalysisId).size())
+          .append(LINE_SEPARATOR);
+      snpEffSummaryWriter.write(lineBuilder.toString());
+      lineBuilder = new StringBuilder();
+      // Write column headers.
+      lineBuilder.append(SnpEffAnnotator.snpEffSummaryHeader);
+      snpEffSummaryWriter.write(lineBuilder.toString());
+      lineBuilder = new StringBuilder();
+      // Collect and write annotation summary.
+      ConcurrentSkipListSet<String> variantPositions =
+          variantPositionsTable.getVariantPositionsSet(referenceAnalysisId);
+      HashMap<String, ArrayList<String>> perAnnotationSamples;
+      ArrayList<String> annotationSampleNames;
+      HashSet<String> sampleNames = variantPositionsTable.getSampleNames(referenceAnalysisId);
+      Iterator<VariantContent> variantContentIterator;
+      VariantContent variantContent;
+      String snpEffAnnotation;
+      Iterator<VariantContent> referenceContentIterator;
+      char referenceContent;
+      for (String variantPosition : variantPositions) {
+        perAnnotationSamples = new HashMap<>();
+        // Skip any insertion positions that exceed the +1 suffix to avoid duplications.
+        if (variantPosition.contains("+") && !variantPosition.split("\\+")[1].equals("1")) {
+          continue;
         }
-        // (2) Write alignment information to file.
-        String alignedAminoAcidSequenceEntry;
-        String alignedReferenceSequenceEntry;
-        while (alignedAminoAcidSequenceIterator.hasNext() || alignedReferenceSequenceIterator.hasNext()) {
-          alignedAminoAcidSequenceEntry = alignedAminoAcidSequenceIterator.next();
-          alignedReferenceSequenceEntry = alignedReferenceSequenceIterator.next();
-          // (2i) Write truncated sequence information.
-          if (alignedAminoAcidSequenceEntry.equals(String.valueOf(Bio.TRUNCATED_CHAR))) {
-            lineStringBuilder.append("TRC\t");
-            int truncationLength = alignedReferenceSequenceEntry.length();
-            for (int i = 0; i < truncationLength; i++) {
-              if (i == truncationLength - 1) {
-                lineStringBuilder.append(referencePosition).append("\t");
-              } else {
-                lineStringBuilder.append(referencePosition).append(",");
+        for (String sampleName : sampleNames) {
+          variantContentIterator = variantPositionsTable.getContent(referenceAnalysisId, sampleName, variantPosition);
+          if (variantContentIterator != null && variantContentIterator.hasNext()) {
+            while (variantContentIterator.hasNext()) {
+              variantContent = variantContentIterator.next();
+              if (variantContent.annotations.containsKey(SnpEffAnnotator.snpEffAnnotationAttributeKey)) {
+                snpEffAnnotation = variantContent.annotations.get(SnpEffAnnotator.snpEffAnnotationAttributeKey);
+                if (perAnnotationSamples.containsKey(snpEffAnnotation)) {
+                  perAnnotationSamples.get(snpEffAnnotation).add(sampleName);
+                } else {
+                  annotationSampleNames = new ArrayList<>();
+                  annotationSampleNames.add(sampleName);
+                  perAnnotationSamples.put(snpEffAnnotation, annotationSampleNames);
+                }
               }
-              referencePosition += 1;
             }
-            lineStringBuilder.append(alignedReferenceSequenceEntry).append("\t\t\t\t").append(LINE_SEPARATOR);
-            proteinAlignmentWriter.write(lineStringBuilder.toString());
-            lineStringBuilder = new StringBuilder();
+          }
+        }
+        for (Map.Entry<String, ArrayList<String>> entry : perAnnotationSamples.entrySet()) {
+          // If the position reflects an insertion only the prefix of the position string is used.
+          if (variantPosition.contains("+")) {
+            variantPosition = variantPosition.split("\\+")[0];
+          }
+          referenceContentIterator = variantPositionsTable.getContent(referenceAnalysisId, "Reference",
+              variantPosition);
+          if (referenceContentIterator != null && referenceContentIterator.hasNext()) {
+            referenceContent =
+                referenceContentIterator.next().content;
           } else {
-            // Write alignment information.
-            lineStringBuilder.append("ALN\t");
-            // Whether to check for mis-sense mutations.
-            boolean referenceIsAligned = false;
-            // Write information from nucleotide/reference sequence.
-            if (alignedReferenceSequenceEntry.equals(String.valueOf(Bio.NO_MATCH_CHAR).repeat(3))) {
-              // CASE: An alignment gap is present in the nucleotide sequence.
-              lineStringBuilder.append("_\t_\t_\t");
-            } else {
-              // CASE: Content from nucleotide sequence is aligned.
-              // Add information about genome position.
-              int referenceEntryLength = alignedReferenceSequenceEntry.length();
-              for (int i = 0; i < referenceEntryLength; i++) {
-                if (i == referenceEntryLength - 1) {
-                  lineStringBuilder.append(referencePosition).append("\t");
-                } else {
-                  lineStringBuilder.append(referencePosition).append(",");
-                }
-                referencePosition += 1;
-              }
-              // Add information about genome content.
-              lineStringBuilder.append(alignedReferenceSequenceEntry).append("\t");
-              // Add information about amino-acid encoded by genome content.
-              String codon = Bio.CODON_MAP.get(alignedReferenceSequenceEntry);
-              if (codon.equals("")) {
-                // Stop codon.
-                lineStringBuilder.append("STOP").append("\t");
-              } else {
-                // Encoded amino acid.
-                lineStringBuilder.append(Bio.AA1TO3.get(codon)).append("\t");
-              }
-              referenceIsAligned = true;
-            }
-            // Write information from amino-acid sequence.
-            if (alignedAminoAcidSequenceEntry.equals(String.valueOf(Bio.NO_MATCH_CHAR).repeat(3)) ||
-                alignedAminoAcidSequenceEntry.equals(String.valueOf(Bio.STOP_CODON_CHAR))) {
-              // CASE: An alignment gap is present in the amino-acid sequence.
-              lineStringBuilder.append("_\t_\t");
-            } else {
-              // CASE: Content from amino-acid sequence is aligned.
-              lineStringBuilder.append(aminoAcidPosition).append("\t").append(alignedAminoAcidSequenceEntry).append(
-                  "\t");
-              aminoAcidPosition += 1;
-            }
-            // Write information about possible mis-sense mutations from samples.
-            boolean hasMissense = false;
-            if (referenceIsAligned) {
-              // CASE: Search for mis-sense mutations in samples.
-              for (String sampleName : variablePositionsTable.getSampleNamesOf(referenceAnalysisId)) {
-                char[] codon = alignedReferenceSequenceEntry.toCharArray();
-                char[] alternateCodon = Arrays.copyOf(codon, 3);
-                String codonString = new String(codon);
-                String alternateCodonString;
-                String referenceAminoAcid = Bio.CODON_MAP.get(codonString);
-                String alternativeAminoAcid;
-                VariablePosition variablePosition;
-                // Check each reference position of the current codon if any alternate calls for the sample are present.
-                // Given that the position is i, then the positions i-3, i-2 and i-1 have to be looked at as the
-                // increment of the position in the steps before is already at the next codons position.
-                for (int i = 3; i > 0; i--) {
-                  if (featureAnalysisEntry.isSense) {
-                    variablePosition = variablePositionsTable
-                        .getVariablePosition(referenceAnalysisId, sampleName, String.valueOf(referencePosition - i));
-                  } else {
-                    variablePosition = variablePositionsTable
-                        .getVariablePosition(referenceAnalysisId, sampleName, String.valueOf(-referencePosition + i));
-                  }
-                  if (variablePosition != null &&
-                      variablePosition.content != VariablePosition.NO_CALL &&
-                      variablePosition.content != VariablePosition.REFERENCE &&
-                      variablePosition.content != VariablePosition.REFERENCE_DISCARDED) {
-                    if (featureAnalysisEntry.isSense) {
-                      alternateCodon[3 - i] = variablePosition.content;
-                    } else {
-                      alternateCodon[3 - i] = Bio.invertBase(variablePosition.content);
-                    }
-                  } else {
-                    alternateCodon[3 - i] = codon[3 - i];
-                  }
-                }
-                alternateCodonString = new String(alternateCodon);
-                if (codonString.contains("-")) {
-                  // CASE: Deletion in sample leads to frame shift.
-                  hasMissense = true;
-                  lineStringBuilder.append(sampleName).append("|").append(alternateCodonString).append("|DEL")
-                      .append(",");
-                } else {
-                  // CASE: Possible alternative amino acid due to mutation.
-                  alternativeAminoAcid = Bio.CODON_MAP.get(alternateCodonString.toUpperCase());
-                  if (!referenceAminoAcid.equals(alternativeAminoAcid)) {
-                    hasMissense = true;
-                    if (alternativeAminoAcid.equals("")) {
-                      // Alternate codon is a stop codon-
-                      lineStringBuilder.append(sampleName).append("|").append(alternateCodonString).append("|")
-                          .append("STOP").append(",");
-                    } else {
-                      // Alternate codon encodes a non-reference amino-acid.
-                      lineStringBuilder.append(sampleName).append("|").append(alternateCodonString).append("|")
-                          .append(Bio.AA1TO3.get(alternativeAminoAcid)).append(",");
-                    }
-                  }
-                }
-              }
-              // Remove last appended , character.
-              if (hasMissense) {
-                lineStringBuilder.setLength(lineStringBuilder.length() - 1);
-              }
-              lineStringBuilder.append(LINE_SEPARATOR);
-            } else {
-              // CASE: No reference sequence position is aligned.
-              lineStringBuilder.append("_").append(LINE_SEPARATOR);
-            }
+            throw new MusialBioException("Tried to access reference content at position " + variantPosition + " of " +
+                "feature " + referenceAnalysisId + ", but no entry exits.");
           }
-          // Write line and empty line string builder.
-          proteinAlignmentWriter.write(lineStringBuilder.toString());
-          lineStringBuilder = new StringBuilder();
+          lineBuilder.append(variantPosition).append("\t").append(referenceContent).append("\t")
+              .append(String.join(",", entry.getValue())).append("\t").append(String.join("\t", entry.getKey().split(
+              "\\|"))).append(IO.LINE_SEPARATOR);
+          snpEffSummaryWriter.write(lineBuilder.toString());
+          lineBuilder = new StringBuilder();
         }
-        // (4) Write insertion positions information.
-        String insertionPosition;
-        VariablePosition variablePosition;
-        while (insertionPositionsIterator.hasNext()) {
-          insertionPosition = insertionPositionsIterator.next();
-          lineStringBuilder.append("INS\t").append(insertionPosition).append("\t\t\t\t");
-          // Check samples with insertions at the specified positions.
-          for (String sampleName : variablePositionsTable.getSampleNamesOf(referenceAnalysisId)) {
-            variablePosition = variablePositionsTable.getVariablePosition(referenceAnalysisId, sampleName,
-                insertionPosition);
-            if (variablePosition != null) {
-              lineStringBuilder.append(sampleName).append("|").append(variablePosition.content).append(",");
-            }
-          }
-          // Remove last appended , character.
-          lineStringBuilder.setLength(lineStringBuilder.length() - 1);
-          lineStringBuilder.append(LINE_SEPARATOR);
-          proteinAlignmentWriter.write(lineStringBuilder.toString());
-          lineStringBuilder = new StringBuilder();
-        }
-        // Close writer.
-        proteinAlignmentWriter.close();
       }
-    } catch (FileNotFoundException e) {
-      throw new MusialIOException(e.getMessage());
+      snpEffSummaryWriter.close();
     } catch (IOException e) {
-      throw new MusialIOException("Failed to write to output file:\t" + proteinAlignmentOutFile.getAbsolutePath());
-    } catch (CompoundNotFoundException e) {
-      e.printStackTrace();
+      throw new MusialIOException("Failed to write to output file:\t" + outFile.getAbsolutePath());
     }
   }
 
   /**
-   * Computes a residue-residue contact map for a specified .pdb file (accessed via a referenceAnalysisId).
+   * Allocates sample and reference data to provided protein data and writes the allocation into a JSON file.
+   *
+   * @param outFile               {@link File} instance pointing to the output file.
+   * @param featureAnalysisEntry  {@link FeatureAnalysisEntry} specifying the reference feature to analyze.
+   * @param variantPositionsTable {@link VariantPositionsTable} storing the corresponding data.
+   * @param arguments             {@link ArgumentsParser} arguments parsed from the command line.
+   * @throws MusialIOException If any output file does not exist or could not be accessed.
+   */
+  @SuppressWarnings("unchecked")
+  public static void writeStructureMatching(File outFile, FeatureAnalysisEntry featureAnalysisEntry,
+                                            VariantPositionsTable variantPositionsTable, ArgumentsParser arguments)
+      throws MusialIOException {
+    if (!outFile.exists()) {
+      throw new MusialIOException("The specified output file does not exist:\t" + outFile.getAbsolutePath());
+    }
+    try {
+      // Access the reference nucleotide sequence; the reverse complement is built, if the reference is located on
+      // the ani-sense strand.
+      String referenceAnalysisId = featureAnalysisEntry.name;
+      String referenceSequence = Bio.getSequenceFromTable(variantPositionsTable, referenceAnalysisId, "Reference",
+          variantPositionsTable.getAllPositionsIterator(referenceAnalysisId), false, false);
+      if (!featureAnalysisEntry.isSense) {
+        referenceSequence = Bio.getReverseComplement(referenceSequence);
+      }
+      // Access the amino-acid sequence from the .pdb file specified to hold the structure information related
+      // to the reference feature.
+      File pdbFile = arguments.getPdInputFiles().get(referenceAnalysisId);
+      Structure pdbStructure = getStructureFromPdb(pdbFile);
+      // (1) Generate JSONObject and add meta-information.
+      JSONObject allocationJson = new JSONObject();
+      allocationJson.put("Date", DateTimeFormatter.ofPattern("yyyy/MM/dd").format(LocalDateTime.now()));
+      allocationJson.put("Software", Musial.CLASS_NAME + Musial.VERSION);
+      allocationJson.put("GeneReferenceName", featureAnalysisEntry.name);
+      allocationJson.put("GeneReferenceIsSense", featureAnalysisEntry.isSense);
+      allocationJson.put("GeneReference5'Position", featureAnalysisEntry.locationStart);
+      allocationJson.put("GeneReference3'Position", featureAnalysisEntry.locationEnd);
+      allocationJson.put("GeneReferenceLocus", featureAnalysisEntry.referenceSequenceLocation);
+      allocationJson.put("GeneReferenceLength", referenceSequence.length());
+      allocationJson.put("ProteinReferenceFile", pdbFile.getName());
+
+      HashMap<String, JSONObject> perChainAllocation = new HashMap<>();
+      // Each chain of the protein is considered separately.
+      for (Chain chain : pdbStructure.getChains()) {
+        String chainId = chain.getName();
+        String chainAsymId = chain.getId();
+        // (1) Generate JSONObject with allocation data.
+        JSONObject chainAllocationData = Bio.matchDataToStructure(variantPositionsTable, referenceAnalysisId,
+            pdbStructure, chainId, chainAsymId, featureAnalysisEntry.isSense);
+        // (2) Store chain allocation data in map.
+        perChainAllocation.put(chainId, chainAllocationData);
+      }
+      for (Map.Entry<String, JSONObject> entry : perChainAllocation.entrySet()) {
+        allocationJson.put("DataChain" + entry.getKey(), entry.getValue());
+      }
+      FileWriter structureAllocationWriter = new FileWriter(outFile.getAbsolutePath());
+      structureAllocationWriter.write(allocationJson.toJSONString());
+      structureAllocationWriter.close();
+    } catch (IOException | MusialBioException e) {
+      throw new MusialIOException(
+          "Failed to write to output file:\t" +
+              outFile.getAbsolutePath() + ", Caused by: " + e.getMessage());
+    }
+  }
+
+  /**
+   * Computes a residue-residue distance map for a specified .pdb file (accessed via a referenceAnalysisId).
    *
    * @param outFile             {@link File} object specifying the output file.
-   * @param referenceAnalysisId {@link String} used as a key in a {@link VariablePositionsTable} to specify the
+   * @param referenceAnalysisId {@link String} internal reference feature identifier of which the output is written.
    * @param arguments           {@link ArgumentsParser} arguments parsed from the command line.
    * @throws MusialIOException If any output file does not exist or could not be accessed.
    */
-  public static void writeProteinContactMap(File outFile, String referenceAnalysisId, ArgumentsParser arguments)
+  public static void writeProteinDistanceMap(File outFile, String referenceAnalysisId, ArgumentsParser arguments)
       throws MusialIOException {
     if (!outFile.exists()) {
       throw new MusialIOException("The specified output file does not exist:\t" + outFile.getAbsolutePath());
@@ -678,6 +676,10 @@ public final class IO {
       // Extract list of residues from .pdb file:
       HashMap<String, Group> residues = Bio.getResiduesFromStructure(pdbStructure);
       // Write header of output file.
+      lineStringBuilder.append("#date=")
+          .append(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss").format(LocalDateTime.now())).append(";");
+      lineStringBuilder.append("source=").append(Musial.CLASS_NAME).append(Musial.VERSION).append(";");
+      lineStringBuilder.append("protein=").append(pdbFile.getName()).append(LINE_SEPARATOR);
       lineStringBuilder.append("\t").append(String.join("\t", residues.keySet())).append(LINE_SEPARATOR);
       proteinContactWriter.write(lineStringBuilder.toString());
       lineStringBuilder = new StringBuilder();
@@ -713,4 +715,51 @@ public final class IO {
       throw new MusialIOException("Failed to write to output file:\t" + outFile.getAbsolutePath());
     }
   }
+
+  /**
+   * Writes run information to a text file.
+   *
+   * @param outFile             {@link File} object specifying the output file.
+   * @param arguments           {@link ArgumentsParser} arguments parsed from the command line.
+   * @param referenceAnalysisId {@link String} internal reference feature identifier of which the output is written.
+   * @throws MusialIOException If any output file does not exist or could not be accessed.
+   */
+  public static void writeRunInfo(File outFile, ArgumentsParser arguments, String referenceAnalysisId)
+      throws MusialIOException {
+    if (!outFile.exists()) {
+      throw new MusialIOException("The specified output file does not exist:\t" + outFile.getAbsolutePath());
+    }
+    try {
+      // Initialize output file.
+      FileWriter runInfoWriter = new FileWriter(outFile);
+      runInfoWriter.write("METAINFO" + LINE_SEPARATOR);
+      runInfoWriter.write("VERSION=" + Musial.CLASS_NAME + Musial.VERSION + LINE_SEPARATOR);
+      runInfoWriter.write(
+          "DATE=" + DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss").format(LocalDateTime.now()) + LINE_SEPARATOR);
+      runInfoWriter.write("ARGUMENTS" + LINE_SEPARATOR);
+      runInfoWriter.write("COMMAND=" + String.join(" ", arguments.getArguments()));
+      runInfoWriter.write("MIN_QUALITY=" + arguments.getMinQuality() + LINE_SEPARATOR);
+      runInfoWriter.write("MIN_COVERAGE=" + arguments.getMinCoverage() + LINE_SEPARATOR);
+      runInfoWriter.write("MIN_HOM_FREQUENCY=" + arguments.getMinFrequency() + LINE_SEPARATOR);
+      runInfoWriter.write("MIN_HET_FREQUENCY=" + arguments.getMinHet() + LINE_SEPARATOR);
+      runInfoWriter.write("MAX_HET_FREQUENCY=" + arguments.getMaxHet() + LINE_SEPARATOR);
+      runInfoWriter.write("INPUT" + LINE_SEPARATOR);
+      runInfoWriter.write("REFERENCE=" + arguments.getReferenceFile().getAbsolutePath() + LINE_SEPARATOR);
+      runInfoWriter.write("FEATURE=" + referenceAnalysisId + LINE_SEPARATOR);
+      if (arguments.getPdInputFiles().containsKey(referenceAnalysisId)) {
+        runInfoWriter.write(
+            "PROTEIN_DATA=" + arguments.getPdInputFiles().get(referenceAnalysisId).getAbsolutePath() + LINE_SEPARATOR);
+      }
+      for (int i = 0; i < arguments.getSampleInput().size(); i++) {
+        File sampleFile = arguments.getSampleInput().get(i);
+        runInfoWriter.write("SAMPLE_" + (i + 1) + "=" + sampleFile.getAbsolutePath() + LINE_SEPARATOR);
+      }
+      runInfoWriter.close();
+    } catch (FileNotFoundException e) {
+      throw new MusialIOException(e.getMessage());
+    } catch (IOException e) {
+      throw new MusialIOException("Failed to write to output file:\t" + outFile.getAbsolutePath());
+    }
+  }
+
 }

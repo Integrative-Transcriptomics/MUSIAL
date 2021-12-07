@@ -1,4 +1,4 @@
-package tools;
+package components;
 
 import com.google.common.collect.Sets;
 import datastructure.FeatureAnalysisEntry;
@@ -62,7 +62,7 @@ public final class SampleAnalyser {
       for (List<Object> runEntry : runEntries) {
         FeatureAnalysisEntry featureAnalysisEntry = (FeatureAnalysisEntry) runEntry.get(0);
         SampleAnalysisEntry sampleAnalysisEntry = (SampleAnalysisEntry) runEntry.get(1);
-        variantPositionsTable.addSampleToReference(featureAnalysisEntry.identifier, sampleAnalysisEntry.sampleName);
+        variantPositionsTable.addSampleToReference(featureAnalysisEntry.name, sampleAnalysisEntry.sampleName);
         executor.execute(
             new SampleAnalyserRunnable(
                 sampleAnalysisEntry.sampleName,
@@ -108,7 +108,7 @@ public final class SampleAnalyser {
       for (int i = 0; i < referenceSequenceBases.length; i++) {
         int position = referenceSequenceStart + i;
         variantPositionsTable
-            .putVariablePosition(referenceEntry.identifier, "Reference", String.valueOf(position),
+            .putVariablePosition(referenceEntry.name, "Reference", String.valueOf(position),
                 referenceSequenceBases[i], Double.NaN, Double.NaN, Double.NaN, true,
                 new HashMap<>());
       }

@@ -1,7 +1,8 @@
-package tools;
+package components;
 
 import datastructure.FeatureAnalysisEntry;
 import datastructure.VariantPositionsTable;
+import exceptions.MusialBioException;
 import exceptions.MusialIOException;
 import java.io.File;
 import java.util.HashSet;
@@ -31,20 +32,23 @@ public final class OutputWriter {
    * - (optional) .json file storing information for the interactive visualization extension.
    *
    * @param arguments              {@link ArgumentsParser} arguments parsed from the command line.
-   * @param variantPositionsTable The {@link VariantPositionsTable} of which the output should be generated,
+   * @param variantPositionsTable  The {@link VariantPositionsTable} of which the output should be generated,
    * @param featureAnalysisEntries represents a genomic region of the reference data, for example a single gene, contig,
    *                               plasmid or full genome. Each such entry contains naming as well as reference sequence information.
    * @throws MusialIOException If any output file generation fails.
    */
   public static void writeOutput(ArgumentsParser arguments, VariantPositionsTable variantPositionsTable,
                                  HashSet<FeatureAnalysisEntry> featureAnalysisEntries)
-      throws MusialIOException {
+      throws MusialIOException, MusialBioException {
     ProgressBar progress = Musial.buildProgress();
     try (progress) {
       // Initialize progress counter.
       int numOutputFiles = 5;
       if (arguments.getPdInputFiles().size() != 0) {
         numOutputFiles += 3;
+      }
+      if (arguments.isRunSnpEff()) {
+        numOutputFiles += 1;
       }
       progress.maxHint((long) numOutputFiles * featureAnalysisEntries.size());
       // Fix output directory path.
@@ -53,17 +57,18 @@ public final class OutputWriter {
         outputDirectory += "/";
       }
       for (FeatureAnalysisEntry featureAnalysisEntry : featureAnalysisEntries) {
-        String referenceAnalysisId = featureAnalysisEntry.identifier;
+        String referenceAnalysisId = featureAnalysisEntry.name;
         IO.generateDirectory(new File(outputDirectory + "/" + referenceAnalysisId));
         // 1. Generate snv table .tsv output.
-        File snvTableOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/snvTable.tsv");
+        File snvTableOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/variantContentTable.tsv");
         IO.generateFile(snvTableOutFile);
-        IO.writeSnvTable(snvTableOutFile, referenceAnalysisId, variantPositionsTable);
+        IO.writeVariantsContentTable(snvTableOutFile, referenceAnalysisId, variantPositionsTable);
         progress.step();
         // 2. Generate snv annotations .tsv output.
-        File snvAnnotationsOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/snvAnnotations.tsv");
+        File snvAnnotationsOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/variantAnnotationTable" +
+            ".tsv");
         IO.generateFile(snvAnnotationsOutFile);
-        IO.writeSnvAnnotations(snvAnnotationsOutFile, referenceAnalysisId, variantPositionsTable);
+        IO.writeVariantsAnnotationTable(snvAnnotationsOutFile, referenceAnalysisId, variantPositionsTable);
         progress.step();
         // 3. Generate sequences .fasta output.
         File sequencesOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/sequences.fasta");
@@ -85,13 +90,13 @@ public final class OutputWriter {
         if (arguments.getPdInputFiles().containsKey(referenceAnalysisId)) {
           // 6. Generate protein data integrated results.
           File proteinDataIntegratedOutDir = new File(outputDirectory + "/" + referenceAnalysisId +
-              "/proteinDataIntegratedResults");
+              "/structureIntegratedResults");
           IO.generateDirectory(proteinDataIntegratedOutDir);
-          // 6.1 Allocate sample and reference nucleotide data to protein structure.
-          File structureAllocationOutFile =
+          // 6.1 Match reference nucleotide data to protein structure and allocate sample data.
+          File matchingOutFile =
               new File(proteinDataIntegratedOutDir.getAbsolutePath() + "/structureAllocation.json");
-          IO.generateFile(structureAllocationOutFile);
-          IO.writeStructureAllocation(structureAllocationOutFile, featureAnalysisEntry, variantPositionsTable,
+          IO.generateFile(matchingOutFile);
+          IO.writeStructureMatching(matchingOutFile, featureAnalysisEntry, variantPositionsTable,
               arguments);
           progress.step();
           // 6.2 Generate protein contact map.
@@ -103,12 +108,19 @@ public final class OutputWriter {
           // 6.3 Copy .pdb file.
           File pdbFile = arguments.getPdInputFiles().get(referenceAnalysisId);
           IO.copyFile(pdbFile, new File(proteinDataIntegratedOutDir.getAbsolutePath() + "/" + pdbFile.getName()));
-          progress.step( );
+          progress.step();
         }
-        // 7. Write run information file.
-        File runInfoOutFile = new File( outputDirectory + "/" + referenceAnalysisId + "/runInfo.txt" );
-        IO.generateFile( runInfoOutFile );
-        IO.writeRunInfo( runInfoOutFile, arguments, referenceAnalysisId );
+        if ( arguments.isRunSnpEff() ) {
+          // 7. Write SnpEff summary file.
+          File snpEffSummaryOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/snpEffSummary.tsv");
+          IO.generateFile(snpEffSummaryOutFile);
+          IO.writeSnpEffSummary(snpEffSummaryOutFile, referenceAnalysisId, variantPositionsTable);
+          progress.step();
+        }
+        // 8. Write run information file.
+        File runInfoOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/runInfo.txt");
+        IO.generateFile(runInfoOutFile);
+        IO.writeRunInfo(runInfoOutFile, arguments, referenceAnalysisId);
         progress.step();
       }
       progress.setExtraMessage(Logging.getDoneMessage());

@@ -1,23 +1,23 @@
 package exceptions;
 
 /**
- * Faulty data exception of MUSIAL.
+ * Bio exception of MUSIAL.
  * <p>
- * This exception is thrown if any data generation or storage is incorrect in the context of the software, i.e. gene
- * features with negative locations.
+ * This exception is thrown if any data generation or storage process is incorrect in the context of the software, e.g.
+ * gene features with negative lengths.
  *
  * @author Simon Hackl
  * @version 2.0
  * @since 2.0
  */
-public final class MusialFaultyDataException extends Exception {
+public final class MusialBioException extends Exception {
 
   /**
    * Constructor that accepts a String message.
    *
    * @param message The message comprised by the exception.
    */
-  public MusialFaultyDataException(String message) {
+  public MusialBioException(String message) {
     super(message);
   }
 }
