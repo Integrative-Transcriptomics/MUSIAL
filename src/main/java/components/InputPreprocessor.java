@@ -3,7 +3,7 @@ package tools;
 import datastructure.FastaEntry;
 import datastructure.FeatureAnalysisEntry;
 import datastructure.SampleAnalysisEntry;
-import exceptions.MusialFaultyDataException;
+import exceptions.MusialBioException;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -15,7 +15,6 @@ import java.util.concurrent.TimeUnit;
 import main.Musial;
 import me.tongfei.progressbar.ProgressBar;
 import runnables.SamplePreprocessorRunnable;
-import utility.Bio;
 import utility.IO;
 import utility.Logging;
 
@@ -43,7 +42,7 @@ public final class InputPreprocessor {
    * @throws IOException If any access to the reference `.fasta` file failed.
    */
   public static HashSet<FeatureAnalysisEntry> preprocessReferenceInput(ArgumentsParser arguments)
-      throws IOException, MusialFaultyDataException {
+      throws IOException, MusialBioException {
     ProgressBar progress = Musial.buildProgress();
     try (progress) {
       File referenceSequenceFile = arguments.getReferenceFile();
@@ -61,7 +60,6 @@ public final class InputPreprocessor {
           FeatureAnalysisEntry featureAnalysisEntry = new FeatureAnalysisEntry(entryName, entryLocation, 1,
               entrySequence.length());
           featureAnalysisEntry.setReferenceSequence(entrySequence);
-          featureAnalysisEntry.setReferenceSequenceLength(entrySequence.length());
           analysisEntries.add(featureAnalysisEntry);
           progress.step();
         }
@@ -76,7 +74,6 @@ public final class InputPreprocessor {
               String referenceFeatureSequence =
                   fastaEntry.getSequence(geneFeature.locationStart, geneFeature.locationEnd);
               geneFeature.setReferenceSequence(referenceFeatureSequence);
-              geneFeature.setReferenceSequenceLength(fastaEntry.getSequence().length());
               analysisEntries.add(geneFeature);
             }
             progress.step();

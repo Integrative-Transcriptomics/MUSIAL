@@ -4,7 +4,6 @@ import exceptions.MusialIOException;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -98,14 +97,14 @@ public final class SnpEffAnnotator {
       }
       progress.step();
       // 3. Add reference .fasta and .gff information to snpEff.config.
-      Files.write(
+      Files.writeString(
           Path.of(snpEffPath + "snpEff.config"),
-          ("\n# " + referenceName + " genome").getBytes(StandardCharsets.UTF_8),
+          "\n# " + referenceName + " genome",
           StandardOpenOption.APPEND
       );
-      Files.write(
+      Files.writeString(
           Path.of(snpEffPath + "snpEff.config"),
-          ("\n" + referenceName + ".genome : " + referenceName).getBytes(StandardCharsets.UTF_8),
+          "\n" + referenceName + ".genome : " + referenceName,
           StandardOpenOption.APPEND
       );
       progress.step();

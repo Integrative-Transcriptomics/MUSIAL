@@ -1,11 +1,10 @@
 package tools;
 
 import datastructure.FeatureAnalysisEntry;
-import datastructure.VariablePositionsTable;
+import datastructure.VariantPositionsTable;
 import exceptions.MusialIOException;
 import java.io.File;
 import java.util.HashSet;
-import java.util.List;
 import main.Musial;
 import me.tongfei.progressbar.ProgressBar;
 import utility.IO;
@@ -21,7 +20,7 @@ import utility.Logging;
 public final class OutputWriter {
 
   /**
-   * Writes output files based on the information of a {@link VariablePositionsTable}.
+   * Writes output files based on the information of a {@link VariantPositionsTable}.
    * <p>
    * Currently the following output files are generated for each reference location:
    * - Alignment of full sequences.
@@ -32,12 +31,12 @@ public final class OutputWriter {
    * - (optional) .json file storing information for the interactive visualization extension.
    *
    * @param arguments              {@link ArgumentsParser} arguments parsed from the command line.
-   * @param variablePositionsTable The {@link VariablePositionsTable} of which the output should be generated,
+   * @param variantPositionsTable The {@link VariantPositionsTable} of which the output should be generated,
    * @param featureAnalysisEntries represents a genomic region of the reference data, for example a single gene, contig,
    *                               plasmid or full genome. Each such entry contains naming as well as reference sequence information.
    * @throws MusialIOException If any output file generation fails.
    */
-  public static void writeOutput(ArgumentsParser arguments, VariablePositionsTable variablePositionsTable,
+  public static void writeOutput(ArgumentsParser arguments, VariantPositionsTable variantPositionsTable,
                                  HashSet<FeatureAnalysisEntry> featureAnalysisEntries)
       throws MusialIOException {
     ProgressBar progress = Musial.buildProgress();
@@ -59,58 +58,58 @@ public final class OutputWriter {
         // 1. Generate snv table .tsv output.
         File snvTableOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/snvTable.tsv");
         IO.generateFile(snvTableOutFile);
-        IO.writeSnvTable(snvTableOutFile, referenceAnalysisId, variablePositionsTable);
+        IO.writeSnvTable(snvTableOutFile, referenceAnalysisId, variantPositionsTable);
         progress.step();
         // 2. Generate snv annotations .tsv output.
         File snvAnnotationsOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/snvAnnotations.tsv");
         IO.generateFile(snvAnnotationsOutFile);
-        IO.writeSnvAnnotations(snvAnnotationsOutFile, referenceAnalysisId, variablePositionsTable);
+        IO.writeSnvAnnotations(snvAnnotationsOutFile, referenceAnalysisId, variantPositionsTable);
         progress.step();
-        // 3. Generate variant alignment .fasta output.
-        File variantAlignmentOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/variantAlignment" +
-            ".fasta");
-        IO.generateFile(variantAlignmentOutFile);
-        IO.writeVariantAlignment(variantAlignmentOutFile, referenceAnalysisId, variablePositionsTable);
+        // 3. Generate sequences .fasta output.
+        File sequencesOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/sequences.fasta");
+        IO.generateFile(sequencesOutFile);
+        IO.writeSequences(sequencesOutFile, referenceAnalysisId, variantPositionsTable);
         progress.step();
-        // 4. Generate full alignment .fasta output.
-        File fullAlignmentOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/fullAlignment.fasta");
-        IO.generateFile(fullAlignmentOutFile);
-        IO.writeFullAlignment(fullAlignmentOutFile, referenceAnalysisId, variablePositionsTable);
-        progress.step();
-        // 6. Generate per sample statistics.
+        // 4. Generate per sample statistics.
         File sampleStatisticsOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/sampleStatistics" +
             ".tsv");
         IO.generateFile(sampleStatisticsOutFile);
-        IO.writeSampleStatistics(sampleStatisticsOutFile, referenceAnalysisId, variablePositionsTable);
+        IO.writeSampleStatistics(sampleStatisticsOutFile, referenceAnalysisId, variantPositionsTable);
         progress.step();
-        // 7. Generate per position statistics.
+        // 5. Generate per position statistics.
         File positionStatisticsOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/positionStatistics" +
             ".tsv");
         IO.generateFile(positionStatisticsOutFile);
-        IO.writePositionStatistics(positionStatisticsOutFile, referenceAnalysisId, variablePositionsTable);
+        IO.writePositionStatistics(positionStatisticsOutFile, referenceAnalysisId, variantPositionsTable);
         progress.step();
         if (arguments.getPdInputFiles().containsKey(referenceAnalysisId)) {
-          // 8. Generate protein data integrated results.
+          // 6. Generate protein data integrated results.
           File proteinDataIntegratedOutDir = new File(outputDirectory + "/" + referenceAnalysisId +
               "/proteinDataIntegratedResults");
           IO.generateDirectory(proteinDataIntegratedOutDir);
-          // Generate protein alignment.
-          IO.writeProteinAlignment(proteinDataIntegratedOutDir, featureAnalysisEntry, variablePositionsTable,
+          // 6.1 Allocate sample and reference nucleotide data to protein structure.
+          File structureAllocationOutFile =
+              new File(proteinDataIntegratedOutDir.getAbsolutePath() + "/structureAllocation.json");
+          IO.generateFile(structureAllocationOutFile);
+          IO.writeStructureAllocation(structureAllocationOutFile, featureAnalysisEntry, variantPositionsTable,
               arguments);
           progress.step();
-          // Generate protein contact map.
+          // 6.2 Generate protein contact map.
           File proteinContactsMapOutFile =
-              new File(proteinDataIntegratedOutDir.getAbsolutePath() + "/residueContactMap.tsv");
+              new File(proteinDataIntegratedOutDir.getAbsolutePath() + "/residueDistanceMap.tsv");
           IO.generateFile(proteinContactsMapOutFile);
-          IO.writeProteinContactMap(proteinContactsMapOutFile, referenceAnalysisId, arguments);
+          IO.writeProteinDistanceMap(proteinContactsMapOutFile, referenceAnalysisId, arguments);
           progress.step();
-          // Copy .pdb file.
+          // 6.3 Copy .pdb file.
           File pdbFile = arguments.getPdInputFiles().get(referenceAnalysisId);
           IO.copyFile(pdbFile, new File(proteinDataIntegratedOutDir.getAbsolutePath() + "/" + pdbFile.getName()));
-        } else {
-          progress.stepBy(2);
+          progress.step( );
         }
-
+        // 7. Write run information file.
+        File runInfoOutFile = new File( outputDirectory + "/" + referenceAnalysisId + "/runInfo.txt" );
+        IO.generateFile( runInfoOutFile );
+        IO.writeRunInfo( runInfoOutFile, arguments, referenceAnalysisId );
+        progress.step();
       }
       progress.setExtraMessage(Logging.getDoneMessage());
     }

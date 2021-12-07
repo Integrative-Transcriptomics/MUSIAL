@@ -1,9 +1,8 @@
 package tools;
 
 import datastructure.FeatureAnalysisEntry;
+import exceptions.MusialBioException;
 import exceptions.MusialCLAException;
-import exceptions.MusialDuplicationException;
-import exceptions.MusialFaultyDataException;
 import exceptions.MusialIOException;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -45,6 +44,10 @@ public final class ArgumentsParser {
    * Class name property of {@link Musial} used to format help message.
    */
   private static final String CLASS_NAME = Musial.CLASS_NAME + " [OPTIONS]";
+  /**
+   * The specified command line arguments.
+   */
+  private final String[] arguments;
   /**
    * Number of threads to use for computations.
    */
@@ -115,13 +118,14 @@ public final class ArgumentsParser {
    * @throws MusialCLAException         If any error occurs during parsing or validating an
    *                                    {@link MusialCLAException} is thrown.
    * @throws ParseException             If any parsing error occurs.
-   * @throws MusialFaultyDataException  If any faulty data was specified (i.e. features on the reference sequence with
+   * @throws MusialBioException  If any faulty data was specified (i.e. features on the reference sequence with
    *                                    length 0).
-   * @throws MusialDuplicationException If any duplicated entry was generated.
    */
   public ArgumentsParser(String[] args)
-      throws MusialCLAException, ParseException, MusialFaultyDataException, MusialDuplicationException,
+      throws MusialCLAException, ParseException, MusialBioException,
       MusialIOException {
+    // Store original command line arguments.
+    this.arguments = args;
     // Add option to print help message.
     Options helpOptions = new Options();
     helpOptions.addOption("h", "help", false, "Display help information.");
@@ -242,7 +246,7 @@ public final class ArgumentsParser {
     }
     // Validation of data input parameters:
     this.referenceFile = new File(cmd.getOptionValue('r'));
-    if (!Validation.validateInputFile(this.referenceFile)) {
+    if (Validation.validateInputFile(this.referenceFile)) {
       throw new MusialCLAException("`-r` The specified reference input file does not exist or has no read " +
           "permission:\t" + this.referenceFile.getAbsolutePath());
     }
@@ -257,7 +261,7 @@ public final class ArgumentsParser {
     }
     if (cmd.hasOption("a")) {
       this.annotationInput = new File(cmd.getOptionValue("a"));
-      if (!Validation.validateInputFile(this.annotationInput)) {
+      if (Validation.validateInputFile(this.annotationInput)) {
         throw new MusialCLAException("`-a` The specified input file does not exist or has no read permission:\t" +
             this.annotationInput.getAbsolutePath());
       }
@@ -461,7 +465,7 @@ public final class ArgumentsParser {
           sampleName = "";
         }
       }
-      if (!Validation.validateInputFile(sampleVcfFile)) {
+      if (Validation.validateInputFile(sampleVcfFile)) {
         throw new MusialIOException(
             "The following input file does not exist or has no read permission:\t" + sampleVcfFile.getAbsolutePath());
       }
@@ -479,8 +483,8 @@ public final class ArgumentsParser {
    * @param file A {@link File} pointing to a .txt file specifying the gene feature input.
    */
   private void parseGeneFeatures(File file)
-      throws FileNotFoundException, MusialCLAException, MusialIOException, MusialDuplicationException,
-      MusialFaultyDataException {
+      throws FileNotFoundException, MusialCLAException, MusialIOException,
+      MusialBioException {
     List<String> fileContent = IO.getLinesFromFile(file.getAbsolutePath());
     ArrayList<String> featureQueries = new ArrayList<>();
     ArrayList<String> featureNames = new ArrayList<>();
@@ -510,7 +514,7 @@ public final class ArgumentsParser {
           featureQueries.add(featureQuery);
           featureNames.add(featureName);
           featurePDBInformation.put(featureName, featurePDBPath);
-          if (!Validation.validateInputFile(new File(featurePDBPath))) {
+          if (Validation.validateInputFile(new File(featurePDBPath))) {
             throw new MusialIOException(
                 "The following input file does not exist or has no read permission:\t" +
                     featurePDBPath);
@@ -545,7 +549,7 @@ public final class ArgumentsParser {
             "`-gf` More than one feature was identified for the following gene in the reference " +
                 "genome annotation:\t" + featureQuery);
       } else if (parsedGeneNames.contains(featureQuery)) {
-        throw new MusialDuplicationException(
+        throw new MusialCLAException(
             "`-gf` The following gene name was specified more than once:\t" + featureQuery);
       } else {
         FeatureI matchedFeature = matchedFeatures.get(0);
@@ -573,5 +577,12 @@ public final class ArgumentsParser {
    */
   public void setSampleInput(File newFile, int sampleIndex) {
     this.sampleInput.set(sampleIndex, newFile);
+  }
+
+  /**
+   * @return The original command line arguments as {@link Array} of {@link String}.
+   */
+  public String[] getArguments() {
+    return arguments;
   }
 }

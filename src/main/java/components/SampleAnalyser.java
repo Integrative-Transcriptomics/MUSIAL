@@ -3,8 +3,8 @@ package tools;
 import com.google.common.collect.Sets;
 import datastructure.FeatureAnalysisEntry;
 import datastructure.SampleAnalysisEntry;
-import datastructure.VariablePosition;
-import datastructure.VariablePositionsTable;
+import datastructure.VariantPositionsTable;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -45,23 +45,24 @@ public final class SampleAnalyser {
    * @param sampleEntries    Set of {@link SampleAnalysisEntry} instances. Each specifies the `.vcf` file content from
    *                         one sample.
    * @param arguments        {@link ArgumentsParser} containing arguments parsed from command line.
-   * @return {@link VariablePositionsTable} containing the information returned from each single
+   * @return {@link VariantPositionsTable} containing the information returned from each single
    * {@link SampleAnalyserRunnable}.
    * @throws InterruptedException If the thread was interrupted.
    */
-  public static VariablePositionsTable run(HashSet<FeatureAnalysisEntry> referenceEntries,
-                                           CopyOnWriteArraySet<SampleAnalysisEntry> sampleEntries,
-                                           ArgumentsParser arguments)
+  public static VariantPositionsTable run(HashSet<FeatureAnalysisEntry> referenceEntries,
+                                          CopyOnWriteArraySet<SampleAnalysisEntry> sampleEntries,
+                                          ArgumentsParser arguments)
       throws InterruptedException {
     ProgressBar progress = Musial.buildProgress();
     try (progress) {
       ExecutorService executor = Executors.newFixedThreadPool(arguments.getNumThreads());
       Set<List<Object>> runEntries = Sets.cartesianProduct(referenceEntries, sampleEntries);
-      VariablePositionsTable variablePositionsTable = new VariablePositionsTable();
+      VariantPositionsTable variantPositionsTable = new VariantPositionsTable(sampleEntries.size());
       progress.maxHint(runEntries.size() + 1);
       for (List<Object> runEntry : runEntries) {
         FeatureAnalysisEntry featureAnalysisEntry = (FeatureAnalysisEntry) runEntry.get(0);
         SampleAnalysisEntry sampleAnalysisEntry = (SampleAnalysisEntry) runEntry.get(1);
+        variantPositionsTable.addSampleToReference(featureAnalysisEntry.identifier, sampleAnalysisEntry.sampleName);
         executor.execute(
             new SampleAnalyserRunnable(
                 sampleAnalysisEntry.sampleName,
@@ -70,7 +71,7 @@ public final class SampleAnalyser {
                     .query(featureAnalysisEntry.referenceSequenceLocation,
                         featureAnalysisEntry.locationStart,
                         featureAnalysisEntry.locationEnd),
-                variablePositionsTable,
+                variantPositionsTable,
                 arguments.getMinCoverage(),
                 arguments.getMinFrequency(),
                 arguments.getMinHet(),
@@ -83,39 +84,33 @@ public final class SampleAnalyser {
       executor.shutdown();
       //noinspection ResultOfMethodCallIgnored
       executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-      addReferenceToVariablePositionsTable(variablePositionsTable, referenceEntries, progress);
+      addReferenceToVariantPositionsTable(variantPositionsTable, referenceEntries, progress);
       progress.setExtraMessage(Logging.getDoneMessage());
-      return variablePositionsTable;
+      return variantPositionsTable;
     }
   }
 
   /**
    * Adds information from the reference genome specified by the single elements of referenceEntries to the passed
-   * variablePositionsTable.
+   * variantPositionsTable.
    *
-   * @param variablePositionsTable {@link VariablePositionsTable} containing information about the variant sites of a
-   *                               set of samples against possibly multiple reference loci.
-   * @param referenceEntries       Set of {@link FeatureAnalysisEntry} instances, each specifying a reference locus.
-   * @param progress               {@link ProgressBar} instance to visualize progress information to the user.
+   * @param variantPositionsTable {@link VariantPositionsTable} containing information about the variant sites of a
+   *                              set of samples against possibly multiple reference loci.
+   * @param referenceEntries      Set of {@link FeatureAnalysisEntry} instances, each specifying a reference locus.
+   * @param progress              {@link ProgressBar} instance to visualize progress information to the user.
    */
-  private static void addReferenceToVariablePositionsTable(
-      VariablePositionsTable variablePositionsTable, HashSet<FeatureAnalysisEntry> referenceEntries,
+  private static void addReferenceToVariantPositionsTable(
+      VariantPositionsTable variantPositionsTable, HashSet<FeatureAnalysisEntry> referenceEntries,
       ProgressBar progress) {
     for (FeatureAnalysisEntry referenceEntry : referenceEntries) {
       char[] referenceSequenceBases = referenceEntry.getReferenceSequence().toCharArray();
       int referenceSequenceStart = referenceEntry.locationStart;
       for (int i = 0; i < referenceSequenceBases.length; i++) {
         int position = referenceSequenceStart + i;
-        variablePositionsTable.putVariablePosition(
-            referenceEntry.identifier,
-            "Reference",
-            String.valueOf(position),
-            new VariablePosition(
-                referenceSequenceBases[i],
-                ""
-            ),
-            0
-        );
+        variantPositionsTable
+            .putVariablePosition(referenceEntry.identifier, "Reference", String.valueOf(position),
+                referenceSequenceBases[i], Double.NaN, Double.NaN, Double.NaN, true,
+                new HashMap<>());
       }
       progress.step();
     }
