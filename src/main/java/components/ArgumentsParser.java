@@ -109,6 +109,10 @@ public final class ArgumentsParser {
    * .pdb files, one for each reference feature (i.e. gene) to analyze.
    */
   private final HashMap<String, File> pdInputFiles = new HashMap<>();
+  /**
+   * Boolean value to indicate if debugging mode is enabled.
+   */
+  public boolean debug = false;
 
   /**
    * Constructor of the {@link ArgumentsParser} class.
@@ -191,6 +195,7 @@ public final class ArgumentsParser {
         .numberOfArgs(2)
         .valueSeparator(',')
         .build());
+    options.addOption("d", "debug", false, "Print stacktrace on errors. [" + this.debug + "]");
     // Instantiate a formatter for the help message and a default command line parser.
     HelpFormatter helpformatter = new HelpFormatter();
     CommandLineParser parser = new DefaultParser();
@@ -217,6 +222,9 @@ public final class ArgumentsParser {
     cmd = parser.parse(options, args);
     // In the following each possible command line argument is validated, if any faulty input is detected the
     // application will exit with an exception.
+    if(cmd.hasOption("d")) {
+      this.debug = true;
+    }
     // Validation of SNV filtering parameters:
     if (cmd.hasOption("nt")) {
       if (Validation.isPositiveInteger(cmd.getOptionValue("nt"))) {

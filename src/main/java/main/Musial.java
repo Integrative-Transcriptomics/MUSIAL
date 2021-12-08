@@ -63,6 +63,10 @@ public final class Musial {
    */
   private static final ProgressBarBuilder progressBarBuilder =
       new ProgressBarBuilder().setStyle(ProgressBarStyle.ASCII).setMaxRenderedLength(90);
+  /**
+   * Boolean value to indicate if debugging mode is enabled.
+   */
+  public static boolean debug = false;
 
   /**
    * Conducts the main pipeline of the tool (see comments and single methods for more detail).
@@ -75,6 +79,7 @@ public final class Musial {
       loadMetadata();
       // 2. Parse command line arguments.
       ArgumentsParser arguments = parseCLArguments(args);
+      debug = arguments.debug;
       // 3. (Optional) Run SnpEff.
       if (Objects.requireNonNull(arguments).isRunSnpEff()) {
         runSnpEff(arguments);
@@ -89,34 +94,32 @@ public final class Musial {
       // 7. Generate output.
       writeOutput(arguments, variantPositionsTable, referenceEntries);
     } catch (Exception e) {
-      // Uncomment for debugging.
-      e.printStackTrace();
-      Logging.logError(e.getCause() + ": " + e.getMessage());
+      if (debug) {
+        e.printStackTrace();
+      } else {
+        Logging.logError(e.getCause() + ": " + e.getMessage());
+      }
     }
   }
 
   /**
    * Loads metadata, such as the projects title and version from resources and prints the information to stdout.
    */
-  private static void loadMetadata() {
+  private static void loadMetadata() throws IOException {
     Properties properties = new Properties();
-    try {
-      // Load title from resources.
-      InputStream in = Musial.class.getResourceAsStream("/title.properties");
-      properties.load(in);
-      Musial.CLASS_NAME = properties.getProperty("title");
-      // Load version from resources.
-      in = Musial.class.getResourceAsStream("/version.properties");
-      properties.load(in);
-      Musial.VERSION = properties.getProperty("version");
-      assert in != null;
-      // Print information into stdout.
-      System.out.println("=".repeat(18));
-      System.out.println(" ".repeat(3) + " " + Musial.CLASS_NAME + " " + Musial.VERSION + " " + " ".repeat(3));
-      System.out.println("=".repeat(18));
-    } catch (Exception e) {
-      Logging.logError(e.getCause() + ": " + e.getMessage());
-    }
+    // Load title from resources.
+    InputStream in = Musial.class.getResourceAsStream("/title.properties");
+    properties.load(in);
+    Musial.CLASS_NAME = properties.getProperty("title");
+    // Load version from resources.
+    in = Musial.class.getResourceAsStream("/version.properties");
+    properties.load(in);
+    Musial.VERSION = properties.getProperty("version");
+    assert in != null;
+    // Print information into stdout.
+    System.out.println("=".repeat(18));
+    System.out.println(" ".repeat(3) + " " + Musial.CLASS_NAME + " " + Musial.VERSION + " " + " ".repeat(3));
+    System.out.println("=".repeat(18));
   }
 
   /**
@@ -206,7 +209,7 @@ public final class Musial {
    * The single steps are implemented in the {@link OutputWriter} and {@link utility.IO} classes.
    *
    * @param arguments              Arguments parsed from the command line.
-   * @param variantPositionsTable The {@link VariantPositionsTable} containing the information to write output with.
+   * @param variantPositionsTable  The {@link VariantPositionsTable} containing the information to write output with.
    * @param featureAnalysisEntries represents a genomic region of the reference data, for example a single gene, contig,
    *                               plasmid or full genome. Each such entry contains naming as well as reference sequence information.
    */

@@ -1,9 +1,11 @@
 package runnables;
 
 import java.io.File;
+import main.Musial;
 import me.tongfei.progressbar.ProgressBar;
 import components.ArgumentsParser;
 import utility.CL;
+import utility.Logging;
 
 /**
  * Implementation of the {@link Runnable} interface to run SnpEff.
@@ -81,28 +83,37 @@ public final class SnpEffAnnotatorRunnable implements Runnable {
    */
   @Override
   public void run() {
-    // String array representation of a command line command.
-    String[] runSNPEff = {
-        "java",
-        "-jar",
-        "snpEff.jar",
-        "-noLog",
-        "-v",
-        "-s",
-        new File( snpEffResultsPath + sampleName + ".SnpEffSummary.html" ).getAbsolutePath(),
-        referenceName,
-        sampleInput.getAbsolutePath()
-    };
-    // Definition of the output file name.
-    String sampleOutputPath = snpEffResultsPath + sampleName + ".SnpEffAnn.vcf";
+    try {
+      // String array representation of a command line command.
+      String[] runSNPEff = {
+          "java",
+          "-jar",
+          "snpEff.jar",
+          "-noLog",
+          "-v",
+          "-s",
+          new File(snpEffResultsPath + sampleName + ".SnpEffSummary.html").getAbsolutePath(),
+          referenceName,
+          sampleInput.getAbsolutePath()
+      };
+      // Definition of the output file name.
+      String sampleOutputPath = snpEffResultsPath + sampleName + ".SnpEffAnn.vcf";
     /*
     Runs the specified command.
      */
-    CL.runCommand(runSNPEff, snpEffResultsPath + sampleName + "_SnpEff.log",
-        sampleOutputPath,
-        snpEffPath);
-    // Replace the original input `.vcf` file with the annotated version.
-    arguments.setSampleInput(new File(sampleOutputPath), sampleIndex);
-    progress.step();
+      CL.runCommand(runSNPEff, snpEffResultsPath + sampleName + "_SnpEff.log",
+          sampleOutputPath,
+          snpEffPath);
+      // Replace the original input `.vcf` file with the annotated version.
+      arguments.setSampleInput(new File(sampleOutputPath), sampleIndex);
+    } catch (Exception e) {
+      if (Musial.debug) {
+        e.printStackTrace();
+      } else {
+        Logging.logWarning("An error occurred during SnpEff annotation: " + e.getMessage());
+      }
+    } finally {
+      progress.step();
+    }
   }
 }

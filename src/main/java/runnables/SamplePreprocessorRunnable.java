@@ -6,10 +6,11 @@ import htsjdk.tribble.index.tabix.TabixIndex;
 import htsjdk.variant.vcf.VCFCodec;
 import htsjdk.variant.vcf.VCFFileReader;
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.CopyOnWriteArraySet;
+import main.Musial;
 import me.tongfei.progressbar.ProgressBar;
+import utility.Logging;
 
 /**
  * Implementation of the {@link Runnable} interface to preprocess a sample input.
@@ -61,25 +62,31 @@ public final class SamplePreprocessorRunnable implements Runnable {
    */
   @Override
   public void run() {
-    // Check for the existence of a `.tbi.gz` index file of the input `.vcf` file.
-    if (!new File(sampleInput.getAbsolutePath() + ".tbi.gz").exists()) {
-      // If none is present, an index is created...
-      TabixIndex tabixIndex = IndexFactory.createTabixIndex(
-          sampleInput,
-          new VCFCodec(),
-          null
-      );
-      try {
+    try {
+      // Check for the existence of a `.tbi.gz` index file of the input `.vcf` file.
+      if (!new File(sampleInput.getAbsolutePath() + ".tbi.gz").exists()) {
+        // If none is present, an index is created...
+        TabixIndex tabixIndex = IndexFactory.createTabixIndex(
+            sampleInput,
+            new VCFCodec(),
+            null
+        );
         // ...and written to the same directory as the input `.vcf` file.
         tabixIndex.write(Path.of(sampleInput.getAbsolutePath() + ".tbi.gz"));
-      } catch (IOException ignored) {
       }
+      // A VCFFileReader can now be initialized and used to create a SampleAnalysisEntry.
+      sampleEntries.add(new SampleAnalysisEntry(
+          new VCFFileReader(sampleInput, new File(sampleInput.getAbsolutePath() + ".tbi.gz")), sampleName
+      ));
+    } catch (Exception e) {
+      if (Musial.debug) {
+        e.printStackTrace();
+      } else {
+        Logging.logWarning("An error occurred during sample preprocessing: " + e.getMessage());
+      }
+    } finally {
+      progress.step();
     }
-    // A VCFFileReader can now be initialized and used to create a SampleAnalysisEntry.
-    sampleEntries.add(new SampleAnalysisEntry(
-        new VCFFileReader(sampleInput, new File(sampleInput.getAbsolutePath() + ".tbi.gz")), sampleName
-    ));
-    progress.step();
   }
 
 }

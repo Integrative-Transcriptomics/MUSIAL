@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import main.Musial;
 import me.tongfei.progressbar.ProgressBar;
 import utility.IO;
 import utility.Logging;
@@ -208,9 +209,14 @@ public final class SampleAnalyserRunnable implements Runnable {
           }
         }
       }
-      progress.step();
     } catch (Exception e) {
-      e.printStackTrace();
+      if (Musial.debug) {
+        e.printStackTrace();
+      } else {
+        Logging.logWarning( "An error occurred during sample analysis: " + e.getMessage() );
+      }
+    } finally {
+      progress.step();
     }
   }
 
