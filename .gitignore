@@ -9,3 +9,4 @@
 /gradlew.bat
 /deprecated/*
 src/main/resources/snpEff/*
+/releases/*
