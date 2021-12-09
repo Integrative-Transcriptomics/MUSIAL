@@ -826,6 +826,8 @@ public final class Bio {
           proteinPositionContentCounts.put(aa3Code, 0);
         }
         proteinPositionContentCounts.put(AMBIGUOUS_AA3, 0);
+        proteinPositionContentCounts.put(UNKNOWN_AA3, 0);
+        proteinPositionContentCounts.put(TERMINATION_AA3, 0);
         proteinPositionContentCounts.put("None", 0);
         HashMap<String, String> perGenotypeAminoAcidContent = new HashMap<>();
         HashMap<String, String> perGenotypeNucleotideContent = new HashMap<>();
@@ -837,12 +839,6 @@ public final class Bio {
         }
         for (int i = 0; i < referenceNucleotideContent.length(); i++) {
           genomePositions.add(referencePosition);
-          HashMap<Character, Integer> genomePositionContentCounts = new HashMap<>();
-          genomePositionContentCounts.put(VariantContent.ALT_A, 0);
-          genomePositionContentCounts.put(VariantContent.ALT_T, 0);
-          genomePositionContentCounts.put(VariantContent.ALT_C, 0);
-          genomePositionContentCounts.put(VariantContent.ALT_G, 0);
-          genomePositionContentCounts.put(VariantContent.NO_CALL, 0);
           for (Map.Entry<String, String> entry : genotypeRepresentatives.entrySet()) {
 
             String genotypeIdentifier = entry.getKey();
@@ -892,7 +888,6 @@ public final class Bio {
             String nucleotideContent = perGenotypeNucleotideContent.get(genotypeIdentifier);
             nucleotideContent += content;
             perGenotypeNucleotideContent.put(genotypeIdentifier, nucleotideContent);
-
             // If i equals the nucleotide content - 1 we have completed the current codon and can check for amino-acid
             // content.
             String genotypeAminoAcidContent = "None";
@@ -925,15 +920,38 @@ public final class Bio {
                 contentCount = proteinPositionContentCounts.get(genotypeAminoAcidContent);
                 contentCount += genotypeNoSamples;
                 proteinPositionContentCounts.put(genotypeAminoAcidContent, contentCount);
-                // Count content and add to genotype nucleotide content.
-                contentCount = genomePositionContentCounts.get(Character.toUpperCase(content));
-                contentCount += genotypeNoSamples;
-                genomePositionContentCounts.put(Character.toUpperCase(content), contentCount);
               }
             }
           }
-          perGenomePositionContentCounts.put(referencePosition, genomePositionContentCounts);
           referencePosition += 1;
+        }
+        for (int j = 0; j < genomePositions.size(); ++j) {
+          final int genomePosition = genomePositions.get(j);
+          final HashMap<Character, Integer> genomePositionContentCounts = new HashMap<>();
+          genomePositionContentCounts.put('A', 0);
+          genomePositionContentCounts.put('T', 0);
+          genomePositionContentCounts.put('C', 0);
+          genomePositionContentCounts.put('G', 0);
+          genomePositionContentCounts.put('N', 0);
+          genomePositionContentCounts.put('-', 0);
+          for (final Map.Entry<String, String> entry3 : genotypeRepresentatives.entrySet()) {
+            final String genotypeIdentifier2 = entry3.getKey();
+            if (!genotypeIsAmbiguous.get(genotypeIdentifier2)) {
+              final char content2 = perGenotypeNucleotideContent.get(genotypeIdentifier2).toCharArray()[j];
+              final int genotypeNoSamples = perGenotypeNoSamples.get(genotypeIdentifier2);
+              if (content2 == '_' || content2 == '-') {
+                int contentCount2 = genomePositionContentCounts.get('-');
+                contentCount2 += genotypeNoSamples;
+                genomePositionContentCounts.put('-', contentCount2);
+              }
+              else {
+                int contentCount2 = genomePositionContentCounts.get(Character.toUpperCase(content2));
+                contentCount2 += genotypeNoSamples;
+                genomePositionContentCounts.put(Character.toUpperCase(content2), contentCount2);
+              }
+            }
+          }
+          perGenomePositionContentCounts.put(genomePosition, genomePositionContentCounts);
         }
         proteinPositionAllocatedData.put("GenomePositions", genomePositions);
         proteinPositionAllocatedData.put("GenomeContentCounts", perGenomePositionContentCounts);
