@@ -8,5 +8,4 @@
 /gradlew
 /gradlew.bat
 /deprecated/*
-/src/main/resources/*
-/releases/*
+src/main/resources/snpEff/*
