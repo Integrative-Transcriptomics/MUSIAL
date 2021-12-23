@@ -131,8 +131,8 @@ configurations {
     includeJars.extendsFrom implementation
 }
 
-sourceCompatibility = JavaVersion.VERSION_16
-targetCompatibility = JavaVersion.VERSION_16
+sourceCompatibility = JavaVersion.VERSION_15
+targetCompatibility = JavaVersion.VERSION_15
 
 /*
 Defines the source directories for the tasks executed by the `java` plugin.
