@@ -1,5 +1,6 @@
 package datastructure;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -62,6 +63,11 @@ public final class VariantPositionsTable {
    */
   private final ConcurrentHashMap<String, ConcurrentHashMap<String, SampleStatistics>> sampleStatistics;
   /**
+   * Thread safe structure storing per reference feature per sample the starting positions of consecutive deletions.
+   */
+  private final ConcurrentHashMap<String, ConcurrentHashMap<String, ConcurrentHashMap<String, ArrayList<String>>>>
+      deletions;
+  /**
    * Number of samples, used for counting.
    */
   private final int noSamples;
@@ -76,6 +82,7 @@ public final class VariantPositionsTable {
     this.variantPositions = new ConcurrentHashMap<>();
     this.positionStatistics = new ConcurrentHashMap<>();
     this.sampleStatistics = new ConcurrentHashMap<>();
+    this.deletions = new ConcurrentHashMap<>();
     this.noSamples = numberOfSamples;
   }
 
@@ -348,6 +355,47 @@ public final class VariantPositionsTable {
       return this.variantPositions.get(referenceAnalysisId).iterator();
     } else {
       return Collections.emptyIterator();
+    }
+  }
+
+  /**
+   * Inserts a new block of consecutively deleted positions with respect to the specified sample and reference
+   * location starting exclusively at the specified position.
+   *
+   * @param referenceAnalysisId           {@link String} the name of the reference location.
+   * @param sampleName                    {@link String} the name of the sample.
+   * @param position                      {@link String} the identifier of the position.
+   * @param consecutivelyDeletedPositions {@link ArrayList} of {@link String}s representing consecutively deleted
+   *                                      positions in the specified sample and reference location.
+   */
+  public void putDeletion(String referenceAnalysisId, String sampleName, String position,
+                          ArrayList<String> consecutivelyDeletedPositions) {
+    if (!this.deletions.containsKey(referenceAnalysisId)) {
+      this.deletions.put(referenceAnalysisId, new ConcurrentHashMap<>());
+    }
+    if (!this.deletions.get(referenceAnalysisId).containsKey(sampleName)) {
+      this.deletions.get(referenceAnalysisId).put(sampleName, new ConcurrentHashMap<>());
+    }
+    this.deletions.get(referenceAnalysisId).get(sampleName).put(position, consecutivelyDeletedPositions);
+  }
+
+  /**
+   * Returns a block of consecutively deleted positions with respect to the specified sample and reference
+   * location starting exclusively at the specified position or null if no such entry is present.
+   *
+   * @param referenceAnalysisId {@link String} the name of the reference location.
+   * @param sampleName          {@link String} the name of the sample.
+   * @param position            {@link String} the identifier of the position.
+   * @return {@link ArrayList} if the position is a starting point of a block of consecutively deleted positions or
+   * null.
+   */
+  public ArrayList<String> getDeletion(String referenceAnalysisId, String sampleName, String position) {
+    if (!this.deletions.containsKey(referenceAnalysisId) ||
+        !this.deletions.get(referenceAnalysisId).containsKey(sampleName) ||
+        !this.deletions.get(referenceAnalysisId).get(sampleName).containsKey(position)) {
+      return null;
+    } else {
+      return this.deletions.get(referenceAnalysisId).get(sampleName).get(position);
     }
   }
 

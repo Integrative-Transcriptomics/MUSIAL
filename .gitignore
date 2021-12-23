@@ -4,7 +4,7 @@
 /build/*
 /gradle/*
 /.project
-/google_checkstyle.xml
+/checkstyle.xml
 /gradlew
 /gradlew.bat
 /deprecated/*
