@@ -1,6 +1,6 @@
 package components;
 
-import datastructure.FeatureAnalysisEntry;
+import datastructure.ReferenceFeatureEntry;
 import exceptions.MusialBioException;
 import exceptions.MusialCLAException;
 import exceptions.MusialIOException;
@@ -100,10 +100,10 @@ public final class ArgumentsParser {
    */
   private boolean runSnpEff = false;
   /**
-   * {@link ArrayList} of {@link FeatureAnalysisEntry} objects representing features to analyze. Each feature
+   * {@link ArrayList} of {@link ReferenceFeatureEntry} objects representing features to analyze. Each feature
    * specifies the genes name, their parent (i.e. the genome) sequence and locus.
    */
-  private final ArrayList<FeatureAnalysisEntry> includedGeneFeatures = new ArrayList<>();
+  private final ArrayList<ReferenceFeatureEntry> referenceFeatures = new ArrayList<>();
   /**
    * {@link HashMap} mapping {@link String} objects representing gene names to {@link File} objects specifying
    * .pdb files, one for each reference feature (i.e. gene) to analyze.
@@ -126,6 +126,7 @@ public final class ArgumentsParser {
    * @throws ParseException     If any parsing error occurs.
    * @throws MusialBioException If any faulty data was specified (i.e. features on the reference sequence with
    *                            length 0).
+   * @throws MusialIOException  If any error occurse during input file validation.
    */
   public ArgumentsParser(String[] args)
       throws MusialCLAException, ParseException, MusialBioException,
@@ -195,7 +196,7 @@ public final class ArgumentsParser {
         .numberOfArgs(2)
         .valueSeparator(',')
         .build());
-    options.addOption("d", "debug", false, "Print stacktrace on errors. [" + this.debug + "]");
+    options.addOption("v", "verbose", false, "Verbose mode on, i.e. print stacktrace on errors. [" + this.debug + "]");
     // Instantiate a formatter for the help message and a default command line parser.
     HelpFormatter helpformatter = new HelpFormatter();
     CommandLineParser parser = new DefaultParser();
@@ -222,7 +223,7 @@ public final class ArgumentsParser {
     cmd = parser.parse(options, args);
     // In the following each possible command line argument is validated, if any faulty input is detected the
     // application will exit with an exception.
-    if(cmd.hasOption("d")) {
+    if (cmd.hasOption("v")) {
       this.debug = true;
     }
     // Validation of SNV filtering parameters:
@@ -428,10 +429,10 @@ public final class ArgumentsParser {
   }
 
   /**
-   * @return The included gene features as {@link ArrayList<FeatureAnalysisEntry>}.
+   * @return The included gene features as {@link ArrayList< ReferenceFeatureEntry >}.
    */
-  public ArrayList<FeatureAnalysisEntry> getIncludedGeneFeatures() {
-    return includedGeneFeatures;
+  public ArrayList<ReferenceFeatureEntry> getReferenceFeatures() {
+    return referenceFeatures;
   }
 
   /**
@@ -476,6 +477,8 @@ public final class ArgumentsParser {
    * for .vcf files which are used as sample input.
    *
    * @param file A {@link File} pointing to a .txt file specifying the sample input or a directory.
+   * @throws FileNotFoundException If the passed file does not exist.
+   * @throws MusialIOException     If the passed file does not exist, has no content or no read permission.
    */
   private void parseSampleInput(File file) throws FileNotFoundException, MusialIOException {
     if (file.isFile()) {
@@ -519,6 +522,9 @@ public final class ArgumentsParser {
         sampleNames.add(FilenameUtils.removeExtension(sampleVcfFile.getName()));
       }
     }
+    if (sampleInput.size() == 0) {
+      throw new MusialIOException("No sample files could be parsed from " + file.getAbsolutePath() + ".");
+    }
   }
 
   /**
@@ -528,6 +534,11 @@ public final class ArgumentsParser {
    * .pdb file containing protein structure information of the feature.
    *
    * @param file A {@link File} pointing to a .txt file specifying the gene feature input.
+   * @throws FileNotFoundException If the passed file does not exist.
+   * @throws MusialIOException     If the passed file does not exist, has no content or no read permission.
+   * @throws MusialCLAException    If any faulty command input is detected, i.e. missing parameters for single feature
+   *                               analysis.
+   * @throws MusialBioException    If any faulty gene data is parsed, i.e. a gene with negative or zero length.
    */
   private void parseGeneFeatures(File file)
       throws FileNotFoundException, MusialCLAException, MusialIOException,
@@ -609,9 +620,9 @@ public final class ArgumentsParser {
         Location featureCoordinates = matchedFeature.location();
         String featureParentSequence = matchedFeature.seqname();
         /* FIXME: Investigate shift of start position by plus one.The returned value does not match .gff. This is
-            currently fixed in the FeatureAnalysisEntry.java class.
+            currently fixed in the ReferenceFeatureEntry.java class.
          */
-        this.includedGeneFeatures.add(new FeatureAnalysisEntry(featureName, featureQuery, true, featureParentSequence,
+        this.referenceFeatures.add(new ReferenceFeatureEntry(featureName, featureQuery, true, featureParentSequence,
             featureCoordinates.getBegin(),
             featureCoordinates.getEnd()));
         this.pdInputFiles.put(featureName, new File(featurePDBPath));
