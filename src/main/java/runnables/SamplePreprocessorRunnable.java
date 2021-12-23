@@ -21,6 +21,7 @@ import utility.Logging;
  * @version 2.0
  * @since 2.0
  */
+@SuppressWarnings("ClassCanBeRecord")
 public final class SamplePreprocessorRunnable implements Runnable {
 
   /**

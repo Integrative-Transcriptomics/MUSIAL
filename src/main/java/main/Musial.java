@@ -1,8 +1,8 @@
 package main;
 
-import datastructure.FeatureAnalysisEntry;
+import datastructure.ReferenceFeatureEntry;
 import datastructure.SampleAnalysisEntry;
-import datastructure.VariantPositionsTable;
+import datastructure.VariantContentTable;
 import exceptions.MusialBioException;
 import exceptions.MusialCLAException;
 import exceptions.MusialIOException;
@@ -85,14 +85,14 @@ public final class Musial {
         runSnpEff(arguments);
       }
       // 4. Process input reference sequence and (optional) gene features.
-      HashSet<FeatureAnalysisEntry> referenceEntries = preprocessReferenceInput(arguments);
+      HashSet<ReferenceFeatureEntry> referenceEntries = preprocessReferenceInput(arguments);
       // 5. Generate a pool of VCFFileReader instances, one for each sample.
       CopyOnWriteArraySet<SampleAnalysisEntry> sampleEntries = preprocessSampleInput(arguments);
       // 6. Run the analysis
-      VariantPositionsTable variantPositionsTable = invokeSampleAnalyserRunner(referenceEntries, sampleEntries,
+      VariantContentTable variantContentTable = invokeSampleAnalyserRunner(referenceEntries, sampleEntries,
           arguments);
       // 7. Generate output.
-      writeOutput(arguments, variantPositionsTable, referenceEntries);
+      writeOutput(arguments, variantContentTable, referenceEntries);
     } catch (Exception e) {
       if (debug) {
         e.printStackTrace();
@@ -104,6 +104,8 @@ public final class Musial {
 
   /**
    * Loads metadata, such as the projects title and version from resources and prints the information to stdout.
+   *
+   * @throws IOException If any resource can not be loaded.
    */
   private static void loadMetadata() throws IOException {
     Properties properties = new Properties();
@@ -131,6 +133,10 @@ public final class Musial {
    *
    * @param args Arguments parsed from the command line.
    * @return An instance of the {@link ArgumentsParser} class.
+   * @throws MusialCLAException Catches exceptions from {@link ArgumentsParser} class.
+   * @throws MusialIOException  Catches exceptions from {@link ArgumentsParser} class.
+   * @throws ParseException     Catches exceptions from {@link ArgumentsParser} class.
+   * @throws MusialBioException Catches exceptions from {@link ArgumentsParser} class.
    */
   private static ArgumentsParser parseCLArguments(String[] args)
       throws MusialCLAException, MusialIOException, ParseException, MusialBioException {
@@ -146,25 +152,28 @@ public final class Musial {
    * program exits.
    *
    * @param arguments Arguments parsed from the command line.
+   * @throws IOException          Catches exceptions from {@link SnpEffAnnotator} class.
+   * @throws MusialIOException    Catches exceptions from {@link SnpEffAnnotator} class.
+   * @throws InterruptedException Catches exceptions from {@link SnpEffAnnotator} class.
    */
   private static void runSnpEff(ArgumentsParser arguments) throws MusialIOException, IOException, InterruptedException {
-    Logging.logStatus("Running SnpEff");
     SnpEffAnnotator.runSnpEff(arguments);
   }
 
   /**
-   * Parses the specified reference data and generates a set of analysis entries.
+   * Parses the specified reference data and generates a set of reference feature entries entries.
    * <p>
-   * Each {@link FeatureAnalysisEntry} represents a genomic region of the reference data, for example a single gene, contig,
+   * Each {@link ReferenceFeatureEntry} represents a genomic region of the reference data, for example a single gene, contig,
    * plasmid or full genome. Each such entry contains naming as well as reference sequence information.
    *
    * @param arguments Arguments parsed from the command line.
-   * @return A {@link HashSet} containing {@link FeatureAnalysisEntry} instances specifying genomic regions of the specified
+   * @return A {@link HashSet} containing {@link ReferenceFeatureEntry} instances specifying genomic regions of the specified
    * reference data that are subject to further analysis.
+   * @throws IOException        Catches exceptions from {@link InputPreprocessor} class.
+   * @throws MusialBioException Catches exceptions from {@link InputPreprocessor} class.
    */
-  private static HashSet<FeatureAnalysisEntry> preprocessReferenceInput(ArgumentsParser arguments)
+  private static HashSet<ReferenceFeatureEntry> preprocessReferenceInput(ArgumentsParser arguments)
       throws IOException, MusialBioException {
-    Logging.logStatus("Preparing reference data for analysis");
     return InputPreprocessor.preprocessReferenceInput(arguments);
   }
 
@@ -177,10 +186,10 @@ public final class Musial {
    * @param arguments Arguments parsed from the command line.
    * @return A {@link CopyOnWriteArraySet} containing {@link SampleAnalysisEntry} instances, each specifying the
    * input for one sample to analyze.
+   * @throws InterruptedException Catches exceptions from {@link InputPreprocessor} class.
    */
   private static CopyOnWriteArraySet<SampleAnalysisEntry> preprocessSampleInput(ArgumentsParser arguments)
       throws InterruptedException {
-    Logging.logStatus("Preparing sample data for analysis");
     return InputPreprocessor.preprocessSampleInput(arguments);
   }
 
@@ -190,16 +199,16 @@ public final class Musial {
    * The single steps are implemented in the {@link SampleAnalyser} and {@link runnables.SampleAnalyserRunnable}
    * classes.
    *
-   * @param analysisEntries       A set of {@link FeatureAnalysisEntry}.
+   * @param analysisEntries       A set of {@link ReferenceFeatureEntry}.
    * @param sampleAnalysisEntries A set of {@link SampleAnalysisEntry}.
    * @param arguments             Arguments parsed from the command line.
-   * @return A {@link VariantPositionsTable} containing the information processed from the specified input.
+   * @return A {@link VariantContentTable} containing the information processed from the specified input.
+   * @throws InterruptedException Catches exceptions from {@link SampleAnalyser} class.
    */
-  private static VariantPositionsTable invokeSampleAnalyserRunner(HashSet<FeatureAnalysisEntry> analysisEntries,
-                                                                  CopyOnWriteArraySet<SampleAnalysisEntry> sampleAnalysisEntries,
-                                                                  ArgumentsParser arguments)
+  private static VariantContentTable invokeSampleAnalyserRunner(HashSet<ReferenceFeatureEntry> analysisEntries,
+                                                                CopyOnWriteArraySet<SampleAnalysisEntry> sampleAnalysisEntries,
+                                                                ArgumentsParser arguments)
       throws InterruptedException {
-    Logging.logStatus("Analysing samples");
     return SampleAnalyser.run(analysisEntries, sampleAnalysisEntries, arguments);
   }
 
@@ -208,16 +217,17 @@ public final class Musial {
    * <p>
    * The single steps are implemented in the {@link OutputWriter} and {@link utility.IO} classes.
    *
-   * @param arguments              Arguments parsed from the command line.
-   * @param variantPositionsTable  The {@link VariantPositionsTable} containing the information to write output with.
-   * @param featureAnalysisEntries represents a genomic region of the reference data, for example a single gene, contig,
-   *                               plasmid or full genome. Each such entry contains naming as well as reference sequence information.
+   * @param arguments               Arguments parsed from the command line.
+   * @param variantContentTable     The {@link VariantContentTable} containing the information to write output with.
+   * @param referenceFeatureEntries represents a genomic region of the reference data, for example a single gene, contig,
+   *                                plasmid or full genome. Each such entry contains naming as well as reference sequence information.
+   * @throws MusialIOException  Catches exceptions from {@link OutputWriter} class.
+   * @throws MusialBioException Catches exceptions from {@link OutputWriter} class.
    */
-  private static void writeOutput(ArgumentsParser arguments, VariantPositionsTable variantPositionsTable,
-                                  HashSet<FeatureAnalysisEntry> featureAnalysisEntries)
+  private static void writeOutput(ArgumentsParser arguments, VariantContentTable variantContentTable,
+                                  HashSet<ReferenceFeatureEntry> referenceFeatureEntries)
       throws MusialIOException, MusialBioException {
-    Logging.logStatus("Generating output");
-    OutputWriter.writeOutput(arguments, variantPositionsTable, featureAnalysisEntries);
+    OutputWriter.writeOutput(arguments, variantContentTable, referenceFeatureEntries);
   }
 
   /**

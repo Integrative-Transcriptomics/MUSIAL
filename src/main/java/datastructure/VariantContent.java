@@ -75,8 +75,16 @@ public final class VariantContent {
 
   /**
    * Constructor of {@link VariantContent}.
+   *
+   * @param content   {@link Character} representation of the variants content.
+   * @param quality   {@link Double} representing the quality (phred scaled likelihood of call being wrong) of the
+   *                  variant.
+   * @param coverage  {@link Double} representing the depth of coverage of the variants position.
+   * @param frequency {@link Double} representing the frequency of the variant wrt. other variants on the same
+   *                  position and the number of supporting reads.
+   * @param isMFA     {@link Boolean} indicating if this variant is the most frequent variant.
    */
-  public VariantContent(char content, double quality, double coverage,double frequency, boolean isMFA) {
+  public VariantContent(char content, double quality, double coverage, double frequency, boolean isMFA) {
     this.content = content;
     this.quality = quality;
     this.coverage = coverage;
@@ -87,10 +95,10 @@ public final class VariantContent {
   /**
    * Adds a new annotation value accessible via the specified key to the annotations map of this object.
    *
-   * @param key {@link String} representing the key of the annotation.
+   * @param key   {@link String} representing the key of the annotation.
    * @param value {@link String} representing the value of the annotation.
    */
-  public void addAnnotation( String key, String value ) {
-    this.annotations.put( key, value );
+  public void addAnnotation(String key, String value) {
+    this.annotations.put(key, value);
   }
 }

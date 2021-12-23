@@ -14,7 +14,7 @@ import exceptions.MusialBioException;
  * @version 2.0
  * @since 2.0
  */
-public final class FeatureAnalysisEntry {
+public final class ReferenceFeatureEntry {
 
   /**
    * The internal name of the entry.
@@ -50,7 +50,7 @@ public final class FeatureAnalysisEntry {
   public final boolean isSense;
 
   /**
-   * Constructor of {@link FeatureAnalysisEntry}.
+   * Constructor of {@link ReferenceFeatureEntry}.
    *
    * @param entryName       {@link String} representing the internal name of the reference feature to analyze.
    * @param entryIdentifier {@link String} representing the name of the reference feature from the .gff file.
@@ -61,9 +61,9 @@ public final class FeatureAnalysisEntry {
    * @param entryEnd        {@link Integer} The 1-based indexed end position of the feature on the reference.
    * @throws MusialBioException If the specified locus is ambiguous.
    */
-  public FeatureAnalysisEntry(String entryName, String entryIdentifier, boolean isGene, String entryLocation,
-                              int entryStart,
-                              int entryEnd) throws MusialBioException {
+  public ReferenceFeatureEntry(String entryName, String entryIdentifier, boolean isGene, String entryLocation,
+                               int entryStart,
+                               int entryEnd) throws MusialBioException {
     this.name = entryName;
     this.identifier = entryIdentifier;
     this.isGene = isGene;
@@ -71,12 +71,20 @@ public final class FeatureAnalysisEntry {
     if (entryStart > 0 && entryEnd > 0 && (entryEnd - entryStart) != 0) {
       // CASE: Feature is on sense strand.
       this.isSense = true;
-      this.locationStart = entryStart + 1;
+      if ( isGene ) {
+        this.locationStart = entryStart + 1;
+      } else {
+        this.locationStart = entryStart;
+      }
       this.locationEnd = entryEnd;
     } else if (entryStart < 0 && entryEnd < 0 && (entryEnd - entryStart) != 0) {
       // CASE: Feature is on anti-sense strand.
       this.isSense = false;
-      this.locationStart = -entryStart + 1;
+      if ( isGene ) {
+        this.locationStart = -entryStart + 1;
+      } else {
+        this.locationStart = -entryStart;
+      }
       this.locationEnd = -entryEnd;
     } else {
       throw new MusialBioException("It was tried to generate a gene feature with faulty position " +

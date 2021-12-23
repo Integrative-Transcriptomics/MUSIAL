@@ -35,7 +35,7 @@ public final class SnpEffAnnotator {
    * Static {@link String} used as column headers for the SnpEff summary output file.
    */
   public static final String snpEffSummaryHeader =
-      "Position\tReference\tSamples\tAllele\tAnnotation" +
+      "Position\tReference\tAllele\tSamples\tAnnotation" +
           "\tAnnotation_Impact\tGene_Name\tGene_ID\tFeature_Type\tFeature_ID\tTranscript_BioType\tRank\tHGVS.c\tHGVS" +
           ".p\tcDNA.pos/cDNA.length\tCDS.pos/CDS.length\tAA.pos/AA.length\tDistance\tERRORS/WARNINGS/INFO" +
           IO.LINE_SEPARATOR;
@@ -59,11 +59,17 @@ public final class SnpEffAnnotator {
    */
   public static void runSnpEff(ArgumentsParser arguments) throws IOException, MusialIOException,
       InterruptedException {
-    ProgressBar progress = Musial.buildProgress();
-    progress.maxHint(4 + arguments.getSampleInput().size());
-    try (progress) {
+    String snpEffPath;
+    String referenceName;
+    String snpEffDataPath;
+    File snpEffDataFile;
+    ProgressBar progress1 = Musial.buildProgress();
+    progress1.maxHint(1);
+    progress1.stepTo(0);
+    Logging.logStatus("Generating SnpEff working directory.");
+    try (progress1) {
       // 1. Copy snpEff from internal installation to output directory.
-      String snpEffPath = arguments.getOutputDirectory().toString() + "/SnpEff/";
+      snpEffPath = arguments.getOutputDirectory().toString() + "/SnpEff/";
       File snpEffFile = new File(snpEffPath);
       if (snpEffFile.mkdirs()) {
         InputStream snpEffConfig = SnpEffAnnotator.class.getResourceAsStream("/snpEff/snpEff.config");
@@ -83,11 +89,10 @@ public final class SnpEffAnnotator {
       } else {
         throw new MusialIOException("Unable to create SnpEff working directory:\t" + snpEffFile.getAbsolutePath());
       }
-      progress.step();
       // 2. Copy reference .fasta and .gff into snpEff/data directory.
-      String referenceName = FilenameUtils.removeExtension(arguments.getReferenceFile().getName());
-      String snpEffDataPath = snpEffPath + "data/" + referenceName + "/";
-      File snpEffDataFile = new File(snpEffDataPath);
+      referenceName = FilenameUtils.removeExtension(arguments.getReferenceFile().getName());
+      snpEffDataPath = snpEffPath + "data/" + referenceName + "/";
+      snpEffDataFile = new File(snpEffDataPath);
       if (snpEffDataFile.mkdirs()) {
         Files.copy(
             arguments.getAnnotationInput().toPath(),
@@ -108,7 +113,14 @@ public final class SnpEffAnnotator {
       } else {
         throw new MusialIOException("Unable to create SnpEff working directory:\t" + snpEffDataFile.getAbsolutePath());
       }
-      progress.step();
+      progress1.step();
+      progress1.setExtraMessage(Logging.getDoneMessage());
+    }
+    ProgressBar progress2 = Musial.buildProgress();
+    progress2.maxHint(1);
+    progress2.stepTo(0);
+    Logging.logStatus("Generating SnpEff configuration and database.");
+    try (progress2) {
       // 3. Add reference .fasta and .gff information to snpEff.config.
       Files.writeString(
           Path.of(snpEffPath + "snpEff.config"),
@@ -120,11 +132,17 @@ public final class SnpEffAnnotator {
           "\n" + referenceName + ".genome : " + referenceName,
           StandardOpenOption.APPEND
       );
-      progress.step();
       // 4. Generate database with reference genome information.
       String[] createSNPEffDatabase = {"java", "-jar", "snpEff.jar", "build", "-gff3", "-v", referenceName};
       CL.runCommand(createSNPEffDatabase, snpEffPath + "/" + referenceName + "_snpEffDatabase.log", "", snpEffPath);
-      progress.step();
+      progress2.step();
+      progress2.setExtraMessage(Logging.getDoneMessage());
+    }
+    ProgressBar progress3 = Musial.buildProgress();
+    progress3.maxHint(arguments.getSampleInput().size());
+    progress3.stepTo(0);
+    Logging.logStatus("Running SnpEff on sample variant call files (" + arguments.getSampleInput().size() + ").");
+    try (progress3) {
       // 5. Run snpEff annotation on each input .vcf file (multi-threaded).
       ExecutorService executor = Executors.newFixedThreadPool(arguments.getNumThreads());
       String snpEffResultsPath = snpEffPath + "AnnotatedVCFs/";
@@ -139,7 +157,7 @@ public final class SnpEffAnnotator {
               referenceName,
               arguments.getSampleInput().get(i),
               arguments,
-              progress
+              progress3
           ));
         }
         executor.shutdown();
@@ -157,7 +175,7 @@ public final class SnpEffAnnotator {
       new File(snpEffPath + "snpEff.jar").delete();
       //noinspection ResultOfMethodCallIgnored
       new File(snpEffPath + referenceName + "_snpEffDatabase.log").delete();
-      progress.setExtraMessage(Logging.getDoneMessage());
+      progress3.setExtraMessage(Logging.getDoneMessage());
     }
   }
 

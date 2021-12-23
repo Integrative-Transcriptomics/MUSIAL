@@ -3,13 +3,13 @@ package runnables;
 import static org.forester.util.ForesterUtil.round;
 
 import components.SnpEffAnnotator;
-import datastructure.FeatureAnalysisEntry;
+import datastructure.ReferenceFeatureEntry;
 import datastructure.VariantContent;
-import datastructure.VariantPositionsTable;
+import datastructure.VariantContentTable;
 import htsjdk.samtools.util.CloseableIterator;
-import htsjdk.tribble.TribbleException;
 import htsjdk.variant.variantcontext.Allele;
 import htsjdk.variant.variantcontext.VariantContext;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import main.Musial;
 import me.tongfei.progressbar.ProgressBar;
+import utility.Bio;
 import utility.IO;
 import utility.Logging;
 
@@ -38,19 +39,19 @@ public final class SampleAnalyserRunnable implements Runnable {
    */
   private final String sampleName;
   /**
-   * An {@link FeatureAnalysisEntry} instance storing information about the reference with regard to which the
+   * An {@link ReferenceFeatureEntry} instance storing information about the reference with regard to which the
    * sample is analyzed.
    */
-  private final FeatureAnalysisEntry featureAnalysisEntry;
+  private final ReferenceFeatureEntry referenceFeatureEntry;
   /**
    * An {@link VariantContext} iterator storing information about single entries (rows) of the `.vcf` file of the
    * respective sample.
    */
   private final CloseableIterator<VariantContext> variantInformation;
   /**
-   * An {@link VariantPositionsTable} instance to which the parsed information about variants is passed.
+   * An {@link VariantContentTable} instance to which the parsed information about variants is passed.
    */
-  private final VariantPositionsTable variantPositionsTable;
+  private final VariantContentTable variantContentTable;
   /**
    * The minimum coverage to accept a variant specified by the user.
    */
@@ -80,13 +81,13 @@ public final class SampleAnalyserRunnable implements Runnable {
    * Constructor of {@link SampleAnalyserRunnable}.
    *
    * @param sampleName            {@link String} the samples name.
-   * @param featureAnalysisEntry  {@link FeatureAnalysisEntry} information about the reference to which respect
+   * @param referenceFeatureEntry {@link ReferenceFeatureEntry} information about the reference to which respect
    *                              the sample is analyzed.
    * @param variantInformation    {@link CloseableIterator<VariantContext>} returned by
    *                              a {@link htsjdk.variant.vcf.VCFFileReader}
    *                              giving access to the single input `.vcf`
    *                              files entries.
-   * @param variantPositionsTable {@link VariantPositionsTable} to store the processed information.
+   * @param variantContentTable   {@link VariantContentTable} to store the processed information.
    * @param minCoverage           {@link Double} minimum coverage specified by the user.
    * @param minHomFrequency       {@link Double} minimum hom. call frequency (wrt. read support) specified by the
    *                              user.
@@ -97,16 +98,16 @@ public final class SampleAnalyserRunnable implements Runnable {
    * @param minQuality            {@link Double} minimum quality specified by the user.
    * @param progress              {@link ProgressBar} to indicate runtime information.
    */
-  public SampleAnalyserRunnable(String sampleName, FeatureAnalysisEntry featureAnalysisEntry,
+  public SampleAnalyserRunnable(String sampleName, ReferenceFeatureEntry referenceFeatureEntry,
                                 CloseableIterator<VariantContext> variantInformation,
-                                VariantPositionsTable variantPositionsTable,
+                                VariantContentTable variantContentTable,
                                 double minCoverage, double minHomFrequency, double minHetFrequency,
                                 double maxHetFrequency, double minQuality,
                                 ProgressBar progress) {
     this.sampleName = sampleName;
-    this.featureAnalysisEntry = featureAnalysisEntry;
+    this.referenceFeatureEntry = referenceFeatureEntry;
     this.variantInformation = variantInformation;
-    this.variantPositionsTable = variantPositionsTable;
+    this.variantContentTable = variantContentTable;
     this.minCoverage = minCoverage;
     this.minHomFrequency = minHomFrequency;
     this.minHetFrequency = minHetFrequency;
@@ -125,7 +126,7 @@ public final class SampleAnalyserRunnable implements Runnable {
       while (variantInformation.hasNext()) {
         VariantContext variantContext = variantInformation.next();
         String variantContig = variantContext.getContig();
-        if (!variantContig.equals(featureAnalysisEntry.referenceSequenceLocation)) {
+        if (!variantContig.equals(referenceFeatureEntry.referenceSequenceLocation)) {
           // If the variant is on a contig/location other than the one specified in the reference analysis entry, the
           // variant can be skipped.
           continue;
@@ -147,37 +148,9 @@ public final class SampleAnalyserRunnable implements Runnable {
           Allele variantAllele;
           if (alternateAlleles.size() != 0) {
             // CASE: The variant context reflects a variant call.
-            // Check for additional annotations.
-            HashMap<String, String> additionalAnnotation = new HashMap<>();
-            // FIXME: Currently only the possibility of an additional SnpEff annotation exists.
-            // If a SnpEff annotation attribute (key is ANN, LOF and NMD are currently ignored) is present, add its
-            // content as additional annotation if it affects the gene feature to analyze.
-            String annotationString;
-            StringBuilder filteredAnnotationStringBuilder = new StringBuilder();
-            List<String> annotations;
-            if (variantContext.hasAttribute(SnpEffAnnotator.snpEffAnnotationAttributeKey)) {
-              annotationString = variantContext.getAttributeAsString(SnpEffAnnotator.snpEffAnnotationAttributeKey, "");
-              annotationString = annotationString.replace("[", "");
-              annotationString = annotationString.replace("]", "");
-              if (featureAnalysisEntry.isGene) {
-                annotations = Arrays.asList(annotationString.split(","));
-                for (String annotation : annotations) {
-                  if (annotation.split("\\|")[3].equals(featureAnalysisEntry.identifier)) {
-                    filteredAnnotationStringBuilder.append(annotation).append(",");
-                  }
-                }
-                if (filteredAnnotationStringBuilder.length() != 0) {
-                  filteredAnnotationStringBuilder.setLength(filteredAnnotationStringBuilder.length() - 1);
-                  additionalAnnotation
-                      .put(SnpEffAnnotator.snpEffAnnotationAttributeKey, filteredAnnotationStringBuilder.toString());
-                }
-              } else {
-                additionalAnnotation.put(SnpEffAnnotator.snpEffAnnotationAttributeKey, annotationString);
-              }
-            }
             // Initiate sample call type counting.
-            variantPositionsTable
-                .countCallType(featureAnalysisEntry.name, sampleName, alternateAlleles.size() > 1);
+            variantContentTable
+                .countCallType(referenceFeatureEntry.name, sampleName, alternateAlleles.size() > 1);
             // The allelic depths of coverage are extracted to order the alleles with respect to their decreasing
             // frequency.
             // FIXME: Each genotype should contain the full list of allele depths.
@@ -192,14 +165,50 @@ public final class SampleAnalyserRunnable implements Runnable {
               for (Map.Entry<Double, Allele> entry : sortedAlternateAlleles.entrySet()) {
                 variantFrequency = entry.getKey();
                 variantAllele = entry.getValue();
+                // Check for additional SnpEff annotations; stored as attribute with key 'ANN'.
+                HashMap<String, String> additionalAnnotation = new HashMap<>();
+                String annotationString;
+                StringBuilder filteredAnnotationStringBuilder = new StringBuilder();
+                List<String> annotations;
+                if (variantContext.hasAttribute(SnpEffAnnotator.snpEffAnnotationAttributeKey)) {
+                  annotationString =
+                      variantContext.getAttributeAsString(SnpEffAnnotator.snpEffAnnotationAttributeKey, "");
+                  annotationString = annotationString.replace("[", "");
+                  annotationString = annotationString.replace("]", "");
+                  annotations = Arrays.asList(annotationString.split(","));
+                  String annotationAllele;
+                  String annotationFeature;
+                  for (String annotation : annotations) {
+                    annotationAllele = annotation.split("\\|")[0];
+                    annotationFeature = annotation.split("\\|")[3];
+                    if (referenceFeatureEntry.isGene) {
+                      if (annotationFeature.equals(referenceFeatureEntry.identifier) &&
+                          (annotationAllele.equals(variantAllele.getBaseString()) || annotationAllele.equals(
+                              Bio.getReverseComplement(variantAllele.getBaseString())))) {
+                        filteredAnnotationStringBuilder.append(annotation).append(",");
+                      }
+                    } else {
+                      if (annotationAllele.equals(variantAllele.getBaseString()) || annotationAllele.equals(
+                          Bio.getReverseComplement(variantAllele.getBaseString()))) {
+                        filteredAnnotationStringBuilder.append(annotation).append(",");
+                      }
+                    }
+                  }
+                  if (filteredAnnotationStringBuilder.length() != 0) {
+                    filteredAnnotationStringBuilder.setLength(filteredAnnotationStringBuilder.length() - 1);
+                    additionalAnnotation
+                        .put(SnpEffAnnotator.snpEffAnnotationAttributeKey,
+                            filteredAnnotationStringBuilder.toString());
+                  }
+                }
                 processVariantCall(variantPosition, variantQuality, variantCoverage, variantFrequency, variantAllele,
                     referenceAllele, alternateAlleles.size() > 1, isMostFrequent, additionalAnnotation);
                 isMostFrequent = false;
               }
-            } catch (TribbleException e) {
+            } catch (Exception e) {
               Logging.logWarning(
                   "An error occurred during the analysis of sample " + sampleName + " at position " + variantPosition +
-                      " within feature " + featureAnalysisEntry.name + IO.LINE_SEPARATOR + "> " + e.getMessage());
+                      " within feature " + referenceFeatureEntry.name + IO.LINE_SEPARATOR + "\t\t> " + e.getMessage());
             }
           } else {
             // CASE: The variant context is a reference call.
@@ -213,7 +222,7 @@ public final class SampleAnalyserRunnable implements Runnable {
       if (Musial.debug) {
         e.printStackTrace();
       } else {
-        Logging.logWarning( "An error occurred during sample analysis: " + e.getMessage() );
+        Logging.logWarning("An error occurred during sample analysis: " + e.getMessage());
       }
     } finally {
       progress.step();
@@ -243,7 +252,7 @@ public final class SampleAnalyserRunnable implements Runnable {
     if (variantQuality < minQuality || variantCoverage < minCoverage ||
         (!isHetCall && variantFrequency < minHomFrequency) ||
         (isHetCall && (variantFrequency < minHetFrequency || variantFrequency > maxHetFrequency))) {
-      variantPositionsTable.countRejectedCall(featureAnalysisEntry.name, sampleName,
+      variantContentTable.countRejectedCall(referenceFeatureEntry.name, sampleName,
           String.valueOf(variantPosition));
       return;
     }
@@ -253,33 +262,39 @@ public final class SampleAnalyserRunnable implements Runnable {
       // CASE: Nucleotide substitution.
       position = String.valueOf(variantPosition);
       content = variantAllele.getBaseString().toCharArray()[0];
-      variantPositionsTable.putVariablePosition(featureAnalysisEntry.name, sampleName,
+      variantContentTable.putVariantPosition(referenceFeatureEntry.name, sampleName,
           position, content,
           variantQuality, variantCoverage, variantFrequency, isMFA, additionalAnnotation);
-      variantPositionsTable.countAlternateCall(featureAnalysisEntry.name, sampleName, position, content);
+      variantContentTable.countAlternateCall(referenceFeatureEntry.name, sampleName, position, content);
     } else if (variantContentArray.length > referenceContentArray.length && referenceContentArray.length == 1) {
       // CASE: Insertion.
       for (int i = 1; i < variantContentArray.length; i++) {
         position = variantPosition + "+" + i;
         content = variantAllele.getBaseString().toCharArray()[i];
-        variantPositionsTable.putVariablePosition(featureAnalysisEntry.name, sampleName,
+        variantContentTable.putVariantPosition(referenceFeatureEntry.name, sampleName,
             position, content, variantQuality, variantCoverage, variantFrequency, isMFA, additionalAnnotation);
-        variantPositionsTable.countAlternateCall(featureAnalysisEntry.name, sampleName, position, content);
+        variantContentTable.countAlternateCall(referenceFeatureEntry.name, sampleName, position, content);
       }
     } else if (variantContentArray.length < referenceContentArray.length && variantContentArray.length == 1) {
       // CASE: Deletion
+      ArrayList<String> consecutivelyDeletedPositions = new ArrayList<>();
       for (int i = 1; i < referenceContentArray.length; i++) {
         position = String.valueOf(variantPosition + i);
+        consecutivelyDeletedPositions.add(position);
         content = VariantContent.DELETION;
-        variantPositionsTable.putVariablePosition(featureAnalysisEntry.name, sampleName,
+        variantContentTable.putVariantPosition(referenceFeatureEntry.name, sampleName,
             position, content, variantQuality, variantCoverage, variantFrequency, isMFA, additionalAnnotation);
-        variantPositionsTable.countAlternateCall(featureAnalysisEntry.name, sampleName, position, content);
+        variantContentTable.countAlternateCall(referenceFeatureEntry.name, sampleName, position, content);
       }
+      variantContentTable
+          .putDeletion(referenceFeatureEntry.name, sampleName, String.valueOf(variantPosition),
+              consecutivelyDeletedPositions);
     } else {
       // FIXME: Instead of using system printing a logging library should be used.
       Logging.logWarning("Skipping ambiguous variant context of sample " + sampleName + " at position " +
-          variantPosition + " within the reference feature " + featureAnalysisEntry.name + IO.LINE_SEPARATOR +
-          "> Reference content:\t" + referenceAllele.getBaseString() + IO.LINE_SEPARATOR + "> Sample content:\t" +
+          variantPosition + " within the reference feature " + referenceFeatureEntry.name + IO.LINE_SEPARATOR +
+          "\t\t> Reference content:\t" + referenceAllele.getBaseString() + IO.LINE_SEPARATOR + "\t\t> Sample " +
+          "content:\t" +
           variantAllele.getBaseString());
     }
   }

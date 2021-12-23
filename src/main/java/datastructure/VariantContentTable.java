@@ -25,7 +25,7 @@ import utility.VariantPositionComparator;
  * @version 2.0
  * @since 2.0
  */
-public final class VariantPositionsTable {
+public final class VariantContentTable {
 
   /**
    * Thread safe table structure that stores all information parsed from `.vcf` files in the form of
@@ -51,19 +51,20 @@ public final class VariantPositionsTable {
       ConcurrentLinkedQueue<VariantContent>>>>
       table;
   /**
-   * Thread safe structure mapping reference features to a list of positions at which a variant was called.
+   * Thread safe structure mapping reference feature names to a list of positions at which a variant was called.
    */
   private final ConcurrentHashMap<String, ConcurrentSkipListSet<String>> variantPositions;
   /**
-   * Thread safe structure mapping reference features to a list of {@link PositionStatistics} instances.
+   * Thread safe structure mapping reference feature names to a list of {@link PositionStatistics} instances.
    */
   private final ConcurrentHashMap<String, ConcurrentHashMap<String, PositionStatistics>> positionStatistics;
   /**
-   * Thread safe structure mapping reference features to a list of {@link SampleStatistics} instances.
+   * Thread safe structure mapping reference feature names to a list of {@link SampleStatistics} instances.
    */
   private final ConcurrentHashMap<String, ConcurrentHashMap<String, SampleStatistics>> sampleStatistics;
   /**
-   * Thread safe structure storing per reference feature per sample the starting positions of consecutive deletions.
+   * Thread safe structure storing per reference feature names per sample the starting positions of consecutive
+   * deletions.
    */
   private final ConcurrentHashMap<String, ConcurrentHashMap<String, ConcurrentHashMap<String, ArrayList<String>>>>
       deletions;
@@ -73,11 +74,11 @@ public final class VariantPositionsTable {
   private final int noSamples;
 
   /**
-   * Constructor of {@link VariantPositionsTable}.
+   * Constructor of {@link VariantContentTable}.
    *
    * @param numberOfSamples {@link Integer} indicating the number of samples, used for counting.
    */
-  public VariantPositionsTable(int numberOfSamples) {
+  public VariantContentTable(int numberOfSamples) {
     this.table = new ConcurrentHashMap<>();
     this.variantPositions = new ConcurrentHashMap<>();
     this.positionStatistics = new ConcurrentHashMap<>();
@@ -89,7 +90,7 @@ public final class VariantPositionsTable {
   /**
    * Inserts a new {@link VariantContent} instance into the table structure.
    *
-   * @param referenceAnalysisId  {@link String} the name of the reference feature to access.
+   * @param referenceFeatureName {@link String} the name of the reference feature to access.
    * @param sampleName           {@link String} representing the analyzed sample.
    * @param position             {@link String} representing the analyzed position.
    * @param content              {@link Character} representing the nucleotide content to insert.
@@ -100,17 +101,17 @@ public final class VariantPositionsTable {
    * @param additionalAnnotation {@link HashMap} containing key, value pairs of {@link String} that reflect
    *                             annotations associated with the variant content.
    */
-  public void putVariablePosition(String referenceAnalysisId, String sampleName, String position,
-                                  char content, double quality, double coverage, double frequency, boolean isMfa,
-                                  HashMap<String, String> additionalAnnotation) {
-    initializeInternalContentStructure(referenceAnalysisId, sampleName);
-    initializeInternalSampleStatisticsStructure(referenceAnalysisId, sampleName);
-    initializeInternalPositionStatisticsStructure(referenceAnalysisId, position);
+  public void putVariantPosition(String referenceFeatureName, String sampleName, String position,
+                                 char content, double quality, double coverage, double frequency, boolean isMfa,
+                                 HashMap<String, String> additionalAnnotation) {
+    initializeInternalContentStructure(referenceFeatureName, sampleName);
+    initializeInternalSampleStatisticsStructure(referenceFeatureName, sampleName);
+    initializeInternalPositionStatisticsStructure(referenceFeatureName, position);
     VariantContent variantContent = new VariantContent(content, quality, coverage, frequency, isMfa);
-    if (!this.table.get(referenceAnalysisId).get(sampleName).containsKey(position)) {
-      this.table.get(referenceAnalysisId).get(sampleName).put(position, new ConcurrentLinkedQueue<>());
+    if (!this.table.get(referenceFeatureName).get(sampleName).containsKey(position)) {
+      this.table.get(referenceFeatureName).get(sampleName).put(position, new ConcurrentLinkedQueue<>());
     }
-    this.table.get(referenceAnalysisId).get(sampleName).get(position).add(variantContent);
+    this.table.get(referenceFeatureName).get(sampleName).get(position).add(variantContent);
     if (additionalAnnotation.size() > 0) {
       for (Map.Entry<String, String> entry : additionalAnnotation.entrySet()) {
         variantContent.addAnnotation(entry.getKey(), entry.getValue());
@@ -120,99 +121,99 @@ public final class VariantPositionsTable {
     // sequence directly, the position is added as variant position.
     if (content != VariantContent.REFERENCE && content != VariantContent.NO_CALL && !sampleName.equals(
         "Reference")) {
-      this.variantPositions.get(referenceAnalysisId).add(position);
+      this.variantPositions.get(referenceFeatureName).add(position);
     }
   }
 
   /**
    * Increments the rejected call counter by one for the specified reference feature (i.e. accessed via
-   * `referenceAnalysisId`), position and sample.
+   * `referenceFeatureName`), position and sample.
    *
-   * @param referenceAnalysisId {@link String} specifying the reference feature for which the counter shall be
-   *                            incremented.
-   * @param sampleName          {@link String} specifying the sample for which the count shall be increased.
-   * @param position            {@link String } specifying the position for which the count shall be increased.
+   * @param referenceFeatureName {@link String} specifying the reference feature for which the counter shall be
+   *                             incremented.
+   * @param sampleName           {@link String} specifying the sample for which the count shall be increased.
+   * @param position             {@link String } specifying the position for which the count shall be increased.
    */
-  public void countRejectedCall(String referenceAnalysisId, String sampleName, String position) {
-    initializeInternalSampleStatisticsStructure(referenceAnalysisId, sampleName);
-    initializeInternalPositionStatisticsStructure(referenceAnalysisId, position);
+  public void countRejectedCall(String referenceFeatureName, String sampleName, String position) {
+    initializeInternalSampleStatisticsStructure(referenceFeatureName, sampleName);
+    initializeInternalPositionStatisticsStructure(referenceFeatureName, position);
     // Count no call for position statistics.
-    this.positionStatistics.get(referenceAnalysisId).get(position).rejectedCalls += 1;
-    this.positionStatistics.get(referenceAnalysisId).get(position).noCalls -= 1;
+    this.positionStatistics.get(referenceFeatureName).get(position).rejectedCalls += 1;
+    this.positionStatistics.get(referenceFeatureName).get(position).noCalls -= 1;
     // Count no call for sample statistics.
-    this.sampleStatistics.get(referenceAnalysisId).get(sampleName).rejectedCalls += 1;
+    this.sampleStatistics.get(referenceFeatureName).get(sampleName).rejectedCalls += 1;
   }
 
   /**
    * Increments the respective call type counter by one for the specified reference feature (i.e. accessed via
-   * `referenceAnalysisId`) and sample, dependent on the value of `isHet`.
+   * `referenceFeatureName`) and sample, dependent on the value of `isHet`.
    *
-   * @param referenceAnalysisId {@link String} specifying the reference feature for which the counter shall be
-   *                            incremented.
-   * @param sampleName          {@link String} specifying the sample for which the count shall be increased.
-   * @param isHet               {@link Boolean } specifying the call type, i.e. false for hom. and true for het. calls.
+   * @param referenceFeatureName {@link String} specifying the reference feature for which the counter shall be
+   *                             incremented.
+   * @param sampleName           {@link String} specifying the sample for which the count shall be increased.
+   * @param isHet                {@link Boolean } specifying the call type, i.e. false for hom. and true for het. calls.
    */
-  public void countCallType(String referenceAnalysisId, String sampleName, boolean isHet) {
-    initializeInternalSampleStatisticsStructure(referenceAnalysisId, sampleName);
+  public void countCallType(String referenceFeatureName, String sampleName, boolean isHet) {
+    initializeInternalSampleStatisticsStructure(referenceFeatureName, sampleName);
     if (isHet) {
-      this.sampleStatistics.get(referenceAnalysisId).get(sampleName).hetCalls += 1;
+      this.sampleStatistics.get(referenceFeatureName).get(sampleName).hetCalls += 1;
     } else {
-      this.sampleStatistics.get(referenceAnalysisId).get(sampleName).homCalls += 1;
+      this.sampleStatistics.get(referenceFeatureName).get(sampleName).homCalls += 1;
     }
   }
 
   /**
    * Increments the variant call counter by one for the specified reference feature (i.e. accessed via
-   * `referenceAnalysisId`), position and sample. Which counter is increased depends on the specified `content` and
+   * `referenceFeatureName`), position and sample. Which counter is increased depends on the specified `content` and
    * `position`.
    *
-   * @param referenceAnalysisId {@link String} specifying the reference feature for which the counter shall be
-   *                            incremented.
-   * @param sampleName          {@link String} specifying the sample for which the count shall be increased.
-   * @param position            {@link String } specifying the position for which the count shall be increased.
-   * @param content             {@link Character} specifying the variants nucleotide content.
+   * @param referenceFeatureName {@link String} specifying the reference feature for which the counter shall be
+   *                             incremented.
+   * @param sampleName           {@link String} specifying the sample for which the count shall be increased.
+   * @param position             {@link String } specifying the position for which the count shall be increased.
+   * @param content              {@link Character} specifying the variants nucleotide content.
    */
-  public void countAlternateCall(String referenceAnalysisId, String sampleName, String position, char content) {
-    initializeInternalSampleStatisticsStructure(referenceAnalysisId, sampleName);
-    initializeInternalPositionStatisticsStructure(referenceAnalysisId, position);
+  public void countAlternateCall(String referenceFeatureName, String sampleName, String position, char content) {
+    initializeInternalSampleStatisticsStructure(referenceFeatureName, sampleName);
+    initializeInternalPositionStatisticsStructure(referenceFeatureName, position);
     // Count no call for position statistics.
     switch (content) {
       case VariantContent.ALT_A -> {
-        this.positionStatistics.get(referenceAnalysisId).get(position).ACalls += 1;
-        this.positionStatistics.get(referenceAnalysisId).get(position).noCalls -= 1;
+        this.positionStatistics.get(referenceFeatureName).get(position).ACalls += 1;
+        this.positionStatistics.get(referenceFeatureName).get(position).noCalls -= 1;
         if (!position.contains("+")) {
-          this.sampleStatistics.get(referenceAnalysisId).get(sampleName).SNV += 1;
+          this.sampleStatistics.get(referenceFeatureName).get(sampleName).SNV += 1;
         }
       }
       case VariantContent.ALT_T -> {
-        this.positionStatistics.get(referenceAnalysisId).get(position).TCalls += 1;
-        this.positionStatistics.get(referenceAnalysisId).get(position).noCalls -= 1;
+        this.positionStatistics.get(referenceFeatureName).get(position).TCalls += 1;
+        this.positionStatistics.get(referenceFeatureName).get(position).noCalls -= 1;
         if (!position.contains("+")) {
-          this.sampleStatistics.get(referenceAnalysisId).get(sampleName).SNV += 1;
+          this.sampleStatistics.get(referenceFeatureName).get(sampleName).SNV += 1;
         }
       }
       case VariantContent.ALT_C -> {
-        this.positionStatistics.get(referenceAnalysisId).get(position).CCalls += 1;
-        this.positionStatistics.get(referenceAnalysisId).get(position).noCalls -= 1;
+        this.positionStatistics.get(referenceFeatureName).get(position).CCalls += 1;
+        this.positionStatistics.get(referenceFeatureName).get(position).noCalls -= 1;
         if (!position.contains("+")) {
-          this.sampleStatistics.get(referenceAnalysisId).get(sampleName).SNV += 1;
+          this.sampleStatistics.get(referenceFeatureName).get(sampleName).SNV += 1;
         }
       }
       case VariantContent.ALT_G -> {
-        this.positionStatistics.get(referenceAnalysisId).get(position).GCalls += 1;
-        this.positionStatistics.get(referenceAnalysisId).get(position).noCalls -= 1;
+        this.positionStatistics.get(referenceFeatureName).get(position).GCalls += 1;
+        this.positionStatistics.get(referenceFeatureName).get(position).noCalls -= 1;
         if (!position.contains("+")) {
-          this.sampleStatistics.get(referenceAnalysisId).get(sampleName).SNV += 1;
+          this.sampleStatistics.get(referenceFeatureName).get(sampleName).SNV += 1;
         }
       }
       case VariantContent.DELETION -> {
-        this.positionStatistics.get(referenceAnalysisId).get(position).deletions += 1;
-        this.positionStatistics.get(referenceAnalysisId).get(position).noCalls -= 1;
-        this.sampleStatistics.get(referenceAnalysisId).get(sampleName).deletedPositions += 1;
+        this.positionStatistics.get(referenceFeatureName).get(position).deletions += 1;
+        this.positionStatistics.get(referenceFeatureName).get(position).noCalls -= 1;
+        this.sampleStatistics.get(referenceFeatureName).get(sampleName).deletedPositions += 1;
       }
     }
     if (position.contains("+")) {
-      this.sampleStatistics.get(referenceAnalysisId).get(sampleName).insertedPositions += 1;
+      this.sampleStatistics.get(referenceFeatureName).get(sampleName).insertedPositions += 1;
     }
   }
 
@@ -223,21 +224,21 @@ public final class VariantPositionsTable {
    * This method is intended to be used for samples with only confident reference calls as these will not be
    * considered for the output files otherwise.
    *
-   * @param referenceAnalysisId {@link String} the name of the reference feature to access.
-   * @param sampleName          {@link String} representing the name of the sample.
+   * @param referenceFeatureName {@link String} the name of the reference feature to access.
+   * @param sampleName           {@link String} representing the name of the sample.
    */
-  public void addSampleToReference(String referenceAnalysisId, String sampleName) {
+  public void addSampleToReference(String referenceFeatureName, String sampleName) {
     // Insert new ConcurrentHashMap for reference feature if none is present.
-    if (!this.table.containsKey(referenceAnalysisId)) {
-      this.table.put(referenceAnalysisId, new ConcurrentHashMap<>());
+    if (!this.table.containsKey(referenceFeatureName)) {
+      this.table.put(referenceFeatureName, new ConcurrentHashMap<>());
     }
     // Insert new ConcurrentSkipListMap for sample name if none is present.
-    if (!this.table.get(referenceAnalysisId).containsKey(sampleName)) {
-      this.table.get(referenceAnalysisId).put(sampleName,
+    if (!this.table.get(referenceFeatureName).containsKey(sampleName)) {
+      this.table.get(referenceFeatureName).put(sampleName,
           new ConcurrentSkipListMap<>(new VariantPositionComparator()));
     }
     // Initialize empty sample statistics container.
-    initializeInternalSampleStatisticsStructure(referenceAnalysisId, sampleName);
+    initializeInternalSampleStatisticsStructure(referenceFeatureName, sampleName);
   }
 
   /**
@@ -245,15 +246,15 @@ public final class VariantPositionsTable {
    * <p>
    * Returns null if no entry exists.
    *
-   * @param referenceAnalysisId {@link String} representing the reference analysis identifier / feature identifier to
-   *                            access.
-   * @param sampleName          {@link String} representing the sample identifier to access.
-   * @param position            {@link String} representing the position to access.
+   * @param referenceFeatureName {@link String} representing the reference analysis identifier / feature identifier to
+   *                             access.
+   * @param sampleName           {@link String} representing the sample identifier to access.
+   * @param position             {@link String} representing the position to access.
    * @return {@link Iterator} of {@link VariantContent} objects, if stored in the table; else null.
    */
-  public Iterator<VariantContent> getContent(String referenceAnalysisId, String sampleName, String position) {
-    if (this.table.get(referenceAnalysisId).get(sampleName).containsKey(position)) {
-      return this.table.get(referenceAnalysisId).get(sampleName).get(position).iterator();
+  public Iterator<VariantContent> getContent(String referenceFeatureName, String sampleName, String position) {
+    if (this.table.get(referenceFeatureName).get(sampleName).containsKey(position)) {
+      return this.table.get(referenceFeatureName).get(sampleName).get(position).iterator();
     } else {
       return null;
     }
@@ -262,12 +263,12 @@ public final class VariantPositionsTable {
   /**
    * Returns all stored sample names for one reference location name.
    *
-   * @param referenceAnalysisId {@link String} the name of the reference location.
+   * @param referenceFeatureName {@link String} the name of the reference location.
    * @return {@link HashSet<String>} containing all sample names of the specified reference location.
    */
-  public HashSet<String> getSampleNames(String referenceAnalysisId) {
+  public HashSet<String> getSampleNames(String referenceFeatureName) {
     HashSet<String> sampleNames = new HashSet<>();
-    Iterator<String> keyIterator = this.table.get(referenceAnalysisId).keys().asIterator();
+    Iterator<String> keyIterator = this.table.get(referenceFeatureName).keys().asIterator();
     while (keyIterator.hasNext()) {
       String sampleName = keyIterator.next();
       if (!sampleName.equals("Reference")) {
@@ -280,38 +281,38 @@ public final class VariantPositionsTable {
   /**
    * Returns the {@link SampleStatistics} instance stored for the specified reference location and sample name.
    *
-   * @param referenceAnalysisId {@link String} the name of the reference location.
-   * @param sampleName          {@link String} the name of the sample.
+   * @param referenceFeatureName {@link String} the name of the reference location.
+   * @param sampleName           {@link String} the name of the sample.
    * @return {@link SampleStatistics} instance.
    */
-  public SampleStatistics getSampleStatistics(String referenceAnalysisId, String sampleName) {
-    return this.sampleStatistics.get(referenceAnalysisId).get(sampleName);
+  public SampleStatistics getSampleStatistics(String referenceFeatureName, String sampleName) {
+    return this.sampleStatistics.get(referenceFeatureName).get(sampleName);
   }
 
   /**
    * Returns the {@link PositionStatistics} instance stored for the specified reference location and position.
    *
-   * @param referenceAnalysisId {@link String} the name of the reference location.
-   * @param position            {@link String} the identifier of the position.
+   * @param referenceFeatureName {@link String} the name of the reference location.
+   * @param position             {@link String} the identifier of the position.
    * @return {@link PositionStatistics} instance.
    */
-  public PositionStatistics getPositionStatistics(String referenceAnalysisId, String position) {
-    return this.positionStatistics.get(referenceAnalysisId).get(position);
+  public PositionStatistics getPositionStatistics(String referenceFeatureName, String position) {
+    return this.positionStatistics.get(referenceFeatureName).get(position);
   }
 
   /**
    * Returns a navigable set of all (including non-variant) positions of one reference feature.
    *
-   * @param referenceAnalysisId {@link String} the reference feature to access.
+   * @param referenceFeatureName {@link String} the reference feature to access.
    * @return {@link TreeSet<String>} containing all positions of the specified reference feature.
    */
-  public NavigableSet<String> getAllPositionsSet(String referenceAnalysisId) {
+  public NavigableSet<String> getAllPositionsSet(String referenceFeatureName) {
     ConcurrentSkipListSet<String> positions = new ConcurrentSkipListSet<>();
-    for (String position : this.table.get(referenceAnalysisId).get("Reference").navigableKeySet()) {
+    for (String position : this.table.get(referenceFeatureName).get("Reference").navigableKeySet()) {
       //noinspection UseBulkOperation
       positions.add(position);
     }
-    ConcurrentSkipListSet<String> variantPositions = this.getVariantPositionsSet(referenceAnalysisId);
+    ConcurrentSkipListSet<String> variantPositions = this.getVariantPositionsSet(referenceFeatureName);
     for (String p : variantPositions) {
       //noinspection UseBulkOperation
       positions.add(p);
@@ -322,23 +323,24 @@ public final class VariantPositionsTable {
   /**
    * Returns an iterator of all (including non-variant) positions of one reference feature.
    *
-   * @param referenceAnalysisId {@link String} the reference feature to access.
+   * @param referenceFeatureName {@link String} the reference feature to access.
    * @return {@link Iterator<String>} over all positions of the specified reference feature.
    */
-  public Iterator<String> getAllPositionsIterator(String referenceAnalysisId) {
-    NavigableSet<String> allPositions = getAllPositionsSet(referenceAnalysisId);
+  @SuppressWarnings("unused")
+  public Iterator<String> getAllPositionsIterator(String referenceFeatureName) {
+    NavigableSet<String> allPositions = getAllPositionsSet(referenceFeatureName);
     return allPositions.iterator();
   }
 
   /**
    * Returns a navigable set of all variant positions of one reference feature.
    *
-   * @param referenceAnalysisId {@link String} the reference feature to access.
+   * @param referenceFeatureName {@link String} the reference feature to access.
    * @return {@link ConcurrentSkipListSet<String>} containing all variant positions of the specified reference feature.
    */
-  public ConcurrentSkipListSet<String> getVariantPositionsSet(String referenceAnalysisId) {
-    if (this.variantPositions.containsKey(referenceAnalysisId)) {
-      return this.variantPositions.get(referenceAnalysisId);
+  public ConcurrentSkipListSet<String> getVariantPositionsSet(String referenceFeatureName) {
+    if (this.variantPositions.containsKey(referenceFeatureName)) {
+      return this.variantPositions.get(referenceFeatureName);
     } else {
       return new ConcurrentSkipListSet<>();
     }
@@ -347,12 +349,12 @@ public final class VariantPositionsTable {
   /**
    * Returns an iterator over all variant positions of a reference feature.
    *
-   * @param referenceAnalysisId {@link String} the reference feature to access.
+   * @param referenceFeatureName {@link String} the reference feature to access.
    * @return {@link Iterator<String>} over all variant positions of the specified reference feature.
    */
-  public Iterator<String> getVariantPositions(String referenceAnalysisId) {
-    if (this.variantPositions.containsKey(referenceAnalysisId)) {
-      return this.variantPositions.get(referenceAnalysisId).iterator();
+  public Iterator<String> getVariantPositions(String referenceFeatureName) {
+    if (this.variantPositions.containsKey(referenceFeatureName)) {
+      return this.variantPositions.get(referenceFeatureName).iterator();
     } else {
       return Collections.emptyIterator();
     }
@@ -362,103 +364,103 @@ public final class VariantPositionsTable {
    * Inserts a new block of consecutively deleted positions with respect to the specified sample and reference
    * location starting exclusively at the specified position.
    *
-   * @param referenceAnalysisId           {@link String} the name of the reference location.
+   * @param referenceFeatureName          {@link String} the name of the reference location.
    * @param sampleName                    {@link String} the name of the sample.
    * @param position                      {@link String} the identifier of the position.
    * @param consecutivelyDeletedPositions {@link ArrayList} of {@link String}s representing consecutively deleted
    *                                      positions in the specified sample and reference location.
    */
-  public void putDeletion(String referenceAnalysisId, String sampleName, String position,
+  public void putDeletion(String referenceFeatureName, String sampleName, String position,
                           ArrayList<String> consecutivelyDeletedPositions) {
-    if (!this.deletions.containsKey(referenceAnalysisId)) {
-      this.deletions.put(referenceAnalysisId, new ConcurrentHashMap<>());
+    if (!this.deletions.containsKey(referenceFeatureName)) {
+      this.deletions.put(referenceFeatureName, new ConcurrentHashMap<>());
     }
-    if (!this.deletions.get(referenceAnalysisId).containsKey(sampleName)) {
-      this.deletions.get(referenceAnalysisId).put(sampleName, new ConcurrentHashMap<>());
+    if (!this.deletions.get(referenceFeatureName).containsKey(sampleName)) {
+      this.deletions.get(referenceFeatureName).put(sampleName, new ConcurrentHashMap<>());
     }
-    this.deletions.get(referenceAnalysisId).get(sampleName).put(position, consecutivelyDeletedPositions);
+    this.deletions.get(referenceFeatureName).get(sampleName).put(position, consecutivelyDeletedPositions);
   }
 
   /**
    * Returns a block of consecutively deleted positions with respect to the specified sample and reference
    * location starting exclusively at the specified position or null if no such entry is present.
    *
-   * @param referenceAnalysisId {@link String} the name of the reference location.
-   * @param sampleName          {@link String} the name of the sample.
-   * @param position            {@link String} the identifier of the position.
+   * @param referenceFeatureName {@link String} the name of the reference location.
+   * @param sampleName           {@link String} the name of the sample.
+   * @param position             {@link String} the identifier of the position.
    * @return {@link ArrayList} if the position is a starting point of a block of consecutively deleted positions or
    * null.
    */
-  public ArrayList<String> getDeletion(String referenceAnalysisId, String sampleName, String position) {
-    if (!this.deletions.containsKey(referenceAnalysisId) ||
-        !this.deletions.get(referenceAnalysisId).containsKey(sampleName) ||
-        !this.deletions.get(referenceAnalysisId).get(sampleName).containsKey(position)) {
+  public ArrayList<String> getDeletion(String referenceFeatureName, String sampleName, String position) {
+    if (!this.deletions.containsKey(referenceFeatureName) ||
+        !this.deletions.get(referenceFeatureName).containsKey(sampleName) ||
+        !this.deletions.get(referenceFeatureName).get(sampleName).containsKey(position)) {
       return null;
     } else {
-      return this.deletions.get(referenceAnalysisId).get(sampleName).get(position);
+      return this.deletions.get(referenceFeatureName).get(sampleName).get(position);
     }
   }
 
   /**
    * Internal method to initialize objects used for sample statistic counting.
    *
-   * @param referenceAnalysisId {@link String} specifying the reference feature for which internal objects are
-   *                            generated.
-   * @param sampleName          {@link String} specifying the sample for which internal objects are generated.
+   * @param referenceFeatureName {@link String} specifying the reference feature for which internal objects are
+   *                             generated.
+   * @param sampleName           {@link String} specifying the sample for which internal objects are generated.
    */
-  private void initializeInternalSampleStatisticsStructure(String referenceAnalysisId, String sampleName) {
+  private void initializeInternalSampleStatisticsStructure(String referenceFeatureName, String sampleName) {
     // Insert new ConcurrentHashMap for sample statistics of reference, if none is present.
-    if (!this.sampleStatistics.containsKey(referenceAnalysisId)) {
-      this.sampleStatistics.put(referenceAnalysisId, new ConcurrentHashMap<>());
+    if (!this.sampleStatistics.containsKey(referenceFeatureName)) {
+      this.sampleStatistics.put(referenceFeatureName, new ConcurrentHashMap<>());
     }
     // Insert new SampleStatistics instance for sample of reference, if none is present.
-    if (!this.sampleStatistics.get(referenceAnalysisId).containsKey(sampleName)) {
+    if (!this.sampleStatistics.get(referenceFeatureName).containsKey(sampleName)) {
       SampleStatistics sampleStatistics = new SampleStatistics();
-      this.sampleStatistics.get(referenceAnalysisId).put(sampleName, sampleStatistics);
+      this.sampleStatistics.get(referenceFeatureName).put(sampleName, sampleStatistics);
     }
   }
 
   /**
    * Internal method to initialize objects used for position statistic counting.
    *
-   * @param referenceAnalysisId {@link String} specifying the reference feature for which internal objects are
-   *                            generated.
-   * @param position            {@link String} specifying the position for which internal objects are generated.
+   * @param referenceFeatureName {@link String} specifying the reference feature for which internal objects are
+   *                             generated.
+   * @param position             {@link String} specifying the position for which internal objects are generated.
    */
-  private void initializeInternalPositionStatisticsStructure(String referenceAnalysisId, String position) {
+  private void initializeInternalPositionStatisticsStructure(String referenceFeatureName, String position) {
     // Insert new ConcurrentHashMap for position statistics of reference, if none is present.
-    if (!this.positionStatistics.containsKey(referenceAnalysisId)) {
-      this.positionStatistics.put(referenceAnalysisId, new ConcurrentHashMap<>());
+    if (!this.positionStatistics.containsKey(referenceFeatureName)) {
+      this.positionStatistics.put(referenceFeatureName, new ConcurrentHashMap<>());
     }
     // Insert new PositionStatistics instance for position of reference, if none is present.
-    if (!this.positionStatistics.get(referenceAnalysisId).containsKey(position)) {
+    if (!this.positionStatistics.get(referenceFeatureName).containsKey(position)) {
       PositionStatistics positionStatistics = new PositionStatistics();
       positionStatistics.noCalls = this.noSamples;
-      this.positionStatistics.get(referenceAnalysisId).put(position, positionStatistics);
+      this.positionStatistics.get(referenceFeatureName).put(position, positionStatistics);
     }
   }
 
   /**
    * Internal method to initialize objects used for variant content storage.
    *
-   * @param referenceAnalysisId {@link String} specifying the reference feature for which internal objects are
-   *                            generated.
-   * @param sampleName          {@link String} specifying the sample for which internal objects are generated.
+   * @param referenceFeatureName {@link String} specifying the reference feature for which internal objects are
+   *                             generated.
+   * @param sampleName           {@link String} specifying the sample for which internal objects are generated.
    */
-  private void initializeInternalContentStructure(String referenceAnalysisId, String sampleName) {
+  private void initializeInternalContentStructure(String referenceFeatureName, String sampleName) {
     // Insert new ConcurrentHashMaps for reference feature if none is present.
-    if (!this.table.containsKey(referenceAnalysisId)) {
-      this.table.put(referenceAnalysisId, new ConcurrentHashMap<>());
+    if (!this.table.containsKey(referenceFeatureName)) {
+      this.table.put(referenceFeatureName, new ConcurrentHashMap<>());
     }
     // Insert new ConcurrentSkipListMap for sample name if none is present.
-    if (!this.table.get(referenceAnalysisId).containsKey(sampleName)) {
-      this.table.get(referenceAnalysisId).put(sampleName,
+    if (!this.table.get(referenceFeatureName).containsKey(sampleName)) {
+      this.table.get(referenceFeatureName).put(sampleName,
           new ConcurrentSkipListMap<>(new VariantPositionComparator()));
     }
     // Insert new ConcurrentSkipListSet to store variant positions if none is present.
-    if (!this.variantPositions.containsKey(referenceAnalysisId)) {
+    if (!this.variantPositions.containsKey(referenceFeatureName)) {
       this.variantPositions
-          .put(referenceAnalysisId, new ConcurrentSkipListSet<>(new VariantPositionComparator()));
+          .put(referenceFeatureName, new ConcurrentSkipListSet<>(new VariantPositionComparator()));
     }
   }
 

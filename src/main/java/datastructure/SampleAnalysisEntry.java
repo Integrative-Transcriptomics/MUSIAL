@@ -5,7 +5,7 @@ import htsjdk.variant.vcf.VCFFileReader;
 /**
  * Internal representation of a sample that is subject to analysis.
  * <p>
- * Pairs of instances of this class and {@link FeatureAnalysisEntry} instances are used internally as so called 'Run
+ * Pairs of instances of this class and {@link ReferenceFeatureEntry} instances are used internally as so called 'Run
  * entries' to specify a set of analysis tasks, i.e. which sample is analyzed with respect to which specified
  * reference feature.
  *
@@ -13,6 +13,7 @@ import htsjdk.variant.vcf.VCFFileReader;
  * @version 2.0
  * @since 2.0
  */
+@SuppressWarnings("ClassCanBeRecord")
 public final class SampleAnalysisEntry {
 
   /**

@@ -1,7 +1,7 @@
 package components;
 
 import datastructure.FastaEntry;
-import datastructure.FeatureAnalysisEntry;
+import datastructure.ReferenceFeatureEntry;
 import datastructure.SampleAnalysisEntry;
 import exceptions.MusialBioException;
 import java.io.File;
@@ -19,10 +19,10 @@ import utility.IO;
 import utility.Logging;
 
 /**
- * Comprises static methods to generate sets of {@link FeatureAnalysisEntry} and {@link SampleAnalysisEntry}
+ * Comprises static methods to generate sets of {@link ReferenceFeatureEntry} and {@link SampleAnalysisEntry}
  * instances.
  * <p>
- * Each {@link FeatureAnalysisEntry} defines one genomic location for downstream analysis: These may comprise single genes
+ * Each {@link ReferenceFeatureEntry} defines one genomic location for downstream analysis: These may comprise single genes
  * on different chromosomes or plasmids, contigs or full genomes.
  * <p>
  * Each {@link SampleAnalysisEntry} defines a input sample by specifying the sample name and input `.vcf` file
@@ -38,46 +38,53 @@ public final class InputPreprocessor {
    * Preprocesses the specified reference `.fasta` file.
    *
    * @param arguments {@link ArgumentsParser} storing arguments parsed from the command line.
-   * @return A {@link HashSet} of {@link FeatureAnalysisEntry} instances.
-   * @throws IOException If any access to the reference `.fasta` file failed.
+   * @return A {@link HashSet} of {@link ReferenceFeatureEntry} instances.
+   * @throws IOException        If any access to the reference `.fasta` file failed.
+   * @throws MusialBioException If any faulty information is processed during reference feature entry generation.
    */
-  public static HashSet<FeatureAnalysisEntry> preprocessReferenceInput(ArgumentsParser arguments)
+  public static HashSet<ReferenceFeatureEntry> preprocessReferenceInput(ArgumentsParser arguments)
       throws IOException, MusialBioException {
     ProgressBar progress = Musial.buildProgress();
     try (progress) {
       File referenceSequenceFile = arguments.getReferenceFile();
-      ArrayList<FeatureAnalysisEntry> geneFeatures = arguments.getIncludedGeneFeatures();
-      HashSet<FeatureAnalysisEntry> analysisEntries = new HashSet<>();
-      HashSet<FastaEntry> fastaEntries = IO.readFasta(referenceSequenceFile);
-      if (geneFeatures.size() == 0) {
+      ArrayList<ReferenceFeatureEntry> referenceFeatures = arguments.getReferenceFeatures();
+      HashSet<ReferenceFeatureEntry> analysisEntries = new HashSet<>();
+      HashSet<FastaEntry> fastaEntries;
+      if (referenceFeatures.size() == 0) {
         // If no gene features were specified by the user, the reference fasta is parsed and each entry is processed
         // into one ReferenceAnalysisEntry.
+        Logging.logStatus("Reading reference genome.");
+        fastaEntries = IO.readFasta(referenceSequenceFile);
         progress.maxHint(fastaEntries.size());
+        progress.stepTo(0);
         for (FastaEntry fastaEntry : fastaEntries) {
-          String entryName = fastaEntry.getHeader().split( " " )[ 0 ].trim( );
+          String entryName = fastaEntry.getHeader().split(" ")[0].trim();
           String entrySequence = fastaEntry.getSequence();
-          FeatureAnalysisEntry featureAnalysisEntry = new FeatureAnalysisEntry(entryName, entryName, false,
+          ReferenceFeatureEntry referenceFeatureEntry = new ReferenceFeatureEntry(entryName, entryName, false,
               entryName, 1,
               entrySequence.length());
-          featureAnalysisEntry.setReferenceSequence(entrySequence);
-          analysisEntries.add(featureAnalysisEntry);
+          referenceFeatureEntry.setReferenceSequence(entrySequence);
+          analysisEntries.add(referenceFeatureEntry);
           progress.step();
         }
       } else {
         // Else in each fasta entry it is searched for each specified gene feature. Finally for each gene feature one
         // ReferenceAnalysisEntry is adjusted.
-        progress.maxHint((long) fastaEntries.size() * geneFeatures.size());
-        for (FastaEntry fastaEntry : fastaEntries) {
-          String entryLocation = fastaEntry.getHeader().split(" ")[0].trim();
-          for (FeatureAnalysisEntry geneFeature : geneFeatures) {
-            if (entryLocation.equals(geneFeature.referenceSequenceLocation)) {
+        Logging.logStatus("Reading reference gene features (" + referenceFeatures.size() + ").");
+        fastaEntries = IO.readFasta(referenceSequenceFile);
+        progress.maxHint(referenceFeatures.size());
+        progress.stepTo(0);
+        for (ReferenceFeatureEntry referenceFeature : referenceFeatures) {
+          for (FastaEntry fastaEntry : fastaEntries) {
+            String entryLocation = fastaEntry.getHeader().split(" ")[0].trim();
+            if (entryLocation.equals(referenceFeature.referenceSequenceLocation)) {
               String referenceFeatureSequence =
-                  fastaEntry.getSequence(geneFeature.locationStart, geneFeature.locationEnd);
-              geneFeature.setReferenceSequence(referenceFeatureSequence);
-              analysisEntries.add(geneFeature);
+                  fastaEntry.getSequence(referenceFeature.locationStart, referenceFeature.locationEnd);
+              referenceFeature.setReferenceSequence(referenceFeatureSequence);
+              analysisEntries.add(referenceFeature);
             }
-            progress.step();
           }
+          progress.step();
         }
       }
       progress.setExtraMessage(Logging.getDoneMessage());
@@ -96,7 +103,9 @@ public final class InputPreprocessor {
       throws InterruptedException {
     ProgressBar progress = Musial.buildProgress();
     try (progress) {
+      Logging.logStatus("Validating/generating sample index files (" + arguments.getSampleNames().size() + ").");
       progress.maxHint(arguments.getSampleNames().size());
+      progress.stepTo(0);
       ExecutorService executor = Executors.newFixedThreadPool(arguments.getNumThreads());
       CopyOnWriteArraySet<SampleAnalysisEntry> vcfFileReaderPool = new CopyOnWriteArraySet<>();
       for (int i = 0; i < arguments.getSampleInput().size(); i++) {
@@ -114,29 +123,4 @@ public final class InputPreprocessor {
       return vcfFileReaderPool;
     }
   }
-
-  /**
-   * Adjusts a fasta entry header in such a way that no symbols that are not allowed for file names in certain OS are
-   * contained anymore.
-   *
-   * @param header {@link String} representing a header line parsed from a `.fasta` file.
-   * @return A adjusted fasta header than can be used safely as filename.
-   */
-  private static String adjustFastaHeader(String header) {
-    return header
-        .trim()
-        .replace('/', '_')
-        .replace('\\', '_')
-        .replace('\0', '_')
-        .replace(',', '_')
-        .replace('.', '_')
-        .replace(':', '_')
-        .replace('?', '_')
-        .replace('*', '_')
-        .replace('<', '_')
-        .replace('>', '_')
-        .replace('"', '_')
-        .replace('|', '_');
-  }
-
 }

@@ -1,7 +1,7 @@
 package components;
 
-import datastructure.FeatureAnalysisEntry;
-import datastructure.VariantPositionsTable;
+import datastructure.ReferenceFeatureEntry;
+import datastructure.VariantContentTable;
 import exceptions.MusialBioException;
 import exceptions.MusialIOException;
 import java.io.File;
@@ -21,9 +21,9 @@ import utility.Logging;
 public final class OutputWriter {
 
   /**
-   * Writes output files based on the information of a {@link VariantPositionsTable}.
+   * Writes output files based on the information of a {@link VariantContentTable}.
    * <p>
-   * Currently the following output files are generated for each reference location:
+   * Currently the following output files are generated for each reference feature:
    * - Alignment of full sequences.
    * - Alignment of variant sequences.
    * - .tsv file storing the variant content for each sample and each position.
@@ -31,96 +31,101 @@ public final class OutputWriter {
    * - .tsv file storing the per position sum of all possible variant contents over all samples.
    * - (optional) .json file storing information for the interactive visualization extension.
    *
-   * @param arguments              {@link ArgumentsParser} arguments parsed from the command line.
-   * @param variantPositionsTable  The {@link VariantPositionsTable} of which the output should be generated,
-   * @param featureAnalysisEntries represents a genomic region of the reference data, for example a single gene, contig,
-   *                               plasmid or full genome. Each such entry contains naming as well as reference sequence information.
-   * @throws MusialIOException If any output file generation fails.
+   * @param arguments               {@link ArgumentsParser} arguments parsed from the command line.
+   * @param variantContentTable     The {@link VariantContentTable} of which the output should be generated,
+   * @param referenceFeatureEntries represents a genomic region of the reference data, for example a single gene,
+   *                                contig,
+   *                                plasmid or full genome. Each such entry contains naming as well as reference sequence information.
+   * @throws MusialIOException  If any output file generation fails.
+   * @throws MusialBioException If any subsequent method fails with a {@link MusialBioException}.
    */
-  public static void writeOutput(ArgumentsParser arguments, VariantPositionsTable variantPositionsTable,
-                                 HashSet<FeatureAnalysisEntry> featureAnalysisEntries)
+  public static void writeOutput(ArgumentsParser arguments, VariantContentTable variantContentTable,
+                                 HashSet<ReferenceFeatureEntry> referenceFeatureEntries)
       throws MusialIOException, MusialBioException {
     ProgressBar progress = Musial.buildProgress();
+    // Initialize progress counter.
+    int numOutputFiles = 6;
+    if (arguments.getPdInputFiles().size() != 0) {
+      numOutputFiles += 3;
+    }
+    if (arguments.isRunSnpEff()) {
+      numOutputFiles += 1;
+    }
+    progress.maxHint((long) numOutputFiles * referenceFeatureEntries.size());
+    Logging.logStatus(
+        "Generating output files per reference feature (" + (long) numOutputFiles * referenceFeatureEntries.size() +
+            ").");
     try (progress) {
-      // Initialize progress counter.
-      int numOutputFiles = 5;
-      if (arguments.getPdInputFiles().size() != 0) {
-        numOutputFiles += 3;
-      }
-      if (arguments.isRunSnpEff()) {
-        numOutputFiles += 1;
-      }
-      progress.maxHint((long) numOutputFiles * featureAnalysisEntries.size());
       // Fix output directory path.
       String outputDirectory = arguments.getOutputDirectory().getAbsolutePath();
       if (!outputDirectory.endsWith("/")) {
         outputDirectory += "/";
       }
-      for (FeatureAnalysisEntry featureAnalysisEntry : featureAnalysisEntries) {
-        String referenceAnalysisId = featureAnalysisEntry.name;
-        IO.generateDirectory(new File(outputDirectory + "/" + referenceAnalysisId));
+      for (ReferenceFeatureEntry referenceFeatureEntry : referenceFeatureEntries) {
+        String referenceFeatureName = referenceFeatureEntry.name;
+        IO.generateDirectory(new File(outputDirectory + "/" + referenceFeatureName));
         // 1. Generate snv table .tsv output.
-        File snvTableOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/variantContentTable.tsv");
+        File snvTableOutFile = new File(outputDirectory + "/" + referenceFeatureName + "/variantContentTable.tsv");
         IO.generateFile(snvTableOutFile);
-        IO.writeVariantsContentTable(snvTableOutFile, referenceAnalysisId, variantPositionsTable);
+        IO.writeVariantsContentTable(snvTableOutFile, referenceFeatureName, variantContentTable);
         progress.step();
         // 2. Generate snv annotations .tsv output.
-        File snvAnnotationsOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/variantAnnotationTable" +
+        File snvAnnotationsOutFile = new File(outputDirectory + "/" + referenceFeatureName + "/variantAnnotationTable" +
             ".tsv");
         IO.generateFile(snvAnnotationsOutFile);
-        IO.writeVariantsAnnotationTable(snvAnnotationsOutFile, referenceAnalysisId, variantPositionsTable);
+        IO.writeVariantsAnnotationTable(snvAnnotationsOutFile, referenceFeatureName, variantContentTable);
         progress.step();
         // 3. Generate sequences .fasta output.
-        File sequencesOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/sequences.fasta");
+        File sequencesOutFile = new File(outputDirectory + "/" + referenceFeatureName + "/sequences.fasta");
         IO.generateFile(sequencesOutFile);
-        IO.writeSequences(sequencesOutFile, referenceAnalysisId, variantPositionsTable);
+        IO.writeSequences(sequencesOutFile, referenceFeatureEntry, variantContentTable);
         progress.step();
         // 4. Generate per sample statistics.
-        File sampleStatisticsOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/sampleStatistics" +
+        File sampleStatisticsOutFile = new File(outputDirectory + "/" + referenceFeatureName + "/sampleStatistics" +
             ".tsv");
         IO.generateFile(sampleStatisticsOutFile);
-        IO.writeSampleStatistics(sampleStatisticsOutFile, referenceAnalysisId, variantPositionsTable);
+        IO.writeSampleStatistics(sampleStatisticsOutFile, referenceFeatureName, variantContentTable);
         progress.step();
         // 5. Generate per position statistics.
-        File positionStatisticsOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/positionStatistics" +
+        File positionStatisticsOutFile = new File(outputDirectory + "/" + referenceFeatureName + "/positionStatistics" +
             ".tsv");
         IO.generateFile(positionStatisticsOutFile);
-        IO.writePositionStatistics(positionStatisticsOutFile, referenceAnalysisId, variantPositionsTable);
+        IO.writePositionStatistics(positionStatisticsOutFile, referenceFeatureName, variantContentTable);
         progress.step();
-        if (arguments.getPdInputFiles().containsKey(referenceAnalysisId)) {
+        if (arguments.getPdInputFiles().containsKey(referenceFeatureName)) {
           // 6. Generate protein data integrated results.
-          File proteinDataIntegratedOutDir = new File(outputDirectory + "/" + referenceAnalysisId +
+          File proteinDataIntegratedOutDir = new File(outputDirectory + "/" + referenceFeatureName +
               "/structureIntegratedResults");
           IO.generateDirectory(proteinDataIntegratedOutDir);
           // 6.1 Match reference nucleotide data to protein structure and allocate sample data.
-          File matchingOutFile =
-              new File(proteinDataIntegratedOutDir.getAbsolutePath() + "/structureAllocation.json");
-          IO.generateFile(matchingOutFile);
-          IO.writeStructureMatching(matchingOutFile, featureAnalysisEntry, variantPositionsTable,
+          File superpositionOutFile =
+              new File(proteinDataIntegratedOutDir.getAbsolutePath() + "/structureSuperposition.json");
+          IO.generateFile(superpositionOutFile);
+          IO.writeStructureSuperposition(superpositionOutFile, referenceFeatureEntry, variantContentTable,
               arguments);
           progress.step();
           // 6.2 Generate protein contact map.
           File proteinContactsMapOutFile =
               new File(proteinDataIntegratedOutDir.getAbsolutePath() + "/residueDistanceMap.tsv");
           IO.generateFile(proteinContactsMapOutFile);
-          IO.writeProteinDistanceMap(proteinContactsMapOutFile, referenceAnalysisId, arguments);
+          IO.writeProteinDistanceMap(proteinContactsMapOutFile, referenceFeatureName, arguments);
           progress.step();
           // 6.3 Copy .pdb file.
-          File pdbFile = arguments.getPdInputFiles().get(referenceAnalysisId);
+          File pdbFile = arguments.getPdInputFiles().get(referenceFeatureName);
           IO.copyFile(pdbFile, new File(proteinDataIntegratedOutDir.getAbsolutePath() + "/" + pdbFile.getName()));
           progress.step();
         }
-        if ( arguments.isRunSnpEff() ) {
+        if (arguments.isRunSnpEff()) {
           // 7. Write SnpEff summary file.
-          File snpEffSummaryOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/snpEffSummary.tsv");
+          File snpEffSummaryOutFile = new File(outputDirectory + "/" + referenceFeatureName + "/snpEffSummary.tsv");
           IO.generateFile(snpEffSummaryOutFile);
-          IO.writeSnpEffSummary(snpEffSummaryOutFile, referenceAnalysisId, variantPositionsTable);
+          IO.writeSnpEffSummary(snpEffSummaryOutFile, referenceFeatureName, variantContentTable);
           progress.step();
         }
         // 8. Write run information file.
-        File runInfoOutFile = new File(outputDirectory + "/" + referenceAnalysisId + "/runInfo.txt");
+        File runInfoOutFile = new File(outputDirectory + "/" + referenceFeatureName + "/runInfo.txt");
         IO.generateFile(runInfoOutFile);
-        IO.writeRunInfo(runInfoOutFile, arguments, referenceAnalysisId);
+        IO.writeRunInfo(runInfoOutFile, arguments, referenceFeatureName);
         progress.step();
       }
       progress.setExtraMessage(Logging.getDoneMessage());

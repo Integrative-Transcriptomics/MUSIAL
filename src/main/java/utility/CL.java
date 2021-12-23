@@ -35,7 +35,8 @@ public class CL {
       }
       Process process = pb.start();
       process.waitFor();
-    } catch (IOException | InterruptedException ignored) {
+    } catch (Exception e) {
+      Logging.logError( e.getMessage() );
     }
   }
 

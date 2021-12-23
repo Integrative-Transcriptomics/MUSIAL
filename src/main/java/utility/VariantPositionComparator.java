@@ -40,7 +40,7 @@ public final class VariantPositionComparator implements Comparator<String> {
         int vp1Pos = getIntegerValue(vp1);
         int vp2Pos = Integer.parseInt(vp2);
         int compVal = Integer.compare(vp1Pos, vp2Pos);
-        if ( compVal != 0  ) {
+        if (compVal != 0) {
           return compVal;
         } else {
           return 1;
@@ -49,7 +49,7 @@ public final class VariantPositionComparator implements Comparator<String> {
         int vp1Pos = Integer.parseInt(vp1);
         int vp2Pos = getIntegerValue(vp2);
         int compVal = Integer.compare(vp1Pos, vp2Pos);
-        if ( compVal != 0  ) {
+        if (compVal != 0) {
           return compVal;
         } else {
           return -1;

@@ -1,9 +1,9 @@
 package components;
 
 import com.google.common.collect.Sets;
-import datastructure.FeatureAnalysisEntry;
+import datastructure.ReferenceFeatureEntry;
 import datastructure.SampleAnalysisEntry;
-import datastructure.VariantPositionsTable;
+import datastructure.VariantContentTable;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -21,10 +21,10 @@ import utility.Logging;
  * Comprises static methods to analyze samples.
  * <p>
  * In MUSIAL this is done by multi-threading. In detail the cartesian product of a set of
- * {@link FeatureAnalysisEntry} and a set of {@link SampleAnalysisEntry} instances is generated. For more detail
+ * {@link ReferenceFeatureEntry} and a set of {@link SampleAnalysisEntry} instances is generated. For more detail
  * view the respective class documentations.
  * <p>
- * This results in a set of pairs of {@link FeatureAnalysisEntry} and {@link SampleAnalysisEntry} objects, each
+ * This results in a set of pairs of {@link ReferenceFeatureEntry} and {@link SampleAnalysisEntry} objects, each
  * specifying a sample that is analyzed against a reference genome region (which may be a single gene or the whole
  * genome). For each such pair a {@link SampleAnalyserRunnable} is initialized and run.
  *
@@ -37,78 +37,87 @@ public final class SampleAnalyser {
   /**
    * Runs multi-threaded sample analysis.
    * <p>
-   * Constructs each possible pair of the passed referenceEntries and sampleEntries elements. For each pair a new
+   * Constructs each possible pair of the passed referenceFeatureEntries and sampleEntries elements. For each pair a new
    * single-threaded {@link SampleAnalyserRunnable} is initialized.
    *
-   * @param referenceEntries Set of {@link FeatureAnalysisEntry} instances. Each specifies a locus on the reference
-   *                         genome.
-   * @param sampleEntries    Set of {@link SampleAnalysisEntry} instances. Each specifies the `.vcf` file content from
-   *                         one sample.
-   * @param arguments        {@link ArgumentsParser} containing arguments parsed from command line.
-   * @return {@link VariantPositionsTable} containing the information returned from each single
+   * @param referenceFeatureEntries Set of {@link ReferenceFeatureEntry} instances. Each specifies a locus on the reference
+   *                                genome.
+   * @param sampleEntries           Set of {@link SampleAnalysisEntry} instances. Each specifies the `.vcf` file content from
+   *                                one sample.
+   * @param arguments               {@link ArgumentsParser} containing arguments parsed from command line.
+   * @return {@link VariantContentTable} containing the information returned from each single
    * {@link SampleAnalyserRunnable}.
    * @throws InterruptedException If the thread was interrupted.
    */
-  public static VariantPositionsTable run(HashSet<FeatureAnalysisEntry> referenceEntries,
-                                          CopyOnWriteArraySet<SampleAnalysisEntry> sampleEntries,
-                                          ArgumentsParser arguments)
+  public static VariantContentTable run(HashSet<ReferenceFeatureEntry> referenceFeatureEntries,
+                                        CopyOnWriteArraySet<SampleAnalysisEntry> sampleEntries,
+                                        ArgumentsParser arguments)
       throws InterruptedException {
-    ProgressBar progress = Musial.buildProgress();
-    try (progress) {
+    VariantContentTable variantContentTable = new VariantContentTable(sampleEntries.size());
+    Set<List<Object>> runEntries = Sets.cartesianProduct(referenceFeatureEntries, sampleEntries);
+    ProgressBar progress1 = Musial.buildProgress();
+    progress1.maxHint(referenceFeatureEntries.size());
+    progress1.stepTo(0);
+    Logging.logStatus("Storing reference sequence information (" + referenceFeatureEntries.size() + ").");
+    try (progress1) {
+      addReferenceToVariantContentTable(variantContentTable, referenceFeatureEntries, progress1);
+      progress1.setExtraMessage(Logging.getDoneMessage());
+    }
+    ProgressBar progress2 = Musial.buildProgress();
+    progress2.maxHint(runEntries.size());
+    progress2.stepTo(0);
+    Logging.logStatus("Analysing sample variant call files per reference feature (" + runEntries.size() + ").");
+    try (progress2) {
       ExecutorService executor = Executors.newFixedThreadPool(arguments.getNumThreads());
-      Set<List<Object>> runEntries = Sets.cartesianProduct(referenceEntries, sampleEntries);
-      VariantPositionsTable variantPositionsTable = new VariantPositionsTable(sampleEntries.size());
-      progress.maxHint(runEntries.size() + 1);
       for (List<Object> runEntry : runEntries) {
-        FeatureAnalysisEntry featureAnalysisEntry = (FeatureAnalysisEntry) runEntry.get(0);
+        ReferenceFeatureEntry referenceFeatureEntry = (ReferenceFeatureEntry) runEntry.get(0);
         SampleAnalysisEntry sampleAnalysisEntry = (SampleAnalysisEntry) runEntry.get(1);
-        variantPositionsTable.addSampleToReference(featureAnalysisEntry.name, sampleAnalysisEntry.sampleName);
+        variantContentTable.addSampleToReference(referenceFeatureEntry.name, sampleAnalysisEntry.sampleName);
         executor.execute(
             new SampleAnalyserRunnable(
                 sampleAnalysisEntry.sampleName,
-                featureAnalysisEntry,
+                referenceFeatureEntry,
                 sampleAnalysisEntry.vcfFileReader
-                    .query(featureAnalysisEntry.referenceSequenceLocation,
-                        featureAnalysisEntry.locationStart,
-                        featureAnalysisEntry.locationEnd),
-                variantPositionsTable,
+                    .query(referenceFeatureEntry.referenceSequenceLocation,
+                        referenceFeatureEntry.locationStart,
+                        referenceFeatureEntry.locationEnd),
+                variantContentTable,
                 arguments.getMinCoverage(),
                 arguments.getMinFrequency(),
                 arguments.getMinHet(),
                 arguments.getMaxHet(),
                 arguments.getMinQuality(),
-                progress
+                progress2
             )
         );
       }
       executor.shutdown();
       //noinspection ResultOfMethodCallIgnored
       executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-      addReferenceToVariantPositionsTable(variantPositionsTable, referenceEntries, progress);
-      progress.setExtraMessage(Logging.getDoneMessage());
-      return variantPositionsTable;
+      progress2.setExtraMessage(Logging.getDoneMessage());
+      return variantContentTable;
     }
   }
 
   /**
-   * Adds information from the reference genome specified by the single elements of referenceEntries to the passed
-   * variantPositionsTable.
+   * Adds information from the reference genome specified by the single elements of referenceFeatureEntries to the passed
+   * variantContentTable.
    *
-   * @param variantPositionsTable {@link VariantPositionsTable} containing information about the variant sites of a
-   *                              set of samples against possibly multiple reference loci.
-   * @param referenceEntries      Set of {@link FeatureAnalysisEntry} instances, each specifying a reference locus.
-   * @param progress              {@link ProgressBar} instance to visualize progress information to the user.
+   * @param variantContentTable     {@link VariantContentTable} containing information about the variant sites of a
+   *                                set of samples against possibly multiple reference loci.
+   * @param referenceFeatureEntries Set of {@link ReferenceFeatureEntry} instances, each specifying a reference locus.
+   * @param progress                {@link ProgressBar} instance to visualize progress information to the user.
    */
-  private static void addReferenceToVariantPositionsTable(
-      VariantPositionsTable variantPositionsTable, HashSet<FeatureAnalysisEntry> referenceEntries,
+  private static void addReferenceToVariantContentTable(
+      VariantContentTable variantContentTable, HashSet<ReferenceFeatureEntry> referenceFeatureEntries,
       ProgressBar progress) {
-    for (FeatureAnalysisEntry referenceEntry : referenceEntries) {
-      char[] referenceSequenceBases = referenceEntry.getReferenceSequence().toCharArray();
-      int referenceSequenceStart = referenceEntry.locationStart;
+    for (ReferenceFeatureEntry referenceFeatureEntry : referenceFeatureEntries) {
+      char[] referenceSequenceBases = referenceFeatureEntry.getReferenceSequence().toCharArray();
+      int referenceSequenceStart = referenceFeatureEntry.locationStart;
       for (int i = 0; i < referenceSequenceBases.length; i++) {
         int position = referenceSequenceStart + i;
-        variantPositionsTable
-            .putVariablePosition(referenceEntry.name, "Reference", String.valueOf(position),
+        variantContentTable
+            .putVariantPosition(referenceFeatureEntry.name, "Reference", String.valueOf(position),
                 referenceSequenceBases[i], Double.NaN, Double.NaN, Double.NaN, true,
                 new HashMap<>());
       }
