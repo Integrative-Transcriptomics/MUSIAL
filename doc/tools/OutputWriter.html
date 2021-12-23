@@ -136,8 +136,8 @@ extends java.lang.Object</pre>
 <tbody>
 <tr class="alt-color" id="i0">
 <td class="col-first"><code>static void</code></td>
-<th class="col-second" scope="row"><code><span class="member-name-link"><a href="#writeOutput(components.ArgumentsParser,datastructure.VariantPositionsTable,java.util.HashSet)">writeOutput</a></span>&#8203;(<a href="ArgumentsParser.html" title="class in components">ArgumentsParser</a>&nbsp;arguments,
-<a href="../datastructure/VariablePositionsTable.html" title="class in datastructure">VariablePositionsTable</a>&nbsp;variantPositionsTable,
+<th class="col-second" scope="row"><code><span class="member-name-link"><a href="#writeOutput(components.ArgumentsParser,datastructure.VariantContentTable,java.util.HashSet)">writeOutput</a></span>&#8203;(<a href="ArgumentsParser.html" title="class in components">ArgumentsParser</a>&nbsp;arguments,
+<a href="../datastructure/VariablePositionsTable.html" title="class in datastructure">VariablePositionsTable</a>&nbsp;variantContentTable,
 java.util.HashSet&lt;<a href="../datastructure/FeatureAnalysisEntry.html" title="class in datastructure">FeatureAnalysisEntry</a>&gt;&nbsp;featureAnalysisEntries)</code></th>
 <td class="col-last">
 <div class="block">Writes output files based on the information of a <a href="../datastructure/VariablePositionsTable.html" title="class in datastructure"><code>VariablePositionsTable</code></a>.</div>
@@ -176,10 +176,10 @@ java.util.HashSet&lt;<a href="../datastructure/FeatureAnalysisEntry.html" title=
 <h2>Method Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="writeOutput(components.ArgumentsParser,datastructure.VariantPositionsTable,java.util.HashSet)">
+<section class="detail" id="writeOutput(components.ArgumentsParser,datastructure.VariantContentTable,java.util.HashSet)">
 <h3>writeOutput</h3>
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="member-name">writeOutput</span>&#8203;(<span class="parameters"><a href="ArgumentsParser.html" title="class in components">ArgumentsParser</a>&nbsp;arguments,
-<a href="../datastructure/VariablePositionsTable.html" title="class in datastructure">VariablePositionsTable</a>&nbsp;variantPositionsTable,
+<a href="../datastructure/VariablePositionsTable.html" title="class in datastructure">VariablePositionsTable</a>&nbsp;variantContentTable,
 java.util.HashSet&lt;<a href="../datastructure/FeatureAnalysisEntry.html" title="class in datastructure">FeatureAnalysisEntry</a>&gt;&nbsp;featureAnalysisEntries)</span>
                         throws <span class="exceptions"><a href="../exceptions/MusialIOException.html" title="class in exceptions">MusialIOException</a></span></div>
 <div class="block">Writes output files based on the information of a <a href="../datastructure/VariablePositionsTable.html" title="class in datastructure"><code>VariablePositionsTable</code></a>.
@@ -194,7 +194,7 @@ java.util.HashSet&lt;<a href="../datastructure/FeatureAnalysisEntry.html" title=
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>arguments</code> - <a href="ArgumentsParser.html" title="class in components"><code>ArgumentsParser</code></a> arguments parsed from the command line.</dd>
-<dd><code>variantPositionsTable</code> - The <a href="../datastructure/VariablePositionsTable.html" title="class in datastructure"><code>VariablePositionsTable</code></a> of which the output should be generated,</dd>
+<dd><code>variantContentTable</code> - The <a href="../datastructure/VariablePositionsTable.html" title="class in datastructure"><code>VariablePositionsTable</code></a> of which the output should be generated,</dd>
 <dd><code>featureAnalysisEntries</code> - represents a genomic region of the reference data, for example a single gene, contig,
                                plasmid or full genome. Each such entry contains naming as well as reference sequence information.</dd>
 <dt>Throws:</dt>

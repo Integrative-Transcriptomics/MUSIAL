@@ -144,12 +144,12 @@ extends java.lang.Object</pre>
 <tbody>
 <tr class="alt-color" id="i0">
 <td class="col-first"><code>private static void</code></td>
-<th class="col-second" scope="row"><code><span class="member-name-link"><a href="#addReferenceToVariablePositionsTable(datastructure.VariantPositionsTable,java.util.HashSet,me.tongfei.progressbar.ProgressBar)">addReferenceToVariablePositionsTable</a></span>&#8203;(<a href="../datastructure/VariablePositionsTable.html" title="class in datastructure">VariablePositionsTable</a>&nbsp;variantPositionsTable,
+<th class="col-second" scope="row"><code><span class="member-name-link"><a href="#addReferenceToVariablePositionsTable(datastructure.VariantContentTable,java.util.HashSet,me.tongfei.progressbar.ProgressBar)">addReferenceToVariablePositionsTable</a></span>&#8203;(<a href="../datastructure/VariablePositionsTable.html" title="class in datastructure">VariablePositionsTable</a>&nbsp;variantContentTable,
 java.util.HashSet&lt;<a href="../datastructure/FeatureAnalysisEntry.html" title="class in datastructure">FeatureAnalysisEntry</a>&gt;&nbsp;referenceEntries,
 me.tongfei.progressbar.ProgressBar&nbsp;progress)</code></th>
 <td class="col-last">
 <div class="block">Adds information from the reference genome specified by the single elements of referenceEntries to the passed
- variantPositionsTable.</div>
+ variantContentTable.</div>
 </td>
 </tr>
 <tr class="row-color" id="i1">
@@ -220,16 +220,16 @@ java.util.concurrent.CopyOnWriteArraySet&lt;<a href="../datastructure/SampleAnal
 </section>
 </li>
 <li>
-<section class="detail" id="addReferenceToVariablePositionsTable(datastructure.VariantPositionsTable,java.util.HashSet,me.tongfei.progressbar.ProgressBar)">
+<section class="detail" id="addReferenceToVariablePositionsTable(datastructure.VariantContentTable,java.util.HashSet,me.tongfei.progressbar.ProgressBar)">
 <h3>addReferenceToVariablePositionsTable</h3>
-<div class="member-signature"><span class="modifiers">private static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="member-name">addReferenceToVariablePositionsTable</span>&#8203;(<span class="parameters"><a href="../datastructure/VariablePositionsTable.html" title="class in datastructure">VariablePositionsTable</a>&nbsp;variantPositionsTable,
+<div class="member-signature"><span class="modifiers">private static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="member-name">addReferenceToVariablePositionsTable</span>&#8203;(<span class="parameters"><a href="../datastructure/VariablePositionsTable.html" title="class in datastructure">VariablePositionsTable</a>&nbsp;variantContentTable,
 java.util.HashSet&lt;<a href="../datastructure/FeatureAnalysisEntry.html" title="class in datastructure">FeatureAnalysisEntry</a>&gt;&nbsp;referenceEntries,
 me.tongfei.progressbar.ProgressBar&nbsp;progress)</span></div>
 <div class="block">Adds information from the reference genome specified by the single elements of referenceEntries to the passed
- variantPositionsTable.</div>
+ variantContentTable.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
-<dd><code>variantPositionsTable</code> - <a href="../datastructure/VariablePositionsTable.html" title="class in datastructure"><code>VariablePositionsTable</code></a> containing information about the variant sites of a
+<dd><code>variantContentTable</code> - <a href="../datastructure/VariablePositionsTable.html" title="class in datastructure"><code>VariablePositionsTable</code></a> containing information about the variant sites of a
                                set of samples against possibly multiple reference loci.</dd>
 <dd><code>referenceEntries</code> - Set of <a href="../datastructure/FeatureAnalysisEntry.html" title="class in datastructure"><code>FeatureAnalysisEntry</code></a> instances, each specifying a reference locus.</dd>
 <dd><code>progress</code> - <code>ProgressBar</code> instance to visualize progress information to the user.</dd>
