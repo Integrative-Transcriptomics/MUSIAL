@@ -1295,6 +1295,10 @@ public final class Bio {
         int modelNr = 0;
         List<Chain> chains = structure.getChains(modelNr);
         for (Chain chain : chains) {
+            // Skip chains representing membrane.
+            if ( chain.getName().equals("x") ) {
+                continue;
+            }
             pdbChainsSequences.put(chain.getName(), chain.getAtomSequence());
         }
         return pdbChainsSequences;
@@ -1325,6 +1329,10 @@ public final class Bio {
         // Initialize results map.
         HashMap<String, Group> residueMap = new HashMap<>();
         for (Chain chain : structure.getChains()) {
+            // Skip chains representing membrane.
+            if ( chain.getName().equals("x") ) {
+                continue;
+            }
             for (Group atomGroup : chain.getAtomGroups()) {
                 ResidueNumber seqResNumber = atomGroup.getResidueNumber();
                 residueMap.put(seqResNumber.getSeqNum() + seqResNumber.getChainName(), atomGroup);

@@ -677,6 +677,10 @@ public final class IO {
       // Each chain of the protein is considered separately.
       for (Chain chain : pdbStructure.getChains()) {
         String chainId = chain.getName();
+        // Skip chains representing membrane.
+        if ( chain.getName().equals("x") ) {
+          continue;
+        }
         String chainAsymId = chain.getId();
         // (1) Generate JSONObject with allocation data.
         JSONObject chainSuperposition = Bio.superimposeDataToStructure(variantContentTable, referenceFeatureEntry,

@@ -69,29 +69,34 @@ public final class OutputWriter {
         IO.generateFile(snvTableOutFile);
         IO.writeVariantsContentTable(snvTableOutFile, referenceFeatureName, variantContentTable);
         progress.step();
+
         // 2. Generate snv annotations .tsv output.
         File snvAnnotationsOutFile = new File(outputDirectory + "/" + referenceFeatureName + "/variantAnnotationTable" +
             ".tsv");
         IO.generateFile(snvAnnotationsOutFile);
         IO.writeVariantsAnnotationTable(snvAnnotationsOutFile, referenceFeatureName, variantContentTable);
         progress.step();
+
         // 3. Generate sequences .fasta output.
         File sequencesOutFile = new File(outputDirectory + "/" + referenceFeatureName + "/sequences.fasta");
         IO.generateFile(sequencesOutFile);
         IO.writeSequences(sequencesOutFile, referenceFeatureEntry, variantContentTable);
         progress.step();
+
         // 4. Generate per sample statistics.
         File sampleStatisticsOutFile = new File(outputDirectory + "/" + referenceFeatureName + "/sampleStatistics" +
             ".tsv");
         IO.generateFile(sampleStatisticsOutFile);
         IO.writeSampleStatistics(sampleStatisticsOutFile, referenceFeatureName, variantContentTable);
         progress.step();
+
         // 5. Generate per position statistics.
         File positionStatisticsOutFile = new File(outputDirectory + "/" + referenceFeatureName + "/positionStatistics" +
             ".tsv");
         IO.generateFile(positionStatisticsOutFile);
         IO.writePositionStatistics(positionStatisticsOutFile, referenceFeatureName, variantContentTable);
         progress.step();
+
         if (arguments.getPdInputFiles().containsKey(referenceFeatureName)) {
           // 6. Generate protein data integrated results.
           File proteinDataIntegratedOutDir = new File(outputDirectory + "/" + referenceFeatureName +
@@ -115,6 +120,7 @@ public final class OutputWriter {
           IO.copyFile(pdbFile, new File(proteinDataIntegratedOutDir.getAbsolutePath() + "/" + pdbFile.getName()));
           progress.step();
         }
+
         if (arguments.isRunSnpEff()) {
           // 7. Write SnpEff summary file.
           File snpEffSummaryOutFile = new File(outputDirectory + "/" + referenceFeatureName + "/snpEffSummary.tsv");
@@ -122,11 +128,13 @@ public final class OutputWriter {
           IO.writeSnpEffSummary(snpEffSummaryOutFile, referenceFeatureName, variantContentTable);
           progress.step();
         }
+
         // 8. Write run information file.
         File runInfoOutFile = new File(outputDirectory + "/" + referenceFeatureName + "/runInfo.txt");
         IO.generateFile(runInfoOutFile);
         IO.writeRunInfo(runInfoOutFile, arguments, referenceFeatureName);
         progress.step();
+
       }
       progress.setExtraMessage(Logging.getDoneMessage());
     }

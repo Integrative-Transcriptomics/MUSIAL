@@ -616,7 +616,7 @@ function parseAnnotationTable( file ) {
         let element = $('#structureViewContent');
         let config = { backgroundColor: '#fafafc', id: 'structureViewCanvas', antialias: true, cartoonQuality: 6 };
         STRUCTURE_VIEWER = $3Dmol.createViewer( element, config );
-        STRUCTURE_VIEWER.addModel( PDB_STRING, "pdb" );
+        STRUCTURE_VIEWER.addModels( PDB_STRING, "pdb" );
         STRUCTURE_VIEWER.setClickable(
             {},
             true,
@@ -733,7 +733,7 @@ function STRCcomputeVariability( ) {
                     }
                 }
                 for ( let value of Object.values( positionContentCounts ) ) {
-                    variability += ( value / noSamples ) * ( Math.log( value / noSamples ) / Math.log( 23 ) );
+                    variability += ( value / noSamples ) * ( Math.log( value / noSamples ) / Math.log( 23 ) );  
                 }
                 PROTEIN_RESIDUES[ chain ][ proteinPosition ][ "variability" ] = parseFloat( -1 * variability ).toFixed( 2 );
             }
@@ -943,6 +943,19 @@ function STRCApplyStyle( ) {
     STRUCTURE_VIEWER.setStyle(
         { },
         { cartoon: STYLES_3DMOL[ "CARTOON_FADED_" + STRC_COLOR_SCHEME ], stick: STYLES_3DMOL.LINE_FADED }
+    );
+    // Apply membrane style.
+    STRUCTURE_VIEWER.setStyle(
+        {
+            chain: "x",
+            resn: "DUM"
+        },
+        {
+            cross: {
+                radius: 0.4,
+                color: '#4d4e4f'
+            }
+        }
     );
     // Apply backbone highlighting.
     STRUCTURE_VIEWER.setStyle(
