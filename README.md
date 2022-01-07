@@ -69,6 +69,4 @@ Verbose mode on, i.e. print stacktrace on errors. [false]
 At least a reference genome (`-r`) and sample input (`-s` or `-sDir`) have to be specified.
 
 ## Examples:
-An exemplary output directory can be found at `/examples/treponema_pallidum/BamA`.
-The example output directory can also be used to test IVE - MUSIALs Integrative Visualization Extension.
-Documentation on IVE will follow soon.
+Example files and documentation on IVE will follow soon.
