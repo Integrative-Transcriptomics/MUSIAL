@@ -80,6 +80,20 @@ At least a reference genome (`-r`) and sample input (`-s` or `-sDir`) have to be
 Example data to test the tool is available in the `./examples` directory. To run `MUSIAL` with the example data just execute the command stored in `/examples/treponema_pallidum_pallidum_bamA_Sun/command.txt` from the projects root directory.
 
 ---
+## **Generated Output**:
+- **runInfo.txt** stores information about the input parameters and files.
+- **sequences.fasta** contains the full sequences of the reference and each sample with the variants – the most frequent allele, if multiples were detected called for the respective sample being included; note that the file does not represent a multiple sequence alignment.
+- **variantContentTable.tsv** contains an overview of the per sample per variable position nucleotide content by extending the nucleotide alphabet by
+the symbols ′.′ for a reference call or no information, ′−′ for a deletion with respect to the reference and ′∼′ for an insertion in any other sample.
+- **variantAnnotationTable.tsv** yields the same structure as **variantContentTable.tsv** but instead of the nucleotide content it contains annotations of the called variant. Namely, the allele frequency, the call quality and depth of coverage as well as the SnpEff annotation, if present.
+- **positionStatistics.tsv** and **sampleStatistics.tsv** yield total variant counts with respect to one variable position or sample, respectively.
+- **snpEffSummary.tsv** contains, if enabled, each SnpEff annotated variant with a list of the respective samples in which the variant was detected.
+- If enabled, the variantStructureAllocation directory provides the following content:
+    - a copy of the PDB file used as input.
+    - **residueDistanceMap.tsv** yielding the distance of each residue pair of the specified protein structure in Angstrom.
+    - **variantStructureAllocation.json** yielding an allocation of the detected variants to the specified protein structure.
+
+---
 ## **Remarks**:
 - Although `MUSIAL` is capable of analyzing heterozygous variant calls, only the most frequent allele per sample per position is used for output file generation and optional structure assignment.
 - **.vcf** files (see the official [VCF specification](https://samtools.github.io/hts-specs/VCFv4.2.pdf)) may contain ambiguous variant calls like the one in the example below:
