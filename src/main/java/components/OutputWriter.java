@@ -100,11 +100,11 @@ public final class OutputWriter {
         if (arguments.getPdInputFiles().containsKey(referenceFeatureName)) {
           // 6. Generate protein data integrated results.
           File proteinDataIntegratedOutDir = new File(outputDirectory + "/" + referenceFeatureName +
-              "/structureIntegratedResults");
+              "/variantStructureAllocation");
           IO.generateDirectory(proteinDataIntegratedOutDir);
           // 6.1 Match reference nucleotide data to protein structure and allocate sample data.
           File superpositionOutFile =
-              new File(proteinDataIntegratedOutDir.getAbsolutePath() + "/structureSuperposition.json");
+              new File(proteinDataIntegratedOutDir.getAbsolutePath() + "/variantStructureAllocation.json");
           IO.generateFile(superpositionOutFile);
           IO.writeStructureSuperposition(superpositionOutFile, referenceFeatureEntry, variantContentTable,
               arguments);
