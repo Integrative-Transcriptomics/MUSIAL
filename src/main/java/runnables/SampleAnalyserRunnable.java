@@ -155,10 +155,10 @@ public final class SampleAnalyserRunnable implements Runnable {
             // frequency.
             // FIXME: Each genotype should contain the full list of allele depths.
             try {
-              int[] allelesReadCounts = variantContext.getGenotype(0).getAD();
+              List<Double> allelesFrequencies = variantContext.getAttributeAsDoubleList( "AF", 0.0 );
               TreeMap<Double, Allele> sortedAlternateAlleles = new TreeMap<>(Collections.reverseOrder());
               for (int i = 0; i < alternateAlleles.size(); i++) {
-                sortedAlternateAlleles.put(round(allelesReadCounts[i + 1] / variantCoverage, 2),
+                sortedAlternateAlleles.put(round(allelesFrequencies.get(i), 2),
                     alternateAlleles.get(i));
               }
               boolean isMostFrequent = true;
@@ -298,5 +298,4 @@ public final class SampleAnalyserRunnable implements Runnable {
           variantAllele.getBaseString());
     }
   }
-
 }
