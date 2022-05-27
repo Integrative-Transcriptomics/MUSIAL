@@ -1,1 +1,0 @@
-bamA,bamA,./examples/treponema_pallidum_pallidum_bamA_Sun/bamA.pdb
