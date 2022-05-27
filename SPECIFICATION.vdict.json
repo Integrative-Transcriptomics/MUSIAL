@@ -1,0 +1,344 @@
+{
+  "$schema": "MUSIALvDict",
+  "title": "MUSIAL Variants Dictionary",
+  "description": "Storage of (coding gene) features located on a single locus, their nucleotide variants, the induced amino acid mutations and information about the protein product of the respective feature.",
+  "type": "object",
+  "properties": {
+    "parameters": {
+      "description": "Parameters used to infer nucleotide variants, i.e. all stored variants comply with the parameters in at least one sample.",
+      "type": "object",
+      "properties": {
+        "minCoverage": {
+          "description": "The minimal depth of coverage wrt. reads of a variant to be accepted.",
+          "type": "number",
+          "minimum": 0.0
+        },
+        "minFrequency": {
+          "description": "The minimal frequency wrt. reads supporting a homozygous allele call for a variant to be accepted.",
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "minHetFrequency": {
+          "description": "The minimal frequency wrt. reads supporting a heterozygous allele call for a variant to be accepted.",
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "maxHetFrequency": {
+          "description": "The maximal frequency wrt. reads supporting a heterozygous allele call for a variant to be accepted.",
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "minQuality": {
+          "description": "The minimal call quality for a variant to be accepted.",
+          "type": "number",
+          "minimum": 0.0
+        }
+      },
+      "required": [
+        "minCoverage",
+        "minFrequency",
+        "minHetFrequency",
+        "maxHetFrequency",
+        "minQuality"
+      ]
+    },
+    "features": {
+      "description": "Stores pattern properties associated with a single (coding gene) feature. The key of each feature defines the internal gene name and stores an object.",
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "description": "Information about a single (coding gene) feature stored as `object`.",
+          "type": "object",
+          "properties": {
+            "name": {
+              "description": "The internal gene name; has to be equal to the key at which this object is stored.",
+              "type": "string"
+            },
+            "nucleotideSequence": {
+              "description": "The nucleotide sequence of the (coding gene) feature.",
+              "type": "string",
+              "pattern": "^[ATGCN]+$"
+            },
+            "chromosome": {
+              "description": "The name of the locus this feature is located on. Should equal the value of `chromosome` of the parent object of this feature.",
+              "type": "string"
+            },
+            "start": {
+              "description": "The 1-based start position of the (coding gene) feature on its locus",
+              "type": "integer",
+              "minimum": 1
+            },
+            "end": {
+              "description": "The 1-based end position of the (coding gene) feature on its locus",
+              "type": "integer"
+            },
+            "isSense": {
+              "description": "Whether the (coding gene) feature is encoded on the sense or antisense strand.",
+              "type": "boolean"
+            },
+            "allocatedProtein": {
+              "description": "Information about the protein product of this feature and how it is affected by recorded variants.",
+              "type": "object",
+              "properties": {
+                "name": {
+                  "description": "The internal name of the protein.",
+                  "type": "string"
+                },
+                "pdb": {
+                  "description": "File content of a `pdb` format file of the allocated proteins structure.",
+                  "type": "string"
+                },
+                "chainSequences": {
+                  "description": "The reference amino acid sequence of protein per chain.",
+                  "type": "object",
+                  "patternProperties": {
+                    "^[A-Z]{1}$": {
+                      "description": "Reference amino acid sequence of a single chain. Lower case substrings are translated from the genes sequence but were not included in the `pdb` format file.",
+                      "type": "string",
+                      "pattern": "^[ARNDCEQGHILKMFPSTWYVX*arndceqghilkmfpstwyvx]+$"
+                    }
+                  }
+                },
+                "proteoforms": {
+                  "description": "Proteoforms with respect to the translated (coding gene) feature nucleotide sequence. Keys used to store proteoforms represent a hash encoding of the proteoforms sequence concatenated with `x` and the percentage of alternate positions wrt. the reference.",
+                  "type": "object",
+                  "patternProperties": {
+                    "^[-]?[0-9]+x[0-1]{1}\\.[0-9]{2}$": {
+                      "description": "Information about a single proteoform allocated to exactly one (coding gene) feature stored as `object`.",
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "description": "The internal proteoform name; has to be equal to the key at which this object is stored.",
+                          "type": "string"
+                        },
+                        "annotations": {
+                          "description": "Any `string` type key/value pairs yielding meta-information about the feature.",
+                          "type": "object",
+                          "properties": {
+                            "vSwab": {
+                              "description": "String representation of all variants occuring in this proteoform.",
+                              "type": "string",
+                              "pattern": "(^$)|(^[ARNDCEQGHILKMFPSTWYVX*-]+@[0-9]+(-|\\+)[0-9](\\|[ARNDCEQGHILKMFPSTWYVX*-]+@[0-9]+(-|\\+)[0-9])*$)"
+                            }
+                          },
+                          "additionalProperties": {
+                            "description": "Additional meta-information about the proteoform.",
+                            "type": "string"
+                          },
+                          "required": [
+                            "vSwab"
+                          ]
+                        },
+                        "samples": {
+                          "description": "List of all samples names that cause this proteoform.",
+                          "type": "array",
+                          "items": [
+                            {
+                              "description": "Items have to match keys of the `samples` property.",
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "annotations",
+                        "samples"
+                      ]
+                    }
+                  }
+                },
+                "variants": {
+                  "description": "Information about amino acid variants stored in a nested object structure.",
+                  "type": "object",
+                  "patternProperties": {
+                    "^[0-9]+(\\+|-)[0.9]+$": {
+                      "description": "The position of the variant/mutation on the protein sequence concatenated with how many positions are added (+) or removed (-) by this mutation.",
+                      "type": "object",
+                      "patternProperties": {
+                        "^[ARNDCEQGHILKMFPSTWYVX*]+$": {
+                          "description": "The alternate amino acid sequence of the variant. May include `-` for gaps and stores the content of the `position` inclusively.",
+                          "type": "object",
+                          "properties": {
+                            "annotations": {
+                              "description": "Any `string` type key/value pairs yielding meta-information about the variant.",
+                              "type": "object",
+                              "properties": {
+                                "cause": {
+                                  "description": "String representation of all nucleotide variants that cause this amino acid mutation(s).",
+                                  "type": "string",
+                                  "pattern": "^[ACGTN-]+@[0-9]+(\\|[ACGTN-]+@[0-9]+)*$"
+                                }
+                              },
+                              "additionalProperties": {
+                                "description": "Additional meta-information about the proteoform.",
+                                "type": "string"
+                              },
+                              "required": [
+                                "cause"
+                              ]
+                            },
+                            "occurrence": {
+                              "description": "List of all proteoforms names that yield this variant.",
+                              "type": "array",
+                              "items": [
+                                {
+                                  "description": "Items have to match keys of the `proteoforms` property.",
+                                  "type": "string"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "annotations",
+                            "occurrence"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "required": [
+                "name",
+                "pdb",
+                "chainSequences",
+                "proteoforms",
+                "variants"
+              ]
+            },
+            "annotations": {
+              "description": "Any `string` type key/value pairs yielding meta-information about the feature.",
+              "type": "object",
+              "patternProperties": {
+                "^.+$": {
+                  "description": "Meta-information about the feature. The property `geneName` (the value of the `name` attribute of the feature in the used `GFF` file of the parent locus).",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "geneName"
+              ]
+            }
+          },
+          "required": [
+            "name",
+            "nucleotideSequence",
+            "chromosome",
+            "start",
+            "end",
+            "isSense",
+            "annotations"
+          ]
+        }
+      }
+    },
+    "samples": {
+      "description": "Information about samples, i.e. possibly deviating genotypes of any of the stored features.",
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "description": "Information about a single sample stored as `object`.",
+          "type": "object",
+          "properties": {
+            "name": {
+              "description": "The internal sample name; has to be equal to the key at which this object is stored.",
+              "type": "string"
+            },
+            "annotations": {
+              "description": "Any `string` type key/value pairs yielding meta-information about the sample.",
+              "type": "object",
+              "patternProperties": {
+                "^.+vSwab$": {
+                  "description": "String representation of all variants occuring in this sample. Keys have to match #vSwab where # is the internal name of any stored feature.",
+                  "type": "string",
+                  "pattern": "(^$)|(^[ACGTN-]+@[0-9]+(\\|[ACGTN-]+@[0-9]+)*$)"
+                }
+              },
+              "additionalProperties": {
+                "description": "Additional meta-information about the sample.",
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "name",
+            "annotations"
+          ]
+        }
+      }
+    },
+    "software": {
+      "description": "The software with which the variants dictionary was computed.",
+      "type": "string"
+    },
+    "date": {
+      "description": "The date at which the variants dictionary was computed.",
+      "type": "string"
+    },
+    "chromosome": {
+      "description": "The locus/chromosome on which all stored (coding gene) features are located at.",
+      "type": "string"
+    },
+    "variants": {
+      "description": "Information about nucleotide variants stored in a nested object structure.",
+      "type": "object",
+      "patternProperties": {
+        "^[0-9]+$": {
+          "description": "The position of the variant on the parent locus.",
+          "type": "object",
+          "patternProperties": {
+            "^[ACGTN-]+$": {
+              "description": "The alternate nucleotide sequence of the variant. May include `-` for gaps and stores the content of the `position` inclusively.",
+              "type": "object",
+              "properties": {
+                "annotations": {
+                  "description": "Any `string` type key/value pairs yielding meta-information about the variant.",
+                  "type": "object",
+                  "patternProperties": {
+                    "^.+_EFF$": {
+                      "description": "Special annotation property reflecting the `|` separated fields Annotation, Putative_impact, and HGVS.p coding of a SnpEff annotation. Keys have to match #_EFF where # is the value of a `annotations`/`geneName` property of any stored feature.",
+                      "type": "string",
+                      "pattern": "^.+\\|(HIGH|MODERATE|LOW|MODIFIER)\\|p\\..*$"
+                    }
+                  },
+                  "additionalProperties": {
+                    "description": "Additional meta-information about the variant.",
+                    "type": "string"
+                  }
+                },
+                "occurrence": {
+                  "description": "Yields key/value pairs indicating the occurence of this variant in a specific sample as well as meta-information of this occurence. Each key should be equal to exactly one key in `samples`.",
+                  "type": "object",
+                  "patternProperties": {
+                    "^.+$": {
+                      "description": "`|` separated values indicating `rejected`, `primary`, `quality`, `frequency` and `coverage`.",
+                      "type": "string",
+                      "pattern": "^(true|false)\\|(true|false)\\|[0-9]+\\.[0-9]{1,2}\\|(0|1)\\.[0-9]{1,2}\\|[0-9]+\\.[0-9]{1}$"
+                    }
+                  }
+                }
+              },
+              "required": [
+                "annotations",
+                "occurrence"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "parameters",
+    "features",
+    "samples",
+    "software",
+    "date",
+    "chromosome",
+    "variants"
+  ]
+}

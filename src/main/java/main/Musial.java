@@ -1,28 +1,42 @@
 package main;
 
-import datastructure.ReferenceFeatureEntry;
-import datastructure.SampleAnalysisEntry;
-import datastructure.VariantContentTable;
+import cli.CLIParameters;
+import cli.CLIParametersUpdateVDict;
+import components.SnpEffAnnotator;
+import components.VariantsDictionaryFactory;
+import datastructure.FastaContainer;
+import datastructure.FeatureEntry;
+import datastructure.ProteoformEntry;
+import datastructure.SampleEntry;
+import datastructure.VariantsDictionary;
 import exceptions.MusialBioException;
-import exceptions.MusialCLAException;
+import exceptions.MusialCLException;
 import exceptions.MusialIOException;
+import exceptions.MusialIntegrityException;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Objects;
+import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import me.tongfei.progressbar.ProgressBar;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import me.tongfei.progressbar.ProgressBarStyle;
-import org.apache.commons.cli.ParseException;
-import components.ArgumentsParser;
-import components.InputPreprocessor;
-import components.OutputWriter;
-import components.SampleAnalyser;
-import components.SnpEffAnnotator;
+import org.javatuples.Triplet;
+import runnables.SampleAnalyzerRunnable;
+import utility.Bio;
+import utility.IO;
 import utility.Logging;
 
 /**
@@ -31,18 +45,35 @@ import utility.Logging;
  *
  * @author Alexander Seitz
  * @author Simon Hackl
- * @version 2.0
+ * @version 2.1
+ * @since 1.0
  */
 public final class Musial {
 
   /**
-   * The class name of the software (Musial).
+   * Logo `String` of the software (MUSIAL ASII-art).
    */
-  public static String CLASS_NAME = "";
+  public static String LOGO = "";
   /**
-   * The version of the software.
+   * Name `String` of the software (MUSIAL).
+   */
+  public static String NAME = "MUSIAL";
+  /**
+   * Version of the software.
    */
   public static String VERSION = "";
+  /**
+   * Contact of the software.
+   */
+  public static String CONTACT = "";
+  /**
+   * License of the software.
+   */
+  public static String LICENSE = "";
+  /**
+   * Which module of MUSIAL is run.
+   */
+  public static MusialModules MODULE = null;
   /**
    * Original out stream.
    */
@@ -66,40 +97,59 @@ public final class Musial {
   /**
    * Boolean value to indicate if debugging mode is enabled.
    */
-  public static boolean debug = false;
+  public static boolean DEBUG = false;
+  /**
+   * Number of threads to use.
+   */
+  public static int THREADS = 1;
 
   /**
-   * Conducts the main pipeline of the tool (see comments and single methods for more detail).
+   * TODO
    *
    * @param args Arguments parsed from the command line.
    */
   public static void main(String[] args) {
     try {
-      // 1. Load metadata from resource files.
-      loadMetadata();
-      // 2. Parse command line arguments.
-      ArgumentsParser arguments = parseCLArguments(args);
-      debug = arguments.debug;
-      // 3. (Optional) Run SnpEff.
-      if (Objects.requireNonNull(arguments).isRunSnpEff()) {
-        runSnpEff(arguments);
+      if (args.length == 0) {
+        loadMetadata();
+        System.out.println("\nNo module specified.");
+        printModuleInformation();
       }
-      // 4. Process input reference sequence and (optional) gene features.
-      HashSet<ReferenceFeatureEntry> referenceEntries = preprocessReferenceInput(arguments);
-      // 5. Generate a pool of VCFFileReader instances, one for each sample.
-      CopyOnWriteArraySet<SampleAnalysisEntry> sampleEntries = preprocessSampleInput(arguments);
-      // 6. Run the analysis
-      VariantContentTable variantContentTable = invokeSampleAnalyserRunner(referenceEntries, sampleEntries,
-          arguments);
-      // 7. Generate output.
-      writeOutput(arguments, variantContentTable, referenceEntries);
-    } catch (Exception e) {
-      if (debug) {
-        e.printStackTrace();
+      // 1. Retain user specified module and parse command line arguments.
+      for (MusialModules mm : MusialModules.values()) {
+        if (mm.name().equals(args[0])) {
+          MODULE = mm;
+          break;
+        }
+      }
+      if (MODULE == null) {
+        loadMetadata();
+        System.out.println("\nUnknown module " + args[0] + ".");
+        printModuleInformation();
       } else {
-        Logging.logError(e.getCause() + ": " + e.getMessage());
+        loadMetadata();
       }
+      CLIParameters arguments = parseCLIArguments(args);
+      // 2. Delegate pipeline to execute dependant on chosen module.
+      //noinspection SwitchStatementWithTooFewBranches
+      switch (MODULE) {
+        case updateVDict -> runUpdateVDict((CLIParametersUpdateVDict) arguments);
+      }
+    } catch (Exception e) {
+      if (DEBUG) {
+        e.printStackTrace();
+      }
+      Logging.logError(e.getMessage());
     }
+  }
+
+  /**
+   * Prints information about available modules to the user and exits.
+   */
+  private static void printModuleInformation() {
+    System.out.println("\n" + "~".repeat(2) + " AVAILABLE MODULES " + "~".repeat(2));
+    System.out.println("buildDB : TODO");
+    System.exit(0);
   }
 
   /**
@@ -110,124 +160,15 @@ public final class Musial {
   private static void loadMetadata() throws IOException {
     Properties properties = new Properties();
     // Load title from resources.
-    InputStream in = Musial.class.getResourceAsStream("/title.properties");
+    InputStream in = Musial.class.getResourceAsStream("/info.properties");
     properties.load(in);
-    Musial.CLASS_NAME = properties.getProperty("title");
-    // Load version from resources.
-    in = Musial.class.getResourceAsStream("/version.properties");
-    properties.load(in);
+    Musial.LOGO = properties.getProperty("logo");
     Musial.VERSION = properties.getProperty("version");
-    assert in != null;
+    Musial.CONTACT = properties.getProperty("contact");
+    Musial.LICENSE = properties.getProperty("license");
     // Print information into stdout.
-    System.out.println("=".repeat(18));
-    System.out.println(" ".repeat(3) + " " + Musial.CLASS_NAME + " " + Musial.VERSION + " " + " ".repeat(3));
-    System.out.println("=".repeat(18));
-  }
-
-  /**
-   * Parses command line arguments by instantiating a {@link ArgumentsParser} object.
-   * <p>
-   * The command line arguments specified by the user and accepted by the `main` method are passed and used to
-   * instantiate an {@link ArgumentsParser} object which is returned if all argument validation steps were successful.
-   * If any error arises during the parsing step the program exits.
-   *
-   * @param args Arguments parsed from the command line.
-   * @return An instance of the {@link ArgumentsParser} class.
-   * @throws MusialCLAException Catches exceptions from {@link ArgumentsParser} class.
-   * @throws MusialIOException  Catches exceptions from {@link ArgumentsParser} class.
-   * @throws ParseException     Catches exceptions from {@link ArgumentsParser} class.
-   * @throws MusialBioException Catches exceptions from {@link ArgumentsParser} class.
-   */
-  private static ArgumentsParser parseCLArguments(String[] args)
-      throws MusialCLAException, MusialIOException, ParseException, MusialBioException {
-    return new ArgumentsParser(args);
-  }
-
-  /**
-   * Runs SnpEff (additional annotation of .vcf files)
-   * <p>
-   * The command line arguments specified by the user and accepted by the `main` method are passed to the static method
-   * of the {@link SnpEffAnnotator} class. The method does not return any value, but all annotated .vcf files generated
-   * with SnpEff will be stored in the directory [output]/snpEff/results. If any errors arise during the process the
-   * program exits.
-   *
-   * @param arguments Arguments parsed from the command line.
-   * @throws IOException          Catches exceptions from {@link SnpEffAnnotator} class.
-   * @throws MusialIOException    Catches exceptions from {@link SnpEffAnnotator} class.
-   * @throws InterruptedException Catches exceptions from {@link SnpEffAnnotator} class.
-   */
-  private static void runSnpEff(ArgumentsParser arguments) throws MusialIOException, IOException, InterruptedException {
-    SnpEffAnnotator.runSnpEff(arguments);
-  }
-
-  /**
-   * Parses the specified reference data and generates a set of reference feature entries entries.
-   * <p>
-   * Each {@link ReferenceFeatureEntry} represents a genomic region of the reference data, for example a single gene, contig,
-   * plasmid or full genome. Each such entry contains naming as well as reference sequence information.
-   *
-   * @param arguments Arguments parsed from the command line.
-   * @return A {@link HashSet} containing {@link ReferenceFeatureEntry} instances specifying genomic regions of the specified
-   * reference data that are subject to further analysis.
-   * @throws IOException        Catches exceptions from {@link InputPreprocessor} class.
-   * @throws MusialBioException Catches exceptions from {@link InputPreprocessor} class.
-   */
-  private static HashSet<ReferenceFeatureEntry> preprocessReferenceInput(ArgumentsParser arguments)
-      throws IOException, MusialBioException {
-    return InputPreprocessor.preprocessReferenceInput(arguments);
-  }
-
-  /**
-   * Analyzes the specified sample data and generates a set of analysis entries.
-   * <p>
-   * Each {@link SampleAnalysisEntry} represents a sample name and a {@link htsjdk.variant.vcf.VCFFileReader}
-   * instance pointing to the specified input `.vcf` file of the sample.
-   *
-   * @param arguments Arguments parsed from the command line.
-   * @return A {@link CopyOnWriteArraySet} containing {@link SampleAnalysisEntry} instances, each specifying the
-   * input for one sample to analyze.
-   * @throws InterruptedException Catches exceptions from {@link InputPreprocessor} class.
-   */
-  private static CopyOnWriteArraySet<SampleAnalysisEntry> preprocessSampleInput(ArgumentsParser arguments)
-      throws InterruptedException {
-    return InputPreprocessor.preprocessSampleInput(arguments);
-  }
-
-  /**
-   * Invokes multi-threaded analysis of the input samples.
-   * <p>
-   * The single steps are implemented in the {@link SampleAnalyser} and {@link runnables.SampleAnalyserRunnable}
-   * classes.
-   *
-   * @param analysisEntries       A set of {@link ReferenceFeatureEntry}.
-   * @param sampleAnalysisEntries A set of {@link SampleAnalysisEntry}.
-   * @param arguments             Arguments parsed from the command line.
-   * @return A {@link VariantContentTable} containing the information processed from the specified input.
-   * @throws InterruptedException Catches exceptions from {@link SampleAnalyser} class.
-   */
-  private static VariantContentTable invokeSampleAnalyserRunner(HashSet<ReferenceFeatureEntry> analysisEntries,
-                                                                CopyOnWriteArraySet<SampleAnalysisEntry> sampleAnalysisEntries,
-                                                                ArgumentsParser arguments)
-      throws InterruptedException {
-    return SampleAnalyser.run(analysisEntries, sampleAnalysisEntries, arguments);
-  }
-
-  /**
-   * Generate output files.
-   * <p>
-   * The single steps are implemented in the {@link OutputWriter} and {@link utility.IO} classes.
-   *
-   * @param arguments               Arguments parsed from the command line.
-   * @param variantContentTable     The {@link VariantContentTable} containing the information to write output with.
-   * @param referenceFeatureEntries represents a genomic region of the reference data, for example a single gene, contig,
-   *                                plasmid or full genome. Each such entry contains naming as well as reference sequence information.
-   * @throws MusialIOException  Catches exceptions from {@link OutputWriter} class.
-   * @throws MusialBioException Catches exceptions from {@link OutputWriter} class.
-   */
-  private static void writeOutput(ArgumentsParser arguments, VariantContentTable variantContentTable,
-                                  HashSet<ReferenceFeatureEntry> referenceFeatureEntries)
-      throws MusialIOException, MusialBioException {
-    OutputWriter.writeOutput(arguments, variantContentTable, referenceFeatureEntries);
+    System.out.println(Musial.LOGO + Musial.VERSION);
+    System.out.println(Musial.LICENSE + ", Contact: " + Musial.CONTACT + "\n");
   }
 
   /**
@@ -237,6 +178,271 @@ public final class Musial {
    */
   public static ProgressBar buildProgress() {
     return progressBarBuilder.build();
+  }
+
+  /**
+   * Parses command line arguments by instantiating an object implementing the {@link CLIParameters} interface.
+   * <p>
+   * The command line arguments specified by the user and accepted by the `main` method are passed and used to
+   * instantiate an object implementing the {@link CLIParameters} interface which is returned if all argument
+   * validation steps were successful.
+   * If any error arises during the parsing step the program exits.
+   *
+   * @param args Arguments parsed from the command line.
+   * @return An instance of the {@link CLIParametersUpdateVDict} class.
+   * @throws MusialCLException Catches exceptions from {@link CLIParametersUpdateVDict} class.
+   * @throws MusialIOException Catches exceptions from {@link CLIParametersUpdateVDict} class.
+   */
+  private static CLIParameters parseCLIArguments(String[] args)
+      throws MusialCLException, MusialIOException, FileNotFoundException, MusialBioException {
+    CLIParameters cliParameters = null;
+    //noinspection SwitchStatementWithTooFewBranches
+    switch (MODULE) {
+      case updateVDict -> cliParameters = new CLIParametersUpdateVDict(args);
+    }
+    assert cliParameters != null;
+    return cliParameters;
+  }
+
+  private static void runUpdateVDict(CLIParametersUpdateVDict cliarguments)
+      throws InterruptedException, MusialIOException, MusialIntegrityException, IOException, MusialBioException {
+    // Read-in existing variants dictionary or build new one.
+    VariantsDictionary variantsDictionary = VariantsDictionaryFactory.build(cliarguments);
+
+    // Store/Update feature entry information.
+    Set<String> featureIdsToUpdate;
+    Set<String> featureIdsToRemove;
+    try (ProgressBar pb = buildProgress()) {
+      Logging.logStatus("Updating feature information.");
+      featureIdsToUpdate = cliarguments.features.keySet();
+      pb.maxHint(featureIdsToUpdate.size());
+      /* TODO: Remove variants that only occur in this feature.
+      for (String fId : featureIdsToRemove) {
+        variantsDictionary.features.remove(fId);
+        pb.step();
+      }
+       */
+      FastaContainer referenceChromosomeFastaContainer = null;
+      for (FastaContainer fC : IO.readFastaToSet(cliarguments.referenceFASTA)) {
+        String chromosome = fC.getHeader().split(" ")[0].trim();
+        if (variantsDictionary.chromosome.equals(chromosome)) {
+          referenceChromosomeFastaContainer = fC;
+          break;
+        }
+      }
+      assert referenceChromosomeFastaContainer != null;
+      for (String fId : featureIdsToUpdate) {
+        if (!variantsDictionary.features.containsKey(fId)) {
+          FeatureEntry.imputeSequence(cliarguments.features.get(fId), referenceChromosomeFastaContainer);
+          if (cliarguments.features.get(fId).pdbFile != null) {
+            FeatureEntry.imputeProtein(cliarguments.features.get(fId));
+          }
+          variantsDictionary.features.put(fId, cliarguments.features.get(fId));
+        }
+        pb.step();
+      }
+      pb.setExtraMessage(Logging.getDoneMessage());
+    }
+
+    // Store/Update sample variants information.
+    // TODO: Remove samples.
+    Logging.logStatus("Updating variants from samples.");
+    try (ProgressBar pb = buildProgress()) {
+      pb.maxHint(cliarguments.samples.size());
+      for (SampleEntry sampleEntry : cliarguments.samples.values()) {
+        SampleEntry.imputeVCFFileReader(sampleEntry);
+        variantsDictionary.samples.put(sampleEntry.name, sampleEntry);
+        pb.step();
+      }
+      pb.setExtraMessage(Logging.getDoneMessage());
+    }
+    try (ProgressBar pb = buildProgress()) {
+      ExecutorService executor = Executors.newFixedThreadPool(Musial.THREADS);
+      pb.maxHint((long) featureIdsToUpdate.size() * cliarguments.samples.size());
+      for (String fId : featureIdsToUpdate) {
+        for (SampleEntry sampleEntry : cliarguments.samples.values()) {
+          executor.execute(
+              new SampleAnalyzerRunnable(sampleEntry, cliarguments.features.get(fId), variantsDictionary, pb)
+          );
+        }
+      }
+      executor.shutdown();
+      //noinspection ResultOfMethodCallIgnored
+      executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+      pb.setExtraMessage(Logging.getDoneMessage());
+    }
+    File novelVariantsOut = new File("./temp/novelVariants.vcf");
+    File tempDir = new File("./temp/");
+    IO.generateDirectory(tempDir);
+    IO.generateFile(novelVariantsOut);
+    IO.writeVcf(novelVariantsOut, variantsDictionary.novelVariants, variantsDictionary.chromosome);
+    SnpEffAnnotator.runSnpEff(tempDir, novelVariantsOut, cliarguments.referenceFASTA, cliarguments.referenceGFF,
+        variantsDictionary.chromosome);
+    for (String line : IO.readLinesFromFile("./temp/SnpEff.vcf")) {
+      if (line.startsWith("#")) {
+        continue;
+      }
+      String[] lineFields = line.split("\t");
+      String position = lineFields[1];
+      String refContent = lineFields[3];
+      String altContent = lineFields[4];
+      if (refContent.length() > altContent.length()) {
+        altContent = altContent + "-".repeat(refContent.length() - altContent.length());
+      }
+      try {
+        variantsDictionary.addVariantAnnotation(
+            Integer.parseInt(position),
+            altContent,
+            SnpEffAnnotator.convertAnnotation(lineFields[7].split(";")[0].split("=")[1])
+        );
+      } catch (Exception e) {
+        continue;
+      }
+    }
+    IO.deleteDirectory(tempDir);
+
+    // Infer proteoforms.
+    ArrayList<Triplet<String, String, ArrayList<String>>> variableSegments;
+    try (ProgressBar pb = buildProgress()) {
+      Logging.logStatus("Infer protein variants.");
+      pb.maxHint((long) variantsDictionary.features.size() * variantsDictionary.samples.size());
+      for (String fId : variantsDictionary.features.keySet()) {
+        for (String sId : variantsDictionary.samples.keySet()) {
+          pb.setExtraMessage("Sample: " + sId + ", Feature: " + fId);
+          // FIXME: Bug if no protein is allocated, null pointer exception is thrown -> Validate that .pdb exists.
+          variableSegments = Bio.inferProteoform(variantsDictionary, fId, sId);
+          variantsDictionary.features.get(fId).allocatedProtein
+              .addProteoform(variantsDictionary.features.get(fId), sId, variableSegments);
+          pb.step();
+        }
+      }
+    }
+    /*
+    // TODO: Migrate to separate module. Build MSA.
+    for (FeatureEntry featureEntry : variantsDictionary.features.values()) {
+      Logging.logStatus("Write " + featureEntry.name + " MSA");
+      ConcurrentSkipListMap<String, HashMap<String, Character>> proteoformSequences =
+          new ConcurrentSkipListMap<>((k1, k2) -> {
+            int p1 = Integer.parseInt(k1.split("\\+")[0]);
+            int p2 = Integer.parseInt(k2.split("\\+")[0]);
+            if (p1 == p2) {
+              p1 = Integer.parseInt(k1.split("\\+")[1]);
+              p2 = Integer.parseInt(k2.split("\\+")[1]);
+            }
+            return Integer.compare(p1, p2);
+          });
+      char[] sequenceChars;
+      String pfContent;
+      String pfPosInfo;
+      String posKey;
+      int infPos;
+      int pfVariantStart;
+      int pfInsPos;
+      TreeSet<String> faEntryIds = new TreeSet<>();
+      for (Map.Entry<String, String> chainEntry : featureEntry.allocatedProtein.chainSequences.entrySet()) {
+        sequenceChars = chainEntry.getValue().toCharArray();
+        for (int i = 0; i < sequenceChars.length; i++) {
+          if (!proteoformSequences.containsKey((i + 1) + "+0")) {
+            proteoformSequences.put((i + 1) + "+0", new HashMap<>());
+          }
+          proteoformSequences.get((i + 1) + "+0").put("CHAIN_" + chainEntry.getKey(),
+              sequenceChars[i]);
+        }
+        faEntryIds.add("CHAIN_" + chainEntry.getKey());
+      }
+      for (ProteoformEntry proteoform : featureEntry.allocatedProtein.proteoforms.values()) {
+        if (proteoform.annotations.containsKey("PT") && proteoform.annotations.get("PT").equals("true")) {
+          // Skip PT proteoform.
+          continue;
+        }
+        if (proteoform.name.equals("0x0.00")) {
+          sequenceChars =
+              Bio.translateNucSequence(featureEntry.nucleotideSequence, true, true, featureEntry.isSense).toCharArray();
+          for (int i = 0; i < sequenceChars.length; i++) {
+            if (!proteoformSequences.containsKey((i + 1) + "+0")) {
+              proteoformSequences.put((i + 1) + "+0", new HashMap<>());
+            }
+            proteoformSequences.get((i + 1) + "+0").put("WILD_TYPE", sequenceChars[i]);
+          }
+          faEntryIds.add("WILD_TYPE");
+        } else {
+          String[] proteoformVariants = proteoform.annotations.get("vSwab").split("\\|");
+          for (String proteoformVariant : proteoformVariants) {
+            pfContent = proteoformVariant.split("@")[0];
+            pfPosInfo = proteoformVariant.split("@")[1];
+            pfVariantStart = pfPosInfo.contains("+") ?
+                Integer.parseInt(pfPosInfo.split("\\+")[0]) :
+                Integer.parseInt(pfPosInfo.split("-")[0]);
+            pfInsPos = pfPosInfo.contains("+") ? Integer.parseInt(pfPosInfo.split("\\+")[1]) : 0;
+            sequenceChars = pfContent.toCharArray();
+            infPos = 0;
+            for (int i = 0; i < sequenceChars.length; i++) {
+              if ((i + 1) > sequenceChars.length - pfInsPos) {
+                infPos += 1;
+                posKey = (pfVariantStart + sequenceChars.length - pfInsPos - 1) + "+" + infPos;
+              } else {
+                posKey = (pfVariantStart + i) + "+0";
+              }
+              if (!proteoformSequences.containsKey(posKey)) {
+                proteoformSequences.put(posKey, new HashMap<>());
+              }
+              proteoformSequences.get(posKey).put(proteoform.name, sequenceChars[i]);
+            }
+          }
+          faEntryIds.add(proteoform.name);
+        }
+      }
+      HashMap<String, ArrayList<String>> faSequences = new HashMap<>();
+      ArrayList<String> faHeadersList;
+      StringBuilder faSequenceBuilder = new StringBuilder();
+      for (String faEntryId : faEntryIds) {
+        faHeadersList = new ArrayList<>();
+        faSequenceBuilder.setLength(0);
+        for (String pos : proteoformSequences.keySet()) {
+          if (proteoformSequences.get(pos).containsKey(faEntryId)) {
+            faSequenceBuilder.append(proteoformSequences.get(pos).get(faEntryId));
+          } else {
+            if (proteoformSequences.get(pos).containsKey("WILD_TYPE")) {
+              faSequenceBuilder.append(proteoformSequences.get(pos).get("WILD_TYPE"));
+            } else {
+              faSequenceBuilder.append(Bio.DELETION_AA1);
+            }
+          }
+        }
+        faHeadersList.add(faEntryId);
+        if (!faEntryId.startsWith("CHAIN_")) {
+          if (faEntryId.equals("WILD_TYPE")) {
+            faHeadersList.addAll(featureEntry.allocatedProtein.proteoforms.get("0x0.00").samples);
+          } else {
+            faHeadersList.addAll(featureEntry.allocatedProtein.proteoforms.get(faEntryId).samples);
+          }
+        }
+        String sequence = faSequenceBuilder.toString();
+        if (faSequences.containsKey(sequence)) {
+          faSequences.get(sequence).add(faEntryId);
+        } else {
+          faSequences.put(sequence, faHeadersList);
+        }
+      }
+      IO.writeFasta(
+          new File(cliarguments.outputFile.getParent() + "/" + featureEntry.chromosome + "_" + featureEntry.name
+              + ".fasta"), faSequences);
+    }
+     */
+
+    // Write built database to file.
+    try (ProgressBar pb = buildProgress()) {
+      Logging.logStatus("Write variants dictionary to file.");
+      pb.maxHint(1);
+      String outputFile = cliarguments.outputFile.getAbsolutePath();
+      File vDictOutfile = new File(outputFile);
+      if (!vDictOutfile.exists()) {
+        IO.generateFile(vDictOutfile);
+      }
+      variantsDictionary.dump(vDictOutfile);
+      pb.step();
+      pb.setExtraMessage(Logging.getDoneMessage());
+    }
   }
 
 }
