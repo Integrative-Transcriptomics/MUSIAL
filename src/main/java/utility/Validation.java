@@ -60,8 +60,16 @@ public class Validation {
    * @param file The {@link File} object to validate.
    * @return Whether the passed {@link File} file fails the check.
    */
-  public static boolean validateInputFile(File file) {
-    return (!file.isFile() || !file.exists() || !file.canRead());
+  public static boolean isFile(File file) {
+    return (file.isFile() && file.exists() && file.canRead());
+  }
+
+  /**
+   * @param file
+   * @return
+   */
+  public static boolean isDirectory(File directory) {
+    return (directory.isDirectory() && directory.exists() && directory.canRead());
   }
 
 }

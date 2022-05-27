@@ -18,7 +18,7 @@ public final class Logging {
    * @param message A {@link String} printed as info message.
    */
   public static void logStatus(String message) {
-    System.out.println("\n[" + Logging.getTimestampDayTime() + "] STATUS: " + message);
+    System.out.println("[" + Logging.getTimestampDayTime() + "] STATUS: " + message);
   }
 
   /**
@@ -27,7 +27,7 @@ public final class Logging {
    * @param message A {@link String} printed as error message.
    */
   public static void logError(String message) {
-    System.out.println("\n[" + Logging.getTimestampDayTime() + "] ERROR: " + message);
+    System.out.println("[" + Logging.getTimestampDayTime() + "] ERROR: " + message);
     System.exit(-1);
   }
 
