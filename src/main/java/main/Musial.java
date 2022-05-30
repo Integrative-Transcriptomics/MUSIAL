@@ -274,32 +274,35 @@ public final class Musial {
     File novelVariantsOut = new File("./temp/novelVariants.vcf");
     File tempDir = new File("./temp/");
     IO.generateDirectory(tempDir);
-    IO.generateFile(novelVariantsOut);
-    IO.writeVcf(novelVariantsOut, variantsDictionary.novelVariants, variantsDictionary.chromosome);
-    SnpEffAnnotator.runSnpEff(tempDir, novelVariantsOut, cliarguments.referenceFASTA, cliarguments.referenceGFF,
-        variantsDictionary.chromosome);
-    for (String line : IO.readLinesFromFile("./temp/SnpEff.vcf")) {
-      if (line.startsWith("#")) {
-        continue;
+    try {
+      IO.generateFile(novelVariantsOut);
+      IO.writeVcf(novelVariantsOut, variantsDictionary.novelVariants, variantsDictionary.chromosome);
+      SnpEffAnnotator.runSnpEff(tempDir, novelVariantsOut, cliarguments.referenceFASTA, cliarguments.referenceGFF,
+          variantsDictionary.chromosome);
+      for (String line : IO.readLinesFromFile("./temp/SnpEff.vcf")) {
+        if (line.startsWith("#")) {
+          continue;
+        }
+        String[] lineFields = line.split("\t");
+        String position = lineFields[1];
+        String refContent = lineFields[3];
+        String altContent = lineFields[4];
+        if (refContent.length() > altContent.length()) {
+          altContent = altContent + "-".repeat(refContent.length() - altContent.length());
+        }
+        try {
+          variantsDictionary.addVariantAnnotation(
+              Integer.parseInt(position),
+              altContent,
+              SnpEffAnnotator.convertAnnotation(lineFields[7].split(";")[0].split("=")[1])
+          );
+        } catch (Exception e) {
+          continue;
+        }
       }
-      String[] lineFields = line.split("\t");
-      String position = lineFields[1];
-      String refContent = lineFields[3];
-      String altContent = lineFields[4];
-      if (refContent.length() > altContent.length()) {
-        altContent = altContent + "-".repeat(refContent.length() - altContent.length());
-      }
-      try {
-        variantsDictionary.addVariantAnnotation(
-            Integer.parseInt(position),
-            altContent,
-            SnpEffAnnotator.convertAnnotation(lineFields[7].split(";")[0].split("=")[1])
-        );
-      } catch (Exception e) {
-        continue;
-      }
+    } finally {
+      IO.deleteDirectory(tempDir);
     }
-    IO.deleteDirectory(tempDir);
 
     // Infer proteoforms.
     ArrayList<Triplet<String, String, ArrayList<String>>> variableSegments;

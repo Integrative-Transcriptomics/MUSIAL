@@ -147,12 +147,6 @@ public final class FeatureEntry {
       }
       proteinSequences.put(chainId, paddedChainSeqBuilder.toString());
     }
-
-    System.out.println( proteinSequences );
-    for (String pdbLine : pdbLines) {
-      System.out.println( pdbLine );
-    }
-
     featureEntry.allocatedProtein = new AllocatedProteinEntry(
         FilenameUtils.removeExtension(featureEntry.pdbFile.getName()),
         String.join(IO.LINE_SEPARATOR, pdbLines),

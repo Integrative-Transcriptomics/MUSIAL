@@ -1,13 +1,7 @@
 package datastructure;
 
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
 import java.util.TreeSet;
-import utility.Bio;
 
 /**
  *
