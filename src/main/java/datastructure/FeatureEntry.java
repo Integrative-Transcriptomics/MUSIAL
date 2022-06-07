@@ -127,9 +127,9 @@ public final class FeatureEntry {
       alignedTranslFeatureSequence = alignedSequences.getValue2().toCharArray();
       for (int pos = 0; pos < alignedChainSeq.length; pos++) {
         if (alignedChainSeq[pos] != alignedTranslFeatureSequence[pos]) {
-          if (alignedChainSeq[pos] == Bio.DELETION_AA1) {
+          if (alignedChainSeq[pos] == Bio.GAP) {
             paddedChainSeqBuilder.append(Character.toLowerCase(alignedTranslFeatureSequence[pos]));
-          } else if (alignedTranslFeatureSequence[pos] == Bio.DELETION_AA1) {
+          } else if (alignedTranslFeatureSequence[pos] == Bio.GAP) {
             throw new MusialBioException("Failed to allocate protein " + featureEntry.pdbFile.getName() + " to " +
                 "feature " + featureEntry.name + " due to gaps in the aligned translated feature nucleotide sequence.");
           }
