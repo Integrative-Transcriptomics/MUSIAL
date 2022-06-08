@@ -277,45 +277,7 @@ public final class Bio {
             }
         }
     }
-
-    /**
-     * TODO
-     *
-     * @param s1
-     * @param s2
-     * @return
-     */
-    public static double computeJaccardIndex(String s1, String s2) {
-        return computeJaccardIndex(s1, s2, 21);
-    }
-
-    /**
-     * TODO
-     *
-     * @param s1
-     * @param s2
-     * @param k
-     * @return
-     */
-    public static double computeJaccardIndex(String s1, String s2, int k) {
-        if (s1.length() < k || s2.length() < k) {
-            return 0.0F;
-        }
-        HashSet<String> s1Kmers = new HashSet<>();
-        HashSet<String> s2Kmers = new HashSet<>();
-        for (int i = 0; i + k <= s1.length(); i++) {
-            s1Kmers.add(s1.substring(i, i + k));
-        }
-        for (int i = 0; i + k <= s2.length(); i++) {
-            s2Kmers.add(s2.substring(i, i + k));
-        }
-        HashSet<String> intersection = new HashSet<>(s1Kmers);
-        intersection.retainAll(s2Kmers);
-        HashSet<String> union = new HashSet<>(s1Kmers);
-        union.addAll(s2Kmers);
-        return (double) intersection.size() / (double) union.size();
-    }
-
+    
     /**
      * Translates a nucleotide sequence, split into codons of length three, into a single-letter amino acid sequence.
      *
