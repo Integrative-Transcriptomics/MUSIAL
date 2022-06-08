@@ -34,6 +34,9 @@ public class AllocatedProteinEntry {
     public final ConcurrentSkipListMap<String, ProteoformEntry> proteoforms = new ConcurrentSkipListMap<>((k1, k2) -> {
         int i1 = Integer.parseInt(k1.split("-")[1]);
         int i2 = Integer.parseInt(k2.split("-")[1]);
+        if (i1 == i2) {
+            return k1.compareTo(k2);
+        }
         return Integer.compare(i1, i2);
     });
     /**
