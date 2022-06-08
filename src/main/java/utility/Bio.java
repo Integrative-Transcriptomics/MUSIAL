@@ -277,7 +277,7 @@ public final class Bio {
             }
         }
     }
-    
+
     /**
      * Translates a nucleotide sequence, split into codons of length three, into a single-letter amino acid sequence.
      *
@@ -362,16 +362,6 @@ public final class Bio {
             case 'T' -> 'A';
             default -> base;
         };
-    }
-
-    /**
-     * Removes all gap symbols ("-") from the passed sequence.
-     *
-     * @param sequence The sequence from which gaps should be removed.
-     * @return {@link String}, the passed sequence without any gap symbols.
-     */
-    public static String removeGaps(String sequence) {
-        return sequence.replace("-", "");
     }
 
     /**
