@@ -28,15 +28,13 @@ public class AllocatedProteinEntry {
      */
     public final HashMap<String, String> chainSequences = new HashMap<>();
     /**
-     *
+     * {@link String} identifier used to store the wild type proteoform.
      */
+    public final static String WILD_TYPE_PROTEOFORM_ID = "WildType-0";
     public final ConcurrentSkipListMap<String, ProteoformEntry> proteoforms = new ConcurrentSkipListMap<>((k1, k2) -> {
-        double d1 = Double.parseDouble(k1.split("x")[1]);
-        double d2 = Double.parseDouble(k2.split("x")[1]);
-        if (d1 == d2) {
-            return Integer.compare(k1.split("x")[0].hashCode(), k2.split("x")[0].hashCode());
-        }
-        return Double.compare(d1, d2);
+        int i1 = Integer.parseInt(k1.split("-")[1]);
+        int i2 = Integer.parseInt(k2.split("-")[1]);
+        return Integer.compare(i1, i2);
     });
     /**
      *
@@ -60,30 +58,22 @@ public class AllocatedProteinEntry {
         this.chainSequences.putAll(chainSequences);
     }
 
-    private String generateProteoformName(String vSwab, float variantPositions, float length) {
+    private String generateProteoformName(String vSwab) {
         if (vSwab.equals("")) {
-            return "WildTypex0.00";
+            return AllocatedProteinEntry.WILD_TYPE_PROTEOFORM_ID;
         } else {
-            HashMap<Character, String> m = new HashMap<>() {{
-                put('-', "X");
-                put('0', "A");
-                put('1', "D");
-                put('2', "E");
-                put('3', "F");
-                put('4', "I");
-                put('5', "G");
-                put('6', "O");
-                put('7', "U");
-                put('8', "J");
-                put('9', "K");
-            }};
             StringBuilder proteoformNameBuilder = new StringBuilder();
-            char[] hashCodeCharacters = String.valueOf(vSwab.hashCode()).toCharArray();
-            for (char hashCodeCharacter : hashCodeCharacters) {
-                proteoformNameBuilder.append(m.get(hashCodeCharacter));
+            proteoformNameBuilder.append("PF");
+            String hashCodeString = String.valueOf(vSwab.hashCode());
+            if (hashCodeString.startsWith("-")) {
+                proteoformNameBuilder.append("1");
+                hashCodeString = hashCodeString.replace("-", "");
+            } else {
+                proteoformNameBuilder.append("0");
             }
-            return proteoformNameBuilder + "x" + new DecimalFormat("0.00", new DecimalFormatSymbols(Locale.ENGLISH))
-                    .format((variantPositions / length));
+            proteoformNameBuilder.append("0".repeat(10 - hashCodeString.length()));
+            proteoformNameBuilder.append(hashCodeString);
+            return proteoformNameBuilder + "-" + vSwab.split("\\|").length;
         }
     }
 
@@ -91,9 +81,8 @@ public class AllocatedProteinEntry {
                               ArrayList<Triplet<String, String, ArrayList<String>>> variableSegments) {
         String proteoformVSwab = variableSegments.stream().map(trplt -> trplt.getValue1() + "@" + trplt.getValue0()
         ).collect(Collectors.joining("|"));
-        float variantPositions = variableSegments.stream().mapToInt(trplt -> trplt.getValue1().length()).sum();
         float referenceProteinLength = (float) (fEntry.nucleotideSequence.length() / 3);
-        String proteoformName = generateProteoformName(proteoformVSwab, variantPositions, referenceProteinLength);
+        String proteoformName = generateProteoformName(proteoformVSwab);
         if (this.proteoforms.containsKey(proteoformName)) {
             this.proteoforms.get(proteoformName).samples.add(sId);
         } else {

@@ -361,7 +361,7 @@ public final class Musial {
                     // Skip PT proteoform.
                     continue;
                 }
-                if (proteoform.name.equals("WildTypex0.00")) {
+                if (proteoform.name.equals(AllocatedProteinEntry.WILD_TYPE_PROTEOFORM_ID)) {
                     sequenceChars =
                             Bio.translateNucSequence(featureEntry.nucleotideSequence, true, true, featureEntry.isSense).toCharArray();
                     for (int i = 0; i < sequenceChars.length; i++) {
@@ -420,7 +420,7 @@ public final class Musial {
                 faHeadersList.add(faEntryId);
                 if (!faEntryId.startsWith("Chain")) {
                     if (faEntryId.equals("WildType")) {
-                        faHeadersList.addAll(featureEntry.allocatedProtein.proteoforms.get("WildTypex0.00").samples);
+                        faHeadersList.addAll(featureEntry.allocatedProtein.proteoforms.get(AllocatedProteinEntry.WILD_TYPE_PROTEOFORM_ID).samples);
                     } else {
                         faHeadersList.addAll(featureEntry.allocatedProtein.proteoforms.get(faEntryId).samples);
                     }
