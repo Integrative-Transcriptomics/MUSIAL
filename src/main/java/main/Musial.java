@@ -4,11 +4,7 @@ import cli.CLIParameters;
 import cli.CLIParametersUpdateVDict;
 import components.SnpEffAnnotator;
 import components.VariantsDictionaryFactory;
-import datastructure.FastaContainer;
-import datastructure.FeatureEntry;
-import datastructure.ProteoformEntry;
-import datastructure.SampleEntry;
-import datastructure.VariantsDictionary;
+import datastructure.*;
 import exceptions.MusialBioException;
 import exceptions.MusialCLException;
 import exceptions.MusialIOException;
@@ -322,8 +318,8 @@ public final class Musial {
             }
         }
 
-        // TODO: Migrate to separate module. Build MSA.
         /*
+        // TODO: Migrate to separate module. Build MSA.
         for (FeatureEntry featureEntry : variantsDictionary.features.values()) {
             Logging.logStatus("Write " + featureEntry.name + " MSA");
             ConcurrentSkipListMap<String, HashMap<String, Character>> proteoformSequences =
