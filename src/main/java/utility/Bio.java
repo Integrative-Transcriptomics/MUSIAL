@@ -466,11 +466,11 @@ public final class Bio {
         int[][] insertionScoreMatrix = new int[seq1.length() + 1][seq2.length() + 1];
         int[][] deletionScoreMatrix = new int[seq1.length() + 1][seq2.length() + 1];
         char[][] tracebackMatrix = new char[seq1.length() + 1][seq2.length() + 1];
-        char[] aaSeq1Array = seq1.toCharArray();
-        char[] aaSeq2Array = seq2.toCharArray();
+        char[] seq1Array = seq1.toCharArray();
+        char[] seq2Array = seq2.toCharArray();
         int alignmentScore;
-        StringBuilder aaSeq1Builder = new StringBuilder();
-        StringBuilder aaSeq2Builder = new StringBuilder();
+        StringBuilder seq1Builder = new StringBuilder();
+        StringBuilder seq2Builder = new StringBuilder();
     /*
     (1) Compute global sequence alignment.
      */
@@ -480,7 +480,7 @@ public final class Bio {
         deletionScoreMatrix[0][0] = 0;
         int gapCost;
         // i -> PREFIX
-        for (int i = 0; i < seq1.length() + 1; i++) {
+        for (int i = 1; i < seq1.length() + 1; i++) {
             gapCost = switch (left_mode) {
                 case FREE -> 0;
                 case PENALIZE -> -gapOpenPenalty - (i - 1) * gapExtendPenalty;
@@ -493,7 +493,7 @@ public final class Bio {
             tracebackMatrix[i][0] = 'I';
         }
         // j -> SUFFIX
-        for (int j = 0; j < seq2.length() + 1; j++) {
+        for (int j = 1; j < seq2.length() + 1; j++) {
             gapCost = switch (right_mode) {
                 case FREE -> 0;
                 case PENALIZE -> -gapOpenPenalty - (j - 1) * gapExtendPenalty;
@@ -510,8 +510,8 @@ public final class Bio {
             for (int j = 1; j < seq2.length() + 1; j++) {
                 matchScoreMatrix[i][j] =
                         alignmentMatrix[i - 1][j - 1]
-                                + scoringMatrix[scoringMatrixIndexMap.get(aaSeq1Array[i - 1])][scoringMatrixIndexMap
-                                .get(aaSeq2Array[j - 1])];
+                                + scoringMatrix[scoringMatrixIndexMap.get(seq1Array[i - 1])][scoringMatrixIndexMap
+                                .get(seq2Array[j - 1])];
                 insertionScoreMatrix[i][j] =
                         Math.max(
                                 alignmentMatrix[i - 1][j] - gapOpenPenalty,
@@ -522,18 +522,18 @@ public final class Bio {
                                 alignmentMatrix[i][j - 1] - gapOpenPenalty,
                                 deletionScoreMatrix[i][j - 1] - gapExtendPenalty
                         );
-                max = Double.NEGATIVE_INFINITY;
-                if (insertionScoreMatrix[i][j] >= max) {
+                max = Integer.MIN_VALUE;
+                if (insertionScoreMatrix[i][j] > max) {
                     max = insertionScoreMatrix[i][j];
                     alignmentMatrix[i][j] = (int) max;
                     tracebackMatrix[i][j] = 'I';
                 }
-                if (deletionScoreMatrix[i][j] >= max) {
+                if (deletionScoreMatrix[i][j] > max) {
                     max = deletionScoreMatrix[i][j];
                     alignmentMatrix[i][j] = (int) max;
                     tracebackMatrix[i][j] = 'D';
                 }
-                if (matchScoreMatrix[i][j] >= max) {
+                if (matchScoreMatrix[i][j] > max) {
                     max = matchScoreMatrix[i][j];
                     alignmentMatrix[i][j] = (int) max;
                     tracebackMatrix[i][j] = 'M';
@@ -578,26 +578,26 @@ public final class Bio {
             tracebackDirection = character;
             if (tracebackDirection == 'M') {
                 // CASE: Match or mismatch of nucleotide and amino-acid sequence.
-                aaSeq1Builder.append(aaSeq1Array[aaSeq1Index]);
+                seq1Builder.append(seq1Array[aaSeq1Index]);
                 aaSeq1Index += 1;
-                aaSeq2Builder.append(aaSeq2Array[aaSeq2Index]);
+                seq2Builder.append(seq2Array[aaSeq2Index]);
                 aaSeq2Index += 1;
             } else if (tracebackDirection == 'D') {
                 // CASE: Deletion wrt. to first amino acid sequence.
-                aaSeq1Builder.append(GAP);
-                aaSeq2Builder.append(aaSeq2Array[aaSeq2Index]);
+                seq1Builder.append(GAP);
+                seq2Builder.append(seq2Array[aaSeq2Index]);
                 aaSeq2Index += 1;
             } else if (tracebackDirection == 'I') {
                 // CASE: Insertion wrt. to first amino acid sequence.
-                aaSeq1Builder.append(aaSeq1Array[aaSeq1Index]);
+                seq1Builder.append(seq1Array[aaSeq1Index]);
                 aaSeq1Index += 1;
-                aaSeq2Builder.append(GAP);
+                seq2Builder.append(GAP);
             }
         }
     /*
     (6) Insert results into Triplet.
      */
-        return new Triplet<>(alignmentScore, aaSeq1Builder.toString(), aaSeq2Builder.toString());
+        return new Triplet<>(alignmentScore, seq1Builder.toString(), seq2Builder.toString());
     }
 
     public static ArrayList<String> getVariantsOfAlignedSequences(String referenceSequence,
@@ -759,9 +759,6 @@ public final class Bio {
                 int variableSegmentStart = 0;
                 boolean isVariableSegment = false;
                 String referenceAminoacidSequence = Bio.translateNucSequence(referenceSequence, true, true, true);
-                String variableSegmentSequence = "";
-                String referenceSegment;
-                char[] alignedReferenceSegmentCharacters;
                 StringBuilder positionSuffix = new StringBuilder();
                 StringBuilder variableSegmentNucleotides = new StringBuilder();
                 StringBuilder variableSegmentAminoacids = new StringBuilder();
