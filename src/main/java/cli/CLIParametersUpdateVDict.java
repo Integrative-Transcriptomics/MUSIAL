@@ -115,7 +115,7 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
         Options options = new Options();
         options.addOption(Option.builder("C")
                 .longOpt("vDictConfig")
-                .desc("Path to .json file yielding the parameter and input configuration to build/update a variants dictionary. Please see github.com/Integrative-Transcriptomics/MUSIAL for more information.")
+                .desc("Path to .json file yielding the parameter and input configuration to build/update a variants dictionary. Please visit the wiki at `https://github.com/Integrative-Transcriptomics/MUSIAL` for more information.")
                 .hasArg()
                 .required()
                 .build());
@@ -341,6 +341,16 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
                         "Specified feature `PDB` file " + pdbFile.getAbsolutePath() + " does not exist or has no read permission.");
             }
         }
+    }
+
+    /**
+     * Print help information for command line interface arguments.
+     *
+     * @param options       The specified command line interface {@link Options}.
+     * @param helpFormatter A {@link HelpFormatter} for displaying help information.
+     */
+    public void printHelp(Options options, HelpFormatter helpFormatter) {
+        helpFormatter.printHelp("java -jar MUSIAL-" + Musial.VERSION + ".jar updateVDict", options);
     }
 
 }

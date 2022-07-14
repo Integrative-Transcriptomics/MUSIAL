@@ -22,7 +22,7 @@ public interface CLIParameters {
      * @param helpFormatter A {@link HelpFormatter} for displaying help information.
      */
     default void printHelp(Options options, HelpFormatter helpFormatter) {
-        helpFormatter.printHelp("java -jar MUSIAL-" + Musial.VERSION + ".jar generateVDict", options);
+        helpFormatter.printHelp("java -jar MUSIAL-" + Musial.VERSION + ".jar", options);
     }
 
 }
