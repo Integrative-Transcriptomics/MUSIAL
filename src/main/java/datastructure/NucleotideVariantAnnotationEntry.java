@@ -2,20 +2,56 @@ package datastructure;
 
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 
+/**
+ * Object used to store annotations for a single nucleotide variant.
+ *
+ * @author Simon Hackl
+ * @version 2.1
+ * @since 2.1
+ */
 public class NucleotideVariantAnnotationEntry {
 
-  public final HashMap<String, String> annotations = new HashMap<>();
+    /**
+     * {@link HashMap} of {@link String} key/value pairs specifying any information related to the variant.
+     */
+    public final HashMap<String, String> annotations = new HashMap<>();
 
-  public final ConcurrentSkipListMap<String, String> occurrence = new ConcurrentSkipListMap<>();
+    /**
+     * {@link ConcurrentSkipListMap} of {@link String} key/value pairs indicating the occurrence of this variant.
+     * <p>
+     * - Keys correspond to sample names.
+     * - Values correspond to return values of the {@link NucleotideVariantAnnotationEntry::constructSampleSpecificAnnotation} method.
+     */
+    public final ConcurrentSkipListMap<String, String> occurrence = new ConcurrentSkipListMap<>();
 
-  public NucleotideVariantAnnotationEntry() {
+    /**
+     * Constructor of {@link AminoacidVariantAnnotationEntry}.
+     */
+    public NucleotideVariantAnnotationEntry() {
 
-  }
+    }
 
-  public static String constructSampleSpecificAnnotation(boolean rejected, boolean primary, double quality,
-                                                         double frequency, double coverage) {
-    return rejected + "|" + primary + "|" + quality + "|" + frequency + "|" + coverage;
-  }
+    /**
+     * Constructs a {@link String} yielding information about the following properties wrt. a single sample, separated by a `|` symbol:
+     * <p>
+     * - If the variant was rejected, i.e. failed any filter criteria.
+     * - If the variant is primary, i.e. has the highest frequency in the case of a het. variant.
+     * - The quality of the variant call.
+     * - The frequency wrt. coverage of the variant call.
+     * - The total coverage at the variant site.
+     *
+     * @param rejected  {@link Boolean} whether the variant was rejected.
+     * @param primary   {@link Boolean} whether the variant is a primary variant.
+     * @param quality   {@link Double}; The quality of the variant call.
+     * @param frequency {@link Double}; The frequency of the variant call wrt. coverage.
+     * @param coverage  {@link Double}; The total coverage at the variant site.
+     * @return {@link String}; The passed parameters separated by `|` symbols.
+     */
+    public static String constructSampleSpecificAnnotation(boolean rejected, boolean primary, double quality,
+                                                           double frequency, double coverage) {
+        return rejected + "|" + primary + "|" + quality + "|" + frequency + "|" + coverage;
+    }
 
 }

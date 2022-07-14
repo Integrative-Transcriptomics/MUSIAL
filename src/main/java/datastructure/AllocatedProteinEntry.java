@@ -1,18 +1,21 @@
 package datastructure;
 
 import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-import org.javatuples.Triplet;
-import utility.Bio;
+import components.Bio;
 
+/**
+ * TODO
+ *
+ * @author Simon Hackl
+ * @version 2.1
+ * @since 2.0
+ */
 public class AllocatedProteinEntry {
 
     /**
@@ -30,15 +33,8 @@ public class AllocatedProteinEntry {
     /**
      * {@link String} identifier used to store the wild type proteoform.
      */
-    public final static String WILD_TYPE_PROTEOFORM_ID = "WildType-0";
-    public final ConcurrentSkipListMap<String, ProteoformEntry> proteoforms = new ConcurrentSkipListMap<>((k1, k2) -> {
-        int i1 = Integer.parseInt(k1.split("-")[1]);
-        int i2 = Integer.parseInt(k2.split("-")[1]);
-        if (i1 == i2) {
-            return k1.compareTo(k2);
-        }
-        return Integer.compare(i1, i2);
-    });
+    public final static String WILD_TYPE_PROTEOFORM_ID = "WildType";
+    public final ConcurrentSkipListMap<String, ProteoformEntry> proteoforms = new ConcurrentSkipListMap<>(String.CASE_INSENSITIVE_ORDER);
     /**
      *
      */
@@ -76,49 +72,46 @@ public class AllocatedProteinEntry {
             }
             proteoformNameBuilder.append("0".repeat(10 - hashCodeString.length()));
             proteoformNameBuilder.append(hashCodeString);
-            return proteoformNameBuilder + "-" + vSwab.split("\\|").length;
+            return proteoformNameBuilder.toString();
         }
     }
 
-    public void addProteoform(FeatureEntry fEntry, String sId,
-                              ArrayList<Triplet<String, String, ArrayList<String>>> variableSegments) {
-        String proteoformVSwab = variableSegments.stream().map(trplt -> trplt.getValue1() + "@" + trplt.getValue0()
-        ).collect(Collectors.joining("|"));
+    public void addProteoform(FeatureEntry fEntry, String sId, ConcurrentSkipListMap<String, String> variants) {
+        String proteoformVSwab = variants.entrySet().stream().map(e -> e.getValue() + "@" + e.getKey()).collect(Collectors.joining("|"));
         float referenceProteinLength = (float) (fEntry.nucleotideSequence.length() / 3);
+        DecimalFormat decimalFormat = new DecimalFormat("#.#");
         String proteoformName = generateProteoformName(proteoformVSwab);
         if (this.proteoforms.containsKey(proteoformName)) {
             this.proteoforms.get(proteoformName).samples.add(sId);
         } else {
             this.proteoforms.put(proteoformName, new ProteoformEntry(proteoformName, sId, proteoformVSwab));
             // FIXME: More efficient?
-            for (Triplet<String, String, ArrayList<String>> variableSegment : variableSegments) {
-                if (!this.variants.containsKey(variableSegment.getValue0())) {
-                    this.variants.put(variableSegment.getValue0(), new ConcurrentSkipListMap<>());
+            // TODO: Extract as method.
+            for (String variantPosition : variants.keySet()) {
+                if (!this.variants.containsKey(variantPosition)) {
+                    this.variants.put(variantPosition, new ConcurrentSkipListMap<>());
                 }
-                int firstTerminationIndex = variableSegment.getValue1().indexOf(Bio.TERMINATION_AA1);
-                if (firstTerminationIndex != -1) {
-                    firstTerminationIndex += Integer.parseInt(variableSegment.getValue0().split("\\+")[0]);
-                    if (firstTerminationIndex < referenceProteinLength) {
-                        for (String chainSequence : fEntry.allocatedProtein.chainSequences.values()) {
-                            if (chainSequence.substring(firstTerminationIndex - 1).chars()
-                                    .anyMatch(c -> (char) c != Bio.TERMINATION_AA1 || (char) c != Bio.GAP ||
-                                            (char) c != Bio.ANY_AA1)) {
-                                this.proteoforms.get(proteoformName).annotations.put("PT", "true");
-                                break;
-                            }
-                        }
-                    }
+                String variantContent = variants.get(variantPosition);
+                // Check if variant induces an inner termination.
+                if (variantContent.equals(String.valueOf(Bio.TERMINATION_AA1))) {
+                    this.proteoforms.get(proteoformName).annotations.put("PT", "true");
                 }
-                if (!this.variants.get(variableSegment.getValue0()).containsKey(variableSegment.getValue1())) {
+                if (!this.variants.get(variantPosition).containsKey(variantContent)) {
                     AminoacidVariantAnnotationEntry aminoacidVariantAnnotationEntry = new AminoacidVariantAnnotationEntry();
-                    aminoacidVariantAnnotationEntry.annotations.put("cause",
-                            String.join("|", variableSegment.getValue2()));
-                    this.variants.get(variableSegment.getValue0()).put(variableSegment.getValue1(),
-                            aminoacidVariantAnnotationEntry);
+                    // TODO: Infer causative nucleotide variants.
+                    this.variants.get(variantPosition).put(variantContent, aminoacidVariantAnnotationEntry);
                 }
-                this.variants.get(variableSegment.getValue0()).get(variableSegment.getValue1()).occurrence.add(proteoformName);
+                this.variants.get(variantPosition).get(variantContent).occurrence.add(proteoformName);
             }
+            if (!this.proteoforms.get(proteoformName).annotations.containsKey("PT")) {
+                this.proteoforms.get(proteoformName).annotations.put("PT", "false");
+            }
+            // Compute percentage of variant positions; add as annotation VP.
+            ArrayList<String> variantsContents = new ArrayList<>(variants.values());
+            int variantPositions = variantsContents.subList(0, variantsContents.contains(String.valueOf(Bio.TERMINATION_AA1)) ? variantsContents.indexOf(String.valueOf(Bio.TERMINATION_AA1)) + 1 : variantsContents.size()).size();
+            this.proteoforms.get(proteoformName).annotations.put("VP", decimalFormat.format(100 * (variantPositions / referenceProteinLength)).replace(",", "."));
         }
+
     }
 
 }

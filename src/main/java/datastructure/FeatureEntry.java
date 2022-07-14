@@ -4,18 +4,17 @@ import exceptions.MusialBioException;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.apache.commons.io.FilenameUtils;
+import org.biojava.nbio.structure.Chain;
+import org.biojava.nbio.structure.Group;
+import org.biojava.nbio.structure.Structure;
 import org.javatuples.Triplet;
-import utility.Bio;
-import utility.IO;
-import utility.Logging;
+import components.Bio;
+import components.IO;
+import components.Logging;
 
 /**
  * Internal representation of a reference sequence location that is subject to analysis. May represent the full
@@ -26,7 +25,7 @@ import utility.Logging;
  * reference feature.
  *
  * @author Simon Hackl
- * @version 2.0
+ * @version 2.1
  * @since 2.0
  */
 public final class FeatureEntry {
@@ -105,11 +104,11 @@ public final class FeatureEntry {
     }
 
     public static void imputeProtein(FeatureEntry featureEntry) throws IOException, MusialBioException {
-        HashMap<String, String> proteinSequences = IO.getSequencesFromPdbStructure(IO.readStructure(featureEntry.pdbFile));
+        Structure pdbStructure = IO.readStructure(featureEntry.pdbFile);
+        HashMap<String, String> proteinSequences = IO.getSequencesFromPdbStructure(pdbStructure);
         String chainId;
         String chainSeq;
         char[] alignedChainSeq;
-        ArrayList<String> pdbLines = IO.readLinesFromFile(featureEntry.pdbFile.getAbsolutePath());
         String translatedFeatureSequence = Bio.translateNucSequence(featureEntry.nucleotideSequence, true, true,
                 featureEntry.isSense);
         if (translatedFeatureSequence.endsWith(String.valueOf(Bio.TERMINATION_AA1))) {
@@ -151,18 +150,39 @@ public final class FeatureEntry {
                     paddedChainSeqBuilder.append(alignedChainSeq[pos]);
                 }
             }
+
+            // Construct Iterator of current chain groups sequence numbers.
+            Chain pdbChain = pdbStructure.getChain(chainId);
+            List<Group> pdbChainAtomGroups = pdbChain.getAtomGroups();
+            Iterator<Group> pdbChainAtomGroupIterator = pdbChainAtomGroups.iterator();
+            List<Group> pdbChainAtomGroupsFixed = new ArrayList<>();
+            char[] paddedChainSeqChars = paddedChainSeqBuilder.toString().toCharArray();
+            for (int chainPosition = 1; chainPosition < paddedChainSeqChars.length + 1; chainPosition++) {
+                if (Character.isLowerCase(paddedChainSeqChars[chainPosition - 1])) {
+                    continue;
+                }
+                if (pdbChainAtomGroupIterator.hasNext()) {
+                    Group nextGroup = pdbChainAtomGroupIterator.next();
+                    nextGroup.getResidueNumber().setSeqNum(chainPosition);
+                    pdbChainAtomGroupsFixed.add(nextGroup);
+                } else {
+                    break;
+                }
+            }
+            pdbChain.setAtomGroups(pdbChainAtomGroupsFixed);
+
             diffSegments = Arrays.stream(
                     paddedChainSeqBuilder.toString().split("(?=\\p{Upper})")
             ).filter(s -> s.length() > 1).collect(Collectors.toList());
             if (diffSegments.size() > 2) {
                 Logging.logWarning("Feature " + featureEntry.name + " disaccords in " + diffSegments.size() + " segments " +
-                        "with allocated protein " + featureEntry.pdbFile.getName() + " chain " + chainId + ": Structure may be inappropriate.");
+                        "with allocated protein " + featureEntry.pdbFile.getName() + " chain " + chainId + ": The structure may be inappropriate.");
             }
             proteinSequences.put(chainId, paddedChainSeqBuilder.toString());
         }
         featureEntry.allocatedProtein = new AllocatedProteinEntry(
                 FilenameUtils.removeExtension(featureEntry.pdbFile.getName()),
-                String.join(IO.LINE_SEPARATOR, pdbLines),
+                String.join(IO.LINE_SEPARATOR, pdbStructure.toPDB()),
                 proteinSequences
         );
     }

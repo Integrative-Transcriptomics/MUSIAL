@@ -1,28 +1,17 @@
-package utility;
+package components;
 
 import com.google.common.base.Splitter;
-import com.google.errorprone.annotations.Var;
-import datastructure.AllocatedProteinEntry;
 import datastructure.FeatureEntry;
 import datastructure.VariantsDictionary;
 import exceptions.MusialBioException;
+import org.javatuples.Triplet;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
-
-import htsjdk.samtools.util.Tuple;
-import org.checkerframework.checker.units.qual.A;
-import org.javatuples.Triplet;
 
 /**
  * Comprises static methods used to solve specifically bioinformatics problems.
@@ -34,20 +23,15 @@ import org.javatuples.Triplet;
 public final class Bio {
 
     /**
-     * Enum to store different modes to handle prefix gaps for global sequence alignment.
+     * Enum to store different modes to handle prefix gaps for global sequence alignment:
+     * - FREE: Gaps at the end are not penalized.
+     * - PENALIZED: Gaps at the end are penalized normally.
+     * - FORBID: Gaps at the end are not allowed.
      */
     public enum GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES {
         FREE, PENALIZE, FORBID
     }
 
-    /**
-     * Character to indicate a gap/missing information regarding a nucleotide and amino acid sequence.
-     */
-    public static final char NO_MATCH_CHAR = '#';
-    /**
-     * Character used as a separator in padded sequences.
-     */
-    public static final char SEPARATOR_CHAR = '/';
     /**
      * One-letter code character used to indicate a translated stop codon.
      */
@@ -71,6 +55,7 @@ public final class Bio {
     /**
      * Three-letter code string used to indicate the deletion of an amino-acid.
      */
+    @SuppressWarnings("unused")
     public static final String DELETION_AA3 = "DEL";
     /**
      * One-letter character used to indicate an alignment gap.
@@ -79,6 +64,7 @@ public final class Bio {
     /**
      * Placeholder string to indicate no content.
      */
+    @SuppressWarnings("unused")
     public static final String NONE = "None";
     /**
      * Hash map mapping nucleotide codons to single-letter amino acids. Stop codons map to no character.
@@ -150,7 +136,7 @@ public final class Bio {
         put("GGG", "G");
     }};
     /**
-     * Hash map mapping amino-acid one to three letter codes.
+     * Hash map mapping amino-acid one to three-letter codes.
      */
     public static final HashMap<String, String> AA1TO3 = new HashMap<>() {{
         put("A", "ALA");
@@ -206,7 +192,9 @@ public final class Bio {
     /**
      * The PAM120 matrix used for alignment computation.
      * <p>
-     * Includes values for 'X'; any amino-acid and '*'; termination.
+     * - Computed with <a href="https://bioinformaticshome.com/online_software/make_pam/makePAMmatrix.html">makePAMmatrix.html</a>
+     * and a scaling factor of 1.
+     * - Includes values for 'X'/any amino-acid (match/mismatch: -1) and '*'/termination (match/mismatch: -4/-1).
      */
     private static final int[][] PAM120 = {
             {1, -1, 0, 0, -1, 0, 0, 0, -1, 0, -1, -1, -1, -1, 0, 0, 0, -2, -1, 0, -1, -4},
@@ -234,7 +222,7 @@ public final class Bio {
     };
 
     /**
-     * Returns a amino-acid representation of the passed `codon`.
+     * Returns an amino-acid representation of the passed `codon`.
      *
      * @param codon              {@link String} representing the nucleotide codon to translate.
      * @param asAA3              {@link Boolean} whether the codon should be translated to the amino-acid three-letter code or not.
@@ -259,7 +247,7 @@ public final class Bio {
                     return String.valueOf(ANY_AA1);
                 }
             }
-        } else if (codon.contains("N")) { // TODO: Add constant definition for nucleotide symbols.
+        } else if (codon.contains("N")) {
             if (asAA3) {
                 return ANY_AA3;
             } else {
@@ -339,10 +327,8 @@ public final class Bio {
      *
      * @param sequence {@link String} representing a nucleotide sequence.
      * @return {@link String} representing the reverse complement of the passed sequence.
-     * @throws MusialBioException If any base occurs in the sequence that can not be reversed, i.e. for which no
-     *                            complement base is known.
      */
-    public static String reverseComplement(String sequence) throws MusialBioException {
+    public static String reverseComplement(String sequence) {
         StringBuilder reverseComplementBuilder = new StringBuilder();
         char[] sequenceCharArray = sequence.toCharArray();
         for (int i = sequenceCharArray.length - 1; i >= 0; i--) {
@@ -358,9 +344,8 @@ public final class Bio {
      *
      * @param base {@link Character} base to invert.
      * @return {@link Character} the inverted base.
-     * @throws MusialBioException If no complement base for the specified base is known.
      */
-    public static Character invertBase(char base) throws MusialBioException {
+    public static Character invertBase(char base) {
         return switch (base) {
             case 'A' -> 'T';
             case 'C' -> 'G';
@@ -371,11 +356,17 @@ public final class Bio {
     }
 
     /**
-     * TODO
+     * Invokes the {@link Bio:globalSequenceAlignment} method with pre-specified parameters for nucleotide sequence
+     * alignment.
+     * <p>
+     * - Uses a simple substitution matrix that scores matches with 1 and mismatches with -1.
+     * - Uses a gap open and extension penalty of -2 and -1, respectively.
      *
-     * @param aaSeq1
-     * @param aaSeq2
-     * @return
+     * @param nucSeq1    {@link String} representation of the first nucleotide sequence for alignment.
+     * @param nucSeq2    {@link String} representation of the second nucleotide sequence for alignment.
+     * @param left_mode  {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle left-marginal gaps.
+     * @param right_mode {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle right-marginal gaps.
+     * @return {@link Triplet} storing the alignment score, the aligned first sequence and the aligned second sequence.
      */
     public static Triplet<Integer, String, String> globalNucleotideSequenceAlignment(String nucSeq1, String nucSeq2,
                                                                                      GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES left_mode,
@@ -400,24 +391,18 @@ public final class Bio {
     }
 
     /**
-     * TODO
+     * Invokes the {@link Bio:globalSequenceAlignment} method with pre-specified parameters for amino-acid sequence
+     * alignment.
+     * <p>
+     * - Uses the PAM120 substitution matrix.
      *
-     * @param nucSeq1
-     * @param nucSeq2
-     * @return
-     */
-    public static Triplet<Integer, String, String> globalAminoAcidSequenceAlignment(String aaSeq1, String aaSeq2,
-                                                                                    GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES left_mode,
-                                                                                    GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES right_mode) {
-        return globalSequenceAlignment(aaSeq1, aaSeq2, AA1_PAM120_INDEX, PAM120, 5, 4, left_mode, right_mode);
-    }
-
-    /**
-     * TODO
-     *
-     * @param nucSeq1
-     * @param nucSeq2
-     * @return
+     * @param aaSeq1           {@link String} representation of the first amino-acid sequence for alignment.
+     * @param aaSeq2           {@link String} representation of the second amino-acid sequence for alignment.
+     * @param gapOpenPenalty   {@link Integer} (positive!) to use as gap open penalty.
+     * @param gapExtendPenalty {@link Integer} (positive!) to use as gap extension penalty.
+     * @param left_mode        {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle left-marginal gaps.
+     * @param right_mode       {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle right-marginal gaps.
+     * @return {@link Triplet} storing the alignment score, the aligned first sequence and the aligned second sequence.
      */
     public static Triplet<Integer, String, String> globalAminoAcidSequenceAlignment(String aaSeq1, String aaSeq2,
                                                                                     int gapOpenPenalty,
@@ -429,30 +414,17 @@ public final class Bio {
     }
 
     /**
-     * FIXME
-     * Matches a nucleotide sequence with an amino-acid sequence based on a global alignment of the amino acid sequence
-     * with the translated nucleotide sequence.
-     * <p>
-     * The global gap-affine alignment computation uses the BLOSUM80 scoring matrix, can handle any amino-acid
-     * symbolized by an 'X' and uses an gap-opening and extension penalty of 6 and 4, respectively.
-     * <p>
-     * The aligned translated nucleotide sequence is mapped back to a nucleotide sequence and possible truncated
-     * nucleotides are re-appended. The aligned amino-acid sequence is represented as three-letter code amino-acids
-     * separated by a separator symbol. The aligned nucleotide sequence is represented by blocks of length three, i.e.
-     * codons, separated by a separator symbol. Instead of the common alignment gap symbol '-', the symbol '_' is used
-     * as '-' is internally reserved for deletions wrt. nucleotide sequences.
+     * Computes a global sequence alignment using the gap-affine Needleman-Wunsch algorithm.
      *
-     * @param aaSeq                   {@link String} representing a non-nucleotide-derived amino acid sequence.
-     * @param transAASeq              {@link String} representing a amino acid sequence that originates from translating a
-     *                                nucleotide sequence.
-     * @param splitNucleotideSequence {@link String} the original nucleotide sequence split into chunks of length three, i.e.
-     *                                codons.
-     * @param truncatedStart          {@link String} nucleotides that were truncated from the start of the nucleotide sequence
-     *                                due to a frameshift.
-     * @param truncatedEnd            {@link String} nucleotides that were truncated from the end of the nucleotide sequence due
-     *                                to a frameshift.
-     * @return {@link Triplet} yielding the alignment score in the first field, the matched amino-acid sequence in the
-     * second field and the matched nucleotide sequence in the third field.
+     * @param seq1                  {@link String} representation of the first sequence for alignment.
+     * @param seq2                  {@link String} representation of the second sequence for alignment.
+     * @param scoringMatrixIndexMap {@link HashMap} mapping characters that may occur in the aligned sequences to integer indices of the scoring matrix.
+     * @param scoringMatrix         {@link Integer[][]} containing the scoring values for each pair of characters that may occur in the aligned sequences.
+     * @param gapOpenPenalty        {@link Integer} value used to penalize the opening of a gap.
+     * @param gapExtendPenalty      {@link Integer} value used to penalize the extension of a gap.
+     * @param left_mode             {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle left-marginal gaps.
+     * @param right_mode            {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle right-marginal gaps.
+     * @return {@link Triplet} storing the alignment score, the aligned first sequence and the aligned second sequence.
      */
     public static Triplet<Integer, String, String> globalSequenceAlignment(String seq1, String seq2,
                                                                            HashMap<Character, Integer> scoringMatrixIndexMap,
@@ -607,49 +579,51 @@ public final class Bio {
     }
 
     /**
-     * FIXME
+     * Computes variants from two aligned sequences.
+     * <p>
+     * Variants are extracted wrt. the query versus the target sequence and formatted as p@r@a, where p is the variant
+     * position, r is the reference content and a is the single alternate alleles content..
      *
-     * @param referenceSequence
-     * @param variantSequence
-     * @param variantStringPrefix
-     * @return
+     * @param targetSequence {@link String} representation of the target sequence (i.e. reference).
+     * @param querySequence  {@link String} representation of the query sequence (i.e. the one with variants).
+     * @return {@link ArrayList} containing derived variants, c.f. method description for format details.
      */
-    private static ArrayList<String> getVariantsOfAlignedSequences(String referenceSequence,
-                                                                   String variantSequence,
-                                                                   String variantStringPrefix) {
+    public static ArrayList<String> getVariantsOfAlignedSequences(String targetSequence,
+                                                                  String querySequence) {
+        // FIXME: Same procedure as in inferProteoform::extractVariantsFromAlignment.
         ArrayList<String> variants = new ArrayList<>();
         StringBuilder variantBuilder = new StringBuilder();
         StringBuilder referenceBuilder = new StringBuilder();
-        char[] referenceSequenceArray = referenceSequence.toCharArray();
-        char[] variantSequenceArray = variantSequence.toCharArray();
-        char referenceContent;
-        char variantContent;
+        char[] targetSequenceArray = targetSequence.toCharArray();
+        char[] querySequenceArray = querySequence.toCharArray();
+        char targetContent;
+        char queryContent;
         int variantStart = 1;
-        int alignmentLength = referenceSequence.length();
+        int alignmentLength = targetSequence.length();
         boolean isSubstitution = false;
         boolean isInsertion = false;
         boolean isDeletion = false;
         boolean referenceHasPrefixGap = true;
         for (int i = 0; i < alignmentLength; i++) {
-            referenceContent = referenceSequenceArray[i];
-            variantContent = variantSequenceArray[i];
-            if (referenceHasPrefixGap && (referenceContent != Bio.GAP)) {
+            targetContent = targetSequenceArray[i];
+            queryContent = querySequenceArray[i];
+            if (referenceHasPrefixGap && (targetContent != Bio.GAP)) {
                 referenceHasPrefixGap = false;
             }
-            if (referenceContent == variantContent) {
+            if (targetContent == queryContent) {
                 // CASE: Match.
                 if (isSubstitution || isInsertion || isDeletion) {
-                    variants.add(variantStringPrefix + "@" + variantStart + "@" + variantBuilder + "@" + referenceBuilder);
+                    variants.add(variantStart + "@" + variantBuilder + "@" + referenceBuilder);
                     variantBuilder.setLength(0);
                     referenceBuilder.setLength(0);
                 }
                 isSubstitution = false;
                 isInsertion = false;
                 isDeletion = false;
-            } else if (referenceContent == Bio.GAP) {
+            } else if (targetContent == Bio.GAP) {
                 // CASE: Insertion (in variant).
                 if (isSubstitution || isDeletion) {
-                    variants.add(variantStringPrefix + "@" + variantStart + "@" + variantBuilder + "@" + referenceBuilder);
+                    variants.add(variantStart + "@" + variantBuilder + "@" + referenceBuilder);
                     variantBuilder.setLength(0);
                     referenceBuilder.setLength(0);
                 }
@@ -657,73 +631,76 @@ public final class Bio {
                     if (referenceHasPrefixGap) {
                         variantStart = 0;
                     } else {
-                        variantBuilder.append(referenceSequenceArray[i - 1]);
+                        variantBuilder.append(targetSequenceArray[i - 1]);
                         variantStart = i;
-                        referenceBuilder.append(referenceSequenceArray[i - 1]);
+                        referenceBuilder.append(targetSequenceArray[i - 1]);
                     }
                 }
-                variantBuilder.append(variantContent);
+                variantBuilder.append(queryContent);
                 isSubstitution = false;
                 isInsertion = true;
                 isDeletion = false;
-            } else if (variantContent == Bio.GAP) {
+            } else if (queryContent == Bio.GAP) {
                 // CASE: Deletion (in variant).
                 if (isSubstitution || isInsertion) {
-                    variants.add(variantStringPrefix + "@" + variantStart + "@" + variantBuilder + "@" + referenceBuilder);
+                    variants.add(variantStart + "@" + variantBuilder + "@" + referenceBuilder);
                     variantBuilder.setLength(0);
                     referenceBuilder.setLength(0);
                 }
                 if (!isDeletion) {
                     // Alignment is forbidden to start with a gap.
-                    variantBuilder.append(referenceSequenceArray[i - 1]);
+                    variantBuilder.append(targetSequenceArray[i - 1]);
                     variantStart = i;
-                    referenceBuilder.append(referenceSequenceArray[i - 1]);
+                    referenceBuilder.append(targetSequenceArray[i - 1]);
                 }
-                referenceBuilder.append(referenceContent);
-                variantBuilder.append(variantContent);
+                referenceBuilder.append(targetContent);
+                variantBuilder.append(queryContent);
                 isSubstitution = false;
                 isInsertion = false;
                 isDeletion = true;
             } else {
                 // CASE: Mismatch/Substitution.
                 if (isDeletion || isInsertion) {
-                    variants.add(variantStringPrefix + "@" + variantStart + "@" + variantBuilder + "@" + referenceBuilder);
+                    variants.add(variantStart + "@" + variantBuilder + "@" + referenceBuilder);
                     variantBuilder.setLength(0);
                     referenceBuilder.setLength(0);
                 }
                 if (!isSubstitution) {
                     variantStart = i + 1;
                 }
-                variantBuilder.append(variantContent);
-                referenceBuilder.append(referenceContent);
+                variantBuilder.append(queryContent);
+                referenceBuilder.append(targetContent);
                 isSubstitution = true;
                 isInsertion = false;
                 isDeletion = false;
             }
         }
         if (isSubstitution || isInsertion || isDeletion) {
-            variants.add(variantStringPrefix + "@" + variantStart + "@" + variantBuilder + "@" + referenceBuilder);
+            variants.add(variantStart + "@" + variantBuilder + "@" + referenceBuilder);
             variantBuilder.setLength(0);
             referenceBuilder.setLength(0);
         }
         return variants;
     }
 
-
     /**
-     * @param referenceAllele
-     * @param alternateAllele
-     * @return
+     * Infers the proteoform variants of a single sample wrt. a single feature from the information of the passed
+     * variantsDictionary.
+     * <p>
+     * - The computed variants maps keys are formatted as `x+y`, where x is the 1-based indexed position in the
+     * reference sequence at which the variant occurs and y is the 1-based indexed number of inserted positions after
+     * this position.
+     * - The computed variants maps values are the respective single letter code amino-acid contents of the variants
+     * including the content at the variant position.
+     *
+     * @param variantsDictionary {@link VariantsDictionary} instance which content is used to infer proteoform information.
+     * @param fId                {@link String} specifying the {@link FeatureEntry:name} of the feature to which respect
+     *                           the sample proteoform should be inferred.
+     * @param sId                {@link String} specifying the {@link datastructure.SampleEntry:name} of the sample of
+     *                           which the proteoform should be inferred.
+     * @return {@link ConcurrentSkipListMap} mapping positions to variant contents.
+     * @throws MusialBioException If any translation procedure of nucleotide sequences fails.
      */
-    public static ArrayList<String> resolveAmbiguousVariant(String referenceAllele,
-                                                            String alternateAllele) {
-        Triplet<Integer, String, String> alignedAlleles =
-                globalNucleotideSequenceAlignment(referenceAllele, alternateAllele,
-                        GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID, GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE);
-        return getVariantsOfAlignedSequences(alignedAlleles.getValue1(), alignedAlleles.getValue2(),
-                "");
-    }
-
     public static ConcurrentSkipListMap<String, String> inferProteoform(
             VariantsDictionary variantsDictionary, String fId, String sId)
             throws MusialBioException {
@@ -764,6 +741,8 @@ public final class Bio {
                         consecutiveInsertionCount = 0;
                     }
                     variants.put(i - totalInsertionCount + 1 + "+" + consecutiveInsertionCount, String.valueOf(alignedSampleCharacter));
+                } else {
+                    consecutiveInsertionCount = 0;
                 }
             }
             return variants;
@@ -775,230 +754,17 @@ public final class Bio {
             FeatureEntry featureEntry = variantsDictionary.features.get(fId);
             String referenceProteinSequence = Bio.translateNucSequence(featureEntry.nucleotideSequence, true, true, featureEntry.isSense);
             String sampleProteinSequence = Bio.translateNucSequence(sampleNucleotideSequence, true, true, featureEntry.isSense);
-            int alignmentLength = Math.max(referenceProteinSequence.length(), sampleProteinSequence.length());
-            // int imbalance = sampleProteinSequence.length() - referenceProteinSequence.length();
             Triplet<Integer, String, String> sa = Bio.globalAminoAcidSequenceAlignment(
                     referenceProteinSequence,
                     sampleProteinSequence,
-                    alignmentLength * 4,
-                    alignmentLength * 4,
+                    4,
+                    3,
                     GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID,
                     GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE
             );
-
             return extractVariantsFromAlignment.apply(sa);
         } else {
             return new ConcurrentSkipListMap<>();
         }
-    }
-
-    public static ArrayList<Triplet<String, String, ArrayList<String>>> inferProteoform_Old(
-            VariantsDictionary variantsDictionary, String fId, String sId)
-            throws MusialBioException {
-        if (variantsDictionary.features.get(fId).allocatedProtein != null) {
-            String sampleVSwab = variantsDictionary.samples.get(sId).annotations.get(fId + "vSwab");
-            if (sampleVSwab != null) {
-                int variantPosition;
-                int relativeVariantPosition;
-                String variantContent;
-                String relativeVariantContent;
-                String effectAnnotation;
-                FeatureEntry featureEntry = variantsDictionary.features.get(fId);
-                String referenceSequence = featureEntry.isSense ? featureEntry.nucleotideSequence :
-                        Bio.reverseComplement(featureEntry.nucleotideSequence);
-                /*
-                1. Part: Infer relative variant position and content, i.e. wrt. feature start and coding direction.
-                 */
-                String[] sampleVariants = sampleVSwab.split("\\|");
-                HashMap<Integer, String> sampleVariantsMap = new HashMap<>();
-                for (String sV : sampleVariants) {
-                    variantContent = sV.split("@")[0];
-                    variantPosition = Integer.parseInt(sV.split("@")[1]);
-                    relativeVariantPosition = featureEntry.isSense ? variantPosition - featureEntry.start + 1 :
-                            featureEntry.end - variantPosition + 1;
-                    effectAnnotation =
-                            variantsDictionary.variants.get(variantPosition).get(variantContent).annotations
-                                    .get(featureEntry.annotations.get("geneName") +
-                                            "_EFF");
-                    if (effectAnnotation == null) {
-                        Logging.logWarning(
-                                "Skip variant " + variantContent + ", " + variantPosition + " of sample " + sId + " on feature " + fId +
-                                        " due to missing effect annotation.");
-                        continue;
-                    }
-                    relativeVariantContent = featureEntry.isSense ? variantContent : Bio.reverseComplement(variantContent);
-                    sampleVariantsMap.put(
-                            relativeVariantPosition,
-                            relativeVariantContent + "|" + variantContent + "@" +
-                                    variantPosition + "|" + effectAnnotation.split("\\|")[0]
-                    );
-                }
-                //System.out.println( );
-                //System.out.println( sId );
-                //System.out.println( sampleVariantsMap );
-                /*
-                2. Part: Iterate (codon wise) over reference sequence and infer variable segments.
-                 */
-                int frameImbalance = 0;
-                int skipPositions = 0;
-                int variableSegmentStart = 0;
-                boolean isVariableSegment = false;
-                String referenceAminoacidSequence = Bio.translateNucSequence(referenceSequence, true, true, true);
-                StringBuilder positionSuffix = new StringBuilder();
-                StringBuilder variableSegmentNucleotides = new StringBuilder();
-                StringBuilder variableSegmentAminoacids = new StringBuilder();
-                ArrayList<Triplet<String, String, ArrayList<String>>> proteoformVariableSegments = new ArrayList<>();
-                ArrayList<String> affectingVariants = new ArrayList<>();
-                for (int cdn = 0; cdn < referenceSequence.length() / 3; cdn++) {
-                    for (int rpos = 3 * (cdn + 1) - 2; rpos <= 3 * (cdn + 1); rpos++) {
-                        if (skipPositions > 0) {
-                            skipPositions -= 1;
-                            continue;
-                        }
-                        if (sampleVariantsMap.containsKey(rpos)) {
-                            isVariableSegment = isVariableSegment || !sampleVariantsMap.get(rpos).split("\\|")[2].contains(
-                                    "synonymous");
-                            if (variableSegmentStart == 0) {
-                                variableSegmentStart = cdn + 1;
-                            }
-                            relativeVariantContent = sampleVariantsMap.get(rpos).split("\\|")[0];
-                            variantContent = sampleVariantsMap.get(rpos).split("\\|")[1];
-                            if (relativeVariantContent.contains("-")) {
-                                frameImbalance -= relativeVariantContent.chars().filter(c -> c == '-').count();
-                                skipPositions += relativeVariantContent.length();
-                            } else {
-                                frameImbalance += relativeVariantContent.length() - 1;
-                            }
-                            relativeVariantContent = relativeVariantContent.replace("-", "");
-                            variableSegmentNucleotides.append(relativeVariantContent);
-                            affectingVariants.add(variantContent);
-                        } else {
-                            variableSegmentNucleotides.append(referenceSequence.charAt(rpos - 1));
-                        }
-                        // System.out.println( rpos + "\t" + variableSegmentNucleotides.toString() + "\t" + isVariableSegment + "\t" + affectingVariants );
-                    }
-                    if (isVariableSegment) {
-                        if (variableSegmentNucleotides.length() % 3 == 0 && frameImbalance % 3 == 0) {
-                            // CASE: Frameshift resolved or no frameshift.
-                            inferVariableSegment(frameImbalance, variableSegmentStart, referenceAminoacidSequence, positionSuffix, variableSegmentNucleotides, variableSegmentAminoacids, proteoformVariableSegments, affectingVariants);
-                            // Reset all variables.
-                            frameImbalance = 0;
-                            variableSegmentStart = 0;
-                            isVariableSegment = false;
-                            variableSegmentNucleotides.setLength(0);
-                            variableSegmentAminoacids.setLength(0);
-                            affectingVariants = new ArrayList<>();
-                            positionSuffix = new StringBuilder();
-                        }
-                    } else {
-                        // Reset all variables.
-                        frameImbalance = 0;
-                        variableSegmentStart = 0;
-                        variableSegmentNucleotides.setLength(0);
-                        variableSegmentAminoacids.setLength(0);
-                        affectingVariants = new ArrayList<>();
-                        positionSuffix = new StringBuilder();
-                    }
-                }
-                // If after iterating over all positions the variable segment has not ended.
-                if (variableSegmentNucleotides.length() != 0) {
-                    // Pad with Ns in order to complete last codon.
-                    int padNs = 0;
-                    if (frameImbalance % 3 != 0) {
-                        padNs = (3 - (frameImbalance % 3));
-                        frameImbalance += padNs;
-                        variableSegmentNucleotides.append("N".repeat(padNs));
-                    }
-                    inferVariableSegment(frameImbalance, variableSegmentStart, referenceAminoacidSequence, positionSuffix, variableSegmentNucleotides, variableSegmentAminoacids, proteoformVariableSegments, affectingVariants);
-                }
-                return proteoformVariableSegments;
-            }
-        }
-        return new ArrayList<>();
-    }
-
-    /**
-     * @param frameImbalance
-     * @param variableSegmentStart
-     * @param referenceAminoacidSequence
-     * @param positionSuffix
-     * @param variableSegmentNucleotides
-     * @param variableSegmentAminoacids
-     * @param proteoformVariableSegments
-     * @param affectingVariants
-     * @throws MusialBioException
-     */
-    private static void inferVariableSegment(int frameImbalance, int variableSegmentStart, String referenceAminoacidSequence, StringBuilder positionSuffix, StringBuilder variableSegmentNucleotides, StringBuilder variableSegmentAminoacids, ArrayList<Triplet<String, String, ArrayList<String>>> proteoformVariableSegments, ArrayList<String> affectingVariants) throws MusialBioException {
-        String referenceSegmentSequence;
-        String variableSegmentSequence;
-        Function<Tuple<String, String>, String> extractVariableSegmentFromAlignment = (sa) -> {
-            StringBuilder variableSegmentSequenceBuilder = new StringBuilder();
-            char[] alignedReferenceSegmentCharacters;
-            char alignedReferenceSegmentCharacter;
-            char[] alignedVariableSegmentCharacters;
-            char alignedVariableSegmentCharacter;
-            alignedReferenceSegmentCharacters = sa.a.toCharArray();
-            alignedVariableSegmentCharacters = sa.b.toCharArray();
-            for (int i = 0; i < alignedVariableSegmentCharacters.length; i++) {
-                alignedReferenceSegmentCharacter = alignedReferenceSegmentCharacters[i];
-                alignedVariableSegmentCharacter = alignedVariableSegmentCharacters[i];
-                if (alignedReferenceSegmentCharacter == alignedVariableSegmentCharacter) {
-                    variableSegmentSequenceBuilder.append(Character.toLowerCase(alignedReferenceSegmentCharacter));
-                } else {
-                    variableSegmentSequenceBuilder.append(Character.toUpperCase(alignedVariableSegmentCharacter));
-                }
-            }
-            return variableSegmentSequenceBuilder.toString();
-        };
-        variableSegmentAminoacids
-                .append(Bio.translateNucSequence(variableSegmentNucleotides.toString(), true, true,
-                        true));
-        if (frameImbalance < 0) {
-            frameImbalance = frameImbalance * -1;
-            referenceSegmentSequence = referenceAminoacidSequence.substring(variableSegmentStart - 1, variableSegmentStart - 1 + variableSegmentAminoacids.length() + (frameImbalance / 3));
-            Triplet<Integer, String, String> segmentAlignment = Bio.globalAminoAcidSequenceAlignment(
-                    referenceSegmentSequence,
-                    variableSegmentAminoacids.toString(),
-                    5,
-                    4,
-                    GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID,
-                    GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE
-            );
-            variableSegmentSequence = extractVariableSegmentFromAlignment.apply(
-                    new Tuple<>(segmentAlignment.getValue1(), segmentAlignment.getValue2())
-            );
-        } else if (frameImbalance > 0) {
-            referenceSegmentSequence = referenceAminoacidSequence.substring(variableSegmentStart - 1, variableSegmentStart - 1 + variableSegmentAminoacids.length() - (frameImbalance / 3));
-            Triplet<Integer, String, String> segmentAlignment = Bio.globalAminoAcidSequenceAlignment(
-                    variableSegmentAminoacids.toString(),
-                    referenceSegmentSequence,
-                    5,
-                    4,
-                    GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID,
-                    GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE
-            );
-            // Infer positions at which insertions occur.
-            char[] alignedReferenceSegmentCharacters = segmentAlignment.getValue2().toCharArray();
-            ArrayList<String> insertionPositions = new ArrayList<>();
-            for (int i = 0; i < alignedReferenceSegmentCharacters.length; i++) {
-                if (alignedReferenceSegmentCharacters[i] == GAP) {
-                    insertionPositions.add(String.valueOf(i));
-                }
-            }
-            positionSuffix.append("+").append(String.join(",", insertionPositions));
-            variableSegmentSequence = extractVariableSegmentFromAlignment.apply(
-                    new Tuple<>(segmentAlignment.getValue2(), segmentAlignment.getValue1())
-            );
-        } else {
-            referenceSegmentSequence = referenceAminoacidSequence.substring(variableSegmentStart - 1, variableSegmentStart - 1 + variableSegmentAminoacids.length());
-            variableSegmentSequence = extractVariableSegmentFromAlignment.apply(
-                    new Tuple<>(referenceSegmentSequence, variableSegmentAminoacids.toString())
-            );
-        }
-        proteoformVariableSegments.add(new Triplet<>(
-                variableSegmentStart + positionSuffix.toString(),
-                variableSegmentSequence,
-                affectingVariants
-        ));
     }
 }

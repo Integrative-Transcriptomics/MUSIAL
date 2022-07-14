@@ -1,17 +1,32 @@
 package datastructure;
 
 import java.util.HashMap;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 
+/**
+ * Object used to store annotations for a single amino-acid variant.
+ *
+ * @author Simon Hackl
+ * @version 2.1
+ * @since 2.1
+ */
 public class AminoacidVariantAnnotationEntry {
 
-  public final HashMap<String, String> annotations = new HashMap<>();
+    /**
+     * {@link HashMap} of {@link String} key/value pairs specifying any information related to the variant.
+     */
+    public final HashMap<String, String> annotations = new HashMap<>();
 
-  public final ConcurrentSkipListSet<String> occurrence = new ConcurrentSkipListSet<>();
+    /**
+     * {@link ConcurrentSkipListSet} of {@link String}s indicating the occurrence of this variant.
+     */
+    public final ConcurrentSkipListSet<String> occurrence = new ConcurrentSkipListSet<>();
 
-  public AminoacidVariantAnnotationEntry() {
+    /**
+     * Constructor of {@link AminoacidVariantAnnotationEntry}.
+     */
+    public AminoacidVariantAnnotationEntry() {
 
-  }
+    }
 
 }

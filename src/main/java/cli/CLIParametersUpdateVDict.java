@@ -2,47 +2,37 @@ package cli;
 
 import com.google.gson.Gson;
 import com.google.gson.internal.LinkedTreeMap;
+import components.IO;
+import components.Logging;
+import components.Validation;
 import datastructure.FeatureEntry;
 import datastructure.SampleEntry;
-import datastructure.VariantsDictionary;
 import exceptions.MusialBioException;
 import exceptions.MusialCLException;
 import exceptions.MusialIOException;
+import exceptions.MusialIntegrityException;
+import main.Musial;
+import org.apache.commons.cli.*;
+import org.biojava.nbio.genome.parsers.gff.FeatureI;
+import org.biojava.nbio.genome.parsers.gff.FeatureList;
+import org.biojava.nbio.genome.parsers.gff.Location;
+import org.json.simple.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.reflect.Array;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.function.Consumer;
 
-import main.Musial;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-import org.biojava.nbio.genome.parsers.gff.FeatureI;
-import org.biojava.nbio.genome.parsers.gff.FeatureList;
-import org.biojava.nbio.genome.parsers.gff.Location;
-import org.json.simple.JSONObject;
-import utility.IO;
-import utility.Logging;
-import utility.Validation;
-
 /**
- * Parses command line interface arguments for the `MUSIAL generateVDict` module.
+ * Parses command line interface arguments for the `MUSIAL updateVDict` module.
  * <p>
  * Used to parse and validate passed command line options or print help information to the user. Parsed arguments are
  * stored to be accessible for other components of the tool.
@@ -56,7 +46,7 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
     /**
      * The unprocessed command line content passed by the user.
      */
-    public String[] ARGUMENTS = null;
+    public String[] ARGUMENTS;
     /**
      * Minimum (read) coverage in order to call a SNV.
      */
@@ -82,7 +72,7 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
      */
     public File referenceFASTA;
     /**
-     * TODO
+     * {@link File} object specifying the reference genome annotation .gff file.
      */
     public File referenceGFF;
     /**
@@ -102,7 +92,7 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
      */
     public File outputFile;
     /**
-     * TODO
+     * {@link FeatureList} object specifying parsed genome features.
      */
     private FeatureList referenceFeatures = null;
 
@@ -118,28 +108,27 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
      * @throws MusialIOException If any error occurs during input file validation.
      */
     public CLIParametersUpdateVDict(String[] args)
-            throws MusialCLException, MusialIOException, MusialBioException, FileNotFoundException {
+            throws MusialCLException, MusialIOException, MusialBioException, MusialIntegrityException {
         // Store original command line arguments.
         this.ARGUMENTS = args;
         // Initialize `Option` object with all parameters.
         Options options = new Options();
-        options.addOption(Option.builder("vds")
-                .longOpt("vDictSpec")
-                .desc("TODO")
+        options.addOption(Option.builder("C")
+                .longOpt("vDictConfig")
+                .desc("Path to .json file yielding the parameter and input configuration to build/update a variants dictionary. Please see github.com/Integrative-Transcriptomics/MUSIAL for more information.")
                 .hasArg()
                 .required()
                 .build());
-        options.addOption("d", "debug", false, "Enables debug mode, i.e. stacktrace is printed when errors occur. [false]");
+        // options.addOption("d", "debug", false, "Enables debug mode, i.e. stacktrace is printed when errors occur. [false]");
         // Instantiate a formatter for the help message and a default command line parser.
         HelpFormatter helpformatter = new HelpFormatter();
         CommandLineParser parser = new DefaultParser();
         Consumer<Options> checkHelp = (Options checkOptions) -> {
-            try {
-                parser.parse(checkOptions, args);
-            } catch (ParseException e) {
-                printHelp(options, helpformatter);
-                System.out.println();
-                Logging.logError(e.getMessage());
+            for (String arg : args) {
+                if (Objects.equals(arg, "-h") || Objects.equals(arg, "--help") || Objects.equals(arg, "h") || Objects.equals(arg, "help")) {
+                    printHelp(options, helpformatter);
+                    System.exit(0);
+                }
             }
         };
         // If `-h`/`--help` was specified with other options apply the same behaviour.
@@ -154,15 +143,15 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
             try (
                     BufferedReader bufferedReader = new BufferedReader(
                             new InputStreamReader(
-                                    Files.newInputStream(Path.of(cmd.getOptionValue("vds"))),
-                                    StandardCharsets.UTF_8)
-                    );
+                                    Files.newInputStream(Path.of(cmd.getOptionValue("C"))), StandardCharsets.UTF_8
+                            )
+                    )
             ) {
                 Gson gson = new Gson();
                 parameters = gson.fromJson(bufferedReader, JSONObject.class);
             } catch (Exception e) {
                 throw new MusialCLException(
-                        "Failed to read variants dictionary specification " + cmd.getOptionValue("vds") + ": " + e.getMessage());
+                        "Failed to read variants dictionary specification " + cmd.getOptionValue("C") + ": " + e.getMessage());
             }
             // Parse minCoverage
             if (Validation.isPositiveDouble(String.valueOf(parameters.get("minCoverage")))) {
@@ -261,7 +250,7 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
                 //noinspection rawtypes
                 featureEntry = (LinkedTreeMap) features.get(featureKey);
                 File featurePdbFile;
-                if ( featureEntry.containsKey("pdbFile") ) {
+                if (featureEntry.containsKey("pdbFile")) {
                     featurePdbFile = new File((String) featureEntry.get("pdbFile"));
                     if (featureEntry.get("pdbFile") != null && !Validation.isFile(featurePdbFile)) {
                         throw new MusialCLException("Failed to access specified `pdb` file for feature " + featureKey + " " + featurePdbFile);
@@ -283,44 +272,37 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
     }
 
     /**
-     * Populates the {@link CLIParametersUpdateVDict} sampleInput and sampleNames property.
-     * <p>
-     * If the passed {@link File} object points to a file, the properties are populated using the content from this file.
-     * The {@link File} object is expected to contain per line: A path to a .vcf file and optional
-     * comma-separated a sample name.
-     * <p>
-     * If the passed {@link File} object points to a directory, the directory and all its sub-directories are searched
-     * for .vcf files which are used as sample input.
+     * Adds sample information in the form of a {@link SampleEntry}.
      *
-     * @param file A {@link File} pointing to a .txt file specifying the sample input or a directory.
-     * @throws MusialIOException If the passed file does not exist, has no content or no read permission.
+     * @param name        {@link String}; The internal name to use for the sample.
+     * @param vcfFile     {@link File} object pointing to a .vcf format file.
+     * @param annotations {@link java.util.HashMap} of {@link String} key/pair values; sample meta information.
+     * @throws MusialIOException If the specified .vcf file does not exist or can not be accessed.
      */
-    private void addSample(String name, File file, Map<String, String> annotations) throws MusialIOException {
-        if (file.isFile()) {
-            SampleEntry sampleEntry = new SampleEntry(file, name);
-            for (Map.Entry<String, String> annotation : annotations.entrySet()) {
-                sampleEntry.annotations.put(annotation.getKey(), annotation.getValue());
-            }
+    private void addSample(String name, File vcfFile, Map<String, String> annotations) throws MusialIOException {
+        if (vcfFile.isFile()) {
+            SampleEntry sampleEntry = new SampleEntry(vcfFile, name);
+            sampleEntry.annotations.putAll(annotations);
             this.samples.put(name, sampleEntry);
         } else {
             throw new MusialIOException(
-                    "Specified sample input file does not exist or has no read permission:\t" + file.getAbsolutePath());
+                    "Specified sample input file does not exist or has no read permission:\t" + vcfFile.getAbsolutePath());
         }
     }
 
     /**
      * TODO
      *
-     * @param name
-     * @param geneName
-     * @param file
-     * @param annotations
-     * @throws MusialIOException
-     * @throws MusialCLException
-     * @throws MusialBioException
+     * @param name        {@link String}; The internal name to use for the feature.
+     * @param featureName {@link String}; The value of the NAME attribute in the specified .gff format reference annotation to match the feature from.
+     * @param pdbFile     {@link File}; Optional object pointing to a .pdb format file yielding a protein structure derived for the (gene) feature.
+     * @param annotations {@link java.util.HashMap} of {@link String} key/pair values; feature meta information.
+     * @throws MusialIOException        If the specified .gff reference annotation or .pdb protein file can not be read.
+     * @throws MusialBioException       If the initialization of the {@link FeatureEntry} fails.
+     * @throws MusialIntegrityException If the specified feature is not found or parsed multiple times from the reference annotation.
      */
-    private void addFeature(String name, String geneName, File file, Map<String, String> annotations)
-            throws MusialIOException, MusialCLException, MusialBioException {
+    private void addFeature(String name, String featureName, File pdbFile, Map<String, String> annotations)
+            throws MusialIOException, MusialIntegrityException, MusialBioException {
         if (this.referenceFeatures == null) {
             try {
                 this.referenceFeatures = IO.readGFF(this.referenceGFF);
@@ -330,35 +312,33 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
                                 e.getMessage());
             }
         }
-        FeatureList matchedFeatures = this.referenceFeatures.selectByAttribute("Name", geneName);
+        FeatureList matchedFeatures = this.referenceFeatures.selectByAttribute("Name", featureName);
         if (matchedFeatures.size() == 0) {
-            throw new MusialCLException("Feature " + geneName + " not found in the specified reference genome annotation.");
+            throw new MusialIntegrityException("Feature " + featureName + " not found in the specified reference genome annotation.");
         } else if (matchedFeatures.size() > 1) {
-            throw new MusialCLException("Feature " + geneName + " found more than once in the specified reference genome " +
+            throw new MusialIntegrityException("Feature " + featureName + " found more than once in the specified reference genome " +
                     "annotation.");
-        } else if (this.features.containsKey(geneName)) {
-            throw new MusialCLException("Feature " + geneName + " was specified multiple times.");
+        } else if (this.features.containsKey(featureName)) {
+            throw new MusialIntegrityException("Feature " + featureName + " was specified multiple times.");
         } else {
             FeatureI matchedFeature = matchedFeatures.get(0);
             Location featureCoordinates = matchedFeature.location();
             String featureParentSequence = matchedFeature.seqname();
-      /* FIXME: Starting positions are shifted by minus one, i.e. the returned values do not match with the ones of
-          the `gff` files. This is currently fixed in the FeatureEntry.java class.
-       */
+          /* FIXME: Starting positions are shifted by minus one, i.e. the returned values do not match with the ones of
+              the `gff` files. This is currently fixed in the FeatureEntry.java class.
+           */
             FeatureEntry featureEntry = new FeatureEntry(name, featureParentSequence, featureCoordinates.getBegin(),
                     featureCoordinates.getEnd());
-            featureEntry.annotations.put("geneName", geneName);
-            for (Map.Entry<String, String> annotationEntry : annotations.entrySet()) {
-                featureEntry.annotations.put(annotationEntry.getKey(), annotationEntry.getValue());
-            }
+            featureEntry.annotations.put("geneName", featureName);
+            featureEntry.annotations.putAll(annotations);
             this.features.put(name, featureEntry);
         }
-        if (file != null && file.exists()) {
-            if (Validation.isFile(file)) {
-                this.features.get(name).pdbFile = file;
+        if (pdbFile != null && pdbFile.exists()) {
+            if (Validation.isFile(pdbFile)) {
+                this.features.get(name).pdbFile = pdbFile;
             } else {
                 throw new MusialIOException(
-                        "Specified feature `PDB` file " + file.getAbsolutePath() + " does not exist or has no read permission.");
+                        "Specified feature `PDB` file " + pdbFile.getAbsolutePath() + " does not exist or has no read permission.");
             }
         }
     }

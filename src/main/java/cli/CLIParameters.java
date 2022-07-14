@@ -1,6 +1,5 @@
 package cli;
 
-import java.lang.reflect.Array;
 import main.Musial;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
@@ -16,14 +15,14 @@ import org.apache.commons.cli.Options;
  */
 public interface CLIParameters {
 
-  /**
-   * Print help information for command line interface arguments.
-   *
-   * @param options       The specified command line interface {@link Options}.
-   * @param helpFormatter A {@link HelpFormatter} for displaying help information.
-   */
-  default void printHelp(Options options, HelpFormatter helpFormatter) {
-    helpFormatter.printHelp("java -jar MUSIAL-" + Musial.VERSION + ".jar generateVDict", options);
-  }
+    /**
+     * Print help information for command line interface arguments.
+     *
+     * @param options       The specified command line interface {@link Options}.
+     * @param helpFormatter A {@link HelpFormatter} for displaying help information.
+     */
+    default void printHelp(Options options, HelpFormatter helpFormatter) {
+        helpFormatter.printHelp("java -jar MUSIAL-" + Musial.VERSION + ".jar generateVDict", options);
+    }
 
 }
