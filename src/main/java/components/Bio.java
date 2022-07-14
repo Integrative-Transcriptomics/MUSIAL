@@ -1,6 +1,8 @@
 package utility;
 
 import com.google.common.base.Splitter;
+import com.google.errorprone.annotations.Var;
+import datastructure.AllocatedProteinEntry;
 import datastructure.FeatureEntry;
 import datastructure.VariantsDictionary;
 import exceptions.MusialBioException;
@@ -11,10 +13,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import htsjdk.samtools.util.Tuple;
 import org.checkerframework.checker.units.qual.A;
 import org.javatuples.Triplet;
 
@@ -61,7 +67,7 @@ public final class Bio {
     /**
      * One-letter code character used to indicate the deletion of an amino-acid.
      */
-    public static final char DELETION_AA1 = '~';
+    public static final char DELETION_AA1 = '-';
     /**
      * Three-letter code string used to indicate the deletion of an amino-acid.
      */
@@ -600,9 +606,17 @@ public final class Bio {
         return new Triplet<>(alignmentScore, seq1Builder.toString(), seq2Builder.toString());
     }
 
-    public static ArrayList<String> getVariantsOfAlignedSequences(String referenceSequence,
-                                                                  String variantSequence,
-                                                                  String variantStringPrefix) {
+    /**
+     * FIXME
+     *
+     * @param referenceSequence
+     * @param variantSequence
+     * @param variantStringPrefix
+     * @return
+     */
+    private static ArrayList<String> getVariantsOfAlignedSequences(String referenceSequence,
+                                                                   String variantSequence,
+                                                                   String variantStringPrefix) {
         ArrayList<String> variants = new ArrayList<>();
         StringBuilder variantBuilder = new StringBuilder();
         StringBuilder referenceBuilder = new StringBuilder();
@@ -710,7 +724,75 @@ public final class Bio {
                 "");
     }
 
-    public static ArrayList<Triplet<String, String, ArrayList<String>>> inferProteoform(
+    public static ConcurrentSkipListMap<String, String> inferProteoform(
+            VariantsDictionary variantsDictionary, String fId, String sId)
+            throws MusialBioException {
+        String sampleNucleotideSequence = variantsDictionary.getNucleotideSequence(fId, sId);
+        Function<Triplet<Integer, String, String>, ConcurrentSkipListMap<String, String>> extractVariantsFromAlignment = (sa) -> {
+            ConcurrentSkipListMap<String, String> variants = new ConcurrentSkipListMap<>((s1, s2) -> {
+                int p1 = Integer.parseInt(s1.split("\\+")[0]);
+                int p2 = Integer.parseInt(s2.split("\\+")[0]);
+                if (p1 != p2) {
+                    return Integer.compare(p1, p2);
+                } else {
+                    String c1 = s1.split("\\+")[1];
+                    String c2 = s2.split("\\+")[1];
+                    return c1.compareTo(c2);
+                }
+            });
+            char[] alignedReferenceCharacters;
+            char alignedReferenceCharacter;
+            char[] alignedSampleCharacters;
+            char alignedSampleCharacter;
+            alignedReferenceCharacters = sa.getValue1().toCharArray();
+            alignedSampleCharacters = sa.getValue2().toCharArray();
+            int consecutiveInsertionCount = 0;
+            int totalInsertionCount = 0;
+            for (int i = 0; i < alignedSampleCharacters.length; i++) {
+                alignedReferenceCharacter = alignedReferenceCharacters[i];
+                alignedSampleCharacter = alignedSampleCharacters[i];
+                if (alignedReferenceCharacter != alignedSampleCharacter) {
+                    if (alignedSampleCharacter == Bio.DELETION_AA1) {
+                        // CASE: Deletion in sample sequence.
+                        consecutiveInsertionCount = 0;
+                    } else if (alignedReferenceCharacter == Bio.DELETION_AA1) {
+                        // CASE: Insertion in sample.
+                        consecutiveInsertionCount++;
+                        totalInsertionCount++;
+                    } else {
+                        // CASE: Substitution in sample.
+                        consecutiveInsertionCount = 0;
+                    }
+                    variants.put(i - totalInsertionCount + 1 + "+" + consecutiveInsertionCount, String.valueOf(alignedSampleCharacter));
+                }
+            }
+            return variants;
+        };
+        if (variantsDictionary.features.get(fId).allocatedProtein != null
+                && !sId.equals(VariantsDictionary.WILD_TYPE_SAMPLE_ID)
+                && sampleNucleotideSequence != null) {
+            sampleNucleotideSequence = sampleNucleotideSequence.replace("-", "");
+            FeatureEntry featureEntry = variantsDictionary.features.get(fId);
+            String referenceProteinSequence = Bio.translateNucSequence(featureEntry.nucleotideSequence, true, true, featureEntry.isSense);
+            String sampleProteinSequence = Bio.translateNucSequence(sampleNucleotideSequence, true, true, featureEntry.isSense);
+            int alignmentLength = Math.max(referenceProteinSequence.length(), sampleProteinSequence.length());
+            // int imbalance = sampleProteinSequence.length() - referenceProteinSequence.length();
+            Triplet<Integer, String, String> sa = Bio.globalAminoAcidSequenceAlignment(
+                    referenceProteinSequence,
+                    sampleProteinSequence,
+                    alignmentLength * 4,
+                    alignmentLength * 4,
+                    GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID,
+                    GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE
+            );
+
+            return extractVariantsFromAlignment.apply(sa);
+        } else {
+            return new ConcurrentSkipListMap<>();
+        }
+    }
+
+    public static ArrayList<Triplet<String, String, ArrayList<String>>> inferProteoform_Old(
             VariantsDictionary variantsDictionary, String fId, String sId)
             throws MusialBioException {
         if (variantsDictionary.features.get(fId).allocatedProtein != null) {
@@ -751,6 +833,9 @@ public final class Bio {
                                     variantPosition + "|" + effectAnnotation.split("\\|")[0]
                     );
                 }
+                //System.out.println( );
+                //System.out.println( sId );
+                //System.out.println( sampleVariantsMap );
                 /*
                 2. Part: Iterate (codon wise) over reference sequence and infer variable segments.
                  */
@@ -790,6 +875,7 @@ public final class Bio {
                         } else {
                             variableSegmentNucleotides.append(referenceSequence.charAt(rpos - 1));
                         }
+                        // System.out.println( rpos + "\t" + variableSegmentNucleotides.toString() + "\t" + isVariableSegment + "\t" + affectingVariants );
                     }
                     if (isVariableSegment) {
                         if (variableSegmentNucleotides.length() % 3 == 0 && frameImbalance % 3 == 0) {
@@ -805,7 +891,13 @@ public final class Bio {
                             positionSuffix = new StringBuilder();
                         }
                     } else {
+                        // Reset all variables.
+                        frameImbalance = 0;
+                        variableSegmentStart = 0;
                         variableSegmentNucleotides.setLength(0);
+                        variableSegmentAminoacids.setLength(0);
+                        affectingVariants = new ArrayList<>();
+                        positionSuffix = new StringBuilder();
                     }
                 }
                 // If after iterating over all positions the variable segment has not ended.
@@ -837,36 +929,56 @@ public final class Bio {
      * @throws MusialBioException
      */
     private static void inferVariableSegment(int frameImbalance, int variableSegmentStart, String referenceAminoacidSequence, StringBuilder positionSuffix, StringBuilder variableSegmentNucleotides, StringBuilder variableSegmentAminoacids, ArrayList<Triplet<String, String, ArrayList<String>>> proteoformVariableSegments, ArrayList<String> affectingVariants) throws MusialBioException {
-        String referenceSegment;
+        String referenceSegmentSequence;
         String variableSegmentSequence;
-        char[] alignedReferenceSegmentCharacters;
+        Function<Tuple<String, String>, String> extractVariableSegmentFromAlignment = (sa) -> {
+            StringBuilder variableSegmentSequenceBuilder = new StringBuilder();
+            char[] alignedReferenceSegmentCharacters;
+            char alignedReferenceSegmentCharacter;
+            char[] alignedVariableSegmentCharacters;
+            char alignedVariableSegmentCharacter;
+            alignedReferenceSegmentCharacters = sa.a.toCharArray();
+            alignedVariableSegmentCharacters = sa.b.toCharArray();
+            for (int i = 0; i < alignedVariableSegmentCharacters.length; i++) {
+                alignedReferenceSegmentCharacter = alignedReferenceSegmentCharacters[i];
+                alignedVariableSegmentCharacter = alignedVariableSegmentCharacters[i];
+                if (alignedReferenceSegmentCharacter == alignedVariableSegmentCharacter) {
+                    variableSegmentSequenceBuilder.append(Character.toLowerCase(alignedReferenceSegmentCharacter));
+                } else {
+                    variableSegmentSequenceBuilder.append(Character.toUpperCase(alignedVariableSegmentCharacter));
+                }
+            }
+            return variableSegmentSequenceBuilder.toString();
+        };
         variableSegmentAminoacids
                 .append(Bio.translateNucSequence(variableSegmentNucleotides.toString(), true, true,
                         true));
         if (frameImbalance < 0) {
             frameImbalance = frameImbalance * -1;
-            referenceSegment = referenceAminoacidSequence.substring(variableSegmentStart - 1, variableSegmentStart - 1 + variableSegmentAminoacids.length() + (frameImbalance / 3));
+            referenceSegmentSequence = referenceAminoacidSequence.substring(variableSegmentStart - 1, variableSegmentStart - 1 + variableSegmentAminoacids.length() + (frameImbalance / 3));
             Triplet<Integer, String, String> segmentAlignment = Bio.globalAminoAcidSequenceAlignment(
-                    referenceSegment,
+                    referenceSegmentSequence,
                     variableSegmentAminoacids.toString(),
                     5,
                     4,
                     GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID,
                     GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE
             );
-            variableSegmentSequence = segmentAlignment.getValue2();
+            variableSegmentSequence = extractVariableSegmentFromAlignment.apply(
+                    new Tuple<>(segmentAlignment.getValue1(), segmentAlignment.getValue2())
+            );
         } else if (frameImbalance > 0) {
-            referenceSegment = referenceAminoacidSequence.substring(variableSegmentStart - 1, variableSegmentStart - 1 + variableSegmentAminoacids.length() - (frameImbalance / 3));
+            referenceSegmentSequence = referenceAminoacidSequence.substring(variableSegmentStart - 1, variableSegmentStart - 1 + variableSegmentAminoacids.length() - (frameImbalance / 3));
             Triplet<Integer, String, String> segmentAlignment = Bio.globalAminoAcidSequenceAlignment(
                     variableSegmentAminoacids.toString(),
-                    referenceSegment,
+                    referenceSegmentSequence,
                     5,
                     4,
                     GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID,
                     GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE
             );
             // Infer positions at which insertions occur.
-            alignedReferenceSegmentCharacters = segmentAlignment.getValue2().toCharArray();
+            char[] alignedReferenceSegmentCharacters = segmentAlignment.getValue2().toCharArray();
             ArrayList<String> insertionPositions = new ArrayList<>();
             for (int i = 0; i < alignedReferenceSegmentCharacters.length; i++) {
                 if (alignedReferenceSegmentCharacters[i] == GAP) {
@@ -874,9 +986,14 @@ public final class Bio {
                 }
             }
             positionSuffix.append("+").append(String.join(",", insertionPositions));
-            variableSegmentSequence = variableSegmentAminoacids.toString();
+            variableSegmentSequence = extractVariableSegmentFromAlignment.apply(
+                    new Tuple<>(segmentAlignment.getValue2(), segmentAlignment.getValue1())
+            );
         } else {
-            variableSegmentSequence = variableSegmentAminoacids.toString();
+            referenceSegmentSequence = referenceAminoacidSequence.substring(variableSegmentStart - 1, variableSegmentStart - 1 + variableSegmentAminoacids.length());
+            variableSegmentSequence = extractVariableSegmentFromAlignment.apply(
+                    new Tuple<>(referenceSegmentSequence, variableSegmentAminoacids.toString())
+            );
         }
         proteoformVariableSegments.add(new Triplet<>(
                 variableSegmentStart + positionSuffix.toString(),

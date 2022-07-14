@@ -1,5 +1,5 @@
 /**
- * Comprises the main components of MUSIAL, i.e. each class implements the procedure for a major step in the MUSIAL
- * analysis-pipeline.
+ * Comprises classes that mainly implement static methods, which are used not by a single component of MUSIAL but
+ * through the whole analysis pipeline.
  */
-package components;
+package utility;
