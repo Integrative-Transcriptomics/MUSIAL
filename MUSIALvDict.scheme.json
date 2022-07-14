@@ -106,7 +106,7 @@
                   "description": "Proteoforms with respect to the translated (coding gene) feature nucleotide sequence. Keys used to store proteoforms represent a hash encoding of the proteoforms sequence concatenated with `x` and the percentage of alternate positions wrt. the reference.",
                   "type": "object",
                   "patternProperties": {
-                    "^[-]?[0-9]+x[0-1]{1}\\.[0-9]{2}$": {
+                    "^PF[0-9]{11}$": {
                       "description": "Information about a single proteoform allocated to exactly one (coding gene) feature stored as `object`.",
                       "type": "object",
                       "properties": {
@@ -121,7 +121,7 @@
                             "vSwab": {
                               "description": "String representation of all variants occuring in this proteoform.",
                               "type": "string",
-                              "pattern": "(^$)|(^[ARNDCEQGHILKMFPSTWYVX*-]+@[0-9]+(-|\\+)[0-9](\\|[ARNDCEQGHILKMFPSTWYVX*-]+@[0-9]+(-|\\+)[0-9])*$)"
+                              "pattern": "(^$)|(^[ARNDCEQGHILKMFPSTWYVX*-]{1}@[0-9]+(\\+)[0-9]+(\\|[ARNDCEQGHILKMFPSTWYVX*-]{1}@[0-9]+(\\+)[0-9]+)*$)"
                             }
                           },
                           "additionalProperties": {
@@ -155,11 +155,11 @@
                   "description": "Information about amino acid variants stored in a nested object structure.",
                   "type": "object",
                   "patternProperties": {
-                    "^[0-9]+(\\+|-)[0.9]+$": {
-                      "description": "The position of the variant/mutation on the protein sequence concatenated with how many positions are added (+) or removed (-) by this mutation.",
+                    "^[0-9]+[0-9]+$": {
+                      "description": "The position of the variant/mutation on the protein sequence concatenated with the insertion position by this mutation.",
                       "type": "object",
                       "patternProperties": {
-                        "^[ARNDCEQGHILKMFPSTWYVX*]+$": {
+                        "^[ARNDCEQGHILKMFPSTWYVX*-]{1}$": {
                           "description": "The alternate amino acid sequence of the variant. May include `-` for gaps and stores the content of the `position` inclusively.",
                           "type": "object",
                           "properties": {
