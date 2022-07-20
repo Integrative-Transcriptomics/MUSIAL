@@ -118,7 +118,7 @@
                           "description": "Any `string` type key/value pairs yielding meta-information about the feature.",
                           "type": "object",
                           "properties": {
-                            "vSwab": {
+                            "VSWAB": {
                               "description": "String representation of all variants occuring in this proteoform.",
                               "type": "string",
                               "pattern": "(^$)|(^[ARNDCEQGHILKMFPSTWYVX*-]{1}@[0-9]+(\\+)[0-9]+(\\|[ARNDCEQGHILKMFPSTWYVX*-]{1}@[0-9]+(\\+)[0-9]+)*$)"
@@ -129,7 +129,7 @@
                             "type": "string"
                           },
                           "required": [
-                            "vSwab"
+                            "VSWAB"
                           ]
                         },
                         "samples": {
@@ -252,8 +252,8 @@
               "description": "Any `string` type key/value pairs yielding meta-information about the sample.",
               "type": "object",
               "patternProperties": {
-                "^.+vSwab$": {
-                  "description": "String representation of all variants occuring in this sample. Keys have to match #vSwab where # is the internal name of any stored feature.",
+                "^.+_VSWAB$": {
+                  "description": "String representation of all variants occuring in this sample. Keys have to match #_VSWAB where # is the internal name of any stored feature.",
                   "type": "string",
                   "pattern": "(^$)|(^[ACGTN-]+@[0-9]+(\\|[ACGTN-]+@[0-9]+)*$)"
                 }
@@ -298,13 +298,6 @@
                 "annotations": {
                   "description": "Any `string` type key/value pairs yielding meta-information about the variant.",
                   "type": "object",
-                  "patternProperties": {
-                    "^.+_EFF$": {
-                      "description": "Special annotation property reflecting the `|` separated fields Annotation, Putative_impact, and HGVS.p coding of a SnpEff annotation. Keys have to match #_EFF where # is the value of a `annotations`/`geneName` property of any stored feature.",
-                      "type": "string",
-                      "pattern": "^.+\\|(HIGH|MODERATE|LOW|MODIFIER)\\|p\\..*$"
-                    }
-                  },
                   "additionalProperties": {
                     "description": "Additional meta-information about the variant.",
                     "type": "string"
