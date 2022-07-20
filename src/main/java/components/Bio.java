@@ -23,13 +23,21 @@ import java.util.function.Function;
 public final class Bio {
 
     /**
-     * Enum to store different modes to handle prefix gaps for global sequence alignment:
-     * - FREE: Gaps at the end are not penalized.
-     * - PENALIZED: Gaps at the end are penalized normally.
-     * - FORBID: Gaps at the end are not allowed.
+     * Enum to store different modes to handle prefix gaps for global sequence alignment.
      */
     public enum GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES {
-        FREE, PENALIZE, FORBID
+        /**
+         * Gaps at the end are not penalized.
+         */
+        FREE,
+        /**
+         * Gaps at the end are penalized normally.
+         */
+        PENALIZE,
+        /**
+         * Gaps at the end are not allowed.
+         */
+        FORBID
     }
 
     /**
@@ -356,7 +364,7 @@ public final class Bio {
     }
 
     /**
-     * Invokes the {@link Bio:globalSequenceAlignment} method with pre-specified parameters for nucleotide sequence
+     * Invokes the {@link Bio#globalSequenceAlignment} method with pre-specified parameters for nucleotide sequence
      * alignment.
      * <p>
      * - Uses a simple substitution matrix that scores matches with 1 and mismatches with -1.
@@ -391,7 +399,7 @@ public final class Bio {
     }
 
     /**
-     * Invokes the {@link Bio:globalSequenceAlignment} method with pre-specified parameters for amino-acid sequence
+     * Invokes the {@link Bio#globalSequenceAlignment} method with pre-specified parameters for amino-acid sequence
      * alignment.
      * <p>
      * - Uses the PAM120 substitution matrix.
@@ -694,9 +702,9 @@ public final class Bio {
      * including the content at the variant position.
      *
      * @param variantsDictionary {@link VariantsDictionary} instance which content is used to infer proteoform information.
-     * @param fId                {@link String} specifying the {@link FeatureEntry:name} of the feature to which respect
+     * @param fId                {@link String} specifying the {@link FeatureEntry#name} of the feature to which respect
      *                           the sample proteoform should be inferred.
-     * @param sId                {@link String} specifying the {@link datastructure.SampleEntry:name} of the sample of
+     * @param sId                {@link String} specifying the {@link datastructure.SampleEntry#name} of the sample of
      *                           which the proteoform should be inferred.
      * @return {@link ConcurrentSkipListMap} mapping positions to variant contents.
      * @throws MusialBioException If any translation procedure of nucleotide sequences fails.

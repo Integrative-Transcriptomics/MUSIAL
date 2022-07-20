@@ -103,9 +103,11 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
      * components - via class properties.
      *
      * @param args {@link String} {@link Array} containing the command line arguments.
-     * @throws MusialCLException If any error occurs during parsing or validating an
-     *                           {@link MusialCLException} is thrown.
-     * @throws MusialIOException If any error occurs during input file validation.
+     * @throws MusialCLException        If any error occurs during parsing or validating an
+     *                                  {@link MusialCLException} is thrown.
+     * @throws MusialIOException        If any error occurs during input file validation.
+     * @throws MusialBioException       If any bioinformatics algorithmic procedure applied during updating fails.
+     * @throws MusialIntegrityException If any feature to add during updating yields wrong coordinates.
      */
     public CLIParametersUpdateVDict(String[] args)
             throws MusialCLException, MusialIOException, MusialBioException, MusialIntegrityException {
@@ -272,7 +274,7 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
     }
 
     /**
-     * Adds sample information in the form of a {@link SampleEntry}.
+     * Initializes a {@link SampleEntry} object with the specified parameters and adds it to the features list.
      *
      * @param name        {@link String}; The internal name to use for the sample.
      * @param vcfFile     {@link File} object pointing to a .vcf format file.
@@ -291,7 +293,7 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
     }
 
     /**
-     * TODO
+     * Initializes a {@link FeatureEntry} object with the specified parameters and adds it to the features list.
      *
      * @param name        {@link String}; The internal name to use for the feature.
      * @param featureName {@link String}; The value of the NAME attribute in the specified .gff format reference annotation to match the feature from.

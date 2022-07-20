@@ -2,7 +2,10 @@ package main;
 
 import cli.CLIParameters;
 import cli.CLIParametersUpdateVDict;
-import components.*;
+import components.Bio;
+import components.IO;
+import components.Logging;
+import components.VariantsDictionaryFactory;
 import datastructure.FastaContainer;
 import datastructure.FeatureEntry;
 import datastructure.SampleEntry;
@@ -17,8 +20,6 @@ import me.tongfei.progressbar.ProgressBarStyle;
 import runnables.SampleAnalyzerRunnable;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -89,6 +90,10 @@ public final class Musial {
      * Number of threads to use.
      */
     public static int THREADS = 1;
+    /**
+     * Whether to compress output files.
+     */
+    public static boolean COMPRESS = true;
 
     /**
      * Main method of MUSIAL; loads meta-information and invokes methods dependent on the user specified module.
@@ -123,9 +128,7 @@ public final class Musial {
                 case updateVDict -> runUpdateVDict((CLIParametersUpdateVDict) arguments);
             }
         } catch (Exception e) {
-            if (DEBUG) {
-                e.printStackTrace();
-            }
+            e.printStackTrace();
             Logging.logError(e.getMessage());
         }
     }
@@ -178,8 +181,10 @@ public final class Musial {
      *
      * @param args Arguments parsed from the command line.
      * @return An instance of the {@link CLIParametersUpdateVDict} class.
-     * @throws MusialCLException Catches exceptions from {@link CLIParametersUpdateVDict} class.
-     * @throws MusialIOException Catches exceptions from {@link CLIParametersUpdateVDict} class.
+     * @throws MusialCLException        See documentation of {@link CLIParametersUpdateVDict} class.
+     * @throws MusialIOException        See documentation of {@link CLIParametersUpdateVDict} class.
+     * @throws MusialBioException       See documentation of {@link CLIParametersUpdateVDict} class.
+     * @throws MusialIntegrityException See documentation of {@link CLIParametersUpdateVDict} class.
      */
     private static CLIParameters parseCLIArguments(String[] args)
             throws MusialCLException, MusialIOException, MusialBioException, MusialIntegrityException {

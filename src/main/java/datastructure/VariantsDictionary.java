@@ -2,24 +2,22 @@ package datastructure;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import exceptions.MusialBioException;
+import components.Bio;
 import exceptions.MusialIOException;
+import main.Musial;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
-
-import main.Musial;
-import components.Bio;
+import java.util.zip.GZIPOutputStream;
 
 /**
- * TODO
+ * Main data structure to store information about variants.
  *
  * @author Simon Hackl
  * @version 2.1
@@ -27,28 +25,51 @@ import components.Bio;
  */
 public class VariantsDictionary {
 
+    /**
+     * Set of parameters, a {@link VariantsDictionaryParameters} instance, used for variant filtering.
+     */
     public final VariantsDictionaryParameters parameters;
-
+    /**
+     * Map of {@link String} (key) / {@link FeatureEntry} (value) pairs; All (gene) features that are maintained.
+     */
     public final HashMap<String, FeatureEntry> features = new HashMap<>();
-
+    /**
+     * Map of {@link String} (key) / {@link SampleEntry} (value) pairs; All samples that are maintained.
+     */
     public final HashMap<String, SampleEntry> samples = new HashMap<>();
-
+    /**
+     * Software name for software version meta-information generation.
+     */
     @SuppressWarnings("unused")
     public final String software = Musial.NAME + Musial.VERSION;
-
+    /**
+     * Date tag for time stamp generation.
+     */
     @SuppressWarnings("unused")
     public final String date = new SimpleDateFormat("dd/MM/yyyy").format(new Date());
-
+    /**
+     * The chromosome name on which all maintained {@link VariantsDictionary#features} are located.
+     */
     public final String chromosome;
-
+    /**
+     * Hierarchical map structure to store variants wrt. maintained features and samples. The first layer represents the
+     * position on the chromosome. The second layer represents the variant content.
+     */
     public final ConcurrentSkipListMap<Integer, ConcurrentSkipListMap<String, NucleotideVariantAnnotationEntry>>
             variants =
             new ConcurrentSkipListMap<>(Integer::compare);
-
+    /**
+     * Static property to use as the sample name/id for the wild type.
+     * TODO: Move to separate class with other attribute names.
+     */
     public final static String WILD_TYPE_SAMPLE_ID = "WildType";
-
+    /**
+     * Static property to use as suffix for the 'VSWAB' annotation key in {@link FeatureEntry}s and {@link SampleEntry}s.
+     */
     public final static String ATTRIBUTE_VARIANT_SWAB_NAME = "_VSWAB";
-
+    /**
+     * Transient property to store novel variants during the execution of the updateVDict module/task.
+     */
     public transient ConcurrentSkipListSet<String> novelVariants = new ConcurrentSkipListSet<>((s1, s2) -> {
         int p1 = Integer.parseInt(s1.split("@")[0]);
         int p2 = Integer.parseInt(s2.split("@")[0]);
@@ -61,12 +82,41 @@ public class VariantsDictionary {
         }
     });
 
+    /**
+     * Constructor of {@link VariantsDictionary}.
+     *
+     * @param minCoverage  {@link Double}; Minimal read coverage to use for variant filtering.
+     * @param minFrequency {@link Double}; Minimal allele frequency to use for hom. variant filtering.
+     * @param minHet       {@link Double}; Minimal allele frequency to use for het. variant filtering.
+     * @param maxHet       {@link Double}; Maximal allele frequency to use for het. variant filtering.
+     * @param minQuality   {@link Double}; Minimal Phred scaled genotyping call quality to use for variant filtering.
+     * @param chromosome   {@link String}; Name of the chromosome on which maintained {@link FeatureEntry}s are located;
+     *                     Has to reflect the value in the used input .vcf, .fasta and .gff files.
+     */
     public VariantsDictionary(Double minCoverage, Double minFrequency, Double minHet, Double maxHet, Double minQuality,
                               String chromosome) {
         this.parameters = new VariantsDictionaryParameters(minCoverage, minFrequency, minHet, maxHet, minQuality);
         this.chromosome = chromosome;
     }
 
+    /**
+     * Adds information about a variant to {@link VariantsDictionary#variants}.
+     *
+     * @param featureId         {@link String}; The internal name of the feature for which this variant was detected.
+     * @param referencePosition {@link Integer}; The position on the reference chromosome (1-based indexing).
+     * @param variantContent    {@link String}; The alternate content of the variant; Single letter contents reflect
+     *                          SNVs, multi letter contents reflect SVs.
+     * @param referenceContent  {@link String}; The reference content of the variant; The length in relation to the
+     *                          variantContent parameter indicates whether a SV is a insertion or deletion.
+     * @param sampleId          {@link String}; The internal name of the sample of which the variant was called.
+     * @param isPrimary         {@link Boolean}; Whether the variant call is a primary call, i.e. if it is the variant
+     *                          with the highest frequency.
+     * @param isRejected        {@link Boolean}; Whether the variant was rejected, i.e. if it failed any filtering
+     *                          criteria.
+     * @param quality           {@link Double}; The Phred scaled GT quality of the call.
+     * @param coverage          {@link Double}; The depth of coverage of the call.
+     * @param frequency         {@link Double}; The allelic frequency of the call.
+     */
     public void addVariant(String featureId, int referencePosition, String variantContent,
                            String referenceContent, String sampleId,
                            boolean isPrimary, boolean isRejected, double quality, double coverage, double frequency) {
@@ -96,12 +146,28 @@ public class VariantsDictionary {
         }
     }
 
+    /**
+     * Adds annotations to an existing variant.
+     *
+     * @param position    {@link Integer}; The position at which the variant is stored.
+     * @param content     {@link String}; The content of the variant.
+     * @param annotations {@link HashMap} of {@link String} key/value pairs which reflect the annotations that shall be
+     *                    added.
+     */
+    @SuppressWarnings("unused")
     public void addVariantAnnotation(int position, String content, Map<String, String> annotations) {
         if (this.variants.containsKey(position) && this.variants.get(position).containsKey(content)) {
             this.variants.get(position).get(content).annotations.putAll(annotations);
         }
     }
 
+    /**
+     * Dumps this {@link VariantsDictionary} instance into a JSON format file. The output is compressed with gzip
+     * dependent on the value of {@link Musial#COMPRESS}.
+     *
+     * @param outfile {@link File} object pointing to the file the VDict should be written to.
+     * @throws MusialIOException If the output generation fails.
+     */
     public void dump(File outfile) throws MusialIOException {
         if (!outfile.exists()) {
             throw new MusialIOException("The specified output file does not exist:\t" + outfile.getAbsolutePath());
@@ -110,15 +176,16 @@ public class VariantsDictionary {
             Gson gson;
             String dumpString;
             String dumpFilePath = outfile.getAbsolutePath();
-            /* Write compressed JSON.
-              gson = new GsonBuilder().create();
-              dumpString = gson.toJson(this);
-              try (FileOutputStream output =
-                       new FileOutputStream(dumpFilePath.endsWith(".gz") ? dumpFilePath : dumpFilePath + ".gz");
-                   Writer writer = new OutputStreamWriter(new GZIPOutputStream(output), StandardCharsets.UTF_8)) {
-                writer.write(dumpString);
-              }
-            */
+            if (Musial.COMPRESS) {
+                // Write compressed JSON.
+                gson = new GsonBuilder().create();
+                dumpString = gson.toJson(this);
+                try (FileOutputStream output =
+                             new FileOutputStream(dumpFilePath.endsWith(".gz") ? dumpFilePath : dumpFilePath + ".gz");
+                     Writer writer = new OutputStreamWriter(new GZIPOutputStream(output), StandardCharsets.UTF_8)) {
+                    writer.write(dumpString);
+                }
+            }
             // Write to pretty JSON.
             gson = new GsonBuilder().setPrettyPrinting().create();
             dumpString = gson.toJson(this);
@@ -131,7 +198,15 @@ public class VariantsDictionary {
         }
     }
 
-    public HashMap<Integer, String> getSampleVariants(String fId, String sId) throws MusialBioException {
+    /**
+     * Extracts a {@link HashMap} of {@link Integer}/{@link String} key/value pairs reflecting all (filtered) variants
+     * for one sample and feature.
+     *
+     * @param fId {@link String}; The name/id of the feature for which variants shall be extracted.
+     * @param sId {@link String}; The name/id of the sample for which variants shall be extracted.
+     * @return {@link HashMap} of variants extracted for the specified feature and sample.
+     */
+    public HashMap<Integer, String> getSampleVariants(String fId, String sId) {
         String sampleVSwab = samples.get(sId).annotations.get(fId + VariantsDictionary.ATTRIBUTE_VARIANT_SWAB_NAME);
         if (sampleVSwab == null) {
             return null;
@@ -153,7 +228,14 @@ public class VariantsDictionary {
         }
     }
 
-    public String getNucleotideSequence(String fId, String sId) throws MusialBioException {
+    /**
+     * Extracts a {@link String} yielding the nucleotide sequence with all variants of one sample being incorporated for one feature.
+     *
+     * @param fId {@link String}; The name/id of the feature for which the sequence shall be extracted.
+     * @param sId {@link String}; The name/id of the sample for which the sequence shall be extracted.
+     * @return {@link String}; Nucleotide sequence of one sample wrt. one feature.
+     */
+    public String getNucleotideSequence(String fId, String sId) {
         if (sId.equals(VariantsDictionary.WILD_TYPE_SAMPLE_ID)
                 || samples.get(sId).annotations.get(fId + VariantsDictionary.ATTRIBUTE_VARIANT_SWAB_NAME) == null) {
             return features.get(fId).nucleotideSequence;
