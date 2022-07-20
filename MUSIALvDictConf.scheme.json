@@ -1,0 +1,139 @@
+{
+  "$schema": "MUSIALvDictConf",
+  "title": "MUSIAL Variants Dictionary Configuration",
+  "description": "Configuration file scheme for the updateVDict module of MUSIAL",
+  "type": "object",
+  "properties": {
+    "minCoverage": {
+      "description": "The minimal depth of coverage wrt. reads of a variant to be accepted. Extracted from the DP attribute of input .vcf files.",
+      "type": "number",
+      "minimum": 0.0
+    },
+    "minFrequency": {
+      "description": "The minimal frequency wrt. reads supporting a homozygous allele call for a variant to be accepted. Extracted from the AF attribute of input .vcf files.",
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "minHetFrequency": {
+      "description": "The minimal frequency wrt. reads supporting a heterozygous allele call for a variant to be accepted. Extracted from the AF attribute of input .vcf files.",
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "maxHetFrequency": {
+      "description": "The maximal frequency wrt. reads supporting a heterozygous allele call for a variant to be accepted. Extracted from the AF attribute of input .vcf files.",
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "minQuality": {
+      "description": "The minimal call quality for a variant to be accepted. Extracted from the QUALITY attribute of input .vcf files.",
+      "type": "number",
+      "minimum": 0.0
+    },
+    "threads": {
+      "description": "The number of threads to use for threadable analysis.",
+      "minimum": 1
+    },
+    "referenceFASTA": {
+      "description": "Path to a .fasta file; Content will be used as reference genome.",
+      "type": "string",
+      "pattern": "^.+.fasta$"
+    },
+    "referenceGFF": {
+      "description": "Path to a .gff or .gff3 file; Content will be used as reference genome feature annotation.",
+      "type": "string",
+      "pattern": "^.+.gff|.+.gff3$" 
+    },
+    "outputFile": {
+      "description": "Path pointing to a file; Content will be used as output file path.",
+      "type": "string",
+      "pattern": "^.+.vdict.json$" 
+    },
+    "samples": {
+      "description": "Object specifying the set of samples to analyze.",
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "description": "Object representing one single sample to analyze. The property key will be used as the internal sample name.",
+          "type": "string",
+          "properties": {
+            "vcfFile": {
+              "description": ".vcf file matching the format described in http://samtools.github.io/hts-specs/VCFv4.3.pdf.",
+              "type": "string",
+              "pattern": "^.+.vcf$"
+            },
+            "annotations": {
+              "patternProperties": {
+                "^.^$": {
+                  "description": "Any string key/value pairs that will be included as meta-information for the sample in the output file.",
+                  "type": "string",
+                  "pattern": "^.+$"
+                }
+              }
+            }
+          },
+          "required": [
+            "vcfFile",
+            "annotations"
+          ]
+        }
+      }
+    },
+    "features": {
+      "description": "Object specifying the set of features to match from the provided `referenceGFF` that shall be analyzed.",
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "description": "Object representing one feature to analyze. The property key will be used as the internal feature name.",
+          "type": "string",
+          "properties": {
+            "geneName": {
+              "description": "Feature name to match with the `NAME=` attribute value of entries of the specified `referenceGFF`.",
+              "type": "string",
+              "pattern": "^.+$"
+            },
+            "pdbFile": {
+              "description": "Path pointing to a .pdb format (https://www.wwpdb.org/documentation/file-format-content/format33/v3.3.html) file. If specified the structure contained within the file will be used as protein product of this feature and triggers proteoform analysis.",
+              "type": "string",
+              "pattern": "^.+.pdb$"
+            },
+            "annotations": {
+              "properties": {
+                "class": {
+                  "description": "Any string value that will be used as the features class used internally for grouping.",
+                  "type": "string"
+                }
+              },
+              "patternProperties": {
+                "^.^$": {
+                  "description": "Any string key/value pairs that will be included as meta-information for the feature in the output file.",
+                  "type": "string",
+                  "pattern": "^.+$"
+                }
+              }
+            }
+          },
+          "required": [
+            "geneName",
+            "annotations"
+          ]
+        }
+      }
+    }
+  },
+  "required": [
+    "minCoverage",
+    "minHomFrequency",
+    "minHetFrequency",
+    "maxHetFrequency",
+    "minQuality",
+    "threads",
+    "referenceFASTA",
+    "referenceGFF",
+    "outputFile",
+    "samples",
+    "features"
+  ]
+}
