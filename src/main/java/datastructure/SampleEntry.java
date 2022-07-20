@@ -9,8 +9,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.TreeMap;
-import java.util.TreeSet;
 
 /**
  * Internal representation of a sample that is subject to analysis.
@@ -45,29 +43,37 @@ public final class SampleEntry {
     /**
      * Constructor of {@link SampleEntry}.
      *
-     * @param vcfFileReader {@link VCFFileReader} instances initialized with the `.vcf` file of the respective sample.
-     * @param name          {@link String} representing the sample name.
+     * @param vcfReader {@link VCFFileReader} instances initialized with the `.vcf` file of the respective sample.
+     * @param name      {@link String} representing the sample name.
      */
-    public SampleEntry(File vcfFile, String name) {
-        this.vcfFile = vcfFile;
+    public SampleEntry(File vcfReader, String name) {
+        this.vcfFile = vcfReader;
         this.name = name;
     }
 
+    /**
+     * Initializes a {@link VCFFileReader} instance pointing to the .vcf file of the specified {@link SampleEntry}.
+     * <p>
+     * Validates that a Tabix index of the .vcf file is present and generates one if not.
+     *
+     * @param sampleEntry The {@link SampleEntry} for which
+     * @throws IOException If the initialization of the file reader or the validation/generation of the index file fails.
+     */
     public static void imputeVCFFileReader(SampleEntry sampleEntry) throws IOException {
         // Check for the existence of a `.tbi.gz` index file of the input `.vcf` file.
-        if (!new File(sampleEntry.vcfFile.getAbsolutePath() + ".tbi.gz").exists()) {
+        if (!new File(sampleEntry.vcfFile.getAbsolutePath() + ".tbi").exists()) {
             // If none is present, an index is created and written to the same directory as the input `.vcf` file.
             TabixIndex tabixIndex = IndexFactory.createTabixIndex(
                     sampleEntry.vcfFile,
                     new VCFCodec(),
                     null
             );
-            tabixIndex.write(Path.of(sampleEntry.vcfFile.getAbsolutePath() + ".tbi.gz"));
+            tabixIndex.write(Path.of(sampleEntry.vcfFile.getAbsolutePath() + ".tbi"));
         }
         // VCFFileReader can now be initialized.
         sampleEntry.vcfFileReader = new VCFFileReader(
                 sampleEntry.vcfFile,
-                new File(sampleEntry.vcfFile.getAbsolutePath() + ".tbi.gz")
+                new File(sampleEntry.vcfFile.getAbsolutePath() + ".tbi")
         );
     }
 

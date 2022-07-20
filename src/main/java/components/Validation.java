@@ -67,7 +67,7 @@ public class Validation {
     /**
      * Checks if a {@link File} object exists, is a directory and can be read.
      *
-     * @param file The {@link File} object to validate.
+     * @param directory The {@link File} object to validate.
      * @return Whether the passed {@link File} file passes the check.
      */
     public static boolean isDirectory(File directory) {

@@ -2,7 +2,6 @@ package datastructure;
 
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 
 /**
  * Object used to store annotations for a single nucleotide variant.
@@ -22,7 +21,7 @@ public class NucleotideVariantAnnotationEntry {
      * {@link ConcurrentSkipListMap} of {@link String} key/value pairs indicating the occurrence of this variant.
      * <p>
      * - Keys correspond to sample names.
-     * - Values correspond to return values of the {@link NucleotideVariantAnnotationEntry::constructSampleSpecificAnnotation} method.
+     * - Values correspond to return values of the {@link NucleotideVariantAnnotationEntry#constructSampleSpecificAnnotation} method.
      */
     public final ConcurrentSkipListMap<String, String> occurrence = new ConcurrentSkipListMap<>();
 
