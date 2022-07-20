@@ -1,6 +1,7 @@
 package main;
 
 import cli.CLIParameters;
+import cli.CLIParametersInferSequences;
 import cli.CLIParametersUpdateVDict;
 import components.Bio;
 import components.IO;
@@ -104,7 +105,7 @@ public final class Musial {
         try {
             if (args.length == 0) {
                 loadMetadata();
-                System.out.println(">no module specified.");
+                System.out.println("| no module specified.");
                 printModuleInformation();
             }
             // 1. Retain user specified module and parse command line arguments.
@@ -116,16 +117,16 @@ public final class Musial {
             }
             if (MODULE == null) {
                 loadMetadata();
-                System.out.println("unknown module " + args[0] + ".");
+                System.out.println("| unknown module " + args[0] + ".");
                 printModuleInformation();
             } else {
                 loadMetadata();
             }
             CLIParameters arguments = parseCLIArguments(args);
             // 2. Invokes methods dependent on the user specified module.
-            //noinspection SwitchStatementWithTooFewBranches
             switch (MODULE) {
                 case updateVDict -> runUpdateVDict((CLIParametersUpdateVDict) arguments);
+                case inferSequences -> runInferSequences((CLIParametersInferSequences) arguments);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -136,10 +137,11 @@ public final class Musial {
     /**
      * Prints information about available modules to the user and exits.
      */
-    private static void printModuleInformation() {
-        System.out.println("available MUSIAL modules:");
+    public static void printModuleInformation() {
+        System.out.println("| available MUSIAL modules:");
         System.out.println("\tupdateVDict : Generate a new or update an existing variants dictionary JSON file.");
-        System.out.println("specify -h for any module to obtain more information.");
+        System.out.println("\tinferSequences : Infer sequence information from an existing variants dictionary.");
+        System.out.println("| specify -h for any module to obtain more information.");
         System.exit(0);
     }
 
@@ -189,9 +191,9 @@ public final class Musial {
     private static CLIParameters parseCLIArguments(String[] args)
             throws MusialCLException, MusialIOException, MusialBioException, MusialIntegrityException {
         CLIParameters cliParameters = null;
-        //noinspection SwitchStatementWithTooFewBranches
         switch (MODULE) {
             case updateVDict -> cliParameters = new CLIParametersUpdateVDict(args);
+            case inferSequences -> cliParameters = new CLIParametersInferSequences(args);
         }
         assert cliParameters != null;
         return cliParameters;
@@ -337,6 +339,10 @@ public final class Musial {
             pb.step();
             pb.setExtraMessage(Logging.getDoneMessage());
         }
+    }
+
+    private static void runInferSequences(CLIParametersInferSequences cliarguments) {
+        System.exit(0);
     }
 
 }

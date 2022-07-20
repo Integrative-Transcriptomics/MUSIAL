@@ -14,5 +14,9 @@ public enum MusialModules {
     /**
      * Updates an existing or generates a new variants dictionary JSON file.
      */
-    updateVDict
+    updateVDict,
+    /**
+     * Infer nucleotide and/or amino-acid sequences from an existing variants dictionary JSON file.
+     */
+    inferSequences
 }

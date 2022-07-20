@@ -117,7 +117,7 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
         Options options = new Options();
         options.addOption(Option.builder("C")
                 .longOpt("vDictConfig")
-                .desc("Path to .json file yielding the parameter and input configuration to build/update a variants dictionary. Please visit the wiki at `https://github.com/Integrative-Transcriptomics/MUSIAL` for more information.")
+                .desc("Path to .json file yielding the parameter and input configuration to build/update a variants dictionary. Please visit the wiki at https://github.com/Integrative-Transcriptomics/MUSIAL for more information.")
                 .hasArg()
                 .required()
                 .build());
@@ -352,7 +352,17 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
      * @param helpFormatter A {@link HelpFormatter} for displaying help information.
      */
     public void printHelp(Options options, HelpFormatter helpFormatter) {
-        helpFormatter.printHelp("java -jar MUSIAL-" + Musial.VERSION + ".jar updateVDict", options);
+        helpFormatter.printHelp(
+                100,
+                "java -jar MUSIAL-" + Musial.VERSION + ".jar updateVDict",
+                IO.LINE_SEPARATOR + "Generate a new or update an existing variants dictionary JSON file. In order to run this module" +
+                        " you have to specify a vDictConfig.json file that specifies all relevant run parameters. The " +
+                        "JSON scheme for this file can be obtained from " +
+                        "https://github.com/Integrative-Transcriptomics/MUSIAL/blob/v2.1-dev/MUSIALvDictConf.scheme.json",
+                options,
+                "",
+                true
+        );
     }
 
 }
