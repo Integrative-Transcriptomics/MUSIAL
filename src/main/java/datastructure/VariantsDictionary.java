@@ -3,6 +3,7 @@ package datastructure;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import components.Bio;
+import exceptions.MusialBioException;
 import exceptions.MusialIOException;
 import main.Musial;
 
@@ -12,6 +13,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.zip.GZIPOutputStream;
@@ -264,5 +266,73 @@ public class VariantsDictionary {
             String sampleSequence = sampleSequenceBuilder.toString();
             return features.get(fId).isSense ? sampleSequence : Bio.reverseComplement(sampleSequence);
         }
+    }
+
+    /**
+     * Extracts a {@link HashMap} of {@link String}/{@link String} key/value pairs reflecting all (filtered) variants
+     * for one proteoform and feature.
+     * <p>
+     * - Returns null if no protein is allocated to the feature.
+     * - Keys of the returned map are formatted as X+Y; X is the position wrt. the reference protein and Y the number of
+     * inserted positions.
+     *
+     * @param fId              {@link String}; The name/id of the feature for which variants shall be extracted.
+     * @param pfId             {@link String}; The name/id of the proteoform for which variants shall be extracted.
+     * @param includeDeletions {@link Boolean} whether deletions shall be included as variants.
+     * @return {@link HashMap} of variants extracted for the specified feature and proteoform.
+     */
+    public HashMap<String, String> getProteoformVariants(String fId, String pfId, boolean includeDeletions) {
+        // TODO: Store proteoform annotation attribute name as constant.
+        if (features.get(fId).allocatedProtein == null) {
+            return null;
+        }
+        String proteoformVSwab = features.get(fId).allocatedProtein.proteoforms.get(pfId).annotations.get("VSWAB");
+        HashMap<String, String> proteoformVariants = new HashMap<>();
+        if (!proteoformVSwab.equals("")) {
+            String variantPosition;
+            String variantContent;
+            for (String pV : proteoformVSwab.split("\\|")) {
+                variantContent = pV.split("@")[0];
+                variantPosition = pV.split("@")[1];
+                proteoformVariants.put(variantPosition, variantContent);
+            }
+        }
+        return proteoformVariants;
+    }
+
+    /**
+     * Extracts a {@link String} yielding the amino-acid sequence with all variants of one proteoform being incorporated
+     * for one feature.
+     * <p>
+     * The translated reference feature sequence will be used as the reference amino-acid sequence.
+     *
+     * @param fId  {@link String}; The name/id of the feature for which the sequence shall be extracted.
+     * @param pfId {@link String}; The name/id of the proteoform for which the sequence shall be extracted.
+     * @return {@link String}; Amino-acid sequence of one proteoform wrt. one feature.
+     */
+    public String getProteoformSequence(String fId, String pfId) throws MusialBioException {
+        if (features.get(fId).allocatedProtein == null) {
+            return null;
+        }
+        //noinspection DuplicatedCode
+        TreeMap<String, String> proteoformContent = new TreeMap<>((s1, s2) -> {
+            int p1 = Integer.parseInt(s1.split("\\+")[0]);
+            int p2 = Integer.parseInt(s2.split("\\+")[0]);
+            if (p1 != p2) {
+                return Integer.compare(p1, p2);
+            } else {
+                String i1 = s1.split("\\+")[1];
+                String i2 = s2.split("\\+")[1];
+                return i1.compareTo(i2);
+            }
+        });
+        char[] referenceProteoformSequenceContent = Bio.translateNucSequence(features.get(fId).nucleotideSequence, true, true, features.get(fId).isSense).toCharArray();
+        for (int i = 0; i < referenceProteoformSequenceContent.length; i++) {
+            proteoformContent.put((i + 1) + "+0", String.valueOf(referenceProteoformSequenceContent[i]));
+        }
+        proteoformContent.putAll(getProteoformVariants(fId, pfId, false));
+        StringBuilder proteoformSequenceBuilder = new StringBuilder();
+        proteoformContent.values().forEach(proteoformSequenceBuilder::append);
+        return proteoformSequenceBuilder.toString();
     }
 }

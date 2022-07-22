@@ -32,17 +32,27 @@ public final class CLIParametersInferSequences implements CLIParameters {
      */
     public String[] ARGUMENTS;
     /**
-     * Whether to, in addition to sequence output, a multiple sequence alignment shall be built.
+     * Whether to output genotype sequences.
      */
-    public boolean outputMSA = false;
+    public boolean GS = false;
     /**
-     * Whether sequence information for optionally allocated proteins of specified features and samples shall be
-     * extracted.
+     * Whether to output genotype sequences as multiple sequence alignment.
+     */
+    public boolean GSMSA = false;
+    /**
+     * Whether to output proteoform sequences.
      * <p>
      * If `true`, proteoforms with any sample specified in {@link CLIParametersInferSequences#samples} will be
      * considered.
      */
-    public boolean includePS = false;
+    public boolean PS = false;
+    /**
+     * Whether to output proteoform sequences as multiple sequence alignment.
+     * <p>
+     * If `true`, proteoforms with any sample specified in {@link CLIParametersInferSequences#samples} will be
+     * considered.
+     */
+    public boolean PSMSA = false;
     /**
      * {@link ArrayList} of {@link String}s yielding information about for which samples sequences shall be extracted.
      * <p>
@@ -93,14 +103,24 @@ public final class CLIParametersInferSequences implements CLIParameters {
                 .required()
                 .build()
         );
-        options.addOption(Option.builder("MSA")
-                .longOpt("outputMSA")
-                .desc("If specified, sequences will be additionally written as multiple sequence alignment.")
+        options.addOption(Option.builder("GS")
+                .longOpt("outputGenotyeSequences")
+                .desc("If specified, genotype sequences will be inferred.")
+                .build()
+        );
+        options.addOption(Option.builder("GSMSA")
+                .longOpt("outputGenotyeSequencesAsMSA")
+                .desc("If specified, a multiples sequence alignment of genotype sequences will be inferred.")
                 .build()
         );
         options.addOption(Option.builder("PS")
-                .longOpt("includePS")
-                .desc("If specified, protein sequences, if protein information is allocated to specified features, will be output.")
+                .longOpt("outputProteoformSequences")
+                .desc("If specified, proteoform sequences, if protein information is allocated to the specified features, will be inferred.")
+                .build()
+        );
+        options.addOption(Option.builder("PSMSA")
+                .longOpt("outputProteoformSequencesAsMSA")
+                .desc("If specified, a multiple sequence alignment of proteoform sequences, if protein information is allocated to the specified features, will be inferred.")
                 .build()
         );
         options.addOption(Option.builder("S")
@@ -143,9 +163,11 @@ public final class CLIParametersInferSequences implements CLIParameters {
             if (!Validation.isDirectory(this.outputDirectory)) {
                 throw new MusialIOException("The specified output directory can not be accessed or is no valid directory.");
             }
-            // Parse optional MSA and PS parameters.
-            this.outputMSA = cmd.hasOption("MSA");
-            this.includePS = cmd.hasOption("PS");
+            // Parse output option parameters.
+            this.GS = cmd.hasOption("GS");
+            this.GSMSA = cmd.hasOption("GSMSA");
+            this.PS = cmd.hasOption("PS");
+            this.PSMSA = cmd.hasOption("PSMSA");
             // Parse and validate samples.
             if (cmd.hasOption("S")) {
                 for (String s : cmd.getOptionValue("S").split(",")) {
