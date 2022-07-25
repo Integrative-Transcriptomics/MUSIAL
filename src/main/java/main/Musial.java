@@ -4,10 +4,7 @@ import cli.CLIParameters;
 import cli.CLIParametersInferSequences;
 import cli.CLIParametersUpdateVDict;
 import components.*;
-import datastructure.FastaContainer;
-import datastructure.FeatureEntry;
-import datastructure.SampleEntry;
-import datastructure.VariantsDictionary;
+import datastructure.*;
 import exceptions.MusialBioException;
 import exceptions.MusialCLException;
 import exceptions.MusialIOException;
@@ -18,10 +15,7 @@ import me.tongfei.progressbar.ProgressBarStyle;
 import runnables.SampleAnalyzerRunnable;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -340,40 +334,49 @@ public final class Musial {
         }
     }
 
+    /**
+     * Extract genotype and/or proteoform sequences as alignment or unaligned in .fasta format from an existing variants dictionary.
+     * <p>
+     * Sequences are written in coding direction.
+     *
+     * @param cliarguments {@link CLIParametersInferSequences} instance yielding parameter specification for the MUSIAL infer sequences module.
+     * @throws MusialIOException  If the generation of output directories or files fails.
+     * @throws MusialBioException If sequence extraction procedures from the specified {@link VariantsDictionary} instance fail.
+     */
     private static void runInferSequences(CLIParametersInferSequences cliarguments) throws MusialIOException, MusialBioException {
-        // TODO: Generalize methods; Currently code is copied for debugging.
-        /*
-        Write genotype sequences.
-         */
+        // TODO: Generalize methods; Currently code is heavily duplicated for debugging.
+        HashMap<String, ArrayList<String>> sequences; // Stores sequences as keys pointing to list of proteoforms/samples.
+        String sequence;
+        String VSWAB;
+        // Write genotype sequences.
         if (cliarguments.GS) {
             Logging.logStatus("Write genotype sequences.");
             try (ProgressBar pb = buildProgress()) {
                 pb.maxHint(cliarguments.inputVDict.features.size());
+                int gtIndex;
                 for (FeatureEntry featureEntry : cliarguments.inputVDict.features.values()) {
-                    HashMap<String, ArrayList<String>> genotypeSequences = new HashMap<>();
-                    // Access reference nucleotide sequence.
+                    sequences = new HashMap<>();
+                    // Access and store wild-type nucleotide sequence.
                     String featureWildTypeNucleotideSequence = featureEntry.nucleotideSequence;
-                    genotypeSequences.put(featureWildTypeNucleotideSequence, new ArrayList<>());
-                    genotypeSequences.get(featureWildTypeNucleotideSequence).add(VariantsDictionary.WILD_TYPE_SAMPLE_ID);
-                    String genotypeSequence;
-                    String sampleVSwab;
+                    sequences.put(featureWildTypeNucleotideSequence, new ArrayList<>());
+                    sequences.get(featureWildTypeNucleotideSequence).add(VariantsDictionary.WILD_TYPE_SAMPLE_ID);
                     for (SampleEntry sampleEntry : cliarguments.inputVDict.samples.values()) {
-                        sampleVSwab = sampleEntry.annotations.get(featureEntry.name + VariantsDictionary.ATTRIBUTE_VARIANT_SWAB_NAME);
-                        if (sampleVSwab == null) {
-                            genotypeSequences.get(featureWildTypeNucleotideSequence).add(sampleEntry.name);
+                        VSWAB = sampleEntry.annotations.get(featureEntry.name + VariantsDictionary.ATTRIBUTE_VARIANT_SWAB_NAME);
+                        if (VSWAB == null) {
+                            sequences.get(featureWildTypeNucleotideSequence).add(sampleEntry.name);
                         } else {
-                            genotypeSequence = cliarguments.inputVDict.getNucleotideSequence(featureEntry.name, sampleEntry.name);
-                            if (genotypeSequences.containsKey(genotypeSequence)) {
-                                genotypeSequences.get(genotypeSequence).add(sampleEntry.name);
+                            sequence = cliarguments.inputVDict.getNucleotideSequence(featureEntry.name, sampleEntry.name);
+                            if (sequences.containsKey(sequence)) {
+                                sequences.get(sequence).add(sampleEntry.name);
                             } else {
-                                genotypeSequences.put(genotypeSequence, new ArrayList<>());
-                                genotypeSequences.get(genotypeSequence).add(sampleEntry.name);
+                                sequences.put(sequence, new ArrayList<>());
+                                sequences.get(sequence).add(sampleEntry.name);
                             }
                         }
                     }
-                    int gtIndex = 1;
-                    for (String s : genotypeSequences.keySet()) {
-                        genotypeSequences.get(s).add(0, "GT" + gtIndex);
+                    gtIndex = 1;
+                    for (String s : sequences.keySet()) {
+                        sequences.get(s).add(0, "GT" + gtIndex);
                         gtIndex += 1;
                     }
                     File gtsOutDir = new File(cliarguments.outputDirectory.getAbsolutePath() + "/GenotypeSequences/");
@@ -382,28 +385,28 @@ public final class Musial {
                     }
                     IO.writeFasta(
                             new File(cliarguments.outputDirectory.getAbsolutePath() + "/GenotypeSequences/" + featureEntry.chromosome + "_" + featureEntry.name + "_" + cliarguments.samples.size() + "_genotypeSequences.fasta"),
-                            genotypeSequences
+                            sequences
                     );
                     pb.step();
                 }
             }
         }
-        /*
-        Write proteoform sequences.
-         */
+        // Write proteoform sequences.
         if (cliarguments.PS) {
             Logging.logStatus("Write proteoform sequences.");
             try (ProgressBar pb = buildProgress()) {
                 pb.maxHint(cliarguments.inputVDict.features.size());
                 for (FeatureEntry featureEntry : cliarguments.inputVDict.features.values()) {
-                    HashMap<String, ArrayList<String>> proteoformSequences = new HashMap<>();
-                    String proteoformSequence;
+                    sequences = new HashMap<>();
                     for (String pfId : cliarguments.inputVDict.features.get(featureEntry.name).allocatedProtein.proteoforms.keySet()) {
-                        proteoformSequence = cliarguments.inputVDict.getProteoformSequence(featureEntry.name, pfId);
-                        proteoformSequences.put(proteoformSequence, new ArrayList<>());
-                        proteoformSequences.get(proteoformSequence).add(pfId);
-                        proteoformSequences.get(proteoformSequence).add("VP=" + featureEntry.allocatedProtein.proteoforms.get(pfId).annotations.get("VP"));
-                        proteoformSequences.get(proteoformSequence).addAll(featureEntry.allocatedProtein.proteoforms.get(pfId).samples);
+                        sequence = cliarguments.inputVDict.getProteoformSequence(featureEntry.name, pfId);
+                        sequences.put(sequence, new ArrayList<>());
+                        sequences.get(sequence).add(pfId);
+                        sequences.get(sequence).add(
+                                "VP=" + featureEntry.allocatedProtein.proteoforms.get(pfId).annotations.get("VP")
+                                        + ";PT=" + featureEntry.allocatedProtein.proteoforms.get(pfId).annotations.get("PT")
+                        );
+                        sequences.get(sequence).addAll(featureEntry.allocatedProtein.proteoforms.get(pfId).samples);
                     }
                     File pfsOutDir = new File(cliarguments.outputDirectory.getAbsolutePath() + "/ProteoformSequences/");
                     if (!Validation.isDirectory(pfsOutDir)) {
@@ -411,127 +414,183 @@ public final class Musial {
                     }
                     IO.writeFasta(
                             new File(cliarguments.outputDirectory.getAbsolutePath() + "/ProteoformSequences/" + featureEntry.chromosome + "_" + featureEntry.name + "_" + cliarguments.samples.size() + "_proteoformSequences.fasta"),
-                            proteoformSequences
+                            sequences
                     );
                     pb.step();
                 }
             }
         }
-        /*
-        Write genotype sequences MSA.
-        for (FeatureEntry featureEntry : variantsDictionary.features.values()) {
-            Logging.logStatus("Write " + featureEntry.name + " MSA");
-            ConcurrentSkipListMap<String, HashMap<String, Character>> proteoformSequences =
-                    new ConcurrentSkipListMap<>((k1, k2) -> {
-                        int p1 = Integer.parseInt(k1.split("\\+")[0]);
-                        int p2 = Integer.parseInt(k2.split("\\+")[0]);
-                        if (p1 == p2) {
-                            p1 = Integer.parseInt(k1.split("\\+")[1]);
-                            p2 = Integer.parseInt(k2.split("\\+")[1]);
-                        }
-                        return Integer.compare(p1, p2);
-                    });
-            char[] sequenceChars;
-            String pfContent;
-            String pfPosInfo;
-            String posKey;
-            int insPos;
-            int insPosTotal;
-            int pfVariantStart;
-            List<Integer> pfInsPos;
-            TreeSet<String> faEntryIds = new TreeSet<>();
-            for (Map.Entry<String, String> chainEntry : featureEntry.allocatedProtein.chainSequences.entrySet()) {
-                sequenceChars = chainEntry.getValue().toCharArray();
-                for (int i = 0; i < sequenceChars.length; i++) {
-                    if (!proteoformSequences.containsKey((i + 1) + "+0")) {
-                        proteoformSequences.put((i + 1) + "+0", new HashMap<>());
+        // Write genotype sequences MSA.
+        ConcurrentSkipListMap<String, HashMap<String, Character>> perPositionContents =
+                new ConcurrentSkipListMap<>((k1, k2) -> {
+                    int p1 = Integer.parseInt(k1.split("\\+")[0]);
+                    int p2 = Integer.parseInt(k2.split("\\+")[0]);
+                    if (p1 == p2) {
+                        p1 = Integer.parseInt(k1.split("\\+")[1]);
+                        p2 = Integer.parseInt(k2.split("\\+")[1]);
                     }
-                    proteoformSequences.get((i + 1) + "+0").put("Chain" + chainEntry.getKey(),
-                            Character.isLowerCase(sequenceChars[i]) ? '.' : sequenceChars[i]);
-                }
-                faEntryIds.add("Chain" + chainEntry.getKey());
-            }
-            for (ProteoformEntry proteoform : featureEntry.allocatedProtein.proteoforms.values()) {
-                if (proteoform.annotations.containsKey("PT") && proteoform.annotations.get("PT").equals("true")) {
-                    // Skip PT proteoform.
-                    continue;
-                }
-                if (proteoform.name.equals(AllocatedProteinEntry.WILD_TYPE_PROTEOFORM_ID)) {
-                    sequenceChars =
-                            Bio.translateNucSequence(featureEntry.nucleotideSequence, true, true, featureEntry.isSense).toCharArray();
+                    return Integer.compare(p1, p2);
+                });
+        char[] sequenceChars;
+        String positionContent;
+        String positionStr;
+        int positionInt;
+        int entryIndex;
+        int VSWABHashCode;
+        HashMap<String, ArrayList<String>> faSequences = new HashMap<>();
+        ArrayList<String> faHeadersList = new ArrayList<>();
+        StringBuilder faSequenceBuilder = new StringBuilder();
+        if (cliarguments.GSMSA) {
+            Logging.logStatus("Write genotype sequences alignment.");
+            try (ProgressBar pb = buildProgress()) {
+                pb.maxHint(cliarguments.inputVDict.features.size());
+                HashMap<Integer, String> variants;
+                HashMap<Integer, String> VSWABHashToGTIdentifier = new HashMap<>();
+                HashMap<String, TreeSet<String>> GTIdentifierToSamples = new HashMap<>();
+                for (FeatureEntry featureEntry : cliarguments.inputVDict.features.values()) {
+                    perPositionContents.clear();
+                    VSWABHashToGTIdentifier.clear();
+                    GTIdentifierToSamples.clear();
+                    entryIndex = 1;
+                    // Extract reference sequence information.
+                    sequenceChars = featureEntry.isSense ? featureEntry.nucleotideSequence.toCharArray() : Bio.reverseComplement(featureEntry.nucleotideSequence).toCharArray();
                     for (int i = 0; i < sequenceChars.length; i++) {
-                        if (!proteoformSequences.containsKey((i + 1) + "+0")) {
-                            proteoformSequences.put((i + 1) + "+0", new HashMap<>());
+                        if (!perPositionContents.containsKey((i + 1) + "+0")) {
+                            perPositionContents.put((i + 1) + "+0", new HashMap<>());
                         }
-                        proteoformSequences.get((i + 1) + "+0").put("WildType", sequenceChars[i]);
+                        perPositionContents.get((i + 1) + "+0").put("GT0", sequenceChars[i]);
                     }
-                    faEntryIds.add("WildType");
-                } else {
-                    String[] proteoformVariants = proteoform.annotations.get("vSwab").split("\\|");
-                    for (String proteoformVariant : proteoformVariants) {
-                        pfContent = proteoformVariant.split("@")[0];
-                        pfContent = pfContent.replace(Bio.GAP, Bio.DELETION_AA1);
-                        pfPosInfo = proteoformVariant.split("@")[1];
-                        pfVariantStart = pfPosInfo.contains("+") ? Integer.parseInt(pfPosInfo.split("\\+")[0]) : Integer.parseInt(pfPosInfo);
-                        pfInsPos = pfPosInfo.contains("+") ? Arrays.stream(pfPosInfo.split("\\+")[1].split(",")).map(Integer::valueOf).collect(Collectors.toList()) : new ArrayList<>();
-                        sequenceChars = pfContent.toCharArray();
-                        insPos = 0;
-                        insPosTotal = 0;
-                        for (int i = 0; i < sequenceChars.length; i++) {
-                            if (pfInsPos.contains(i)) {
-                                insPos += 1;
-                                insPosTotal += 1;
-                                posKey = (pfVariantStart + i - insPosTotal) + "+" + insPos;
+                    VSWABHashToGTIdentifier.put(0, "GT0");
+                    GTIdentifierToSamples.put("GT0", new TreeSet<>(cliarguments.inputVDict.samples.keySet()));
+                    // Infer per sample variant content information.
+                    for (SampleEntry sampleEntry : cliarguments.inputVDict.samples.values()) {
+                        if (sampleEntry.annotations.containsKey(featureEntry.name + VariantsDictionary.ATTRIBUTE_VARIANT_SWAB_NAME)) {
+                            VSWAB = sampleEntry.annotations.get(featureEntry.name + VariantsDictionary.ATTRIBUTE_VARIANT_SWAB_NAME);
+                            VSWABHashCode = VSWAB.hashCode();
+                            if (!VSWABHashToGTIdentifier.containsKey(VSWABHashCode)) {
+                                VSWABHashToGTIdentifier.put(VSWABHashCode, "GT" + entryIndex);
+                                GTIdentifierToSamples.put("GT" + entryIndex, new TreeSet<>());
+                                // Add variants from VSWAB:
+                                variants = cliarguments.inputVDict.getSampleVariants(featureEntry.name, sampleEntry.name);
+                                for (Map.Entry<Integer, String> variantEntry : variants.entrySet()) {
+                                    positionInt = variantEntry.getKey();
+                                    positionContent = variantEntry.getValue();
+                                    sequenceChars = positionContent.toCharArray();
+                                    if (positionContent.contains(String.valueOf(Bio.DELETION_AA1))) {
+                                        for (int i = 0; i < sequenceChars.length; i++) {
+                                            if (!perPositionContents.containsKey(positionInt + i + "+0")) {
+                                                perPositionContents.put(positionInt + i + "+0", new HashMap<>());
+                                            }
+                                            perPositionContents.get(positionInt + i + "+0").put("GT" + entryIndex, sequenceChars[i]);
+                                        }
+                                    } else {
+                                        for (int i = 0; i < sequenceChars.length; i++) {
+                                            if (!perPositionContents.containsKey(positionInt + "+" + i)) {
+                                                perPositionContents.put(positionInt + "+" + i, new HashMap<>());
+                                            }
+                                            perPositionContents.get(positionInt + "+" + i).put("GT" + entryIndex, sequenceChars[i]);
+                                        }
+                                    }
+                                }
+                                entryIndex += 1;
+                            }
+                            GTIdentifierToSamples.get(VSWABHashToGTIdentifier.get(VSWABHashCode)).add(sampleEntry.name);
+                            GTIdentifierToSamples.get("GT0").remove(sampleEntry.name);
+                        }
+                    }
+                    for (String gtIdentifier : GTIdentifierToSamples.keySet()) {
+                        faHeadersList.clear();
+                        faHeadersList.add(gtIdentifier);
+                        faHeadersList.addAll(GTIdentifierToSamples.get(gtIdentifier));
+                        faSequenceBuilder.setLength(0);
+                        faSequences.clear();
+                        for (String p : perPositionContents.keySet()) {
+                            if (perPositionContents.get(p).containsKey(gtIdentifier)) {
+                                faSequenceBuilder.append(perPositionContents.get(p).get(gtIdentifier));
                             } else {
-                                insPos = 0;
-                                posKey = (pfVariantStart + i - insPosTotal) + "+0";
+                                if (perPositionContents.get(p).containsKey("GT0")) {
+                                    faSequenceBuilder.append(perPositionContents.get(p).get("GT0"));
+                                } else {
+                                    faSequenceBuilder.append(Bio.GAP);
+                                }
                             }
-                            if (!proteoformSequences.containsKey(posKey)) {
-                                proteoformSequences.put(posKey, new HashMap<>());
-                            }
-                            proteoformSequences.get(posKey).put(proteoform.name, sequenceChars[i]);
                         }
+                        faSequences.put(faSequenceBuilder.toString(), faHeadersList);
                     }
-                    faEntryIds.add(proteoform.name);
+                    IO.writeFasta(
+                            new File(cliarguments.outputDirectory.getAbsolutePath() + "/GenotypeSequences/" + featureEntry.chromosome + "_" + featureEntry.name + "_" + cliarguments.samples.size() + "_genotypeSequencesAlignment.fasta"),
+                            faSequences
+                    );
+                    pb.step();
                 }
             }
-            HashMap<String, ArrayList<String>> faSequences = new HashMap<>();
-            ArrayList<String> faHeadersList;
-            StringBuilder faSequenceBuilder = new StringBuilder();
-            for (String faEntryId : faEntryIds) {
-                faHeadersList = new ArrayList<>();
-                faSequenceBuilder.setLength(0);
-                for (String pos : proteoformSequences.keySet()) {
-                    if (proteoformSequences.get(pos).containsKey(faEntryId)) {
-                        faSequenceBuilder.append(proteoformSequences.get(pos).get(faEntryId));
-                    } else {
-                        if (proteoformSequences.get(pos).containsKey("WildType")) {
-                            faSequenceBuilder.append(proteoformSequences.get(pos).get("WildType"));
-                        } else {
-                            faSequenceBuilder.append(Bio.GAP);
-                        }
-                    }
-                }
-                faHeadersList.add(faEntryId);
-                if (!faEntryId.startsWith("Chain")) {
-                    if (faEntryId.equals("WildType")) {
-                        faHeadersList.addAll(featureEntry.allocatedProtein.proteoforms.get(AllocatedProteinEntry.WILD_TYPE_PROTEOFORM_ID).samples);
-                    } else {
-                        faHeadersList.addAll(featureEntry.allocatedProtein.proteoforms.get(faEntryId).samples);
-                    }
-                }
-                String sequence = faSequenceBuilder.toString();
-                if (faSequences.containsKey(sequence)) {
-                    faSequences.get(sequence).add(faEntryId);
-                } else {
-                    faSequences.put(sequence, faHeadersList);
-                }
-            }
-            IO.writeFasta(
-                    new File(cliarguments.outputFile.getParent() + "/" + featureEntry.chromosome + "_" + featureEntry.name
-                            + ".fasta"), faSequences);
         }
-         */
+        // Write proteoform sequences MSA.
+        TreeSet<String> faEntryIds = new TreeSet<>();
+        if (cliarguments.PSMSA) {
+            Logging.logStatus("Write proteoform sequences alignment.");
+            try (ProgressBar pb = buildProgress()) {
+                pb.maxHint(cliarguments.inputVDict.features.size());
+                for (FeatureEntry featureEntry : cliarguments.inputVDict.features.values()) {
+                    perPositionContents.clear();
+                    HashMap<String, String> variants;
+                    faEntryIds.clear();
+                    for (ProteoformEntry proteoform : featureEntry.allocatedProtein.proteoforms.values()) {
+                        if (proteoform.name.equals(AllocatedProteinEntry.WILD_TYPE_PROTEOFORM_ID)) {
+                            sequenceChars = cliarguments.inputVDict.getProteoformSequence(featureEntry.name, proteoform.name).toCharArray();
+                            for (int i = 0; i < sequenceChars.length; i++) {
+                                if (!perPositionContents.containsKey((i + 1) + "+0")) {
+                                    perPositionContents.put((i + 1) + "+0", new HashMap<>());
+                                }
+                                perPositionContents.get((i + 1) + "+0").put(proteoform.name, sequenceChars[i]);
+                            }
+                            faEntryIds.add(proteoform.name);
+                        } else {
+                            variants = cliarguments.inputVDict.getProteoformVariants(featureEntry.name, proteoform.name, true);
+                            for (Map.Entry<String, String> variantEntry : variants.entrySet()) {
+                                positionStr = variantEntry.getKey();
+                                positionContent = variantEntry.getValue();
+                                if (!perPositionContents.containsKey(positionStr)) {
+                                    perPositionContents.put(positionStr, new HashMap<>());
+                                }
+                                perPositionContents.get(positionStr).put(proteoform.name, positionContent.charAt(0));
+                            }
+                            faEntryIds.add(proteoform.name);
+                        }
+                    }
+                    for (String faEntryId : faEntryIds) {
+                        faHeadersList.clear();
+                        faSequenceBuilder.setLength(0);
+                        faSequences.clear();
+                        for (String pos : perPositionContents.keySet()) {
+                            if (perPositionContents.get(pos).containsKey(faEntryId)) {
+                                faSequenceBuilder.append(perPositionContents.get(pos).get(faEntryId));
+                            } else {
+                                if (perPositionContents.get(pos).containsKey(VariantsDictionary.WILD_TYPE_SAMPLE_ID)) {
+                                    faSequenceBuilder.append(perPositionContents.get(pos).get(VariantsDictionary.WILD_TYPE_SAMPLE_ID));
+                                } else {
+                                    faSequenceBuilder.append(Bio.GAP);
+                                }
+                            }
+                        }
+                        faHeadersList.add(faEntryId);
+                        faHeadersList.add(
+                                "VP=" + featureEntry.allocatedProtein.proteoforms.get(faEntryId).annotations.get("VP")
+                                        + ";PT=" + featureEntry.allocatedProtein.proteoforms.get(faEntryId).annotations.get("PT")
+                        );
+                        faHeadersList.addAll(
+                                featureEntry.allocatedProtein.proteoforms.get(faEntryId).samples
+                        );
+                        faSequences.put(faSequenceBuilder.toString(), faHeadersList);
+                    }
+                    IO.writeFasta(
+                            new File(cliarguments.outputDirectory.getAbsolutePath() + "/ProteoformSequences/" + featureEntry.chromosome + "_" + featureEntry.name + "_" + cliarguments.samples.size() + "_proteoformSequencesAlignment.fasta"),
+                            faSequences
+                    );
+                    pb.step();
+                }
+            }
+        }
     }
 
 }
