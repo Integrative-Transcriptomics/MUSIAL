@@ -18,5 +18,9 @@ public enum MusialModules {
     /**
      * Infer nucleotide and/or amino-acid sequences from an existing variants dictionary JSON file.
      */
-    inferSequences
+    inferSequences,
+    /**
+     * Run SnpEff to annotate nucleotide variants and compute various statistics.
+     */
+    statistics
 }

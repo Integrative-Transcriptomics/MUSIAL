@@ -2,6 +2,7 @@ package main;
 
 import cli.CLIParameters;
 import cli.CLIParametersInferSequences;
+import cli.CLIParametersStatistics;
 import cli.CLIParametersUpdateVDict;
 import components.*;
 import datastructure.*;
@@ -120,6 +121,7 @@ public final class Musial {
             switch (MODULE) {
                 case updateVDict -> runUpdateVDict((CLIParametersUpdateVDict) arguments);
                 case inferSequences -> runInferSequences((CLIParametersInferSequences) arguments);
+                case statistics -> runStatistics((CLIParametersStatistics) arguments);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -134,6 +136,7 @@ public final class Musial {
         System.out.println("| available MUSIAL modules:");
         System.out.println("\tupdateVDict : Generate a new or update an existing variants dictionary JSON file.");
         System.out.println("\tinferSequences : Infer sequence information from an existing variants dictionary.");
+        System.out.println("\tstatistics : Run SnpEff annotation and compute various statistics.");
         System.out.println("| specify -h for any module to obtain more information.");
         System.exit(0);
     }
@@ -187,6 +190,7 @@ public final class Musial {
         switch (MODULE) {
             case updateVDict -> cliParameters = new CLIParametersUpdateVDict(args);
             case inferSequences -> cliParameters = new CLIParametersInferSequences(args);
+            case statistics -> cliParameters = new CLIParametersStatistics(args);
         }
         assert cliParameters != null;
         return cliParameters;
@@ -260,40 +264,6 @@ public final class Musial {
             executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
             pb.setExtraMessage(Logging.getDoneMessage());
         }
-
-        /* FIXME: SnpEff annotation is currently disabled.
-        Logging.logStatus("Annotating novel variants with SnpEff.");
-        File tempDir = new File("./temp/");
-        try {
-            IO.generateDirectory(tempDir);
-            File novelVariantsOut = new File("./temp/novelVariants.vcf");
-            IO.generateFile(novelVariantsOut);
-            IO.writeVcf(novelVariantsOut, variantsDictionary.novelVariants, variantsDictionary.chromosome);
-            SnpEffAnnotator.runSnpEff(tempDir, novelVariantsOut, cliarguments.referenceFASTA, cliarguments.referenceGFF,
-                    variantsDictionary.chromosome);
-            for (String line : IO.readLinesFromFile("./temp/SnpEff.vcf")) {
-                if (line.startsWith("#")) {
-                    continue;
-                }
-                String[] lineFields = line.split("\t");
-                String position = lineFields[1];
-                String refContent = lineFields[3];
-                String altContent = lineFields[4];
-                if (refContent.length() > altContent.length()) {
-                    altContent = altContent + "-".repeat(refContent.length() - altContent.length());
-                }
-                variantsDictionary.addVariantAnnotation(
-                        Integer.parseInt(position),
-                        altContent,
-                        SnpEffAnnotator.convertAnnotation(lineFields[7].split(";")[0].split("=")[1])
-                );
-            }
-        } catch (Exception e) {
-            throw e;
-        } finally {
-            IO.deleteDirectory(tempDir);
-        }
-         */
 
         // Infer proteoform information, if features have assigned .pdb files.
         ConcurrentSkipListMap<String, String> variants;
@@ -498,20 +468,22 @@ public final class Musial {
                             GTIdentifierToSamples.get("GT0").remove(sampleEntry.name);
                         }
                     }
+                    faSequences.clear();
                     for (String gtIdentifier : GTIdentifierToSamples.keySet()) {
                         faHeadersList.clear();
                         faHeadersList.add(gtIdentifier);
                         faHeadersList.addAll(GTIdentifierToSamples.get(gtIdentifier));
                         faSequenceBuilder.setLength(0);
-                        faSequences.clear();
                         for (String p : perPositionContents.keySet()) {
-                            if (perPositionContents.get(p).containsKey(gtIdentifier)) {
-                                faSequenceBuilder.append(perPositionContents.get(p).get(gtIdentifier));
-                            } else {
-                                if (perPositionContents.get(p).containsKey("GT0")) {
-                                    faSequenceBuilder.append(perPositionContents.get(p).get("GT0"));
+                            if (!(cliarguments.skipConserved && perPositionContents.get(p).keySet().size() == 1)) {
+                                if (perPositionContents.get(p).containsKey(gtIdentifier)) {
+                                    faSequenceBuilder.append(perPositionContents.get(p).get(gtIdentifier));
                                 } else {
-                                    faSequenceBuilder.append(Bio.GAP);
+                                    if (perPositionContents.get(p).containsKey("GT0")) {
+                                        faSequenceBuilder.append(perPositionContents.get(p).get("GT0"));
+                                    } else {
+                                        faSequenceBuilder.append(Bio.GAP);
+                                    }
                                 }
                             }
                         }
@@ -558,18 +530,20 @@ public final class Musial {
                             faEntryIds.add(proteoform.name);
                         }
                     }
+                    faSequences.clear();
                     for (String faEntryId : faEntryIds) {
-                        faHeadersList.clear();
                         faSequenceBuilder.setLength(0);
-                        faSequences.clear();
-                        for (String pos : perPositionContents.keySet()) {
-                            if (perPositionContents.get(pos).containsKey(faEntryId)) {
-                                faSequenceBuilder.append(perPositionContents.get(pos).get(faEntryId));
-                            } else {
-                                if (perPositionContents.get(pos).containsKey(VariantsDictionary.WILD_TYPE_SAMPLE_ID)) {
-                                    faSequenceBuilder.append(perPositionContents.get(pos).get(VariantsDictionary.WILD_TYPE_SAMPLE_ID));
+                        faHeadersList.clear();
+                        for (String p : perPositionContents.keySet()) {
+                            if (!(cliarguments.skipConserved && perPositionContents.get(p).keySet().size() == 1)) {
+                                if (perPositionContents.get(p).containsKey(faEntryId)) {
+                                    faSequenceBuilder.append(perPositionContents.get(p).get(faEntryId));
                                 } else {
-                                    faSequenceBuilder.append(Bio.GAP);
+                                    if (perPositionContents.get(p).containsKey(VariantsDictionary.WILD_TYPE_SAMPLE_ID)) {
+                                        faSequenceBuilder.append(perPositionContents.get(p).get(VariantsDictionary.WILD_TYPE_SAMPLE_ID));
+                                    } else {
+                                        faSequenceBuilder.append(Bio.GAP);
+                                    }
                                 }
                             }
                         }
@@ -591,6 +565,36 @@ public final class Musial {
                 }
             }
         }
+    }
+
+    /**
+     * @param cliarguments
+     */
+    private static void runStatistics(CLIParametersStatistics cliarguments) throws MusialIOException, IOException {
+        // Run SnpEff on all variants wrt. the samples and features specified as input.
+        Logging.logStatus("Annotating variants with SnpEff.");
+        File tempDir = new File("./temp/");
+        IO.generateDirectory(tempDir);
+        File variantsFile = new File("./temp/variants.vcf");
+        IO.generateFile(variantsFile);
+        HashSet<String> excludedFeatures = new HashSet<>();
+        if (cliarguments.features.size() == 0) {
+            excludedFeatures.addAll(cliarguments.inputVDict.features.keySet());
+            excludedFeatures.removeAll(cliarguments.features);
+        }
+        HashSet<String> excludedSamples = new HashSet<>();
+        if (cliarguments.samples.size() == 0) {
+            excludedSamples.addAll(cliarguments.inputVDict.samples.keySet());
+            excludedSamples.removeAll(cliarguments.samples);
+        }
+        IO.writeVcf(variantsFile, cliarguments.inputVDict, excludedFeatures, excludedSamples);
+        SnpEffAnnotator.runSnpEff(
+                tempDir,
+                variantsFile,
+                cliarguments.referenceFASTA,
+                cliarguments.referenceGFF,
+                cliarguments.inputVDict.chromosome
+        );
     }
 
 }

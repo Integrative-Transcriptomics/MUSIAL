@@ -3,27 +3,9 @@ package components;
 import com.google.common.base.Splitter;
 import com.google.gson.Gson;
 import datastructure.FastaContainer;
+import datastructure.NucleotideVariantAnnotationEntry;
 import datastructure.VariantsDictionary;
 import exceptions.MusialIOException;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.NavigableSet;
-import java.util.Scanner;
-import java.util.concurrent.ConcurrentSkipListSet;
-
 import main.Musial;
 import org.apache.commons.io.FileUtils;
 import org.biojava.nbio.genome.parsers.gff.FeatureList;
@@ -32,6 +14,12 @@ import org.biojava.nbio.structure.Chain;
 import org.biojava.nbio.structure.Structure;
 import org.biojava.nbio.structure.io.PDBFileReader;
 
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.*;
+import java.util.concurrent.ConcurrentSkipListMap;
+
 /**
  * This class comprises static methods used for reading and writing files.
  *
@@ -39,6 +27,7 @@ import org.biojava.nbio.structure.io.PDBFileReader;
  * @version 2.1
  * @since 2.0
  */
+@SuppressWarnings("unused")
 public final class IO {
     /**
      * OS dependent line separator
@@ -128,13 +117,7 @@ public final class IO {
                                 StandardCharsets.UTF_8))
         ) {
             Gson gson = new Gson();
-            VariantsDictionary vDict = gson.fromJson(bufferedReader, VariantsDictionary.class);
-            vDict.novelVariants = new ConcurrentSkipListSet<>((s1, s2) -> {
-                int p1 = Integer.parseInt(s1.split("@")[0]);
-                int p2 = Integer.parseInt(s2.split("@")[0]);
-                return Integer.compare(p1, p2);
-            });
-            return vDict;
+            return gson.fromJson(bufferedReader, VariantsDictionary.class);
         }
     }
 
@@ -262,35 +245,48 @@ public final class IO {
     }
 
     /**
-     * Writes a dummy vcf format file to the specified output file from a {@link NavigableSet} instance yielding
-     * {@link String}s that represent variants.
-     * <p>
-     * - Each {@link String} in the passed {@link NavigableSet} has to be formatted as p@r@a, where p is the position,
-     * r the reference nucleotide content and a the only alternate allele content.
-     * - All variants will be assigned a quality of 1000.
+     * Writes a dummy .vcf format file to the specified output file from a {@link VariantsDictionary} instance.
      *
-     * @param outputFile {@link File} object pointing to the output vcf file.
-     * @param variants   {@link NavigableSet} containing variant information, cf. method description.
-     * @param chrom      {@link String} representing the value to use for the chromosome field of the vcf format for
-     *                   each variant.
+     * @param outputFile       {@link File} object pointing to the output vcf file.
+     * @param vDict            {@link VariantsDictionary} containing variant information.
+     * @param excludedFeatures {@link HashSet} of {@link String}s; Internal feature names to be excluded.
+     * @param excludedSamples  {@link HashSet} of {@link String}s; Internal sample names to be excluded.
      */
-    public static void writeVcf(File outputFile, NavigableSet<String> variants, String chrom) {
+    public static void writeVcf(File outputFile, VariantsDictionary vDict, HashSet<String> excludedFeatures, HashSet<String> excludedSamples) {
         try {
             FileWriter writer = new FileWriter(outputFile);
             writer.write("##fileformat=VCFv4.2" + IO.LINE_SEPARATOR);
             writer.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO" + IO.LINE_SEPARATOR);
-            for (String variant : variants) {
-                String[] variantFields = variant.split("@");
-                writer.write(chrom + "\t"
-                        + variantFields[0] + "\t"
-                        + ".\t"
-                        + variantFields[1] + "\t"
-                        + variantFields[2].replace("-", "") + "\t"
-                        + "1000\t"
-                        + ".\t"
-                        + "\t"
-                        + IO.LINE_SEPARATOR);
-                writer.flush();
+            int variantPosition;
+            ConcurrentSkipListMap<String, NucleotideVariantAnnotationEntry> variants;
+            boolean skip;
+            for (Map.Entry<Integer, ConcurrentSkipListMap<String, NucleotideVariantAnnotationEntry>> variantPositionEntry : vDict.variants.entrySet()) {
+                variantPosition = variantPositionEntry.getKey();
+                skip = false;
+                for (String excludedFeature : excludedFeatures) {
+                    if (variantPosition >= vDict.features.get(excludedFeature).start && variantPosition <= vDict.features.get(excludedFeature).end) {
+                        skip = true;
+                        break;
+                    }
+                }
+                if (skip) {
+                    continue;
+                }
+                variants = variantPositionEntry.getValue();
+                for (Map.Entry<String, NucleotideVariantAnnotationEntry> variant : variants.entrySet()) {
+                    if (!excludedSamples.containsAll(variant.getValue().occurrence.keySet())) {
+                        writer.write(vDict.chromosome + "\t"
+                                + variantPosition + "\t"
+                                + ".\t"
+                                + variant.getValue().annotations.get(VariantsDictionary.ATTRIBUTE_VARIANT_REFERENCE_CONTENT) + "\t"
+                                + variant.getKey().replace("-", "") + "\t"
+                                + "1000\t"
+                                + ".\t"
+                                + "\t"
+                                + IO.LINE_SEPARATOR);
+                        writer.flush();
+                    }
+                }
             }
             writer.close();
         } catch (IOException e) {

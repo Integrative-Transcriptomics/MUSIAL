@@ -86,7 +86,7 @@ public final class SnpEffAnnotator {
 
         // 4. Generate database with reference genome information.
         String[] createSNPEffDatabase = {"java", "-jar", "snpEff.jar", "build", "-gff3", "-v", referenceChromosome};
-        CL.runCommand(createSNPEffDatabase, targetDir + "/" + "SnpEffDatabase.log", "",
+        CL.runCommand(createSNPEffDatabase, targetDir + "/" + "snpEffDatabase.log", "",
                 targetDir.getAbsolutePath());
 
         // 5. Run snpEff annotation on each input .vcf file (multi-threaded).
@@ -94,27 +94,21 @@ public final class SnpEffAnnotator {
                 "java",
                 "-jar",
                 "snpEff.jar",
-                "-noLog",
-                "-t",
-                String.valueOf(Musial.THREADS),
                 "-v",
                 "-no-downstream",
                 "-no-upstream",
                 "-no-intron",
                 "-no-intergenic",
-                "-no",
-                "INTRAGENIC",
-                /* TODO: Handle generation of statistics using SnpEff.
-                  "-s", new File(targetDir + "/" + "SnpEff.html").getAbsolutePath(),
-                 */
+                "-s",
+                new File(targetDir + "/" + "snpEff.html").getAbsolutePath(),
                 referenceChromosome,
                 targetVcf.getAbsolutePath()
         };
         CL.runCommand(runSNPEff,
-                new File(targetDir + "/" + "SnpEff.log").getAbsolutePath(),
-                new File(targetDir + "/" + "SnpEff.vcf").getAbsolutePath(),
-                targetDir.getAbsolutePath());
-
+                new File(targetDir + "/" + "snpEff.log").getAbsolutePath(),
+                new File(targetDir + "/" + "annotated_variants.vcf").getAbsolutePath(),
+                targetDir.getAbsolutePath()
+        );
     }
 
     /**
@@ -123,6 +117,7 @@ public final class SnpEffAnnotator {
      * @param snpEffAnnotationString {@link String} containing the content of a SnpEff annotation.
      * @return {@link HashMap} containing a key/value pair for each SnpEff annotation of the passed {@link String}.
      */
+    @SuppressWarnings("unused")
     public static HashMap<String, String> convertAnnotation(String snpEffAnnotationString) {
         HashMap<String, String> annotationsMap = new HashMap<>();
         String[] snpEffAnnotations = snpEffAnnotationString.split(",", -1);

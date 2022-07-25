@@ -15,7 +15,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.zip.GZIPOutputStream;
 
 /**
@@ -70,19 +69,9 @@ public class VariantsDictionary {
      */
     public final static String ATTRIBUTE_VARIANT_SWAB_NAME = "_VSWAB";
     /**
-     * Transient property to store novel variants during the execution of the updateVDict module/task.
+     * Static property to use as key for the 'REFCONTENT' annotation key for {@link VariantsDictionary#variants}.
      */
-    public transient ConcurrentSkipListSet<String> novelVariants = new ConcurrentSkipListSet<>((s1, s2) -> {
-        int p1 = Integer.parseInt(s1.split("@")[0]);
-        int p2 = Integer.parseInt(s2.split("@")[0]);
-        if (p1 != p2) {
-            return Integer.compare(p1, p2);
-        } else {
-            String c1 = s1.split("@")[2];
-            String c2 = s2.split("@")[2];
-            return c1.compareTo(c2);
-        }
-    });
+    public final static String ATTRIBUTE_VARIANT_REFERENCE_CONTENT = "REFCONTENT";
 
     /**
      * Constructor of {@link VariantsDictionary}.
@@ -120,7 +109,7 @@ public class VariantsDictionary {
      * @param frequency         {@link Double}; The allelic frequency of the call.
      */
     public void addVariant(String featureId, int referencePosition, String variantContent,
-                           String referenceContent, String sampleId,
+                           @SuppressWarnings("unused") String referenceContent, String sampleId,
                            boolean isPrimary, boolean isRejected, double quality, double coverage, double frequency) {
         // Update variant information in `this.variants`.
         if (!this.variants.containsKey(referencePosition)) {
@@ -128,13 +117,13 @@ public class VariantsDictionary {
         }
         if (!this.variants.get(referencePosition).containsKey(variantContent)) {
             this.variants.get(referencePosition).put(variantContent, new NucleotideVariantAnnotationEntry());
-            this.novelVariants.add(referencePosition + "@" + referenceContent + "@" + variantContent);
         }
         if (!this.variants.get(referencePosition).get(variantContent).occurrence.containsKey(sampleId)) {
             this.variants.get(referencePosition).get(variantContent).occurrence.put(sampleId,
                     NucleotideVariantAnnotationEntry
                             .constructSampleSpecificAnnotation(isRejected, isPrimary, quality, frequency, coverage)
             );
+            this.variants.get(referencePosition).get(variantContent).annotations.put(VariantsDictionary.ATTRIBUTE_VARIANT_REFERENCE_CONTENT, referenceContent);
             if (isPrimary && !isRejected) {
                 if (!samples.get(sampleId).annotations.containsKey(featureId + VariantsDictionary.ATTRIBUTE_VARIANT_SWAB_NAME)) {
                     this.samples.get(sampleId).annotations.put(featureId + VariantsDictionary.ATTRIBUTE_VARIANT_SWAB_NAME, variantContent + "@" + referencePosition);

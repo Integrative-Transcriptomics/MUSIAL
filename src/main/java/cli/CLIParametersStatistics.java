@@ -4,6 +4,7 @@ import components.IO;
 import components.Logging;
 import components.Validation;
 import datastructure.VariantsDictionary;
+import exceptions.MusialCLException;
 import exceptions.MusialIOException;
 import main.Musial;
 import org.apache.commons.cli.*;
@@ -16,7 +17,7 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
- * Parses command line interface arguments for the `MUSIAL inferSequences` module.
+ * Parses command line interface arguments for the `MUSIAL statistics` module.
  * <p>
  * Used to parse and validate passed command line options or print help information to the user. Parsed arguments are
  * stored to be accessible for other components of the tool.
@@ -25,61 +26,45 @@ import java.util.function.Consumer;
  * @version 2.1
  * @since 2.1
  */
-public final class CLIParametersInferSequences implements CLIParameters {
+public final class CLIParametersStatistics implements CLIParameters {
 
     /**
      * The unprocessed command line content passed by the user.
      */
     public String[] ARGUMENTS;
     /**
-     * Whether to output genotype sequences.
-     */
-    public boolean GS = false;
-    /**
-     * Whether to output genotype sequences as multiple sequence alignment.
-     */
-    public boolean GSMSA = false;
-    /**
-     * Whether to output proteoform sequences.
+     * {@link ArrayList} of {@link String}s yielding information about for which samples variants should be annotated and
+     * used for statistics computation.
      * <p>
-     * If `true`, proteoforms with any sample specified in {@link CLIParametersInferSequences#samples} will be
-     * considered.
-     */
-    public boolean PS = false;
-    /**
-     * Whether to output proteoform sequences as multiple sequence alignment.
-     * <p>
-     * If `true`, proteoforms with any sample specified in {@link CLIParametersInferSequences#samples} will be
-     * considered.
-     */
-    public boolean PSMSA = false;
-    /**
-     * Whether to skip fully conserved sites.
-     */
-    public boolean skipConserved = false;
-    /**
-     * {@link ArrayList} of {@link String}s yielding information about for which samples sequences shall be extracted.
-     * <p>
-     * If empty, sequences for all samples will be extracted.
+     * If empty, all samples are considered.
      */
     public final ArrayList<String> samples = new ArrayList<>();
     /**
-     * {@link ArrayList} of {@link String}s yielding information about for which features sequences shall be extracted.
+     * {@link ArrayList} of {@link String}s yielding information about for which features variants should be annotated and
+     * used for statistics computation.
      * <p>
-     * If empty, sequences for all features will be extracted.
+     * If empty, all features are considered.
      */
     public final ArrayList<String> features = new ArrayList<>();
+    /**
+     * {@link File} object specifying the reference genome sequence .fasta file.
+     */
+    public File referenceFASTA;
+    /**
+     * {@link File} object specifying the reference genome annotation .gff file.
+     */
+    public File referenceGFF;
     /**
      * {@link File} object specifying the output directory.
      */
     public File outputDirectory;
     /**
-     * {@link VariantsDictionary} to infer sequences from.
+     * Input {@link VariantsDictionary} to compute statistics for.
      */
     public VariantsDictionary inputVDict;
 
     /**
-     * Constructor of the {@link CLIParametersInferSequences} class.
+     * Constructor of the {@link CLIParametersStatistics} class.
      * <p>
      * Used to parse and validate command line interface input. Parsed arguments are stored - and accessible by other
      * components - via class properties.
@@ -87,8 +72,8 @@ public final class CLIParametersInferSequences implements CLIParameters {
      * @param args {@link String} {@link Array} containing the command line arguments.
      * @throws MusialIOException If any error occurs during input file validation.
      */
-    public CLIParametersInferSequences(String[] args)
-            throws MusialIOException {
+    public CLIParametersStatistics(String[] args)
+            throws MusialIOException, MusialCLException {
         // Store original command line arguments.
         this.ARGUMENTS = args;
         // Initialize `Option` object with all parameters.
@@ -100,36 +85,25 @@ public final class CLIParametersInferSequences implements CLIParameters {
                 .required()
                 .build()
         );
+        options.addOption(Option.builder("R")
+                .longOpt("referenceFasta")
+                .desc("Path to .fasta file containing the reference genome; Has to be the same file as the one used for constructing the input variants dictionary.")
+                .hasArg()
+                .required()
+                .build()
+        );
+        options.addOption(Option.builder("A")
+                .longOpt("referenceAnnotation")
+                .desc("Path to .gff file containing the reference genome annotation; Has to be the same file as the one used for constructing the input variants dictionary.")
+                .hasArg()
+                .required()
+                .build()
+        );
         options.addOption(Option.builder("O")
                 .longOpt("outputDirectory")
                 .desc("Path to output directory to store inferred sequences.")
                 .hasArg()
                 .required()
-                .build()
-        );
-        options.addOption(Option.builder("GS")
-                .longOpt("outputGenotyeSequences")
-                .desc("If specified, genotype sequences will be inferred.")
-                .build()
-        );
-        options.addOption(Option.builder("GSMSA")
-                .longOpt("outputGenotyeSequencesAsMSA")
-                .desc("If specified, a multiples sequence alignment of genotype sequences will be inferred.")
-                .build()
-        );
-        options.addOption(Option.builder("PS")
-                .longOpt("outputProteoformSequences")
-                .desc("If specified, proteoform sequences, if protein information is allocated to the specified features, will be inferred.")
-                .build()
-        );
-        options.addOption(Option.builder("PSMSA")
-                .longOpt("outputProteoformSequencesAsMSA")
-                .desc("If specified, a multiple sequence alignment of proteoform sequences, if protein information is allocated to the specified features, will be inferred.")
-                .build()
-        );
-        options.addOption(Option.builder("SC")
-                .longOpt("skipConserved")
-                .desc("If specified, fully conserved sites will not be written to MSA output.")
                 .build()
         );
         options.addOption(Option.builder("S")
@@ -167,17 +141,27 @@ public final class CLIParametersInferSequences implements CLIParameters {
             } catch (IOException e) {
                 throw new MusialIOException("Failed to parse specified variants dictionary at " + cmd.getOptionValue("I") + ".");
             }
+            // Parse reference genome (.fasta)
+            File r = new File(cmd.getOptionValue("R"));
+            if (Validation.isFile(r)) {
+                this.referenceFASTA = r;
+            } else {
+                throw new MusialCLException(
+                        "Invalid `referenceFASTA` " + cmd.getOptionValue("R") + "; failed to read file.");
+            }
+            // Parse reference annotation (.gff/.gff3)
+            File a = new File(cmd.getOptionValue("A"));
+            if (Validation.isFile(a)) {
+                this.referenceGFF = a;
+            } else {
+                throw new MusialCLException(
+                        "Invalid `referenceGFF` " + cmd.getOptionValue("A") + "; failed to read file.");
+            }
             // Parse specified output directory.
             this.outputDirectory = new File(cmd.getOptionValue("O"));
             if (!Validation.isDirectory(this.outputDirectory)) {
                 throw new MusialIOException("The specified output directory can not be accessed or is no valid directory.");
             }
-            // Parse output option parameters.
-            this.GS = cmd.hasOption("GS");
-            this.GSMSA = cmd.hasOption("GSMSA");
-            this.PS = cmd.hasOption("PS");
-            this.PSMSA = cmd.hasOption("PSMSA");
-            this.skipConserved = cmd.hasOption("SC");
             // Parse and validate samples.
             if (cmd.hasOption("S")) {
                 for (String s : cmd.getOptionValue("S").split(",")) {
@@ -218,8 +202,8 @@ public final class CLIParametersInferSequences implements CLIParameters {
     public void printHelp(Options options, HelpFormatter helpFormatter) {
         helpFormatter.printHelp(
                 100,
-                "java -jar MUSIAL-" + Musial.VERSION + ".jar inferSequences",
-                IO.LINE_SEPARATOR + "Extract nucleotide and/or amino-acid sequences as plain sequences or multiple sequence alignment",
+                "java -jar MUSIAL-" + Musial.VERSION + ".jar statistics",
+                IO.LINE_SEPARATOR + "Annotate variants with SnpEff and infer various statistics",
                 options,
                 "",
                 true
