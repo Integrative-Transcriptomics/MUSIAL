@@ -294,6 +294,9 @@ public class VariantsDictionary {
             for (String pV : proteoformVSwab.split("\\|")) {
                 variantContent = pV.split("@")[0];
                 variantPosition = pV.split("@")[1];
+                if (variantContent.equals(String.valueOf(Bio.DELETION_AA1)) && !includeDeletions) {
+                    continue;
+                }
                 proteoformVariants.put(variantPosition, variantContent);
             }
         }
@@ -309,6 +312,7 @@ public class VariantsDictionary {
      * @param fId  {@link String}; The name/id of the feature for which the sequence shall be extracted.
      * @param pfId {@link String}; The name/id of the proteoform for which the sequence shall be extracted.
      * @return {@link String}; Amino-acid sequence of one proteoform wrt. one feature.
+     * @throws MusialBioException If the translation of the reference sequence fails.
      */
     public String getProteoformSequence(String fId, String pfId) throws MusialBioException {
         if (features.get(fId).allocatedProtein == null) {
