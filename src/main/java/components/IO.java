@@ -245,6 +245,26 @@ public final class IO {
     }
 
     /**
+     *
+     * @param outputFile
+     * @param lineContent
+     * @throws MusialIOException
+     */
+    public static void writeFile(File outputFile, ArrayList<String> lineContent) throws MusialIOException {
+        if (!Validation.isFile(outputFile)) {
+            throw new MusialIOException("Failed to write to file " + outputFile.getAbsolutePath() + "; File does not exist or has no write permission. ");
+        }
+        try (FileWriter writer = new FileWriter(outputFile)) {
+            for (String line : lineContent) {
+                writer.write(line);
+                writer.flush();
+            }
+        } catch (IOException e) {
+            Logging.logWarning("Failed to write content to file " + outputFile.getAbsolutePath());
+        }
+    }
+
+    /**
      * Writes a dummy .vcf format file to the specified output file from a {@link VariantsDictionary} instance.
      *
      * @param outputFile       {@link File} object pointing to the output vcf file.
