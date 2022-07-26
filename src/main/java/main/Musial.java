@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * Main class of MUSIAL (MUlti Sample varIant AnaLysis), a tool to calculate SNV, gene, and whole genome alignments,
@@ -572,29 +573,90 @@ public final class Musial {
      */
     private static void runStatistics(CLIParametersStatistics cliarguments) throws MusialIOException, IOException {
         // Run SnpEff on all variants wrt. the samples and features specified as input.
-        Logging.logStatus("Annotating variants with SnpEff.");
         File tempDir = new File("./temp/");
-        IO.generateDirectory(tempDir);
-        File variantsFile = new File("./temp/variants.vcf");
-        IO.generateFile(variantsFile);
-        HashSet<String> excludedFeatures = new HashSet<>();
-        if (cliarguments.features.size() == 0) {
-            excludedFeatures.addAll(cliarguments.inputVDict.features.keySet());
-            excludedFeatures.removeAll(cliarguments.features);
+        try {
+            Logging.logStatus("Annotating variants with SnpEff.");
+            IO.generateDirectory(tempDir);
+            File variantsFile = new File("./temp/variants.vcf");
+            IO.generateFile(variantsFile);
+            HashSet<String> excludedFeatures = new HashSet<>();
+            if (cliarguments.features.size() == 0) {
+                excludedFeatures.addAll(cliarguments.inputVDict.features.keySet());
+                excludedFeatures.removeAll(cliarguments.features);
+            }
+            HashSet<String> excludedSamples = new HashSet<>();
+            if (cliarguments.samples.size() == 0) {
+                excludedSamples.addAll(cliarguments.inputVDict.samples.keySet());
+                excludedSamples.removeAll(cliarguments.samples);
+            }
+            IO.writeVcf(variantsFile, cliarguments.inputVDict, excludedFeatures, excludedSamples);
+            SnpEffAnnotator.runSnpEff(
+                    tempDir,
+                    variantsFile,
+                    cliarguments.referenceFASTA,
+                    cliarguments.referenceGFF,
+                    cliarguments.inputVDict.chromosome
+            );
+            ArrayList<String> outputFileLineContent = new ArrayList<>();
+            outputFileLineContent.add("POSITION\tREF_CONTENT\tALT_CONTENT\tSAMPLES\tINFO\n");
+            List<String> annotations = IO.readLinesFromFile("./temp/annotated_variants.vcf").stream().filter(s -> !s.startsWith("#")).collect(Collectors.toList());
+            String[] splitAnnotation;
+            String position;
+            String referenceContent;
+            String alternativeContent;
+            String[] annotationFields;
+            ConcurrentSkipListMap<String, String> occurrence;
+            ArrayList<String> samples = new ArrayList<>();
+            boolean isRejected;
+            ArrayList<Float> qualities = new ArrayList<>();
+            ArrayList<Float> frequencies = new ArrayList<>();
+            ArrayList<Float> coverages = new ArrayList<>();
+            for (String annotation : annotations) {
+                splitAnnotation = annotation.split("\t");
+                position = splitAnnotation[1];
+                referenceContent = splitAnnotation[3];
+                alternativeContent = splitAnnotation[4];
+                if (referenceContent.length() > alternativeContent.length()) {
+                    alternativeContent += String.valueOf(Bio.DELETION_AA1).repeat(referenceContent.length() - alternativeContent.length());
+                }
+                if (splitAnnotation[7].equals(".")) {
+                    continue;
+                }
+                annotationFields = splitAnnotation[7].split("=")[1].split("\\|");
+                occurrence = cliarguments.inputVDict.variants.get(Integer.parseInt(position)).get(alternativeContent).occurrence;
+                samples.clear();
+                qualities.clear();
+                frequencies.clear();
+                coverages.clear();
+                for (Map.Entry<String, String> occurenceEntry : occurrence.entrySet()) {
+                    isRejected = occurenceEntry.getValue().split("\\|")[0].equals("true");
+                    if (!isRejected) {
+                        samples.add(occurenceEntry.getKey());
+                        qualities.add(Float.parseFloat(occurenceEntry.getValue().split("\\|")[2]));
+                        frequencies.add(Float.parseFloat(occurenceEntry.getValue().split("\\|")[3]));
+                        coverages.add(Float.parseFloat(occurenceEntry.getValue().split("\\|")[4]));
+                    }
+                }
+                if (samples.size() > 0) {
+                    outputFileLineContent.add(
+                            position + "\t"
+                                    + referenceContent + "\t"
+                                    + alternativeContent + "\t"
+                                    + String.join(",", samples) + "\t"
+                                    + "TYPE=" + annotationFields[1] + ","
+                                    + "IMPACT=" + annotationFields[2] + ","
+                                    + "MEAN_QUALITY=" + qualities.stream().mapToDouble(f -> f).sum() / qualities.size() + ","
+                                    + "MEAN_FREQUENCY=" + frequencies.stream().mapToDouble(f -> f).sum() / frequencies.size() + ","
+                                    + "MEAN_COVERAGE=" + coverages.stream().mapToDouble(f -> f).sum() / coverages.size() + "\n"
+                    );
+                }
+            }
+            File outputFile = new File(cliarguments.outputDirectory.getAbsolutePath() + "/" + "nucleotideVariants.tsv");
+            IO.generateFile(outputFile);
+            IO.writeFile(outputFile, outputFileLineContent);
+        } finally {
+            // IO.deleteDirectory(tempDir);
         }
-        HashSet<String> excludedSamples = new HashSet<>();
-        if (cliarguments.samples.size() == 0) {
-            excludedSamples.addAll(cliarguments.inputVDict.samples.keySet());
-            excludedSamples.removeAll(cliarguments.samples);
-        }
-        IO.writeVcf(variantsFile, cliarguments.inputVDict, excludedFeatures, excludedSamples);
-        SnpEffAnnotator.runSnpEff(
-                tempDir,
-                variantsFile,
-                cliarguments.referenceFASTA,
-                cliarguments.referenceGFF,
-                cliarguments.inputVDict.chromosome
-        );
     }
 
 }
