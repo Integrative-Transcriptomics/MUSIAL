@@ -221,6 +221,8 @@ public class VariantsDictionary {
 
     /**
      * Extracts a {@link String} yielding the nucleotide sequence with all variants of one sample being incorporated for one feature.
+     * <p>
+     * All deletions are removed from the resulting sequence.
      *
      * @param fId {@link String}; The name/id of the feature for which the sequence shall be extracted.
      * @param sId {@link String}; The name/id of the sample for which the sequence shall be extracted.
@@ -265,12 +267,11 @@ public class VariantsDictionary {
      * - Keys of the returned map are formatted as X+Y; X is the position wrt. the reference protein and Y the number of
      * inserted positions.
      *
-     * @param fId              {@link String}; The name/id of the feature for which variants shall be extracted.
-     * @param pfId             {@link String}; The name/id of the proteoform for which variants shall be extracted.
-     * @param includeDeletions {@link Boolean} whether deletions shall be included as variants.
+     * @param fId  {@link String}; The name/id of the feature for which variants shall be extracted.
+     * @param pfId {@link String}; The name/id of the proteoform for which variants shall be extracted.
      * @return {@link HashMap} of variants extracted for the specified feature and proteoform.
      */
-    public HashMap<String, String> getProteoformVariants(String fId, String pfId, boolean includeDeletions) {
+    public HashMap<String, String> getProteoformVariants(String fId, String pfId) {
         // TODO: Store proteoform annotation attribute name as constant.
         if (features.get(fId).allocatedProtein == null) {
             return null;
@@ -283,9 +284,6 @@ public class VariantsDictionary {
             for (String pV : proteoformVSwab.split("\\|")) {
                 variantContent = pV.split("@")[0];
                 variantPosition = pV.split("@")[1];
-                if (variantContent.equals(String.valueOf(Bio.DELETION_AA1)) && !includeDeletions) {
-                    continue;
-                }
                 proteoformVariants.put(variantPosition, variantContent);
             }
         }
@@ -323,9 +321,9 @@ public class VariantsDictionary {
         for (int i = 0; i < referenceProteoformSequenceContent.length; i++) {
             proteoformContent.put((i + 1) + "+0", String.valueOf(referenceProteoformSequenceContent[i]));
         }
-        proteoformContent.putAll(getProteoformVariants(fId, pfId, false));
+        proteoformContent.putAll(getProteoformVariants(fId, pfId));
         StringBuilder proteoformSequenceBuilder = new StringBuilder();
         proteoformContent.values().forEach(proteoformSequenceBuilder::append);
-        return proteoformSequenceBuilder.toString();
+        return proteoformSequenceBuilder.toString().replace("-", "");
     }
 }

@@ -408,8 +408,8 @@ public final class Musial {
         int positionInt;
         int entryIndex;
         int VSWABHashCode;
-        HashMap<String, ArrayList<String>> faSequences = new HashMap<>();
-        ArrayList<String> faHeadersList = new ArrayList<>();
+        HashMap<String, ArrayList<String>> faSequences;
+        ArrayList<String> faHeadersList;
         StringBuilder faSequenceBuilder = new StringBuilder();
         if (cliarguments.GSMSA) {
             Logging.logStatus("Write genotype sequences alignment.");
@@ -469,9 +469,9 @@ public final class Musial {
                             GTIdentifierToSamples.get("GT0").remove(sampleEntry.name);
                         }
                     }
-                    faSequences.clear();
+                    faSequences = new HashMap<>();
                     for (String gtIdentifier : GTIdentifierToSamples.keySet()) {
-                        faHeadersList.clear();
+                        faHeadersList = new ArrayList<>();
                         faHeadersList.add(gtIdentifier);
                         faHeadersList.addAll(GTIdentifierToSamples.get(gtIdentifier));
                         faSequenceBuilder.setLength(0);
@@ -499,7 +499,7 @@ public final class Musial {
             }
         }
         // Write proteoform sequences MSA.
-        TreeSet<String> faEntryIds = new TreeSet<>();
+        TreeSet<String> faEntryIds;
         if (cliarguments.PSMSA) {
             Logging.logStatus("Write proteoform sequences alignment.");
             try (ProgressBar pb = buildProgress()) {
@@ -507,7 +507,7 @@ public final class Musial {
                 for (FeatureEntry featureEntry : cliarguments.inputVDict.features.values()) {
                     perPositionContents.clear();
                     HashMap<String, String> variants;
-                    faEntryIds.clear();
+                    faEntryIds = new TreeSet<>();
                     for (ProteoformEntry proteoform : featureEntry.allocatedProtein.proteoforms.values()) {
                         if (proteoform.name.equals(AllocatedProteinEntry.WILD_TYPE_PROTEOFORM_ID)) {
                             sequenceChars = cliarguments.inputVDict.getProteoformSequence(featureEntry.name, proteoform.name).toCharArray();
@@ -519,7 +519,7 @@ public final class Musial {
                             }
                             faEntryIds.add(proteoform.name);
                         } else {
-                            variants = cliarguments.inputVDict.getProteoformVariants(featureEntry.name, proteoform.name, true);
+                            variants = cliarguments.inputVDict.getProteoformVariants(featureEntry.name, proteoform.name);
                             for (Map.Entry<String, String> variantEntry : variants.entrySet()) {
                                 positionStr = variantEntry.getKey();
                                 positionContent = variantEntry.getValue();
@@ -531,10 +531,10 @@ public final class Musial {
                             faEntryIds.add(proteoform.name);
                         }
                     }
-                    faSequences.clear();
+                    faSequences = new HashMap<>();
                     for (String faEntryId : faEntryIds) {
                         faSequenceBuilder.setLength(0);
-                        faHeadersList.clear();
+                        faHeadersList = new ArrayList<>();
                         for (String p : perPositionContents.keySet()) {
                             if (!(cliarguments.skipConserved && perPositionContents.get(p).keySet().size() == 1)) {
                                 if (perPositionContents.get(p).containsKey(faEntryId)) {
