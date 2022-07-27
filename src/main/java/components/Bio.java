@@ -202,7 +202,7 @@ public final class Bio {
      * <p>
      * - Computed with <a href="https://bioinformaticshome.com/online_software/make_pam/makePAMmatrix.html">makePAMmatrix.html</a>
      * and a scaling factor of 1.
-     * - Includes values for 'X'/any amino-acid (match/mismatch: -1) and '*'/termination (match/mismatch: -4/-1).
+     * - Includes values for 'X'/any amino-acid (match/mismatch: -1) and '*'/termination (match/mismatch: 3/-4).
      */
     private static final int[][] PAM120 = {
             {1, -1, 0, 0, -1, 0, 0, 0, -1, 0, -1, -1, -1, -1, 0, 0, 0, -2, -1, 0, -1, -4},
@@ -225,8 +225,8 @@ public final class Bio {
             {-2, 0, -2, -3, -3, -2, -3, -3, -1, -2, -1, -2, -2, 0, -2, -1, -2, 4, -1, -3, -1, -4},
             {-1, -2, -1, -2, 0, -2, -2, -2, 0, -1, -1, -2, -1, 2, -2, -1, -1, -1, 3, -1, -1, -4},
             {0, -1, -1, -1, -1, -1, -1, -1, -1, 1, 0, -1, 0, -1, -1, -1, 0, -3, -1, 2, -1, -4},
-            {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, -4},
-            {-4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, 0}
+            {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -4},
+            {-4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, 3}
     };
 
     /**
