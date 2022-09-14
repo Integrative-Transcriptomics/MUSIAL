@@ -140,8 +140,7 @@ public final class FeatureEntry {
                 featureEntry.isSense);
         if (translatedFeatureSequence.endsWith(String.valueOf(Bio.TERMINATION_AA1))) {
             if (translatedFeatureSequence.substring(0, translatedFeatureSequence.length() - 1).contains(String.valueOf(Bio.TERMINATION_AA1))) {
-                throw new MusialBioException("Failed to allocate protein " + featureEntry.pdbFile.getName() + " to " +
-                        "feature " + featureEntry.name + " due to internal translated termination in translated feature nucleotide sequence.");
+                Logging.logWarning("Feature " + featureEntry.name + " contains internal terminations in translated feature nucleotide sequence.");
             }
         } else {
             Logging.logWarning("Feature " + featureEntry.name + " does not end with a translated termination and may be inappropriate.");
