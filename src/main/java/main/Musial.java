@@ -57,7 +57,7 @@ public final class Musial {
     /**
      * Specifies the module to execute during runtime.
      */
-    public static Constants MODULE = null;
+    public static MusialModules MODULE = null;
     /**
      * Original output stream.
      */
@@ -104,7 +104,7 @@ public final class Musial {
                 printModuleInformation();
             }
             // 1. Retain user specified module and parse command line arguments.
-            for (Constants mm : Constants.values()) {
+            for (MusialModules mm : MusialModules.values()) {
                 if (mm.name().equals(args[0])) {
                     MODULE = mm;
                     break;
