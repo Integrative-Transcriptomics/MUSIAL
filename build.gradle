@@ -90,6 +90,8 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.9.0'
     implementation 'net.sourceforge:javaml:0.1.7'
     implementation 'org.apache.commons:commons-text:1.9'
+    implementation 'com.aayushatharva.brotli4j:brotli4j:1.8.0'
+    implementation 'com.aayushatharva.brotli4j:native-windows-x86_64:1.8.0'
 }
 
 /*

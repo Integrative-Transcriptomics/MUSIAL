@@ -1,5 +1,7 @@
 package datastructure;
 
+import com.aayushatharva.brotli4j.Brotli4jLoader;
+import com.aayushatharva.brotli4j.encoder.Encoder;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import components.Bio;
@@ -9,6 +11,8 @@ import main.Musial;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -168,7 +172,7 @@ public class VariantsDictionary {
             String dumpString;
             String dumpFilePath = outfile.getAbsolutePath();
             if (Musial.COMPRESS) {
-                // Write compressed JSON.
+                // Write compressed (gzip) JSON.
                 gson = new GsonBuilder().create();
                 dumpString = gson.toJson(this);
                 try (FileOutputStream output =
@@ -176,6 +180,13 @@ public class VariantsDictionary {
                      Writer writer = new OutputStreamWriter(new GZIPOutputStream(output), StandardCharsets.UTF_8)) {
                     writer.write(dumpString);
                 }
+
+                // Write compressed (brotli) JSON.
+                gson = new GsonBuilder().create();
+                dumpString = gson.toJson(this);
+                Brotli4jLoader.ensureAvailability();
+                byte[] compressed = Encoder.compress(dumpString.getBytes());
+                Files.write( Paths.get( dumpFilePath.endsWith(".br") ? dumpFilePath : dumpFilePath + ".br" ), compressed );
             }
             // Write to pretty JSON.
             gson = new GsonBuilder().setPrettyPrinting().create();
