@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentSkipListSet;
  * @version 2.1
  * @since 2.1
  */
-public class AminoacidVariantAnnotationEntry {
+public class AminoacidVariantEntry {
 
     /**
      * {@link HashMap} of {@link String} key/value pairs specifying any information related to the variant.
@@ -23,9 +23,9 @@ public class AminoacidVariantAnnotationEntry {
     public final ConcurrentSkipListSet<String> occurrence = new ConcurrentSkipListSet<>();
 
     /**
-     * Constructor of {@link AminoacidVariantAnnotationEntry}.
+     * Constructor of {@link AminoacidVariantEntry}.
      */
-    public AminoacidVariantAnnotationEntry() {
+    public AminoacidVariantEntry() {
 
     }
 

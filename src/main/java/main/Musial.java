@@ -232,9 +232,9 @@ public final class Musial {
             }
             for (String fId : featureIdsToUpdate) {
                 if (!variantsDictionary.features.containsKey(fId)) {
-                    FeatureEntry.imputeSequence(cliarguments.features.get(fId), referenceChromosomeFastaContainer);
+                    cliarguments.features.get(fId).imputeSequence(referenceChromosomeFastaContainer);
                     if (cliarguments.features.get(fId).pdbFile != null) {
-                        FeatureEntry.imputeProtein(cliarguments.features.get(fId));
+                        cliarguments.features.get(fId).imputeProtein();
                     }
                     variantsDictionary.features.put(fId, cliarguments.features.get(fId));
                 }

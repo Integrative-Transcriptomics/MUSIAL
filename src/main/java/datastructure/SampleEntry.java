@@ -1,5 +1,6 @@
 package datastructure;
 
+import components.Logging;
 import htsjdk.tribble.index.IndexFactory;
 import htsjdk.tribble.index.tabix.TabixIndex;
 import htsjdk.variant.vcf.VCFCodec;
@@ -24,7 +25,7 @@ import java.util.HashMap;
 public final class SampleEntry {
 
     /**
-     * TODO
+     * The `.vcf` format file that is associated with this sample from which all variant information is parsed.
      */
     public transient final File vcfFile;
     /**
@@ -36,7 +37,8 @@ public final class SampleEntry {
      */
     public final String name;
     /**
-     * TODO
+     * Map of {@link String} key-value pairs; Annotations of this sample. Especially contains one annotation per feature
+     * that specifies this samples genotype and proteoform, if the feature is a coding sequence.
      */
     public final HashMap<String, String> annotations = new HashMap<>();
 
@@ -75,6 +77,41 @@ public final class SampleEntry {
                 sampleEntry.vcfFile,
                 new File(sampleEntry.vcfFile.getAbsolutePath() + ".tbi")
         );
+    }
+
+    /**
+     * Adds information about the genotype or proteoform of this sample wrt. a specific {@link FeatureEntry}.
+     * <p>
+     * The information is added as annotation by setting the {@link ProteoformEntry#name} or {@link GenotypeEntry#name}
+     * as value accessible via the key {@link FeatureEntry#name}_(PROTEOFORM|GENOTYPE).
+     *
+     * @param featureEntry The {@link FeatureEntry} to whose {@link GenotypeEntry}/{@link ProteoformEntry} the sample should be assigned.
+     * @param type         Either a {@link GenotypeEntry} or {@link ProteoformEntry}.
+     */
+    public void associateWithType(FeatureEntry featureEntry, Object type) {
+        if (type instanceof ProteoformEntry) {
+            if (featureEntry.proteoforms.containsKey(((ProteoformEntry) type).name)) {
+                this.annotations.put(featureEntry.name + "_PROTEOFORM", ((ProteoformEntry) type).name);
+            } else {
+                Logging.logWarning("Failed to assign sample " + this.name + " to proteoform "
+                        + ((ProteoformEntry) type).name + " of feature "
+                        + featureEntry.name + "; The specified proteoform does not exist for the feature."
+                );
+            }
+        } else if (type instanceof GenotypeEntry) {
+            if (featureEntry.genotypes.containsKey(((GenotypeEntry) type).name)) {
+                this.annotations.put(featureEntry.name + "_GENOTYPE", ((GenotypeEntry) type).name);
+            } else {
+                Logging.logWarning("Failed to assign sample " + this.name + " to genotype "
+                        + ((GenotypeEntry) type).name + " of feature "
+                        + featureEntry.name + "; The specified genotype does not exist for the feature."
+                );
+            }
+        } else {
+            Logging.logWarning("Failed to assign sample " + this.name + " to genotype/proteoform of feature "
+                    + featureEntry.name + "; The passed type " + type.getClass().getName() + " is not supported."
+            );
+        }
     }
 
 }

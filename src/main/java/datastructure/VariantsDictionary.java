@@ -43,12 +43,12 @@ public class VariantsDictionary {
      */
     public final HashMap<String, SampleEntry> samples = new HashMap<>();
     /**
-     * Software name for software version meta-information generation.
+     * Software name used as meta-information.
      */
     @SuppressWarnings("unused")
     public final String software = Musial.NAME + Musial.VERSION;
     /**
-     * Date tag for time stamp generation.
+     * Date tag used as meta-information.
      */
     @SuppressWarnings("unused")
     public final String date = new SimpleDateFormat("dd/MM/yyyy").format(new Date());
@@ -60,7 +60,7 @@ public class VariantsDictionary {
      * Hierarchical map structure to store variants wrt. maintained features and samples. The first layer represents the
      * position on the chromosome. The second layer represents the variant content.
      */
-    public final ConcurrentSkipListMap<Integer, ConcurrentSkipListMap<String, NucleotideVariantAnnotationEntry>>
+    public final ConcurrentSkipListMap<Integer, ConcurrentSkipListMap<String, NucleotideVariantEntry>>
             variants =
             new ConcurrentSkipListMap<>(Integer::compare);
     /**
@@ -120,11 +120,11 @@ public class VariantsDictionary {
             this.variants.put(referencePosition, new ConcurrentSkipListMap<>());
         }
         if (!this.variants.get(referencePosition).containsKey(variantContent)) {
-            this.variants.get(referencePosition).put(variantContent, new NucleotideVariantAnnotationEntry());
+            this.variants.get(referencePosition).put(variantContent, new NucleotideVariantEntry());
         }
         if (!this.variants.get(referencePosition).get(variantContent).occurrence.containsKey(sampleId)) {
             this.variants.get(referencePosition).get(variantContent).occurrence.put(sampleId,
-                    NucleotideVariantAnnotationEntry
+                    NucleotideVariantEntry
                             .constructSampleSpecificAnnotation(isRejected, isPrimary, quality, frequency, coverage)
             );
             this.variants.get(referencePosition).get(variantContent).annotations.put(VariantsDictionary.ATTRIBUTE_VARIANT_REFERENCE_CONTENT, referenceContent);

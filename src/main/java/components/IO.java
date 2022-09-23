@@ -3,7 +3,7 @@ package components;
 import com.google.common.base.Splitter;
 import com.google.gson.Gson;
 import datastructure.FastaContainer;
-import datastructure.NucleotideVariantAnnotationEntry;
+import datastructure.NucleotideVariantEntry;
 import datastructure.VariantsDictionary;
 import exceptions.MusialIOException;
 import main.Musial;
@@ -278,9 +278,9 @@ public final class IO {
             writer.write("##fileformat=VCFv4.2" + IO.LINE_SEPARATOR);
             writer.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO" + IO.LINE_SEPARATOR);
             int variantPosition;
-            ConcurrentSkipListMap<String, NucleotideVariantAnnotationEntry> variants;
+            ConcurrentSkipListMap<String, NucleotideVariantEntry> variants;
             boolean skip;
-            for (Map.Entry<Integer, ConcurrentSkipListMap<String, NucleotideVariantAnnotationEntry>> variantPositionEntry : vDict.variants.entrySet()) {
+            for (Map.Entry<Integer, ConcurrentSkipListMap<String, NucleotideVariantEntry>> variantPositionEntry : vDict.variants.entrySet()) {
                 variantPosition = variantPositionEntry.getKey();
                 skip = false;
                 for (String excludedFeature : excludedFeatures) {
@@ -293,7 +293,7 @@ public final class IO {
                     continue;
                 }
                 variants = variantPositionEntry.getValue();
-                for (Map.Entry<String, NucleotideVariantAnnotationEntry> variant : variants.entrySet()) {
+                for (Map.Entry<String, NucleotideVariantEntry> variant : variants.entrySet()) {
                     if (!excludedSamples.containsAll(variant.getValue().occurrence.keySet())) {
                         writer.write(vDict.chromosome + "\t"
                                 + variantPosition + "\t"

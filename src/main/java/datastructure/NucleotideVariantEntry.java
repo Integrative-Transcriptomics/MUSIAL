@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
  * @version 2.1
  * @since 2.1
  */
-public class NucleotideVariantAnnotationEntry {
+public class NucleotideVariantEntry {
 
     /**
      * {@link HashMap} of {@link String} key/value pairs specifying any information related to the variant.
@@ -21,14 +21,14 @@ public class NucleotideVariantAnnotationEntry {
      * {@link ConcurrentSkipListMap} of {@link String} key/value pairs indicating the occurrence of this variant.
      * <p>
      * - Keys correspond to sample names.
-     * - Values correspond to return values of the {@link NucleotideVariantAnnotationEntry#constructSampleSpecificAnnotation} method.
+     * - Values correspond to return values of the {@link NucleotideVariantEntry#constructSampleSpecificAnnotation} method.
      */
     public final ConcurrentSkipListMap<String, String> occurrence = new ConcurrentSkipListMap<>();
 
     /**
-     * Constructor of {@link AminoacidVariantAnnotationEntry}.
+     * Constructor of {@link AminoacidVariantEntry}.
      */
-    public NucleotideVariantAnnotationEntry() {
+    public NucleotideVariantEntry() {
 
     }
 

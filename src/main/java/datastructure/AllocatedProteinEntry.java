@@ -39,11 +39,11 @@ public class AllocatedProteinEntry {
      */
     public final ConcurrentSkipListMap<String, ProteoformEntry> proteoforms = new ConcurrentSkipListMap<>(String.CASE_INSENSITIVE_ORDER);
     /**
-     * Hierarchical map structure that uses {@link String}s as keys and point to {@link AminoacidVariantAnnotationEntry}s.
+     * Hierarchical map structure that uses {@link String}s as keys and point to {@link AminoacidVariantEntry}s.
      * <p>
      * The first and second layer of the map structure use positions wrt. reference feature and the alternate amino-acid content as keys, respectively.
      */
-    public final ConcurrentSkipListMap<String, ConcurrentSkipListMap<String, AminoacidVariantAnnotationEntry>> variants =
+    public final ConcurrentSkipListMap<String, ConcurrentSkipListMap<String, AminoacidVariantEntry>> variants =
             new ConcurrentSkipListMap<>((k1, k2) -> {
                 int p1 = Integer.parseInt(k1.split("\\+")[0]);
                 int p2 = Integer.parseInt(k2.split("\\+")[0]);
@@ -127,7 +127,7 @@ public class AllocatedProteinEntry {
                     this.proteoforms.get(proteoformName).annotations.put("PT", "true");
                 }
                 if (!this.variants.get(variantPosition).containsKey(variantContent)) {
-                    AminoacidVariantAnnotationEntry aminoacidVariantAnnotationEntry = new AminoacidVariantAnnotationEntry();
+                    AminoacidVariantEntry aminoacidVariantAnnotationEntry = new AminoacidVariantEntry();
                     // TODO: Infer causative nucleotide variants.
                     this.variants.get(variantPosition).put(variantContent, aminoacidVariantAnnotationEntry);
                 }
