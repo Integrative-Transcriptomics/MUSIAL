@@ -56,26 +56,6 @@ public class VariantsDictionary {
      * The chromosome name on which all maintained {@link VariantsDictionary#features} are located.
      */
     public final String chromosome;
-    /**
-     * Hierarchical map structure to store variants wrt. maintained features and samples. The first layer represents the
-     * position on the chromosome. The second layer represents the variant content.
-     */
-    public final ConcurrentSkipListMap<Integer, ConcurrentSkipListMap<String, NucleotideVariantEntry>>
-            variants =
-            new ConcurrentSkipListMap<>(Integer::compare);
-    /**
-     * Static property to use as the sample name/id for the wild type.
-     * TODO: Move to separate class with other attribute names.
-     */
-    public final static String WILD_TYPE_SAMPLE_ID = "WildType";
-    /**
-     * Static property to use as suffix for the 'VSWAB' annotation key in {@link FeatureEntry}s and {@link SampleEntry}s.
-     */
-    public final static String ATTRIBUTE_VARIANT_SWAB_NAME = "_VSWAB";
-    /**
-     * Static property to use as key for the 'REFCONTENT' annotation key for {@link VariantsDictionary#variants}.
-     */
-    public final static String ATTRIBUTE_VARIANT_REFERENCE_CONTENT = "REFCONTENT";
 
     /**
      * Constructor of {@link VariantsDictionary}.
