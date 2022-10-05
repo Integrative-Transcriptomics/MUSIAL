@@ -1,6 +1,8 @@
 package datastructure;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.TreeSet;
 
 /**
@@ -35,13 +37,13 @@ public class ProteoformEntry {
     /**
      * Constructor of {@link ProteoformEntry}.
      *
-     * @param name         The internal name to use for the proteoform.
-     * @param sampleId     The sample ID/name for which the proteoform was derived.
-     * @param variantsSwab Mandatory VARIANTS annotation to use for this proteoform.
+     * @param name           The internal name to use for the proteoform.
+     * @param sampleId       The sample ID/name for which the proteoform was derived.
+     * @param concatVariants Mandatory VARIANTS annotation to use for this proteoform.
      */
-    public ProteoformEntry(String name, String sampleId, String variantsSwab) {
+    public ProteoformEntry(String name, String sampleId, String concatVariants) {
         this.name = name;
-        this.annotations.put(ProteoformEntry.PROPERTY_NAME_VARIANTS, variantsSwab);
+        this.annotations.put(ProteoformEntry.PROPERTY_NAME_VARIANTS, concatVariants);
         this.samples.add(sampleId);
     }
 
@@ -52,24 +54,24 @@ public class ProteoformEntry {
      * mandatory 'VARIANTS' annotation value converted to a {@link String} for which a negative sign is converted to a one
      * and which in total was padded with prepending 0s to a length of 10.
      *
-     * @param variantsSwab The {@link String} value of the 'VSWAB' annotation of a {@link ProteoformEntry}.
+     * @param concatVariants {@link String} representation of the variants of one proteoform in the format <ALT>#<POS>.
      * @return {@link String} intended to be used as internal proteoform name.
      */
-    public static String generateProteoformName(String variantsSwab) {
-        if (variantsSwab.equals("")) {
+    public static String generateProteoformName(String concatVariants) {
+        if (concatVariants.equals("")) {
             return ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
         } else {
             StringBuilder proteoformNameBuilder = new StringBuilder();
             proteoformNameBuilder.append("PF");
-            String hashCodeString = String.valueOf(variantsSwab.hashCode());
-            if (hashCodeString.startsWith("-")) {
+            String variantsHashCode = String.valueOf(new HashSet<>(List.of(concatVariants.split("\\."))));
+            if (variantsHashCode.startsWith("-")) {
                 proteoformNameBuilder.append("1");
-                hashCodeString = hashCodeString.replace("-", "");
+                variantsHashCode = variantsHashCode.replace("-", "");
             } else {
                 proteoformNameBuilder.append("0");
             }
-            proteoformNameBuilder.append("0".repeat(10 - hashCodeString.length()));
-            proteoformNameBuilder.append(hashCodeString);
+            proteoformNameBuilder.append("0".repeat(10 - variantsHashCode.length()));
+            proteoformNameBuilder.append(variantsHashCode);
             return proteoformNameBuilder.toString();
         }
     }
