@@ -712,7 +712,7 @@ public final class Bio {
     public static ConcurrentSkipListMap<String, String> inferProteoform(
             VariantsDictionary variantsDictionary, String fId, String sId)
             throws MusialBioException {
-        String sampleNucleotideSequence = variantsDictionary.getNucleotideSequence(fId, sId);
+        String sampleNucleotideSequence = variantsDictionary.getSampleNucleotideSequence(fId, sId);
         Function<Triplet<Integer, String, String>, ConcurrentSkipListMap<String, String>> extractVariantsFromAlignment = (sa) -> {
             ConcurrentSkipListMap<String, String> variants = new ConcurrentSkipListMap<>((s1, s2) -> {
                 int p1 = Integer.parseInt(s1.split("\\+")[0]);

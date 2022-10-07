@@ -43,7 +43,7 @@ public class ProteoformEntry {
      *
      * @param name           The internal name to use for the proteoform.
      * @param sampleId       The sample ID/name for which the proteoform was derived.
-     * @param concatVariants Mandatory variants annotation to use for this proteoform.
+     * @param concatVariants Mandatory annotation to use for this proteoform.
      */
     public ProteoformEntry(String name, String sampleId, String concatVariants) {
         this.name = name;
@@ -56,7 +56,7 @@ public class ProteoformEntry {
      * <p>
      * See {@link FeatureEntry#generateEntryName(String, String)} for more details.
      *
-     * @param concatVariants {@link String} representation of the variants of one proteoform in the format <ALT>#<POS>.
+     * @param concatVariants {@link String} representation of the variants of one proteoform in the format <POS>#<ALT>.
      * @return {@link String} intended to be used as internal proteoform name.
      */
     public static String generateProteoformName(String concatVariants) {

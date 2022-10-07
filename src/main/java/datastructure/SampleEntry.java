@@ -41,6 +41,7 @@ public final class SampleEntry {
      * that specifies this samples genotype and proteoform, if the feature is a coding sequence.
      */
     public final HashMap<String, String> annotations = new HashMap<>();
+    public final static String REFERENCE_SAMPLE_ID = "WILDTYPE";
 
     /**
      * Constructor of {@link SampleEntry}.
@@ -82,11 +83,11 @@ public final class SampleEntry {
     /**
      * Adds information about the genotype or proteoform of this sample wrt. a specific {@link FeatureEntry}.
      * <p>
-     * The information is added as annotation by setting the {@link ProteoformEntry#name} or {@link GenotypeEntry#name}
+     * The information is added as annotation by setting the {@link ProteoformEntry#name} or {@link AlleleEntry#name}
      * as value accessible via the key {@link FeatureEntry#name}_(PROTEOFORM|GENOTYPE).
      *
-     * @param featureEntry The {@link FeatureEntry} to whose {@link GenotypeEntry}/{@link ProteoformEntry} the sample should be assigned.
-     * @param type         Either a {@link GenotypeEntry} or {@link ProteoformEntry}.
+     * @param featureEntry The {@link FeatureEntry} to whose {@link AlleleEntry}/{@link ProteoformEntry} the sample should be assigned.
+     * @param type         Either a {@link AlleleEntry} or {@link ProteoformEntry}.
      */
     public void associateWithType(FeatureEntry featureEntry, Object type) {
         if (type instanceof ProteoformEntry) {
@@ -98,12 +99,12 @@ public final class SampleEntry {
                         + featureEntry.name + "; The specified proteoform does not exist for the feature."
                 );
             }
-        } else if (type instanceof GenotypeEntry) {
-            if (featureEntry.genotypes.containsKey(((GenotypeEntry) type).name)) {
-                this.annotations.put(featureEntry.name + "_GENOTYPE", ((GenotypeEntry) type).name);
+        } else if (type instanceof AlleleEntry) {
+            if (featureEntry.alleles.containsKey(((AlleleEntry) type).name)) {
+                this.annotations.put(featureEntry.name + "_GENOTYPE", ((AlleleEntry) type).name);
             } else {
                 Logging.logWarning("Failed to assign sample " + this.name + " to genotype "
-                        + ((GenotypeEntry) type).name + " of feature "
+                        + ((AlleleEntry) type).name + " of feature "
                         + featureEntry.name + "; The specified genotype does not exist for the feature."
                 );
             }

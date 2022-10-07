@@ -21,6 +21,8 @@ public class NucleotideVariantEntry {
      * {@link ConcurrentSkipListSet} of {@link String}s indicating the occurrence of this variant.
      */
     public final ConcurrentSkipListSet<String> occurrence = new ConcurrentSkipListSet<>();
+    public final static String PROPERTY_NAME_PRIMARY = "PRIMARY";
+    public final static String PROPERTY_NAME_REFERENCE_CONTENT = "REF_CONT";
 
     /**
      * Constructor of {@link NucleotideVariantEntry}.

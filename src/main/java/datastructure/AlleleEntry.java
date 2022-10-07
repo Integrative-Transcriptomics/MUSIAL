@@ -11,34 +11,34 @@ import java.util.TreeSet;
  * @version 2.1
  * @since 2.1
  */
-public class GenotypeEntry {
+public class AlleleEntry {
 
     /**
-     * The internal name to use for this proteoform. Should be derived with {@link GenotypeEntry#generateGenotypeName(String)}
+     * The internal name to use for this allele. Should be derived with {@link AlleleEntry#generateAlleleName(String)}
      */
     public final String name;
     /**
-     * A {@link HashMap} yielding any meta-information {@link String} key-value pairs about this {@link GenotypeEntry}.
+     * A {@link HashMap} yielding any meta-information {@link String} key-value pairs about this {@link AlleleEntry}.
      */
     public final HashMap<String, String> annotations = new HashMap<>();
     /**
      * {@link TreeSet} of {@link String} values matching exactly one {@link SampleEntry#name} value. Represents the list of
-     * all samples yielding this proteoform.
+     * all samples yielding this allele.
      */
     public final TreeSet<String> samples = new TreeSet<>();
 
-    public final static String PROPERTY_NAME_REFERENCE_ID = "GT00000000WT";
+    public final static String PROPERTY_NAME_REFERENCE_ID = "AL00000000WT";
 
     public final static String PROPERTY_NAME_VARIANTS = "VARIANTS";
 
     /**
-     * Constructor of {@link GenotypeEntry}.
+     * Constructor of {@link AlleleEntry}.
      *
-     * @param name           The internal name to use for the proteoform.
-     * @param sId            The sample ID/name for which the proteoform was derived.
-     * @param concatVariants Mandatory variants annotation to use for this proteoform.
+     * @param name           The internal name to use for the allele.
+     * @param sId            The sample ID/name for which the allele was derived.
+     * @param concatVariants Mandatory annotation to use for this allele.
      */
-    public GenotypeEntry(String name, String sId, String concatVariants) {
+    public AlleleEntry(String name, String sId, String concatVariants) {
         this.name = name;
         this.annotations.put(PROPERTY_NAME_VARIANTS, concatVariants);
         this.samples.add(sId);
@@ -49,14 +49,14 @@ public class GenotypeEntry {
      * <p>
      * See {@link FeatureEntry#generateEntryName(String, String)} for more details.
      *
-     * @param concatVariants {@link String} representation of the variants of one genotype in the format <ALT>#<POS>.
-     * @return {@link String} intended to be used as internal genotype name.
+     * @param concatVariants {@link String} representation of the variants of one allele in the format <POS>#<ALT>.
+     * @return {@link String} intended to be used as internal allele name.
      */
-    public static String generateGenotypeName(String concatVariants) {
+    public static String generateAlleleName(String concatVariants) {
         if (concatVariants.equals("")) {
-            return GenotypeEntry.PROPERTY_NAME_REFERENCE_ID;
+            return AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
         } else {
-            return FeatureEntry.generateEntryName(concatVariants, "GT");
+            return FeatureEntry.generateEntryName(concatVariants, "AL");
         }
     }
 

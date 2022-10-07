@@ -43,6 +43,13 @@ public class VariantsDictionary {
      */
     public final HashMap<String, SampleEntry> samples = new HashMap<>();
     /**
+     * Hierarchical map structure to store variants wrt. the nucleotide sequence. The first layer represents the
+     * position on the chromosome. The second layer represents the variant content.
+     */
+    public final ConcurrentSkipListMap<Integer, ConcurrentSkipListMap<String, NucleotideVariantEntry>>
+            nucleotideVariants =
+            new ConcurrentSkipListMap<>(Integer::compare);
+    /**
      * Software name used as meta-information.
      */
     @SuppressWarnings("unused")
@@ -75,49 +82,62 @@ public class VariantsDictionary {
     }
 
     /**
-     * Adds information about a variant to {@link VariantsDictionary#variants}.
+     * Adds information about a nucleotide variant to {@link VariantsDictionary#nucleotideVariants}.
      *
-     * @param featureId         {@link String}; The internal name of the feature for which this variant was detected.
-     * @param referencePosition {@link Integer}; The position on the reference chromosome (1-based indexing).
-     * @param variantContent    {@link String}; The alternate content of the variant; Single letter contents reflect
-     *                          SNVs, multi letter contents reflect SVs.
-     * @param referenceContent  {@link String}; The reference content of the variant; The length in relation to the
-     *                          variantContent parameter indicates whether a SV is a insertion or deletion.
-     * @param sampleId          {@link String}; The internal name of the sample of which the variant was called.
-     * @param isPrimary         {@link Boolean}; Whether the variant call is a primary call, i.e. if it is the variant
-     *                          with the highest frequency.
-     * @param isRejected        {@link Boolean}; Whether the variant was rejected, i.e. if it failed any filtering
-     *                          criteria.
-     * @param quality           {@link Double}; The Phred scaled GT quality of the call.
-     * @param coverage          {@link Double}; The depth of coverage of the call.
-     * @param frequency         {@link Double}; The allelic frequency of the call.
+     * @param featureId  {@link String}; The internal name of the feature for which this variant was detected.
+     * @param position   {@link Integer}; The position on the reference chromosome (1-based indexing).
+     * @param altContent {@link String}; The alternate content of the variant; Single letter contents reflect
+     *                   SNVs, multi letter contents reflect SVs.
+     * @param refContent {@link String}; The reference content of the variant; The length in relation to the
+     *                   variantContent parameter indicates whether a SV is a insertion or deletion.
+     * @param sampleId   {@link String}; The internal name of the sample of which the variant was called.
+     * @param isPrimary  {@link Boolean}; Whether the variant call is a primary call, i.e. if it is the variant
+     *                   with the highest frequency.
      */
-    public void addVariant(String featureId, int referencePosition, String variantContent,
-                           @SuppressWarnings("unused") String referenceContent, String sampleId,
-                           boolean isPrimary, boolean isRejected, double quality, double coverage, double frequency) {
-        // Update variant information in `this.variants`.
-        if (!this.variants.containsKey(referencePosition)) {
-            this.variants.put(referencePosition, new ConcurrentSkipListMap<>());
+    public void addNucleotideVariant(String featureId, int position, String altContent, String refContent, String sampleId,
+                                     boolean isPrimary) {
+        // Update variant information.
+        if (!this.nucleotideVariants.containsKey(position)) {
+            this.nucleotideVariants.put(position, new ConcurrentSkipListMap<>());
         }
-        if (!this.variants.get(referencePosition).containsKey(variantContent)) {
-            this.variants.get(referencePosition).put(variantContent, new NucleotideVariantEntry());
+        if (!this.nucleotideVariants.get(position).containsKey(altContent)) {
+            this.nucleotideVariants.get(position).put(altContent, new NucleotideVariantEntry());
+            this.nucleotideVariants.get(position).get(altContent).annotations.put(NucleotideVariantEntry.PROPERTY_NAME_PRIMARY, String.valueOf(isPrimary));
+            this.nucleotideVariants.get(position).get(altContent).annotations.put(NucleotideVariantEntry.PROPERTY_NAME_REFERENCE_CONTENT, refContent);
         }
-        if (!this.variants.get(referencePosition).get(variantContent).occurrence.containsKey(sampleId)) {
-            this.variants.get(referencePosition).get(variantContent).occurrence.put(sampleId,
-                    NucleotideVariantEntry
-                            .constructSampleSpecificAnnotation(isRejected, isPrimary, quality, frequency, coverage)
-            );
-            this.variants.get(referencePosition).get(variantContent).annotations.put(VariantsDictionary.ATTRIBUTE_VARIANT_REFERENCE_CONTENT, referenceContent);
-            if (isPrimary && !isRejected) {
-                if (!samples.get(sampleId).annotations.containsKey(featureId + VariantsDictionary.ATTRIBUTE_VARIANT_SWAB_NAME)) {
-                    this.samples.get(sampleId).annotations.put(featureId + VariantsDictionary.ATTRIBUTE_VARIANT_SWAB_NAME, variantContent + "@" + referencePosition);
-                } else {
-                    this.samples.get(sampleId).annotations
-                            .put(featureId + VariantsDictionary.ATTRIBUTE_VARIANT_SWAB_NAME, this.samples.get(sampleId).annotations.get(featureId + VariantsDictionary.ATTRIBUTE_VARIANT_SWAB_NAME)
-                                    .concat("|" + variantContent + "@" + referencePosition)
-                            );
+        // Add information about variant to temp. annotation of sample. The information is used to infer alleles later
+        // and is then discarded.
+        assert this.samples.containsKey(sampleId);
+        assert this.features.containsKey(featureId);
+        assert this.nucleotideVariants.containsKey(position);
+        assert this.nucleotideVariants.get(position).containsKey(altContent);
+        if (!this.features.get(featureId).novelNucleotideVariants.containsKey(sampleId)) {
+            this.features.get(featureId).novelNucleotideVariants.put(sampleId, "");
+        }
+        this.features.get(featureId).novelNucleotideVariants.put(
+                sampleId,
+                this.features.get(featureId).novelNucleotideVariants.get(sampleId) + "." + position + "" + "#" + altContent
+        );
+    }
+
+    /**
+     * Infers alleles from temporary information of novel nucleotide variants stored in
+     * {@link FeatureEntry#novelNucleotideVariants} for each feature in {@link VariantsDictionary#features}.
+     * <p>
+     * The {@link FeatureEntry#novelNucleotideVariants} is cleared afterwards.
+     */
+    public void inferAlleles() {
+        for (String featureId : this.features.keySet()) {
+            for (String sampleId : this.features.keySet()) {
+                ConcurrentSkipListMap<Integer, String> variants = new ConcurrentSkipListMap<>();
+                String tempVariantsAnnotation = this.features.get(featureId).novelNucleotideVariants.get(sampleId);
+                for (String variant : tempVariantsAnnotation.split("\\.")) {
+                    String[] variantInformation = variant.split("#");
+                    variants.put(Integer.valueOf(variantInformation[0]), variantInformation[1]);
                 }
+                this.features.get(featureId).addAllele(sampleId, variants, this);
             }
+            this.features.get(featureId).novelNucleotideVariants.clear();
         }
     }
 
@@ -131,16 +151,16 @@ public class VariantsDictionary {
      */
     @SuppressWarnings("unused")
     public void addVariantAnnotation(int position, String content, Map<String, String> annotations) {
-        if (this.variants.containsKey(position) && this.variants.get(position).containsKey(content)) {
-            this.variants.get(position).get(content).annotations.putAll(annotations);
+        if (this.nucleotideVariants.containsKey(position) && this.nucleotideVariants.get(position).containsKey(content)) {
+            this.nucleotideVariants.get(position).get(content).annotations.putAll(annotations);
         }
     }
 
     /**
-     * Dumps this {@link VariantsDictionary} instance into a JSON format file. The output is compressed with gzip
+     * Dumps this {@link VariantsDictionary} instance into a JSON format file. The output is compressed with brotli
      * dependent on the value of {@link Musial#COMPRESS}.
      *
-     * @param outfile {@link File} object pointing to the file the VDict should be written to.
+     * @param outfile {@link File} object pointing to the file this {@link VariantsDictionary} should be written to.
      * @throws MusialIOException If the output generation fails.
      */
     public void dump(File outfile) throws MusialIOException {
@@ -156,7 +176,7 @@ public class VariantsDictionary {
                 gson = new GsonBuilder().create();
                 dumpString = gson.toJson(this);
                 try (FileOutputStream output =
-                             new FileOutputStream(dumpFilePath.endsWith(".gz") ? dumpFilePath : dumpFilePath + ".gz");
+                             new FileOutputStream(dumpFilePath);
                      Writer writer = new OutputStreamWriter(new GZIPOutputStream(output), StandardCharsets.UTF_8)) {
                     writer.write(dumpString);
                 }
@@ -166,47 +186,50 @@ public class VariantsDictionary {
                 dumpString = gson.toJson(this);
                 Brotli4jLoader.ensureAvailability();
                 byte[] compressed = Encoder.compress(dumpString.getBytes());
-                Files.write( Paths.get( dumpFilePath.endsWith(".br") ? dumpFilePath : dumpFilePath + ".br" ), compressed );
+                Files.write(Paths.get(dumpFilePath.endsWith(".br") ? dumpFilePath : dumpFilePath + ".br"), compressed);
+            } else {
+                // Write to pretty JSON.
+                gson = new GsonBuilder().setPrettyPrinting().create();
+                dumpString = gson.toJson(this);
+                FileWriter variantDBWriter = new FileWriter(dumpFilePath);
+                variantDBWriter.write(dumpString);
+                variantDBWriter.close();
             }
-            // Write to pretty JSON.
-            gson = new GsonBuilder().setPrettyPrinting().create();
-            dumpString = gson.toJson(this);
-            FileWriter variantDBWriter = new FileWriter(dumpFilePath.endsWith(".gz") ? dumpFilePath.replace(".gz", "") :
-                    dumpFilePath);
-            variantDBWriter.write(dumpString);
-            variantDBWriter.close();
         } catch (IOException e) {
             throw new MusialIOException("Failed to write to output file:\t" + outfile.getAbsolutePath());
         }
     }
 
     /**
-     * Extracts a {@link HashMap} of {@link Integer}/{@link String} key/value pairs reflecting all (filtered) variants
-     * for one sample and feature.
+     * Extracts a {@link HashMap} of {@link Integer}/{@link String} key/value pairs reflecting all variants wrt. one
+     * sample and feature.
+     * <p>
+     * Variants are returned wrt. the features start and end coordinates and its strand orientation.
      *
-     * @param fId {@link String}; The name/id of the feature for which variants shall be extracted.
-     * @param sId {@link String}; The name/id of the sample for which variants shall be extracted.
+     * @param featureId {@link String}; The name/id of the feature for which variants shall be extracted.
+     * @param sampleId  {@link String}; The name/id of the sample for which variants shall be extracted.
      * @return {@link HashMap} of variants extracted for the specified feature and sample.
      */
-    public HashMap<Integer, String> getSampleVariants(String fId, String sId) {
-        String sampleVSwab = samples.get(sId).annotations.get(fId + VariantsDictionary.ATTRIBUTE_VARIANT_SWAB_NAME);
-        if (sampleVSwab == null) {
+    public HashMap<Integer, String> getSampleNucleotideVariants(String featureId, String sampleId) {
+        String sampleAllele = this.samples.get(sampleId).annotations.get("AL#" + featureId);
+        String concatVariants = this.features.get(featureId).alleles.get(sampleAllele).annotations.get(AlleleEntry.PROPERTY_NAME_VARIANTS);
+        if (concatVariants.equals("")) {
             return null;
         } else {
-            HashMap<Integer, String> sampleVariants = new HashMap<>();
+            HashMap<Integer, String> variants = new HashMap<>();
             int variantPosition;
             int relativeVariantPosition;
             String variantContent;
             String relativeVariantContent;
-            for (String sV : sampleVSwab.split("\\|")) {
-                variantContent = sV.split("@")[0];
-                variantPosition = Integer.parseInt(sV.split("@")[1]);
-                relativeVariantPosition = features.get(fId).isSense ? variantPosition - features.get(fId).start + 1 :
-                        features.get(fId).end - variantPosition + 1;
-                relativeVariantContent = features.get(fId).isSense ? variantContent : Bio.reverseComplement(variantContent);
-                sampleVariants.put(relativeVariantPosition, relativeVariantContent);
+            for (String variant : concatVariants.split("\\.")) {
+                variantPosition = Integer.parseInt(variant.split("#")[0]);
+                variantContent = variant.split("#")[1];
+                relativeVariantPosition = features.get(featureId).isSense ? variantPosition - features.get(featureId).start + 1 :
+                        features.get(featureId).end - variantPosition + 1;
+                relativeVariantContent = features.get(featureId).isSense ? variantContent : Bio.reverseComplement(variantContent);
+                variants.put(relativeVariantPosition, relativeVariantContent);
             }
-            return sampleVariants;
+            return variants;
         }
     }
 
@@ -215,38 +238,37 @@ public class VariantsDictionary {
      * <p>
      * All deletions are removed from the resulting sequence.
      *
-     * @param fId {@link String}; The name/id of the feature for which the sequence shall be extracted.
-     * @param sId {@link String}; The name/id of the sample for which the sequence shall be extracted.
+     * @param featureId {@link String}; The name/id of the feature for which the sequence shall be extracted.
+     * @param sampleId  {@link String}; The name/id of the sample for which the sequence shall be extracted.
      * @return {@link String}; Nucleotide sequence of one sample wrt. one feature.
      */
-    public String getNucleotideSequence(String fId, String sId) {
-        if (sId.equals(VariantsDictionary.WILD_TYPE_SAMPLE_ID)
-                || samples.get(sId).annotations.get(fId + VariantsDictionary.ATTRIBUTE_VARIANT_SWAB_NAME) == null) {
-            return features.get(fId).nucleotideSequence;
+    public String getSampleNucleotideSequence(String featureId, String sampleId) {
+        if (sampleId.equals(SampleEntry.REFERENCE_SAMPLE_ID)) {
+            return features.get(featureId).nucleotideSequence;
         } else {
-            char[] referenceSequence = features.get(fId).isSense ? features.get(fId).nucleotideSequence.toCharArray() : Bio.reverseComplement(features.get(fId).nucleotideSequence).toCharArray();
-            StringBuilder sampleSequenceBuilder = new StringBuilder();
-            HashMap<Integer, String> sampleVariants = getSampleVariants(fId, sId);
-            String sampleVariant;
+            char[] referenceSequence = features.get(featureId).isSense ? features.get(featureId).nucleotideSequence.toCharArray() : Bio.reverseComplement(features.get(featureId).nucleotideSequence).toCharArray();
+            StringBuilder sequenceBuilder = new StringBuilder();
+            HashMap<Integer, String> variants = getSampleNucleotideVariants(featureId, sampleId);
+            String variant;
             long skipPositions = 0;
             for (int i = 1; i <= referenceSequence.length; i++) {
                 if (skipPositions > 0) {
                     skipPositions -= 1;
                     continue;
                 }
-                if (sampleVariants.containsKey(i)) {
-                    sampleVariant = sampleVariants.get(i);
-                    if (sampleVariant.contains("-")) {
-                        skipPositions = sampleVariant.chars().filter(c -> c == '-').count();
-                        sampleVariant = sampleVariant.replace("-", "");
+                if (variants.containsKey(i)) {
+                    variant = variants.get(i);
+                    if (variant.contains("-")) {
+                        skipPositions = variant.chars().filter(c -> c == '-').count();
+                        variant = variant.replace("-", "");
                     }
-                    sampleSequenceBuilder.append(sampleVariant);
+                    sequenceBuilder.append(variant);
                 } else {
-                    sampleSequenceBuilder.append(referenceSequence[i - 1]);
+                    sequenceBuilder.append(referenceSequence[i - 1]);
                 }
             }
-            String sampleSequence = sampleSequenceBuilder.toString();
-            return features.get(fId).isSense ? sampleSequence : Bio.reverseComplement(sampleSequence);
+            String sampleSequence = sequenceBuilder.toString();
+            return features.get(featureId).isSense ? sampleSequence : Bio.reverseComplement(sampleSequence);
         }
     }
 
@@ -254,46 +276,44 @@ public class VariantsDictionary {
      * Extracts a {@link HashMap} of {@link String}/{@link String} key/value pairs reflecting all (filtered) variants
      * for one proteoform and feature.
      * <p>
-     * - Returns null if no protein is allocated to the feature.
+     * - Returns null if the feature is none-coding.
      * - Keys of the returned map are formatted as X+Y; X is the position wrt. the reference protein and Y the number of
      * inserted positions.
      *
-     * @param fId  {@link String}; The name/id of the feature for which variants shall be extracted.
-     * @param pfId {@link String}; The name/id of the proteoform for which variants shall be extracted.
+     * @param featureId    {@link String}; The name/id of the feature for which variants shall be extracted.
+     * @param proteoformId {@link String}; The name/id of the proteoform for which variants shall be extracted.
      * @return {@link HashMap} of variants extracted for the specified feature and proteoform.
      */
-    public HashMap<String, String> getProteoformVariants(String fId, String pfId) {
-        // TODO: Store proteoform annotation attribute name as constant.
-        if (features.get(fId).allocatedProtein == null) {
+    public HashMap<String, String> getProteoformAminoacidVariants(String featureId, String proteoformId) {
+        if (!features.get(featureId).isCodingSequence) {
             return null;
         }
-        String proteoformVSwab = features.get(fId).allocatedProtein.proteoforms.get(pfId).annotations.get("VSWAB");
-        HashMap<String, String> proteoformVariants = new HashMap<>();
-        if (!proteoformVSwab.equals("")) {
+        String concatVariants = features.get(featureId).proteoforms.get(proteoformId).annotations.get(ProteoformEntry.PROPERTY_NAME_VARIANTS);
+        HashMap<String, String> variants = new HashMap<>();
+        if (!concatVariants.equals("")) {
             String variantPosition;
             String variantContent;
-            for (String pV : proteoformVSwab.split("\\|")) {
-                variantContent = pV.split("@")[0];
-                variantPosition = pV.split("@")[1];
-                proteoformVariants.put(variantPosition, variantContent);
+            for (String variant : concatVariants.split("\\.")) {
+                variantPosition = variant.split("#")[0];
+                variantContent = variant.split("#")[1];
+                variants.put(variantPosition, variantContent);
             }
         }
-        return proteoformVariants;
+        return variants;
     }
 
     /**
-     * Extracts a {@link String} yielding the amino-acid sequence with all variants of one proteoform being incorporated
+     * Extracts a {@link String} yielding the aminoacid sequence with all variants of one proteoform being incorporated
      * for one feature.
      * <p>
-     * The translated reference feature sequence will be used as the reference amino-acid sequence.
+     * The translated reference feature sequence will be used as the reference aminoacid sequence.
      *
-     * @param fId  {@link String}; The name/id of the feature for which the sequence shall be extracted.
-     * @param pfId {@link String}; The name/id of the proteoform for which the sequence shall be extracted.
+     * @param featureId    {@link String}; The name/id of the feature for which the sequence shall be extracted.
+     * @param proteoformId {@link String}; The name/id of the proteoform for which the sequence shall be extracted.
      * @return {@link String}; Amino-acid sequence of one proteoform wrt. one feature.
-     * @throws MusialBioException If the translation of the reference sequence fails.
      */
-    public String getProteoformSequence(String fId, String pfId) throws MusialBioException {
-        if (features.get(fId).allocatedProtein == null) {
+    public String getProteoformSequence(String featureId, String proteoformId) {
+        if (!features.get(featureId).isCodingSequence) {
             return null;
         }
         //noinspection DuplicatedCode
@@ -308,11 +328,11 @@ public class VariantsDictionary {
                 return i1.compareTo(i2);
             }
         });
-        char[] referenceProteoformSequenceContent = Bio.translateNucSequence(features.get(fId).nucleotideSequence, true, true, features.get(fId).isSense).toCharArray();
+        char[] referenceProteoformSequenceContent = features.get(featureId).translatedNucleotideSequence.toCharArray();
         for (int i = 0; i < referenceProteoformSequenceContent.length; i++) {
             proteoformContent.put((i + 1) + "+0", String.valueOf(referenceProteoformSequenceContent[i]));
         }
-        proteoformContent.putAll(getProteoformVariants(fId, pfId));
+        proteoformContent.putAll(getProteoformAminoacidVariants(featureId, proteoformId));
         StringBuilder proteoformSequenceBuilder = new StringBuilder();
         proteoformContent.values().forEach(proteoformSequenceBuilder::append);
         return proteoformSequenceBuilder.toString().replace("-", "");
