@@ -151,22 +151,23 @@ public final class SampleAnalyzerRunnable implements Runnable {
                 referenceAlleleContent.length() == 1) {
             // CASE: Nucleotide substitution.
             variantsDictionary
-                    .addVariant(featureEntry.name, variantPosition, variantAlleleContent, referenceAlleleContent,
-                            sampleEntry.name, isPrimary, isRejected, variantQuality, variantCoverage, variantFrequency);
+                    .addNucleotideVariant(featureEntry.name, variantPosition, variantAlleleContent, referenceAlleleContent,
+                            sampleEntry.name, isPrimary);
         } else if (variantAlleleContent.length() > referenceAlleleContent.length() &&
                 referenceAlleleContent.length() == 1) {
             // CASE: Insertion.
             variantsDictionary
-                    .addVariant(featureEntry.name, variantPosition, variantAlleleContent, referenceAlleleContent,
-                            sampleEntry.name, isPrimary, isRejected, variantQuality, variantCoverage, variantFrequency);
+                    .addNucleotideVariant(featureEntry.name, variantPosition, variantAlleleContent, referenceAlleleContent,
+                            sampleEntry.name, isPrimary);
         } else if (variantAlleleContent.length() < referenceAlleleContent.length() &&
                 variantAlleleContent.length() == 1) {
             // CASE: Deletion
             variantAlleleContent = variantAlleleContent + "-".repeat(referenceAlleleContent.length() - 1);
             variantsDictionary
-                    .addVariant(featureEntry.name, variantPosition, variantAlleleContent, referenceAlleleContent,
-                            sampleEntry.name, isPrimary, isRejected, variantQuality, variantCoverage, variantFrequency);
+                    .addNucleotideVariant(featureEntry.name, variantPosition, variantAlleleContent, referenceAlleleContent,
+                            sampleEntry.name, isPrimary);
         } else {
+            // CASE: Ambiguous call.
             Triplet<Integer, String, String> alignedAlleles = Bio.globalNucleotideSequenceAlignment(
                     referenceAllele.getBaseString(),
                     variantAllele.getBaseString(),
@@ -179,14 +180,12 @@ public final class SampleAnalyzerRunnable implements Runnable {
                 String resolvedVariantAlleleContent = resolvedVariant.split("@")[1];
                 String resolvedReferenceAlleleContent = resolvedVariant.split("@")[2];
                 variantsDictionary
-                        .addVariant(featureEntry.name, resolvedPosition, resolvedVariantAlleleContent,
-                                resolvedReferenceAlleleContent, sampleEntry.name, isPrimary, isRejected, variantQuality,
-                                variantCoverage, variantFrequency);
+                        .addNucleotideVariant(featureEntry.name, resolvedPosition, resolvedVariantAlleleContent,
+                                resolvedReferenceAlleleContent, sampleEntry.name, isPrimary);
                 /* TODO: Handle resolved ambiguous variants. At least log to file.
                 if (isPrimary && !isRejected) { ... }
                  */
             }
         }
     }
-
 }
