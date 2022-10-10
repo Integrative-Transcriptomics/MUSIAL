@@ -74,11 +74,6 @@ public final class Musial {
         }
     });
     /**
-     * Factory to generate {@link ProgressBar} instances with predefined properties.
-     */
-    private static final ProgressBarBuilder progressBarBuilder =
-            new ProgressBarBuilder().setStyle(ProgressBarStyle.ASCII).setMaxRenderedLength(90);
-    /**
      * Boolean value to indicate if debugging mode is enabled.
      */
     public static boolean DEBUG = false;
@@ -89,7 +84,7 @@ public final class Musial {
     /**
      * Whether to compress output files.
      */
-    public static boolean COMPRESS = true;
+    public static boolean COMPRESS = false;
 
     /**
      * Main method of MUSIAL; loads meta-information and invokes methods dependent on the user specified module.
@@ -121,8 +116,8 @@ public final class Musial {
             // 2. Invokes methods dependent on the user specified module.
             switch (MODULE) {
                 case updateVDict -> runUpdateVDict((CLIParametersUpdateVDict) arguments);
-                case inferSequences -> runInferSequences((CLIParametersInferSequences) arguments);
-                case statistics -> runStatistics((CLIParametersStatistics) arguments);
+                //case inferSequences -> runInferSequences((CLIParametersInferSequences) arguments);
+                //case statistics -> runStatistics((CLIParametersStatistics) arguments);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -136,8 +131,8 @@ public final class Musial {
     public static void printModuleInformation() {
         System.out.println("| available MUSIAL modules:");
         System.out.println("\tupdateVDict : Generate a new or update an existing variants dictionary JSON file.");
-        System.out.println("\tinferSequences : Infer sequence information from an existing variants dictionary.");
-        System.out.println("\tstatistics : Run SnpEff annotation and compute various statistics.");
+        //System.out.println("\tinferSequences : Infer sequence information from an existing variants dictionary.");
+        //System.out.println("\tstatistics : Run SnpEff annotation and compute various statistics.");
         System.out.println("| specify -h for any module to obtain more information.");
         System.exit(0);
     }
@@ -159,15 +154,6 @@ public final class Musial {
         // Print information to stdout.
         System.out.println(Musial.LOGO + Musial.VERSION);
         System.out.println(Musial.LICENSE + ", Contact: " + Musial.CONTACT);
-    }
-
-    /**
-     * Generates and returns {@link ProgressBar} instance.
-     *
-     * @return Instance of {@link ProgressBar} with the options specified by the progressBarBuilder property.
-     */
-    public static ProgressBar buildProgress() {
-        return progressBarBuilder.build();
     }
 
     /**
@@ -209,103 +195,117 @@ public final class Musial {
      */
     private static void runUpdateVDict(CLIParametersUpdateVDict cliarguments)
             throws InterruptedException, MusialIOException, MusialIntegrityException, MusialBioException, IOException {
-        // Read-in existing variants dictionary or build new one.
-        VariantsDictionary variantsDictionary = VariantsDictionaryFactory.build(cliarguments);
-        // Collect feature entry information.
-        Set<String> featureIdsToUpdate;
-        /* TODO: Collect String Set of features to be removed; delete all information unique for removed features.
-         */
-        Logging.logStatus("Updating feature information.");
-        try (ProgressBar pb = buildProgress()) {
-            featureIdsToUpdate = cliarguments.features.keySet();
-            pb.maxHint(featureIdsToUpdate.size());
+        try (
+                ProgressBar progressBar_DumpData = new ProgressBar("Dump Updated Data", 0);
+                ProgressBar progressBar_InferCodingFeatureInformation = new ProgressBar("Infer Coding Feature Information", 0);
+                ProgressBar progressBar_InferFeatureAlleles = new ProgressBar("Infer Feature Alleles", 0);
+                ProgressBar progressBar_UpdateSampleInformation = new ProgressBar("Update Sample/Variant Information", 0);
+                ProgressBar progressBar_UpdateFeatureInformation = new ProgressBar("Update Feature Information", 0);
+        ) {
+            // Read-in existing variants dictionary or build new one.
+            VariantsDictionary variantsDictionary = VariantsDictionaryFactory.build(cliarguments);
+
+            // Collect feature information.
+            Set<String> featureIdsUpdate = cliarguments.features.keySet();
+            HashSet<String> featureIdsAll = new HashSet<>();
+            featureIdsAll.addAll(featureIdsUpdate);
+            featureIdsAll.addAll(variantsDictionary.features.keySet());
+            progressBar_UpdateFeatureInformation.maxHint(featureIdsAll.size());
             FastaContainer referenceChromosomeFastaContainer = null;
-            for (FastaContainer fC : IO.readFastaToSet(cliarguments.referenceFASTA)) {
-                String chromosome = fC.getHeader().split(" ")[0].trim();
+            for (FastaContainer fastaContainer : IO.readFastaToSet(cliarguments.referenceFASTA)) {
+                String chromosome = fastaContainer.getHeader().split(" ")[0].trim();
                 if (variantsDictionary.chromosome.equals(chromosome)) {
-                    referenceChromosomeFastaContainer = fC;
+                    referenceChromosomeFastaContainer = fastaContainer;
                     break;
                 }
             }
             if (referenceChromosomeFastaContainer == null) {
                 throw new MusialIOException("Failed to match feature chromosome " + variantsDictionary.chromosome + " to specified reference .fasta");
             }
-            for (String fId : featureIdsToUpdate) {
-                if (!variantsDictionary.features.containsKey(fId)) {
-                    cliarguments.features.get(fId).imputeSequence(referenceChromosomeFastaContainer);
-                    if (cliarguments.features.get(fId).pdbFile != null) {
-                        cliarguments.features.get(fId).imputeProtein();
+            for (String featureId : featureIdsAll) {
+                if (!featureIdsUpdate.contains(featureId) && variantsDictionary.features.containsKey(featureId)) {
+                    // TODO: Remove feature information.
+                    progressBar_UpdateFeatureInformation.step();
+                } else {
+                    if (!variantsDictionary.features.containsKey(featureId)) {
+                        cliarguments.features.get(featureId).imputeNucleotideSequence(referenceChromosomeFastaContainer);
+                        if (cliarguments.features.get(featureId).pdbFile != null) {
+                            cliarguments.features.get(featureId).imputeProteinInformation();
+                        }
+                        variantsDictionary.features.put(featureId, cliarguments.features.get(featureId));
                     }
-                    variantsDictionary.features.put(fId, cliarguments.features.get(fId));
                 }
-                pb.step();
+                progressBar_UpdateFeatureInformation.step();
             }
-            pb.setExtraMessage(Logging.getDoneMessage());
-        }
+            progressBar_UpdateFeatureInformation.setExtraMessage(Logging.getDoneMessage());
 
-        // Collect sample variants information.
-        /* TODO: Collect String Set of samples to be removed; delete all information unique for removed samples.
-         */
-        Logging.logStatus("Updating variants from samples.");
-        try (ProgressBar pb = buildProgress()) {
-            pb.maxHint(cliarguments.samples.size());
+            // Collect information about sample variants.
+            Set<String> sampleIdsUpdate = cliarguments.samples.keySet();
+            HashSet<String> sampleIdsAll = new HashSet<>();
+            sampleIdsAll.addAll(sampleIdsUpdate);
+            sampleIdsAll.addAll(variantsDictionary.samples.keySet());
+            progressBar_UpdateSampleInformation.maxHint(sampleIdsAll.size());
             ExecutorService executor = Executors.newFixedThreadPool(Musial.THREADS);
-            for (SampleEntry sampleEntry : cliarguments.samples.values()) {
-                SampleEntry.imputeVCFFileReader(sampleEntry);
-                variantsDictionary.samples.put(sampleEntry.name, sampleEntry);
-                for (String fId : featureIdsToUpdate) {
-                    executor.execute(
-                            new SampleAnalyzerRunnable(sampleEntry, cliarguments.features.get(fId), variantsDictionary, pb)
-                    );
+            for (String sampleId : sampleIdsAll) {
+                if (!sampleIdsUpdate.contains(sampleId) && variantsDictionary.samples.containsKey(sampleId)) {
+                    // TODO: Remove sample information.
+                    progressBar_UpdateSampleInformation.step();
+                } else {
+                    SampleEntry sampleEntry = cliarguments.samples.get(sampleId);
+                    SampleEntry.imputeVCFFileReader(sampleEntry);
+                    variantsDictionary.samples.put(sampleEntry.name, sampleEntry);
+                    for (String featureId : featureIdsUpdate) {
+                        executor.execute(
+                                new SampleAnalyzerRunnable(sampleEntry, cliarguments.features.get(featureId), variantsDictionary, progressBar_UpdateSampleInformation)
+                        );
+                    }
                 }
-                pb.step();
             }
             executor.shutdown();
             //noinspection ResultOfMethodCallIgnored
-            executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-            pb.setExtraMessage(Logging.getDoneMessage());
-        }
+            executor.awaitTermination(30, TimeUnit.MINUTES);
+            progressBar_UpdateSampleInformation.setExtraMessage(Logging.getDoneMessage());
 
-        // Infer proteoform information, if features have assigned .pdb files.
-        ConcurrentSkipListMap<String, String> variants;
-        long noFeaturesWithAssignedProteins = variantsDictionary.features.keySet().stream().filter(
-                feKey -> variantsDictionary.features.get(feKey).pdbFile != null
-        ).count();
-        if (noFeaturesWithAssignedProteins > 0) {
-            try (ProgressBar pb = buildProgress()) {
-                Logging.logStatus("Infer proteoform information.");
-                pb.maxHint(noFeaturesWithAssignedProteins * variantsDictionary.samples.size());
-                for (String fId : variantsDictionary.features.keySet()) {
-                    if (variantsDictionary.features.get(fId).pdbFile == null) {
-                        continue;
-                    }
-                    for (String sId : variantsDictionary.samples.keySet()) {
-                        pb.setExtraMessage("Processing sample " + sId + " / feature " + fId);
-                        variants = Bio.inferProteoform(variantsDictionary, fId, sId);
-                        variantsDictionary.features.get(fId).allocatedProtein
-                                .addProteoform(variantsDictionary.features.get(fId), sId, variants);
-                        pb.step();
+            // Infer feature alleles from collected variant information.
+            progressBar_InferFeatureAlleles.maxHint(variantsDictionary.features.keySet().size());
+            for (FeatureEntry featureEntry : variantsDictionary.features.values()) {
+                featureEntry.inferAlleleInformation(variantsDictionary);
+                progressBar_InferFeatureAlleles.step();
+            }
+            progressBar_InferFeatureAlleles.setExtraMessage(Logging.getDoneMessage());
+
+            // Infer coding feature variant/proteoform information; For all coding features.
+            ConcurrentSkipListMap<String, String> variants;
+            long noFeaturesWithAssignedProteins = variantsDictionary.features.keySet().stream().filter(
+                    feKey -> variantsDictionary.features.get(feKey).isCodingSequence
+            ).count();
+            progressBar_InferCodingFeatureInformation.maxHint(noFeaturesWithAssignedProteins * variantsDictionary.samples.size());
+            if (noFeaturesWithAssignedProteins > 0) {
+                for (String featureId : variantsDictionary.features.keySet()) {
+                    for (String sampleId : variantsDictionary.samples.keySet()) {
+                        variants = Bio.inferProteoform(variantsDictionary, featureId, sampleId);
+                        variantsDictionary.features.get(featureId).addProteoform(sampleId, variants, variantsDictionary);
+                        progressBar_InferCodingFeatureInformation.step();
                     }
                 }
             }
-        }
+            progressBar_InferCodingFeatureInformation.setExtraMessage(Logging.getDoneMessage());
 
-        // Write updated database to file.
-        try (ProgressBar pb = buildProgress()) {
-            Logging.logStatus("Write variants dictionary to file.");
-            pb.maxHint(1);
+            // Write updated database to file.
+            progressBar_DumpData.maxHint(1);
             String outputFile = cliarguments.outputFile.getAbsolutePath();
             File vDictOutfile = new File(outputFile);
             if (!vDictOutfile.exists()) {
                 IO.generateFile(vDictOutfile);
             }
             variantsDictionary.dump(vDictOutfile);
-            pb.step();
-            pb.setExtraMessage(Logging.getDoneMessage());
+            progressBar_DumpData.step();
+            progressBar_DumpData.setExtraMessage(Logging.getDoneMessage());
         }
     }
 
-    /**
+    /*
+     **
      * Extract genotype and/or proteoform sequences as alignment or unaligned in .fasta format from an existing variants dictionary.
      * <p>
      * Sequences are written in coding direction.
@@ -313,7 +313,7 @@ public final class Musial {
      * @param cliarguments {@link CLIParametersInferSequences} instance yielding parameter specification for the MUSIAL infer sequences module.
      * @throws MusialIOException  If the generation of output directories or files fails.
      * @throws MusialBioException If sequence extraction procedures from the specified {@link VariantsDictionary} instance fail.
-     */
+     *
     private static void runInferSequences(CLIParametersInferSequences cliarguments) throws MusialIOException, MusialBioException {
         // TODO: Generalize methods; Currently code is heavily duplicated for debugging.
         HashMap<String, ArrayList<String>> sequences; // Stores sequences as keys pointing to list of proteoforms/samples.
@@ -336,7 +336,7 @@ public final class Musial {
                         if (VSWAB == null) {
                             sequences.get(featureWildTypeNucleotideSequence).add(sampleEntry.name);
                         } else {
-                            sequence = cliarguments.inputVDict.getNucleotideSequence(featureEntry.name, sampleEntry.name);
+                            sequence = cliarguments.inputVDict.getSampleNucleotideSequence(featureEntry.name, sampleEntry.name);
                             if (sequences.containsKey(sequence)) {
                                 sequences.get(sequence).add(sampleEntry.name);
                             } else {
@@ -442,7 +442,7 @@ public final class Musial {
                                 VSWABHashToGTIdentifier.put(VSWABHashCode, "GT" + entryIndex);
                                 GTIdentifierToSamples.put("GT" + entryIndex, new TreeSet<>());
                                 // Add variants from VSWAB:
-                                variants = cliarguments.inputVDict.getSampleVariants(featureEntry.name, sampleEntry.name);
+                                variants = cliarguments.inputVDict.getSampleNucleotideVariants(featureEntry.name, sampleEntry.name);
                                 for (Map.Entry<Integer, String> variantEntry : variants.entrySet()) {
                                     positionInt = variantEntry.getKey();
                                     positionContent = variantEntry.getValue();
@@ -519,7 +519,7 @@ public final class Musial {
                             }
                             faEntryIds.add(proteoform.name);
                         } else {
-                            variants = cliarguments.inputVDict.getProteoformVariants(featureEntry.name, proteoform.name);
+                            variants = cliarguments.inputVDict.getProteoformAminoacidVariants(featureEntry.name, proteoform.name);
                             for (Map.Entry<String, String> variantEntry : variants.entrySet()) {
                                 positionStr = variantEntry.getKey();
                                 positionContent = variantEntry.getValue();
@@ -568,9 +568,9 @@ public final class Musial {
         }
     }
 
-    /**
+     **
      * @param cliarguments
-     */
+     *
     private static void runStatistics(CLIParametersStatistics cliarguments) throws MusialIOException, IOException {
         // Run SnpEff on all variants wrt. the samples and features specified as input.
         File tempDir = new File("./temp/");
@@ -658,5 +658,5 @@ public final class Musial {
             // IO.deleteDirectory(tempDir);
         }
     }
-
+    */
 }

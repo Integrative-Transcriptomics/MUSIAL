@@ -2,14 +2,12 @@ package components;
 
 import com.google.common.base.Splitter;
 import datastructure.FeatureEntry;
+import datastructure.SampleEntry;
 import datastructure.VariantsDictionary;
 import exceptions.MusialBioException;
 import org.javatuples.Triplet;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
+import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Function;
 
@@ -621,7 +619,7 @@ public final class Bio {
             if (targetContent == queryContent) {
                 // CASE: Match.
                 if (isSubstitution || isInsertion || isDeletion) {
-                    variants.add(variantStart + "@" + variantBuilder + "@" + referenceBuilder);
+                    variants.add(variantStart + VariantsDictionary.FIELD_SEPARATOR_1 + variantBuilder + VariantsDictionary.FIELD_SEPARATOR_1 + referenceBuilder);
                     variantBuilder.setLength(0);
                     referenceBuilder.setLength(0);
                 }
@@ -631,7 +629,7 @@ public final class Bio {
             } else if (targetContent == Bio.GAP) {
                 // CASE: Insertion (in variant).
                 if (isSubstitution || isDeletion) {
-                    variants.add(variantStart + "@" + variantBuilder + "@" + referenceBuilder);
+                    variants.add(variantStart + VariantsDictionary.FIELD_SEPARATOR_1 + variantBuilder + VariantsDictionary.FIELD_SEPARATOR_1 + referenceBuilder);
                     variantBuilder.setLength(0);
                     referenceBuilder.setLength(0);
                 }
@@ -651,7 +649,7 @@ public final class Bio {
             } else if (queryContent == Bio.GAP) {
                 // CASE: Deletion (in variant).
                 if (isSubstitution || isInsertion) {
-                    variants.add(variantStart + "@" + variantBuilder + "@" + referenceBuilder);
+                    variants.add(variantStart + VariantsDictionary.FIELD_SEPARATOR_1 + variantBuilder + VariantsDictionary.FIELD_SEPARATOR_1 + referenceBuilder);
                     variantBuilder.setLength(0);
                     referenceBuilder.setLength(0);
                 }
@@ -669,7 +667,7 @@ public final class Bio {
             } else {
                 // CASE: Mismatch/Substitution.
                 if (isDeletion || isInsertion) {
-                    variants.add(variantStart + "@" + variantBuilder + "@" + referenceBuilder);
+                    variants.add(variantStart + VariantsDictionary.FIELD_SEPARATOR_1 + variantBuilder + VariantsDictionary.FIELD_SEPARATOR_1 + referenceBuilder);
                     variantBuilder.setLength(0);
                     referenceBuilder.setLength(0);
                 }
@@ -684,7 +682,7 @@ public final class Bio {
             }
         }
         if (isSubstitution || isInsertion || isDeletion) {
-            variants.add(variantStart + "@" + variantBuilder + "@" + referenceBuilder);
+            variants.add(variantStart + VariantsDictionary.FIELD_SEPARATOR_1 + variantBuilder + VariantsDictionary.FIELD_SEPARATOR_1 + referenceBuilder);
             variantBuilder.setLength(0);
             referenceBuilder.setLength(0);
         }
@@ -755,8 +753,8 @@ public final class Bio {
             }
             return variants;
         };
-        if (variantsDictionary.features.get(fId).allocatedProtein != null
-                && !sId.equals(VariantsDictionary.WILD_TYPE_SAMPLE_ID)
+        if (variantsDictionary.features.get(fId).isCodingSequence
+                && !Objects.equals(sampleNucleotideSequence, variantsDictionary.features.get(fId).nucleotideSequence)
                 && sampleNucleotideSequence != null) {
             sampleNucleotideSequence = sampleNucleotideSequence.replace("-", "");
             FeatureEntry featureEntry = variantsDictionary.features.get(fId);

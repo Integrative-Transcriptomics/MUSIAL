@@ -84,7 +84,7 @@ dependencies {
     implementation 'org.biojava:biojava-core:5+'
     implementation 'org.biojava:biojava-genome:5+'
     implementation 'org.biojava:biojava-structure:5+'
-    implementation 'me.tongfei:progressbar:0.9.3'
+    implementation 'me.tongfei:progressbar:0.9.4'
     implementation 'com.googlecode.json-simple:json-simple:1.1.1'
     implementation 'org.javatuples:javatuples:1.2'
     implementation 'com.google.code.gson:gson:2.9.0'

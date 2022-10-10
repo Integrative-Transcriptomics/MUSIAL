@@ -49,7 +49,8 @@ public class AlleleEntry {
      * <p>
      * See {@link FeatureEntry#generateEntryName(String, String)} for more details.
      *
-     * @param concatVariants {@link String} representation of the variants of one allele in the format <POS>#<ALT>.
+     * @param concatVariants {@link String} representation of the variants of one allele in the format
+     *                       <POS0>_<ALT0>;...;<POSn>_<ALTn>.
      * @return {@link String} intended to be used as internal allele name.
      */
     public static String generateAlleleName(String concatVariants) {

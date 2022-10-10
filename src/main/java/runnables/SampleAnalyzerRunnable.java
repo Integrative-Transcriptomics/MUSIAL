@@ -40,7 +40,7 @@ public final class SampleAnalyzerRunnable implements Runnable {
     /**
      * Instance of {@link ProgressBar} used to indicate progress of sample analysis.
      */
-    private final ProgressBar pb;
+    private final ProgressBar progressBar;
 
     /**
      * Constructor of the {@link SampleAnalyzerRunnable} class.
@@ -48,14 +48,14 @@ public final class SampleAnalyzerRunnable implements Runnable {
      * @param sampleEntry        The {@link SampleEntry} to be analyzed.
      * @param featureEntry       The {@link FeatureEntry} to be analyzed.
      * @param variantsDictionary The {@link VariantsDictionary} instance the sample and feature originate from.
-     * @param pb                 Instance of {@link ProgressBar} used to indicate progress of sample analysis.
+     * @param progressBar                 Instance of {@link ProgressBar} used to indicate progress of sample analysis.
      */
     public SampleAnalyzerRunnable(SampleEntry sampleEntry, FeatureEntry featureEntry,
-                                  VariantsDictionary variantsDictionary, ProgressBar pb) {
+                                  VariantsDictionary variantsDictionary, ProgressBar progressBar) {
         this.sampleEntry = sampleEntry;
         this.featureEntry = featureEntry;
         this.variantsDictionary = variantsDictionary;
-        this.pb = pb;
+        this.progressBar = progressBar;
     }
 
     /**
@@ -117,7 +117,7 @@ public final class SampleAnalyzerRunnable implements Runnable {
             Logging.logError("An error occurred during the analysis of sample " + sampleEntry.name + " (file: " + sampleEntry.vcfFile.getAbsolutePath() + "); " + e.getMessage());
             throw e;
         } finally {
-            pb.step();
+            progressBar.step();
             /* TODO: Handle resolved ambiguous variants. At least log to file.
             if (ambiguousVariantsCount > 0) { ... }
              */
@@ -176,9 +176,9 @@ public final class SampleAnalyzerRunnable implements Runnable {
             );
             ArrayList<String> resolvedVariants = Bio.getVariantsOfAlignedSequences(alignedAlleles.getValue1(), alignedAlleles.getValue2());
             for (String resolvedVariant : resolvedVariants) {
-                int resolvedPosition = variantPosition + Integer.parseInt(resolvedVariant.split("@")[0]) - 1;
-                String resolvedVariantAlleleContent = resolvedVariant.split("@")[1];
-                String resolvedReferenceAlleleContent = resolvedVariant.split("@")[2];
+                int resolvedPosition = variantPosition + Integer.parseInt(resolvedVariant.split(VariantsDictionary.FIELD_SEPARATOR_1)[0]) - 1;
+                String resolvedVariantAlleleContent = resolvedVariant.split(VariantsDictionary.FIELD_SEPARATOR_1)[1];
+                String resolvedReferenceAlleleContent = resolvedVariant.split(VariantsDictionary.FIELD_SEPARATOR_1)[2];
                 variantsDictionary
                         .addNucleotideVariant(featureEntry.name, resolvedPosition, resolvedVariantAlleleContent,
                                 resolvedReferenceAlleleContent, sampleEntry.name, isPrimary);

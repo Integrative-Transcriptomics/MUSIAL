@@ -33,10 +33,10 @@ public final class VariantsDictionaryFactory {
     public static VariantsDictionary build(CLIParametersUpdateVDict cliarguments)
             throws InterruptedException, IOException, MusialIntegrityException {
         if (cliarguments.outputFile.exists()) {
-            Logging.logStatus("Updating existing variants dictionary (at " + cliarguments.outputFile + ")");
+            Logging.logStatus("Update existing variants dictionary at " + cliarguments.outputFile + ")");
             return IO.readVariantsDictionary(cliarguments.outputFile);
         } else {
-            Logging.logStatus("Generating new variants dictionary (at " + cliarguments.outputFile + ")");
+            Logging.logStatus("Generate new variants dictionary at " + cliarguments.outputFile + ")");
             String chromosome = null;
             for (FeatureEntry featureEntry : cliarguments.features.values()) {
                 if (chromosome == null) {

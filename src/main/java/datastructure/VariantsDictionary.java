@@ -63,6 +63,14 @@ public class VariantsDictionary {
      * The chromosome name on which all maintained {@link VariantsDictionary#features} are located.
      */
     public final String chromosome;
+    /**
+     * Separator symbol ...
+     */
+    public final static String FIELD_SEPARATOR_1 = "_";
+    /**
+     * Separator symbol ...
+     */
+    public final static String FIELD_SEPARATOR_2 = ";";
 
     /**
      * Constructor of {@link VariantsDictionary}.
@@ -112,32 +120,12 @@ public class VariantsDictionary {
         assert this.nucleotideVariants.containsKey(position);
         assert this.nucleotideVariants.get(position).containsKey(altContent);
         if (!this.features.get(featureId).novelNucleotideVariants.containsKey(sampleId)) {
-            this.features.get(featureId).novelNucleotideVariants.put(sampleId, "");
-        }
-        this.features.get(featureId).novelNucleotideVariants.put(
-                sampleId,
-                this.features.get(featureId).novelNucleotideVariants.get(sampleId) + "." + position + "" + "#" + altContent
-        );
-    }
-
-    /**
-     * Infers alleles from temporary information of novel nucleotide variants stored in
-     * {@link FeatureEntry#novelNucleotideVariants} for each feature in {@link VariantsDictionary#features}.
-     * <p>
-     * The {@link FeatureEntry#novelNucleotideVariants} is cleared afterwards.
-     */
-    public void inferAlleles() {
-        for (String featureId : this.features.keySet()) {
-            for (String sampleId : this.features.keySet()) {
-                ConcurrentSkipListMap<Integer, String> variants = new ConcurrentSkipListMap<>();
-                String tempVariantsAnnotation = this.features.get(featureId).novelNucleotideVariants.get(sampleId);
-                for (String variant : tempVariantsAnnotation.split("\\.")) {
-                    String[] variantInformation = variant.split("#");
-                    variants.put(Integer.valueOf(variantInformation[0]), variantInformation[1]);
-                }
-                this.features.get(featureId).addAllele(sampleId, variants, this);
-            }
-            this.features.get(featureId).novelNucleotideVariants.clear();
+            this.features.get(featureId).novelNucleotideVariants.put(sampleId, position + FIELD_SEPARATOR_1 + altContent);
+        } else {
+            this.features.get(featureId).novelNucleotideVariants.put(
+                    sampleId,
+                    this.features.get(featureId).novelNucleotideVariants.get(sampleId) + FIELD_SEPARATOR_2 + position + FIELD_SEPARATOR_1 + altContent
+            );
         }
     }
 
@@ -211,26 +199,24 @@ public class VariantsDictionary {
      * @return {@link HashMap} of variants extracted for the specified feature and sample.
      */
     public HashMap<Integer, String> getSampleNucleotideVariants(String featureId, String sampleId) {
-        String sampleAllele = this.samples.get(sampleId).annotations.get("AL#" + featureId);
+        String sampleAllele = this.samples.get(sampleId).annotations.get("AL" + FIELD_SEPARATOR_1 + featureId);
         String concatVariants = this.features.get(featureId).alleles.get(sampleAllele).annotations.get(AlleleEntry.PROPERTY_NAME_VARIANTS);
-        if (concatVariants.equals("")) {
-            return null;
-        } else {
-            HashMap<Integer, String> variants = new HashMap<>();
+        HashMap<Integer, String> variants = new HashMap<>();
+        if (!sampleAllele.equals(AlleleEntry.PROPERTY_NAME_REFERENCE_ID)) {
             int variantPosition;
             int relativeVariantPosition;
             String variantContent;
             String relativeVariantContent;
-            for (String variant : concatVariants.split("\\.")) {
-                variantPosition = Integer.parseInt(variant.split("#")[0]);
-                variantContent = variant.split("#")[1];
+            for (String variant : concatVariants.split(FIELD_SEPARATOR_2)) {
+                variantPosition = Integer.parseInt(variant.split(FIELD_SEPARATOR_1)[0]);
+                variantContent = variant.split(FIELD_SEPARATOR_1)[1];
                 relativeVariantPosition = features.get(featureId).isSense ? variantPosition - features.get(featureId).start + 1 :
                         features.get(featureId).end - variantPosition + 1;
                 relativeVariantContent = features.get(featureId).isSense ? variantContent : Bio.reverseComplement(variantContent);
                 variants.put(relativeVariantPosition, relativeVariantContent);
             }
-            return variants;
         }
+        return variants;
     }
 
     /**
@@ -243,7 +229,7 @@ public class VariantsDictionary {
      * @return {@link String}; Nucleotide sequence of one sample wrt. one feature.
      */
     public String getSampleNucleotideSequence(String featureId, String sampleId) {
-        if (sampleId.equals(SampleEntry.REFERENCE_SAMPLE_ID)) {
+        if (samples.get(sampleId).annotations.get("AL" + FIELD_SEPARATOR_1 + featureId).equals(AlleleEntry.PROPERTY_NAME_REFERENCE_ID)) {
             return features.get(featureId).nucleotideSequence;
         } else {
             char[] referenceSequence = features.get(featureId).isSense ? features.get(featureId).nucleotideSequence.toCharArray() : Bio.reverseComplement(features.get(featureId).nucleotideSequence).toCharArray();
@@ -293,9 +279,9 @@ public class VariantsDictionary {
         if (!concatVariants.equals("")) {
             String variantPosition;
             String variantContent;
-            for (String variant : concatVariants.split("\\.")) {
-                variantPosition = variant.split("#")[0];
-                variantContent = variant.split("#")[1];
+            for (String variant : concatVariants.split(FIELD_SEPARATOR_2)) {
+                variantPosition = variant.split(FIELD_SEPARATOR_1)[0];
+                variantContent = variant.split(FIELD_SEPARATOR_1)[1];
                 variants.put(variantPosition, variantContent);
             }
         }

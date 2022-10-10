@@ -41,7 +41,6 @@ public final class SampleEntry {
      * that specifies this samples genotype and proteoform, if the feature is a coding sequence.
      */
     public final HashMap<String, String> annotations = new HashMap<>();
-    public final static String REFERENCE_SAMPLE_ID = "WILDTYPE";
 
     /**
      * Constructor of {@link SampleEntry}.

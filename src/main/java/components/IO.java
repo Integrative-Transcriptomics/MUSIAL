@@ -245,7 +245,6 @@ public final class IO {
     }
 
     /**
-     *
      * @param outputFile
      * @param lineContent
      * @throws MusialIOException
@@ -267,12 +266,12 @@ public final class IO {
     /**
      * Writes a dummy .vcf format file to the specified output file from a {@link VariantsDictionary} instance.
      *
-     * @param outputFile       {@link File} object pointing to the output vcf file.
-     * @param vDict            {@link VariantsDictionary} containing variant information.
-     * @param excludedFeatures {@link HashSet} of {@link String}s; Internal feature names to be excluded.
-     * @param excludedSamples  {@link HashSet} of {@link String}s; Internal sample names to be excluded.
-     */
-    public static void writeVcf(File outputFile, VariantsDictionary vDict, HashSet<String> excludedFeatures, HashSet<String> excludedSamples) {
+     * @param outputFile         {@link File} object pointing to the output vcf file.
+     * @param variantsDictionary {@link VariantsDictionary} containing variant information.
+     * @param excludedFeatures   {@link HashSet} of {@link String}s; Internal feature names to be excluded.
+     * @param excludedSamples    {@link HashSet} of {@link String}s; Internal sample names to be excluded.
+     *
+    public static void writeVcf(File outputFile, VariantsDictionary variantsDictionary, HashSet<String> excludedFeatures, HashSet<String> excludedSamples) {
         try {
             FileWriter writer = new FileWriter(outputFile);
             writer.write("##fileformat=VCFv4.2" + IO.LINE_SEPARATOR);
@@ -280,11 +279,11 @@ public final class IO {
             int variantPosition;
             ConcurrentSkipListMap<String, NucleotideVariantEntry> variants;
             boolean skip;
-            for (Map.Entry<Integer, ConcurrentSkipListMap<String, NucleotideVariantEntry>> variantPositionEntry : vDict.variants.entrySet()) {
+            for (Map.Entry<Integer, ConcurrentSkipListMap<String, NucleotideVariantEntry>> variantPositionEntry : variantsDictionary.nucleotideVariants.entrySet()) {
                 variantPosition = variantPositionEntry.getKey();
                 skip = false;
                 for (String excludedFeature : excludedFeatures) {
-                    if (variantPosition >= vDict.features.get(excludedFeature).start && variantPosition <= vDict.features.get(excludedFeature).end) {
+                    if (variantPosition >= variantsDictionary.features.get(excludedFeature).start && variantPosition <= variantsDictionary.features.get(excludedFeature).end) {
                         skip = true;
                         break;
                     }
@@ -295,10 +294,10 @@ public final class IO {
                 variants = variantPositionEntry.getValue();
                 for (Map.Entry<String, NucleotideVariantEntry> variant : variants.entrySet()) {
                     if (!excludedSamples.containsAll(variant.getValue().occurrence.keySet())) {
-                        writer.write(vDict.chromosome + "\t"
+                        writer.write(variantsDictionary.chromosome + "\t"
                                 + variantPosition + "\t"
                                 + ".\t"
-                                + variant.getValue().annotations.get(VariantsDictionary.ATTRIBUTE_VARIANT_REFERENCE_CONTENT) + "\t"
+                                + variant.getValue().annotations.get(NucleotideVariantEntry.PROPERTY_NAME_REFERENCE_CONTENT) + "\t"
                                 + variant.getKey().replace("-", "") + "\t"
                                 + "1000\t"
                                 + ".\t"
@@ -312,6 +311,6 @@ public final class IO {
         } catch (IOException e) {
             Logging.logWarning("Failed to write `VCF` format file to " + outputFile.getAbsolutePath());
         }
-    }
+    }*/
 
 }

@@ -1,9 +1,11 @@
 package datastructure;
 
+import com.google.errorprone.annotations.Var;
 import components.Bio;
 import components.IO;
 import components.Logging;
 import exceptions.MusialBioException;
+import me.tongfei.progressbar.ProgressBar;
 import org.apache.commons.math3.distribution.UniformRealDistribution;
 import org.apache.commons.math3.stat.inference.KolmogorovSmirnovTest;
 import org.apache.commons.math3.stat.inference.TestUtils;
@@ -51,7 +53,7 @@ public final class FeatureEntry {
      * <p>
      * The chain identifiers of the specified .pdb format file are used as keys.
      */
-    public HashMap<String, String> proteinSequences;
+    public HashMap<String, String> proteinSequences = new HashMap<>();
     /**
      * The protein's structure in .pdb format, if this feature is a coding sequence.
      */
@@ -163,7 +165,7 @@ public final class FeatureEntry {
         assert prefix.equals("AL") || prefix.equals("PF");
         StringBuilder nameBuilder = new StringBuilder();
         nameBuilder.append(prefix);
-        String variantsHashCode = String.valueOf(new HashSet<>(List.of(concatVariants.split("\\."))));
+        String variantsHashCode = String.valueOf(concatVariants.hashCode());
         if (variantsHashCode.startsWith("-")) {
             nameBuilder.append("1");
             variantsHashCode = variantsHashCode.replace("-", "");
@@ -184,6 +186,32 @@ public final class FeatureEntry {
      */
     public void imputeNucleotideSequence(FastaContainer referenceSequence) {
         this.nucleotideSequence = referenceSequence.getSequence(this.start, this.end);
+    }
+
+    /**
+     * Infers alleles from temporary information of novel nucleotide variants stored in
+     * {@link FeatureEntry#novelNucleotideVariants}.
+     * <p>
+     * The {@link FeatureEntry#novelNucleotideVariants} is cleared afterwards.
+     *
+     * @param parentDictionary This feature's parent {@link VariantsDictionary} used to access nucleotide variant and
+     *                         sample annotations.
+     */
+    public void inferAlleleInformation(VariantsDictionary parentDictionary) {
+        for (String sampleId : parentDictionary.samples.keySet()) {
+            if (this.novelNucleotideVariants.containsKey(sampleId)) {
+                ConcurrentSkipListMap<Integer, String> variants = new ConcurrentSkipListMap<>();
+                String concatNovelVariants = this.novelNucleotideVariants.get(sampleId);
+                for (String variant : concatNovelVariants.split(VariantsDictionary.FIELD_SEPARATOR_2)) {
+                    String[] variantInformation = variant.split(VariantsDictionary.FIELD_SEPARATOR_1);
+                    variants.put(Integer.valueOf(variantInformation[0]), variantInformation[1]);
+                }
+                addAllele(sampleId, variants, parentDictionary);
+            } else {
+                addAllele(sampleId, new ConcurrentSkipListMap<>(), parentDictionary);
+            }
+        }
+        this.novelNucleotideVariants.clear();
     }
 
     /**
@@ -296,7 +324,7 @@ public final class FeatureEntry {
      *                         occurrence of variants in the added proteoform.
      */
     public void addProteoform(String sampleId, ConcurrentSkipListMap<String, String> variants, VariantsDictionary parentDictionary) {
-        String concatVariants = variants.entrySet().stream().map(e -> e.getKey() + "#" + e.getValue()).collect(Collectors.joining("\\."));
+        String concatVariants = variants.entrySet().stream().map(e -> e.getKey() + VariantsDictionary.FIELD_SEPARATOR_1 + e.getValue()).collect(Collectors.joining(VariantsDictionary.FIELD_SEPARATOR_2));
         float referenceProteinLength = (float) (this.translatedNucleotideSequence.length());
         DecimalFormat decimalFormat = new DecimalFormat("#.#");
         String proteoformName = ProteoformEntry.generateProteoformName(concatVariants);
@@ -309,9 +337,9 @@ public final class FeatureEntry {
                     this.aminoacidVariants.put(variantPosition, new ConcurrentSkipListMap<>());
                 }
                 String variantContent = variants.get(variantPosition);
-                if (variantContent.equals(String.valueOf(Bio.TERMINATION_AA1))) {
+                if (variantContent.equals(String.valueOf(Bio.TERMINATION_AA1)) && !this.proteoforms.get(proteoformName).annotations.containsKey(ProteoformEntry.PROPERTY_NAME_DIVERGING_TERMINATION_POSITION)) {
                     this.proteoforms.get(proteoformName).annotations.put(ProteoformEntry.PROPERTY_NAME_DIVERGING_TERMINATION_POSITION, variantPosition);
-                    this.proteoforms.get(proteoformName).annotations.put(ProteoformEntry.PROPERTY_NAME_DIVERGING_TERMINATION_TRUNCATED_PERCENTAGE, decimalFormat.format(100 * (1 - (Float.parseFloat(variantPosition) / referenceProteinLength))).replace(",", "."));
+                    this.proteoforms.get(proteoformName).annotations.put(ProteoformEntry.PROPERTY_NAME_DIVERGING_TERMINATION_TRUNCATED_PERCENTAGE, decimalFormat.format(100 * (1 - (Float.parseFloat(variantPosition.split("\\+")[0]) / referenceProteinLength))).replace(",", "."));
                 }
                 if (!this.aminoacidVariants.get(variantPosition).containsKey(variantContent)) {
                     AminoacidVariantEntry aminoacidVariantAnnotationEntry = new AminoacidVariantEntry();
@@ -328,19 +356,19 @@ public final class FeatureEntry {
             ArrayList<String> variantPositions = new ArrayList<>(variants.keySet());
             int referenceSegmentLength;
             if (!Objects.equals(this.proteoforms.get(proteoformName).annotations.get(ProteoformEntry.PROPERTY_NAME_DIVERGING_TERMINATION_POSITION), "-1")) {
-                int firstTerminationPosition = Integer.parseInt(this.proteoforms.get(proteoformName).annotations.get(ProteoformEntry.PROPERTY_NAME_DIVERGING_TERMINATION_POSITION));
-                variantPositions = (ArrayList<String>) variantPositions.stream().filter(p -> Integer.parseInt(p) <= firstTerminationPosition).collect(Collectors.toList());
+                int firstTerminationPosition = Integer.parseInt(this.proteoforms.get(proteoformName).annotations.get(ProteoformEntry.PROPERTY_NAME_DIVERGING_TERMINATION_POSITION).split("\\+")[0]);
+                variantPositions = (ArrayList<String>) variantPositions.stream().filter(p -> Integer.parseInt(p.split("\\+")[0]) <= firstTerminationPosition).collect(Collectors.toList());
                 referenceSegmentLength = firstTerminationPosition;
             } else {
                 referenceSegmentLength = (int) referenceProteinLength;
             }
             // (1) Percentage of variable positions wrt. reference protein length.
-            this.proteoforms.get(proteoformName).annotations.put(ProteoformEntry.PROPERTY_NAME_VARIABLE_POSITIONS_TOTAL, decimalFormat.format(100L * (variantPositions.size() / referenceSegmentLength)).replace(",", "."));
+            //this.proteoforms.get(proteoformName).annotations.put(ProteoformEntry.PROPERTY_NAME_VARIABLE_POSITIONS_TOTAL, decimalFormat.format(100L * (variantPositions.size() / referenceSegmentLength)).replace(",", "."));
             // (2) Conglomeration index; i.e., the p-value of a KS-Test of the observed variant positions compared to a uniform distribution of variant positions.
-            double[] dArrVariantPositions = variantPositions.stream().mapToDouble(Double::valueOf).toArray();
-            this.proteoforms.get(proteoformName).annotations.put(ProteoformEntry.PROPERTY_NAME_CONGLOMERATION_INDEX, String.valueOf(TestUtils.exactP(new KolmogorovSmirnovTest().kolmogorovSmirnovTest(new UniformRealDistribution(1.0, 10.0), dArrVariantPositions, true), dArrVariantPositions.length, dArrVariantPositions.length, false)));
+            //double[] dArrVariantPositions = variantPositions.stream().mapToDouble(Double::valueOf).toArray();
+            //this.proteoforms.get(proteoformName).annotations.put(ProteoformEntry.PROPERTY_NAME_CONGLOMERATION_INDEX, String.valueOf(TestUtils.exactP(new KolmogorovSmirnovTest().kolmogorovSmirnovTest(new UniformRealDistribution(1.0, 10.0), dArrVariantPositions, true), dArrVariantPositions.length, dArrVariantPositions.length, false)));
         }
-        parentDictionary.samples.get(sampleId).annotations.put("PF#" + this.name, proteoformName);
+        parentDictionary.samples.get(sampleId).annotations.put("PF" + VariantsDictionary.FIELD_SEPARATOR_1 + this.name, proteoformName);
     }
 
     /**
@@ -353,7 +381,7 @@ public final class FeatureEntry {
      *                         occurrence of variants in the added allele.
      */
     public void addAllele(String sampleId, ConcurrentSkipListMap<Integer, String> variants, VariantsDictionary parentDictionary) {
-        String concatVariants = variants.entrySet().stream().map(e -> e.getKey() + "#" + e.getValue()).collect(Collectors.joining("\\."));
+        String concatVariants = variants.entrySet().stream().map(e -> e.getKey() + VariantsDictionary.FIELD_SEPARATOR_1 + e.getValue()).collect(Collectors.joining(VariantsDictionary.FIELD_SEPARATOR_2));
         float referenceGeneLength = (float) (this.nucleotideSequence.length());
         DecimalFormat decimalFormat = new DecimalFormat("#.#");
         String alleleName = AlleleEntry.generateAlleleName(concatVariants);
@@ -370,7 +398,7 @@ public final class FeatureEntry {
             // Compute statistics regarding the variability of the proteoform; Only positions before the first termination are considered.
             // ...
         }
-        parentDictionary.samples.get(sampleId).annotations.put("AL#" + this.name, alleleName);
+        parentDictionary.samples.get(sampleId).annotations.put("AL" + VariantsDictionary.FIELD_SEPARATOR_1 + this.name, alleleName);
     }
 
 }
