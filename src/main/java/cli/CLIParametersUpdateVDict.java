@@ -100,7 +100,7 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
      * components - via class properties.
      *
      * @param args {@link String} {@link Array} containing the command line arguments.
-     * @throws MusialException       If IO file validation fails; If CLI parameter validation fails.
+     * @throws MusialException If IO file validation fails; If CLI parameter validation fails.
      */
     public CLIParametersUpdateVDict(String[] args)
             throws MusialException {
@@ -256,7 +256,7 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
                 //noinspection unchecked
                 addFeature(
                         (String) featureKey,
-                        (String) featureEntry.get("geneName"),
+                        (String) featureEntry.get("MATCH_AS"),
                         featurePdbFile,
                         (Map<String, String>) featureEntry.get("annotations")
                 );
@@ -292,7 +292,7 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
      * @param featureName {@link String}; The value of the NAME attribute in the specified .gff format reference annotation to match the feature from.
      * @param pdbFile     {@link File}; Optional object pointing to a .pdb format file yielding a protein structure derived for the (gene) feature.
      * @param annotations {@link java.util.HashMap} of {@link String} key/pair values; feature meta information.
-     * @throws MusialException       If the initialization of the {@link FeatureEntry} fails; If the specified .gff reference annotation or .pdb protein file can not be read; If the specified feature is not found or parsed multiple times from the reference annotation.
+     * @throws MusialException If the initialization of the {@link FeatureEntry} fails; If the specified .gff reference annotation or .pdb protein file can not be read; If the specified feature is not found or parsed multiple times from the reference annotation.
      */
     private void addFeature(String name, String featureName, File pdbFile, Map<String, String> annotations)
             throws MusialException {
@@ -322,7 +322,6 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
            */
             FeatureEntry featureEntry = new FeatureEntry(name, featureParentSequence, featureCoordinates.getBegin(),
                     featureCoordinates.getEnd());
-            featureEntry.annotations.put("geneName", featureName);
             featureEntry.annotations.putAll(annotations);
             this.features.put(name, featureEntry);
         }

@@ -30,7 +30,11 @@ public class AlleleEntry {
     public final static String PROPERTY_NAME_REFERENCE_ID = "AL00000000WT";
 
     public final static String PROPERTY_NAME_VARIANTS = "VARIANTS";
-
+    public final static String PROPERTY_NAME_VARIABLE_POSITIONS = "VAR_POS";
+    public final static String PROPERTY_NAME_NUMBER_OF_SUBSTITUTIONS = "NO_SUB";
+    public final static String PROPERTY_NAME_NUMBER_OF_INSERTIONS = "NO_INS";
+    public final static String PROPERTY_NAME_NUMBER_OF_DELETIONS = "NO_DEL";
+    public final static String PROPERTY_NAME_CONGLOMERATION_INDEX = "CONG_IDX";
     /**
      * Constructor of {@link AlleleEntry}.
      *

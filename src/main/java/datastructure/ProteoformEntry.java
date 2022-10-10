@@ -1,8 +1,6 @@
 package datastructure;
 
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.TreeSet;
 
 /**
@@ -35,7 +33,10 @@ public class ProteoformEntry {
     public final static String PROPERTY_NAME_VARIANTS = "VARIANTS";
     public final static String PROPERTY_NAME_DIVERGING_TERMINATION_POSITION = "DIV_TERM_POS";
     public final static String PROPERTY_NAME_DIVERGING_TERMINATION_TRUNCATED_PERCENTAGE = "DIV_TERM_TRC_PRC";
-    public final static String PROPERTY_NAME_VARIABLE_POSITIONS_TOTAL = "VAR_POS";
+    public final static String PROPERTY_NAME_VARIABLE_POSITIONS = "VAR_POS";
+    public final static String PROPERTY_NAME_NUMBER_OF_SUBSTITUTIONS = "NO_SUB";
+    public final static String PROPERTY_NAME_NUMBER_OF_INSERTIONS = "NO_INS";
+    public final static String PROPERTY_NAME_NUMBER_OF_DELETIONS = "NO_DEL";
     public final static String PROPERTY_NAME_CONGLOMERATION_INDEX = "CONG_IDX";
 
     /**

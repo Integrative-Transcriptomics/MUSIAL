@@ -3,11 +3,10 @@ package components;
 import cli.CLIParametersUpdateVDict;
 import datastructure.FeatureEntry;
 import datastructure.VariantsDictionary;
-
-import java.io.IOException;
-
 import exceptions.MusialException;
 import runnables.SampleAnalyzerRunnable;
+
+import java.io.IOException;
 
 /**
  * Comprises static methods to analyze samples in order to build a new variants dictionary.

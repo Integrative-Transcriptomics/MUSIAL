@@ -1,13 +1,13 @@
 package runnables;
 
+import components.Bio;
+import components.Logging;
 import datastructure.FeatureEntry;
 import datastructure.SampleEntry;
 import datastructure.VariantsDictionary;
 import htsjdk.variant.variantcontext.Allele;
 import htsjdk.variant.variantcontext.VariantContext;
 import me.tongfei.progressbar.ProgressBar;
-import components.Bio;
-import components.Logging;
 import org.javatuples.Triplet;
 
 import java.util.*;
@@ -48,7 +48,7 @@ public final class SampleAnalyzerRunnable implements Runnable {
      * @param sampleEntry        The {@link SampleEntry} to be analyzed.
      * @param featureEntry       The {@link FeatureEntry} to be analyzed.
      * @param variantsDictionary The {@link VariantsDictionary} instance the sample and feature originate from.
-     * @param progressBar                 Instance of {@link ProgressBar} used to indicate progress of sample analysis.
+     * @param progressBar        Instance of {@link ProgressBar} used to indicate progress of sample analysis.
      */
     public SampleAnalyzerRunnable(SampleEntry sampleEntry, FeatureEntry featureEntry,
                                   VariantsDictionary variantsDictionary, ProgressBar progressBar) {

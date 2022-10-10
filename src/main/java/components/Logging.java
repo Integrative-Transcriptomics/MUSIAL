@@ -37,7 +37,7 @@ public final class Logging {
      * @param message A {@link String} printed as warning message.
      */
     public static void logWarning(String message) {
-        System.out.println("[" + Logging.getTimestampDayTime() + "] WARNING: " + message);
+        //System.out.println("[" + Logging.getTimestampDayTime() + "] WARNING: " + message);
     }
 
     /**

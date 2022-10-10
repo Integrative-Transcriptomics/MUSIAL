@@ -63,13 +63,17 @@ public class VariantsDictionary {
      */
     public final String chromosome;
     /**
-     * Separator symbol ...
+     * TODO
      */
     public final static String FIELD_SEPARATOR_1 = "_";
     /**
-     * Separator symbol ...
+     * TODO
      */
     public final static String FIELD_SEPARATOR_2 = ";";
+    /**
+     * TODO
+     */
+    public final static String NULL_VALUE = "N/A";
 
     /**
      * Constructor of {@link VariantsDictionary}.
@@ -114,17 +118,19 @@ public class VariantsDictionary {
         }
         // Add information about variant to temp. annotation of sample. The information is used to infer alleles later
         // and is then discarded.
-        assert this.samples.containsKey(sampleId);
-        assert this.features.containsKey(featureId);
-        assert this.nucleotideVariants.containsKey(position);
-        assert this.nucleotideVariants.get(position).containsKey(altContent);
-        if (!this.features.get(featureId).novelNucleotideVariants.containsKey(sampleId)) {
-            this.features.get(featureId).novelNucleotideVariants.put(sampleId, position + FIELD_SEPARATOR_1 + altContent);
-        } else {
-            this.features.get(featureId).novelNucleotideVariants.put(
-                    sampleId,
-                    this.features.get(featureId).novelNucleotideVariants.get(sampleId) + FIELD_SEPARATOR_2 + position + FIELD_SEPARATOR_1 + altContent
-            );
+        if (isPrimary) {
+            assert this.samples.containsKey(sampleId);
+            assert this.features.containsKey(featureId);
+            assert this.nucleotideVariants.containsKey(position);
+            assert this.nucleotideVariants.get(position).containsKey(altContent);
+            if (!this.features.get(featureId).novelNucleotideVariants.containsKey(sampleId)) {
+                this.features.get(featureId).novelNucleotideVariants.put(sampleId, position + FIELD_SEPARATOR_1 + altContent);
+            } else {
+                this.features.get(featureId).novelNucleotideVariants.put(
+                        sampleId,
+                        this.features.get(featureId).novelNucleotideVariants.get(sampleId) + FIELD_SEPARATOR_2 + position + FIELD_SEPARATOR_1 + altContent
+                );
+            }
         }
     }
 

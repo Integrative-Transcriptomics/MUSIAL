@@ -8,14 +8,19 @@ import components.*;
 import datastructure.*;
 import exceptions.MusialException;
 import me.tongfei.progressbar.ProgressBar;
+import me.tongfei.progressbar.ProgressBarBuilder;
 import runnables.SampleAnalyzerRunnable;
 
 import java.io.*;
-import java.util.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * Main class of MUSIAL (MUlti Sample varIant AnaLysis), a tool to calculate SNV, gene, and whole genome alignments,
@@ -79,6 +84,10 @@ public final class Musial {
      * Whether to compress output files.
      */
     public static boolean COMPRESS = false;
+    /**
+     * Factory for cli progress bars.
+     */
+    private static final ProgressBarBuilder progressBarBuilder = new ProgressBarBuilder().setInitialMax(1).setMaxRenderedLength(120);
 
     /**
      * Main method of MUSIAL; loads meta-information and invokes methods dependent on the user specified module.
@@ -117,6 +126,10 @@ public final class Musial {
             e.printStackTrace();
             Logging.logError(e.getMessage());
         }
+    }
+
+    private static ProgressBar buildProgressBar(String taskName) {
+        return progressBarBuilder.setTaskName(taskName).build();
     }
 
     /**
@@ -185,11 +198,12 @@ public final class Musial {
     private static void runUpdateVDict(CLIParametersUpdateVDict cliarguments)
             throws InterruptedException, MusialException, IOException {
         try (
-                ProgressBar progressBar_DumpData = new ProgressBar("Dump Updated Data", 0);
-                ProgressBar progressBar_InferCodingFeatureInformation = new ProgressBar("Infer Coding Feature Information", 0);
-                ProgressBar progressBar_InferFeatureAlleles = new ProgressBar("Infer Feature Alleles", 0);
-                ProgressBar progressBar_UpdateSampleInformation = new ProgressBar("Update Sample/Variant Information", 0);
-                ProgressBar progressBar_UpdateFeatureInformation = new ProgressBar("Update Feature Information", 0);
+                ProgressBar progressBar_DumpData = buildProgressBar("Dump Updated Data");
+                ProgressBar progressBar_InferCodingFeatureInformation = buildProgressBar("Infer Protein Variants");
+                ProgressBar progressBar_InferFeatureAlleles = buildProgressBar("Infer Feature Alleles");
+                ProgressBar progressBar_RunSnpEffAnnotation = buildProgressBar("Run SnpEff");
+                ProgressBar progressBar_UpdateSampleInformation = buildProgressBar("Update Sample Information");
+                ProgressBar progressBar_UpdateFeatureInformation = buildProgressBar("Update Feature Information");
         ) {
             // Read-in existing variants dictionary or build new one.
             VariantsDictionary variantsDictionary = VariantsDictionaryFactory.build(cliarguments);
@@ -254,6 +268,56 @@ public final class Musial {
             //noinspection ResultOfMethodCallIgnored
             executor.awaitTermination(30, TimeUnit.MINUTES);
             progressBar_UpdateSampleInformation.setExtraMessage(Logging.getDoneMessage());
+
+            // Run SnpEff annotation for variants.
+            File tmpDirectory = new File("./tmp/");
+            progressBar_RunSnpEffAnnotation.maxHint(1);
+            try {
+                IO.generateDirectory(tmpDirectory);
+                File variantsFile = new File("./tmp/variants.vcf");
+                IO.generateFile(variantsFile);
+                IO.writeVcf(variantsFile, variantsDictionary);
+                SnpEffAnnotator.runSnpEff(
+                        tmpDirectory,
+                        variantsFile,
+                        cliarguments.referenceFASTA,
+                        cliarguments.referenceGFF,
+                        variantsDictionary.chromosome
+                );
+                List<String> variantAnnotations = IO.readLinesFromFile("./tmp/annotated_variants.vcf").stream().filter(s -> !s.startsWith("#")).collect(Collectors.toList());
+                String[] splitAnnotation;
+                String position;
+                String refContent;
+                StringBuilder altContent;
+                String[] annotationFields;
+                for (String variantAnnotation : variantAnnotations) {
+                    splitAnnotation = variantAnnotation.split("\t");
+                    position = splitAnnotation[1];
+                    refContent = splitAnnotation[3];
+                    altContent = new StringBuilder(splitAnnotation[4]);
+                    if (refContent.length() > altContent.length()) {
+                        altContent.append(String.valueOf(Bio.DELETION_AA1).repeat(refContent.length() - altContent.length()));
+                    }
+                    if (splitAnnotation[7].equals(".")) {
+                        continue;
+                    } else {
+                        annotationFields = splitAnnotation[7].replace("ANN=", "").split("\\|");
+                    }
+                    variantsDictionary.nucleotideVariants.get(Integer.valueOf(position)).get(altContent.toString()).annotations.put(
+                            NucleotideVariantEntry.PROPERTY_NAME_SNP_EFF_TYPE,
+                            annotationFields[1]
+                    );
+                    variantsDictionary.nucleotideVariants.get(Integer.valueOf(position)).get(altContent.toString()).annotations.put(
+                            NucleotideVariantEntry.PROPERTY_NAME_SNP_EFF_IMPACT,
+                            annotationFields[2]
+                    );
+                    altContent.setLength(0);
+                }
+            } finally {
+                IO.deleteDirectory(tmpDirectory);
+                progressBar_RunSnpEffAnnotation.step();
+                progressBar_RunSnpEffAnnotation.setExtraMessage(Logging.getDoneMessage());
+            }
 
             // Infer feature alleles from collected variant information.
             progressBar_InferFeatureAlleles.maxHint(variantsDictionary.features.keySet().size());

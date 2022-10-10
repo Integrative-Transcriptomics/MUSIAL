@@ -3,6 +3,7 @@ package components;
 import com.google.common.base.Splitter;
 import com.google.gson.Gson;
 import datastructure.FastaContainer;
+import datastructure.NucleotideVariantEntry;
 import datastructure.VariantsDictionary;
 import exceptions.MusialException;
 import main.Musial;
@@ -17,6 +18,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.concurrent.ConcurrentSkipListMap;
 
 /**
  * This class comprises static methods used for reading and writing files.
@@ -268,49 +270,34 @@ public final class IO {
      *
      * @param outputFile         {@link File} object pointing to the output vcf file.
      * @param variantsDictionary {@link VariantsDictionary} containing variant information.
-     * @param excludedFeatures   {@link HashSet} of {@link String}s; Internal feature names to be excluded.
-     * @param excludedSamples    {@link HashSet} of {@link String}s; Internal sample names to be excluded.
-     *
-    public static void writeVcf(File outputFile, VariantsDictionary variantsDictionary, HashSet<String> excludedFeatures, HashSet<String> excludedSamples) {
-    try {
-    FileWriter writer = new FileWriter(outputFile);
-    writer.write("##fileformat=VCFv4.2" + IO.LINE_SEPARATOR);
-    writer.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO" + IO.LINE_SEPARATOR);
-    int variantPosition;
-    ConcurrentSkipListMap<String, NucleotideVariantEntry> variants;
-    boolean skip;
-    for (Map.Entry<Integer, ConcurrentSkipListMap<String, NucleotideVariantEntry>> variantPositionEntry : variantsDictionary.nucleotideVariants.entrySet()) {
-    variantPosition = variantPositionEntry.getKey();
-    skip = false;
-    for (String excludedFeature : excludedFeatures) {
-    if (variantPosition >= variantsDictionary.features.get(excludedFeature).start && variantPosition <= variantsDictionary.features.get(excludedFeature).end) {
-    skip = true;
-    break;
+     */
+    public static void writeVcf(File outputFile, VariantsDictionary variantsDictionary) {
+        try {
+            FileWriter writer = new FileWriter(outputFile);
+            writer.write("##fileformat=VCFv4.2" + IO.LINE_SEPARATOR);
+            writer.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO" + IO.LINE_SEPARATOR);
+            int variantPosition;
+            ConcurrentSkipListMap<String, NucleotideVariantEntry> variantsAtPosition;
+            for (Map.Entry<Integer, ConcurrentSkipListMap<String, NucleotideVariantEntry>> variantPositionEntry : variantsDictionary.nucleotideVariants.entrySet()) {
+                variantPosition = variantPositionEntry.getKey();
+                variantsAtPosition = variantPositionEntry.getValue();
+                for (Map.Entry<String, NucleotideVariantEntry> variant : variantsAtPosition.entrySet()) {
+                    writer.write(variantsDictionary.chromosome + "\t"
+                            + variantPosition + "\t"
+                            + ".\t"
+                            + variant.getValue().annotations.get(NucleotideVariantEntry.PROPERTY_NAME_REFERENCE_CONTENT) + "\t"
+                            + variant.getKey().replace("-", "") + "\t"
+                            + "1000\t"
+                            + ".\t"
+                            + "\t"
+                            + IO.LINE_SEPARATOR);
+                    writer.flush();
+                }
+            }
+            writer.close();
+        } catch (IOException e) {
+            Logging.logWarning("Failed to write `VCF` format file to " + outputFile.getAbsolutePath());
+        }
     }
-    }
-    if (skip) {
-    continue;
-    }
-    variants = variantPositionEntry.getValue();
-    for (Map.Entry<String, NucleotideVariantEntry> variant : variants.entrySet()) {
-    if (!excludedSamples.containsAll(variant.getValue().occurrence.keySet())) {
-    writer.write(variantsDictionary.chromosome + "\t"
-    + variantPosition + "\t"
-    + ".\t"
-    + variant.getValue().annotations.get(NucleotideVariantEntry.PROPERTY_NAME_REFERENCE_CONTENT) + "\t"
-    + variant.getKey().replace("-", "") + "\t"
-    + "1000\t"
-    + ".\t"
-    + "\t"
-    + IO.LINE_SEPARATOR);
-    writer.flush();
-    }
-    }
-    }
-    writer.close();
-    } catch (IOException e) {
-    Logging.logWarning("Failed to write `VCF` format file to " + outputFile.getAbsolutePath());
-    }
-    }*/
 
 }
