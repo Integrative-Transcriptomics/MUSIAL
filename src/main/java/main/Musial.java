@@ -6,13 +6,8 @@ import cli.CLIParametersStatistics;
 import cli.CLIParametersUpdateVDict;
 import components.*;
 import datastructure.*;
-import exceptions.MusialBioException;
-import exceptions.MusialCLException;
-import exceptions.MusialIOException;
-import exceptions.MusialIntegrityException;
+import exceptions.MusialException;
 import me.tongfei.progressbar.ProgressBar;
-import me.tongfei.progressbar.ProgressBarBuilder;
-import me.tongfei.progressbar.ProgressBarStyle;
 import runnables.SampleAnalyzerRunnable;
 
 import java.io.*;
@@ -21,7 +16,6 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 /**
  * Main class of MUSIAL (MUlti Sample varIant AnaLysis), a tool to calculate SNV, gene, and whole genome alignments,
@@ -166,13 +160,10 @@ public final class Musial {
      *
      * @param args Arguments parsed from the command line.
      * @return An instance of the {@link CLIParametersUpdateVDict} class.
-     * @throws MusialCLException        See documentation of {@link CLIParametersUpdateVDict} class.
-     * @throws MusialIOException        See documentation of {@link CLIParametersUpdateVDict} class.
-     * @throws MusialBioException       See documentation of {@link CLIParametersUpdateVDict} class.
-     * @throws MusialIntegrityException See documentation of {@link CLIParametersUpdateVDict} class.
+     * @throws MusialException See documentation of {@link CLIParameters} implementing classes.
      */
     private static CLIParameters parseCLIArguments(String[] args)
-            throws MusialCLException, MusialIOException, MusialBioException, MusialIntegrityException {
+            throws MusialException {
         CLIParameters cliParameters = null;
         switch (MODULE) {
             case updateVDict -> cliParameters = new CLIParametersUpdateVDict(args);
@@ -187,14 +178,12 @@ public final class Musial {
      * Generates a new or updates an existing variants dictionary JSON file based on the specifications parsed from a variants dictionary specification JSON file.
      *
      * @param cliarguments {@link CLIParametersUpdateVDict} instance yielding parameter specification for the MUSIAL update variants dictionary module.
-     * @throws InterruptedException     Thrown if any {@link Runnable} implementing class instance is interrupted by the user.
-     * @throws MusialIOException        Thrown if any input or output file is missing or unable to being generated (caused by any MUSIAL method).
-     * @throws IOException              Thrown if any input or output file is missing or unable to being generated (caused by any native Java method).
-     * @throws MusialIntegrityException Thrown if any method fails wrt. internal logic, i.e. assignment of proteins to genomes.
-     * @throws MusialBioException       Thrown if any method fails wrt. biological context, i.e. parsing of unknown symbols.
+     * @throws InterruptedException Thrown if any {@link Runnable} implementing class instance is interrupted by the user.
+     * @throws IOException          Thrown if any input or output file is missing or unable to being generated (caused by any native Java method).
+     * @throws MusialException      If any method fails wrt. biological context, i.e. parsing of unknown symbols; If any method fails wrt. internal logic, i.e. assignment of proteins to genomes; If any input or output file is missing or unable to being generated.
      */
     private static void runUpdateVDict(CLIParametersUpdateVDict cliarguments)
-            throws InterruptedException, MusialIOException, MusialIntegrityException, MusialBioException, IOException {
+            throws InterruptedException, MusialException, IOException {
         try (
                 ProgressBar progressBar_DumpData = new ProgressBar("Dump Updated Data", 0);
                 ProgressBar progressBar_InferCodingFeatureInformation = new ProgressBar("Infer Coding Feature Information", 0);
@@ -220,7 +209,7 @@ public final class Musial {
                 }
             }
             if (referenceChromosomeFastaContainer == null) {
-                throw new MusialIOException("Failed to match feature chromosome " + variantsDictionary.chromosome + " to specified reference .fasta");
+                throw new MusialException("(Bio) Failed to match feature chromosome " + variantsDictionary.chromosome + " to specified reference .fasta");
             }
             for (String featureId : featureIdsAll) {
                 if (!featureIdsUpdate.contains(featureId) && variantsDictionary.features.containsKey(featureId)) {

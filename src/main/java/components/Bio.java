@@ -2,9 +2,8 @@ package components;
 
 import com.google.common.base.Splitter;
 import datastructure.FeatureEntry;
-import datastructure.SampleEntry;
 import datastructure.VariantsDictionary;
-import exceptions.MusialBioException;
+import exceptions.MusialException;
 import org.javatuples.Triplet;
 
 import java.util.*;
@@ -238,14 +237,14 @@ public final class Bio {
      * @param includeIncomplete  {@link Boolean} whether incomplete codons, i.e. with a length other than 3, should be
      *                           translated as incomplete amino-acids.
      * @return {@link String} representing a translated amino-acid.
-     * @throws MusialBioException If the passed codon has a length other than three and `includeIncomplete` is false.
+     * @throws MusialException If the passed codon has a length other than three and `includeIncomplete` is false.
      */
     public static String translateCodon(String codon, boolean asAA3, boolean includeTermination,
                                         boolean includeIncomplete)
-            throws MusialBioException {
+            throws MusialException {
         if (codon.length() != 3) {
             if (!includeIncomplete) {
-                throw new MusialBioException("Unable to translate codon " + codon + " with length different from three.");
+                throw new MusialException("Unable to translate codon " + codon + " with length different from three.");
             } else {
                 if (asAA3) {
                     return ANY_AA3;
@@ -289,15 +288,15 @@ public final class Bio {
      * @param includeIncomplete  {@link Boolean} whether an incomplete amino-acid should be added to the end if the
      *                           sequence contains an incomplete codon at the end.
      * @return {@link String} representing the translated nucleotide sequence.
-     * @throws MusialBioException If any codon with a length different than three is detected.
+     * @throws MusialException If any codon with a length different than three is detected.
      */
     public static String translateNucSequence(Iterable<String> splitNucSequence, boolean includeTermination,
-                                              boolean includeIncomplete) throws MusialBioException {
+                                              boolean includeIncomplete) throws MusialException {
         StringBuilder translatedNucSequenceBuilder = new StringBuilder();
         for (String s : splitNucSequence) {
             if (s.length() != 3) {
                 if (!includeIncomplete) {
-                    throw new MusialBioException("Failed to translate nucleotide sequence containing codon of length unequal 3.");
+                    throw new MusialException("Failed to translate nucleotide sequence containing codon of length unequal 3.");
                 }
             } else {
                 translatedNucSequenceBuilder.append(translateCodon(s, false, includeTermination, includeIncomplete));
@@ -317,10 +316,10 @@ public final class Bio {
      *                           sequence contains an incomplete codon at the end.
      * @param asSense            {@link Boolean} whether the sequence shall be translated as sense or anti-sense.
      * @return {@link String} representing the translated nucleotide sequence.
-     * @throws MusialBioException If any codon with a length different than three is detected.
+     * @throws MusialException If any codon with a length different than three is detected.
      */
     public static String translateNucSequence(String nucSequence, boolean includeTermination,
-                                              boolean includeIncomplete, boolean asSense) throws MusialBioException {
+                                              boolean includeIncomplete, boolean asSense) throws MusialException {
         if (!asSense) {
             nucSequence = reverseComplement(nucSequence);
         }
@@ -705,11 +704,11 @@ public final class Bio {
      * @param sId                {@link String} specifying the {@link datastructure.SampleEntry#name} of the sample of
      *                           which the proteoform should be inferred.
      * @return {@link ConcurrentSkipListMap} mapping positions to variant contents.
-     * @throws MusialBioException If any translation procedure of nucleotide sequences fails.
+     * @throws MusialException If any translation procedure of nucleotide sequences fails.
      */
     public static ConcurrentSkipListMap<String, String> inferProteoform(
             VariantsDictionary variantsDictionary, String fId, String sId)
-            throws MusialBioException {
+            throws MusialException {
         String sampleNucleotideSequence = variantsDictionary.getSampleNucleotideSequence(fId, sId);
         Function<Triplet<Integer, String, String>, ConcurrentSkipListMap<String, String>> extractVariantsFromAlignment = (sa) -> {
             ConcurrentSkipListMap<String, String> variants = new ConcurrentSkipListMap<>((s1, s2) -> {

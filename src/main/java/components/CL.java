@@ -13,7 +13,7 @@ import java.io.File;
 public class CL {
 
     /**
-     * Runs a command line command from within the application. Currently any errors are ignored.
+     * Runs a command line command from within the application. Currently, any errors are ignored.
      *
      * @param command  {@link String[]} specifying the command, i.e. white spaces of the command are not considered.
      * @param errorLog {@link String} specifying a path to which errors should be written.

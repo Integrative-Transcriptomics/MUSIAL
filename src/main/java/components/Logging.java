@@ -22,7 +22,7 @@ public final class Logging {
     }
 
     /**
-     * Prints a error message with time-stamp information.
+     * Prints an error message with time-stamp information.
      *
      * @param message A {@link String} printed as error message.
      */

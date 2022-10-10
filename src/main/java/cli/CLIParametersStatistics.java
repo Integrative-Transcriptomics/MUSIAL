@@ -4,8 +4,7 @@ import components.IO;
 import components.Logging;
 import components.Validation;
 import datastructure.VariantsDictionary;
-import exceptions.MusialCLException;
-import exceptions.MusialIOException;
+import exceptions.MusialException;
 import main.Musial;
 import org.apache.commons.cli.*;
 
@@ -70,10 +69,10 @@ public final class CLIParametersStatistics implements CLIParameters {
      * components - via class properties.
      *
      * @param args {@link String} {@link Array} containing the command line arguments.
-     * @throws MusialIOException If any error occurs during input file validation.
+     * @throws MusialException If IO file validation fails.
      */
     public CLIParametersStatistics(String[] args)
-            throws MusialIOException, MusialCLException {
+            throws MusialException {
         // Store original command line arguments.
         this.ARGUMENTS = args;
         // Initialize `Option` object with all parameters.
@@ -139,28 +138,28 @@ public final class CLIParametersStatistics implements CLIParameters {
             try {
                 this.inputVDict = IO.readVariantsDictionary(inputVDictFile);
             } catch (IOException e) {
-                throw new MusialIOException("Failed to parse specified variants dictionary at " + cmd.getOptionValue("I") + ".");
+                throw new MusialException("(CLI Parameter Parsing/Initialization) Failed to parse specified variants dictionary at " + cmd.getOptionValue("I") + ".");
             }
             // Parse reference genome (.fasta)
             File r = new File(cmd.getOptionValue("R"));
             if (Validation.isFile(r)) {
                 this.referenceFASTA = r;
             } else {
-                throw new MusialCLException(
-                        "Invalid `referenceFASTA` " + cmd.getOptionValue("R") + "; failed to read file.");
+                throw new MusialException(
+                        "(CLI Parameter Parsing/Initialization) Invalid `referenceFASTA` " + cmd.getOptionValue("R") + "; failed to read file.");
             }
             // Parse reference annotation (.gff/.gff3)
             File a = new File(cmd.getOptionValue("A"));
             if (Validation.isFile(a)) {
                 this.referenceGFF = a;
             } else {
-                throw new MusialCLException(
-                        "Invalid `referenceGFF` " + cmd.getOptionValue("A") + "; failed to read file.");
+                throw new MusialException(
+                        "(CLI Parameter Parsing/Initialization) Invalid `referenceGFF` " + cmd.getOptionValue("A") + "; failed to read file.");
             }
             // Parse specified output directory.
             this.outputDirectory = new File(cmd.getOptionValue("O"));
             if (!Validation.isDirectory(this.outputDirectory)) {
-                throw new MusialIOException("The specified output directory can not be accessed or is no valid directory.");
+                throw new MusialException("(CLI Parameter Parsing/Initialization) The specified output directory can not be accessed or is no valid directory.");
             }
             // Parse and validate samples.
             if (cmd.hasOption("S")) {

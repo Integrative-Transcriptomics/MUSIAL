@@ -7,10 +7,7 @@ import components.Logging;
 import components.Validation;
 import datastructure.FeatureEntry;
 import datastructure.SampleEntry;
-import exceptions.MusialBioException;
-import exceptions.MusialCLException;
-import exceptions.MusialIOException;
-import exceptions.MusialIntegrityException;
+import exceptions.MusialException;
 import main.Musial;
 import org.apache.commons.cli.*;
 import org.biojava.nbio.genome.parsers.gff.FeatureI;
@@ -103,14 +100,10 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
      * components - via class properties.
      *
      * @param args {@link String} {@link Array} containing the command line arguments.
-     * @throws MusialCLException        If any error occurs during parsing or validating an
-     *                                  {@link MusialCLException} is thrown.
-     * @throws MusialIOException        If any error occurs during input file validation.
-     * @throws MusialBioException       If any bioinformatics algorithmic procedure applied during updating fails.
-     * @throws MusialIntegrityException If any feature to add during updating yields wrong coordinates.
+     * @throws MusialException       If IO file validation fails; If CLI parameter validation fails.
      */
     public CLIParametersUpdateVDict(String[] args)
-            throws MusialCLException, MusialIOException, MusialBioException, MusialIntegrityException {
+            throws MusialException {
         // Store original command line arguments.
         this.ARGUMENTS = args;
         // Initialize `Option` object with all parameters.
@@ -152,77 +145,77 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
                 Gson gson = new Gson();
                 parameters = gson.fromJson(bufferedReader, JSONObject.class);
             } catch (Exception e) {
-                throw new MusialCLException(
-                        "Failed to read variants dictionary specification " + cmd.getOptionValue("C") + ": " + e.getMessage());
+                throw new MusialException(
+                        "(CLI Parameter Parsing/Initialization) Failed to read variants dictionary specification " + cmd.getOptionValue("C") + ": " + e.getMessage());
             }
             // Parse minCoverage
             if (Validation.isPositiveDouble(String.valueOf(parameters.get("minCoverage")))) {
                 this.minCoverage = (Double) parameters.get("minCoverage");
             } else {
-                throw new MusialCLException(
-                        "Invalid `minCoverage` " + parameters.get("minCoverage") + "; expected positive float.");
+                throw new MusialException(
+                        "(CLI Parameter Parsing/Initialization) Invalid `minCoverage` " + parameters.get("minCoverage") + "; expected positive float.");
             }
             // Parse minFrequency
             if (Validation.isPercentage(String.valueOf(parameters.get("minHomFrequency")))) {
                 this.minHomFrequency = (Double) parameters.get("minHomFrequency");
             } else {
-                throw new MusialCLException(
-                        "Invalid `minHomFrequency` " + parameters.get("minHomFrequency") +
+                throw new MusialException(
+                        "(CLI Parameter Parsing/Initialization) Invalid `minHomFrequency` " + parameters.get("minHomFrequency") +
                                 "; expected float between 0.0 and 1.0.");
             }
             // Parse minHetFrequency
             if (Validation.isPercentage(String.valueOf(parameters.get("minHetFrequency")))) {
                 this.minHetFrequency = (Double) parameters.get("minHetFrequency");
             } else {
-                throw new MusialCLException(
-                        "Invalid `minHetFrequency` " + parameters.get("minHetFrequency") +
+                throw new MusialException(
+                        "(CLI Parameter Parsing/Initialization) Invalid `minHetFrequency` " + parameters.get("minHetFrequency") +
                                 "; expected float between 0.0 and 1.0.");
             }
             // Parse maxHetFrequency
             if (Validation.isPercentage(String.valueOf(parameters.get("maxHetFrequency")))) {
                 this.maxHetFrequency = (Double) parameters.get("maxHetFrequency");
             } else {
-                throw new MusialCLException(
-                        "Invalid `maxHetFrequency` " + parameters.get("maxHetFrequency") +
+                throw new MusialException(
+                        "(CLI Parameter Parsing/Initialization) Invalid `maxHetFrequency` " + parameters.get("maxHetFrequency") +
                                 "; expected float between 0.0 and 1.0.");
             }
             // Parse minQuality
             if (Validation.isPositiveDouble(String.valueOf(parameters.get("minQuality")))) {
                 this.minQuality = (Double) parameters.get("minQuality");
             } else {
-                throw new MusialCLException(
-                        "Invalid `minQuality` " + parameters.get("minQuality") + "; expected positive float.");
+                throw new MusialException(
+                        "(CLI Parameter Parsing/Initialization) Invalid `minQuality` " + parameters.get("minQuality") + "; expected positive float.");
             }
             // Parse No. threads to use
             if (Validation.isPositiveInteger(String.valueOf(Math.round((Double) parameters.get("threads"))))) {
                 Musial.THREADS = (int) Math.round((Double) parameters.get("threads"));
             } else {
-                throw new MusialCLException(
-                        "Invalid `threads` " + parameters.get("threads") + "; expected positive integer.");
+                throw new MusialException(
+                        "(CLI Parameter Parsing/Initialization) Invalid `threads` " + parameters.get("threads") + "; expected positive integer.");
             }
             // Parse reference genome (.fasta)
             File r = new File((String) parameters.get("referenceFASTA"));
             if (Validation.isFile(r)) {
                 this.referenceFASTA = r;
             } else {
-                throw new MusialCLException(
-                        "Invalid `referenceFASTA` " + parameters.get("referenceFASTA") + "; failed to read file.");
+                throw new MusialException(
+                        "(CLI Parameter Parsing/Initialization) Invalid `referenceFASTA` " + parameters.get("referenceFASTA") + "; failed to read file.");
             }
             // Parse reference annotation (.gff/.gff3)
             File a = new File((String) parameters.get("referenceGFF"));
             if (Validation.isFile(a)) {
                 this.referenceGFF = a;
             } else {
-                throw new MusialCLException(
-                        "Invalid `referenceGFF` " + parameters.get("referenceGFF") + "; failed to read file.");
+                throw new MusialException(
+                        "(CLI Parameter Parsing/Initialization) Invalid `referenceGFF` " + parameters.get("referenceGFF") + "; failed to read file.");
             }
             // Parse output file
             File o = new File((String) parameters.get("outputFile"));
             if (Validation.isDirectory(new File(o.getParent()))) {
                 this.outputFile = o;
             } else {
-                throw new MusialCLException(
-                        "Invalid `outputFile` " + parameters.get("outputFile") + "; unable to access parent directory.");
+                throw new MusialException(
+                        "(CLI Parameter Parsing/Initialization) Invalid `outputFile` " + parameters.get("outputFile") + "; unable to access parent directory.");
             }
             // Parse samples
             //noinspection rawtypes
@@ -234,7 +227,7 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
                 sampleEntry = (LinkedTreeMap) samples.get(sampleKey);
                 File sampleVcfFile = new File((String) sampleEntry.get("vcfFile"));
                 if (sampleEntry.get("vcfFile") != null && !Validation.isFile(sampleVcfFile)) {
-                    throw new MusialCLException("Failed to access specified `vcf` file for sample " + sampleKey);
+                    throw new MusialException("(CLI Parameter Parsing/Initialization) Failed to access specified `vcf` file for sample " + sampleKey);
                 }
                 //noinspection unchecked
                 addSample(
@@ -255,7 +248,7 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
                 if (featureEntry.containsKey("pdbFile")) {
                     featurePdbFile = new File((String) featureEntry.get("pdbFile"));
                     if (featureEntry.get("pdbFile") != null && !Validation.isFile(featurePdbFile)) {
-                        throw new MusialCLException("Failed to access specified `pdb` file for feature " + featureKey + " " + featurePdbFile);
+                        throw new MusialException("(CLI Parameter Parsing/Initialization) Failed to access specified `pdb` file for feature " + featureKey + " " + featurePdbFile);
                     }
                 } else {
                     featurePdbFile = null;
@@ -279,16 +272,16 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
      * @param name        {@link String}; The internal name to use for the sample.
      * @param vcfFile     {@link File} object pointing to a .vcf format file.
      * @param annotations {@link java.util.HashMap} of {@link String} key/pair values; sample meta information.
-     * @throws MusialIOException If the specified .vcf file does not exist or can not be accessed.
+     * @throws MusialException If the specified .vcf file does not exist or can not be accessed.
      */
-    private void addSample(String name, File vcfFile, Map<String, String> annotations) throws MusialIOException {
+    private void addSample(String name, File vcfFile, Map<String, String> annotations) throws MusialException {
         if (vcfFile.isFile()) {
             SampleEntry sampleEntry = new SampleEntry(vcfFile, name);
             sampleEntry.annotations.putAll(annotations);
             this.samples.put(name, sampleEntry);
         } else {
-            throw new MusialIOException(
-                    "Specified sample input file does not exist or has no read permission:\t" + vcfFile.getAbsolutePath());
+            throw new MusialException(
+                    "(CLI Parameter Parsing/Initialization) Specified sample's variant calls input file does not exist or has no read permission:\t" + vcfFile.getAbsolutePath());
         }
     }
 
@@ -299,29 +292,27 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
      * @param featureName {@link String}; The value of the NAME attribute in the specified .gff format reference annotation to match the feature from.
      * @param pdbFile     {@link File}; Optional object pointing to a .pdb format file yielding a protein structure derived for the (gene) feature.
      * @param annotations {@link java.util.HashMap} of {@link String} key/pair values; feature meta information.
-     * @throws MusialIOException        If the specified .gff reference annotation or .pdb protein file can not be read.
-     * @throws MusialBioException       If the initialization of the {@link FeatureEntry} fails.
-     * @throws MusialIntegrityException If the specified feature is not found or parsed multiple times from the reference annotation.
+     * @throws MusialException       If the initialization of the {@link FeatureEntry} fails; If the specified .gff reference annotation or .pdb protein file can not be read; If the specified feature is not found or parsed multiple times from the reference annotation.
      */
     private void addFeature(String name, String featureName, File pdbFile, Map<String, String> annotations)
-            throws MusialIOException, MusialIntegrityException, MusialBioException {
+            throws MusialException {
         if (this.referenceFeatures == null) {
             try {
                 this.referenceFeatures = IO.readGFF(this.referenceGFF);
             } catch (IOException e) {
-                throw new MusialIOException(
-                        "Failed to read specified reference genome annotation " + this.referenceGFF.getAbsolutePath() + "\t" +
+                throw new MusialException(
+                        "(CLI Parameter Parsing/Initialization) Failed to read specified reference genome annotation " + this.referenceGFF.getAbsolutePath() + "\t" +
                                 e.getMessage());
             }
         }
         FeatureList matchedFeatures = this.referenceFeatures.selectByAttribute("Name", featureName);
         if (matchedFeatures.size() == 0) {
-            throw new MusialIntegrityException("Feature " + featureName + " not found in the specified reference genome annotation.");
+            throw new MusialException("(CLI Parameter Parsing/Initialization) Feature " + featureName + " not found in the specified reference genome annotation.");
         } else if (matchedFeatures.size() > 1) {
-            throw new MusialIntegrityException("Feature " + featureName + " found more than once in the specified reference genome " +
+            throw new MusialException("(CLI Parameter Parsing/Initialization) Feature " + featureName + " found more than once in the specified reference genome " +
                     "annotation.");
         } else if (this.features.containsKey(featureName)) {
-            throw new MusialIntegrityException("Feature " + featureName + " was specified multiple times.");
+            throw new MusialException("(CLI Parameter Parsing/Initialization) Feature " + featureName + " was specified multiple times.");
         } else {
             FeatureI matchedFeature = matchedFeatures.get(0);
             Location featureCoordinates = matchedFeature.location();
@@ -339,8 +330,8 @@ public final class CLIParametersUpdateVDict implements CLIParameters {
             if (Validation.isFile(pdbFile)) {
                 this.features.get(name).pdbFile = pdbFile;
             } else {
-                throw new MusialIOException(
-                        "Specified feature `PDB` file " + pdbFile.getAbsolutePath() + " does not exist or has no read permission.");
+                throw new MusialException(
+                        "(CLI Parameter Parsing/Initialization) Specified feature `PDB` file " + pdbFile.getAbsolutePath() + " does not exist or has no read permission.");
             }
         }
     }

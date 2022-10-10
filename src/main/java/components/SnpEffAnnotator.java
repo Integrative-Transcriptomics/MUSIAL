@@ -1,7 +1,6 @@
 package components;
 
-import exceptions.MusialIOException;
-import main.Musial;
+import exceptions.MusialException;
 
 import java.io.File;
 import java.io.IOException;
@@ -32,13 +31,13 @@ public final class SnpEffAnnotator {
      * @param referenceFasta      {@link File} instance pointing to the fasta file containing the reference genome.
      * @param referenceGff        {@link File} instance pointing to the gff file containing the reference genome annotation.
      * @param referenceChromosome {@link String} storing the reference chromosome name.
-     * @throws IOException       Thrown if any input or output file is missing or unable to being generated (caused by any native Java method).
-     * @throws MusialIOException Thrown if any input or output file is missing or unable to being generated (caused by any MUSIAL method).
+     * @throws IOException     Thrown if any input or output file is missing or unable to being generated (caused by any native Java method).
+     * @throws MusialException Thrown if any input or output file is missing or unable to being generated (caused by any MUSIAL method).
      */
-    @SuppressWarnings("DuplicateExpressions")
+    @SuppressWarnings({"DuplicateExpressions", "unused"})
     public static void runSnpEff(File targetDir, File targetVcf, File referenceFasta, File referenceGff,
                                  String referenceChromosome)
-            throws IOException, MusialIOException {
+            throws IOException, MusialException {
         // 1. Copy snpEff from JAR to target directory.
         if (targetDir.isDirectory()) {
             InputStream snpEffConfig = SnpEffAnnotator.class.getResourceAsStream("/snpEff/snpEff.config");

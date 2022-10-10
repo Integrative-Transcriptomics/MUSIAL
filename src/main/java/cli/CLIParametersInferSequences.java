@@ -4,7 +4,7 @@ import components.IO;
 import components.Logging;
 import components.Validation;
 import datastructure.VariantsDictionary;
-import exceptions.MusialIOException;
+import exceptions.MusialException;
 import main.Musial;
 import org.apache.commons.cli.*;
 
@@ -85,10 +85,10 @@ public final class CLIParametersInferSequences implements CLIParameters {
      * components - via class properties.
      *
      * @param args {@link String} {@link Array} containing the command line arguments.
-     * @throws MusialIOException If any error occurs during input file validation.
+     * @throws MusialException If IO file validation fails.
      */
     public CLIParametersInferSequences(String[] args)
-            throws MusialIOException {
+            throws MusialException {
         // Store original command line arguments.
         this.ARGUMENTS = args;
         // Initialize `Option` object with all parameters.
@@ -165,12 +165,12 @@ public final class CLIParametersInferSequences implements CLIParameters {
             try {
                 this.inputVDict = IO.readVariantsDictionary(inputVDictFile);
             } catch (IOException e) {
-                throw new MusialIOException("Failed to parse specified variants dictionary at " + cmd.getOptionValue("I") + ".");
+                throw new MusialException("(CLI Parameter Parsing/Initialization) Failed to parse specified variants dictionary at " + cmd.getOptionValue("I") + ".");
             }
             // Parse specified output directory.
             this.outputDirectory = new File(cmd.getOptionValue("O"));
             if (!Validation.isDirectory(this.outputDirectory)) {
-                throw new MusialIOException("The specified output directory can not be accessed or is no valid directory.");
+                throw new MusialException("(CLI Parameter Parsing/Initialization) The specified output directory can not be accessed or is no valid directory.");
             }
             // Parse output option parameters.
             this.GS = cmd.hasOption("GS");

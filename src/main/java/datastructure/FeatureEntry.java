@@ -1,18 +1,12 @@
 package datastructure;
 
-import com.google.errorprone.annotations.Var;
 import components.Bio;
 import components.IO;
 import components.Logging;
-import exceptions.MusialBioException;
-import me.tongfei.progressbar.ProgressBar;
-import org.apache.commons.math3.distribution.UniformRealDistribution;
-import org.apache.commons.math3.stat.inference.KolmogorovSmirnovTest;
-import org.apache.commons.math3.stat.inference.TestUtils;
+import exceptions.MusialException;
 import org.biojava.nbio.structure.Chain;
 import org.biojava.nbio.structure.Group;
 import org.biojava.nbio.structure.Structure;
-import org.checkerframework.checker.units.qual.C;
 import org.javatuples.Triplet;
 
 import java.io.File;
@@ -128,9 +122,9 @@ public final class FeatureEntry {
      *                      is located on.
      * @param entryStart    {@link Integer} The 1-based indexed starting position of the feature on the reference.
      * @param entryEnd      {@link Integer} The 1-based indexed end position of the feature on the reference.
-     * @throws MusialBioException If the specified locus is ambiguous.
+     * @throws MusialException If the specified locus is ambiguous.
      */
-    public FeatureEntry(String entryName, String entryLocation, int entryStart, int entryEnd) throws MusialBioException {
+    public FeatureEntry(String entryName, String entryLocation, int entryStart, int entryEnd) throws MusialException {
         this.name = entryName;
         this.chromosome = entryLocation;
         this.isCodingSequence = false;
@@ -145,7 +139,7 @@ public final class FeatureEntry {
             this.start = -entryStart + 1;
             this.end = -entryEnd;
         } else {
-            throw new MusialBioException(
+            throw new MusialException(
                     "Failed to add gene feature due to faulty position data (start, end)\t" + entryStart + ", " + entryEnd);
         }
     }
@@ -228,11 +222,11 @@ public final class FeatureEntry {
      * .pdb starts with residue 1, but the sequence (of the protein) has a gap of length 9 at the beginning in the
      * alignment the first residue number in the internal .pdb is set to be 10.
      *
-     * @throws IOException        If the .pdb file pointed to by the {@link FeatureEntry#pdbFile} can not be parsed.
-     * @throws MusialBioException If either the translated {@link FeatureEntry#nucleotideSequence} yields internal
-     *                            termination codons or contains any gaps when aligned to the amino-acid sequence derived from the .pdb fiel.
+     * @throws IOException     If the .pdb file pointed to by the {@link FeatureEntry#pdbFile} can not be parsed.
+     * @throws MusialException If either the translated {@link FeatureEntry#nucleotideSequence} yields internal
+     *                         termination codons or contains any gaps when aligned to the amino-acid sequence derived from the .pdb fiel.
      */
-    public void imputeProteinInformation() throws IOException, MusialBioException {
+    public void imputeProteinInformation() throws IOException, MusialException {
         if (this.pdbFile == null) {
             return;
         }
@@ -276,7 +270,7 @@ public final class FeatureEntry {
                     if (alignedChainSequence[pos] == Bio.GAP) {
                         paddedProteinSequenceBuilder.append(Character.toLowerCase(alignedTranslatedNucleotideSequence[pos]));
                     } else if (alignedTranslatedNucleotideSequence[pos] == Bio.GAP) {
-                        throw new MusialBioException("Failed to allocate protein " + this.pdbFile.getName() + " to " +
+                        throw new MusialException("Failed to allocate protein " + this.pdbFile.getName() + " to " +
                                 "feature " + this.name + " due to gaps in the aligned translated feature nucleotide sequence.");
                     }
                 } else {

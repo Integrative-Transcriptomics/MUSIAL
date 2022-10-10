@@ -25,4 +25,6 @@ public interface CLIParameters {
         helpFormatter.printHelp("java -jar MUSIAL-" + Musial.VERSION + ".jar", options);
     }
 
+
+
 }

@@ -5,8 +5,7 @@ import com.aayushatharva.brotli4j.encoder.Encoder;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import components.Bio;
-import exceptions.MusialBioException;
-import exceptions.MusialIOException;
+import exceptions.MusialException;
 import main.Musial;
 
 import java.io.*;
@@ -149,11 +148,11 @@ public class VariantsDictionary {
      * dependent on the value of {@link Musial#COMPRESS}.
      *
      * @param outfile {@link File} object pointing to the file this {@link VariantsDictionary} should be written to.
-     * @throws MusialIOException If the output generation fails.
+     * @throws MusialException If the output generation fails.
      */
-    public void dump(File outfile) throws MusialIOException {
+    public void dump(File outfile) throws MusialException {
         if (!outfile.exists()) {
-            throw new MusialIOException("The specified output file does not exist:\t" + outfile.getAbsolutePath());
+            throw new MusialException("(I/O) The specified output file does not exist:\t" + outfile.getAbsolutePath());
         }
         try {
             Gson gson;
@@ -184,7 +183,7 @@ public class VariantsDictionary {
                 variantDBWriter.close();
             }
         } catch (IOException e) {
-            throw new MusialIOException("Failed to write to output file:\t" + outfile.getAbsolutePath());
+            throw new MusialException("(I/O) Failed to write to output file:\t" + outfile.getAbsolutePath());
         }
     }
 

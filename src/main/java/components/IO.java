@@ -3,9 +3,8 @@ package components;
 import com.google.common.base.Splitter;
 import com.google.gson.Gson;
 import datastructure.FastaContainer;
-import datastructure.NucleotideVariantEntry;
 import datastructure.VariantsDictionary;
-import exceptions.MusialIOException;
+import exceptions.MusialException;
 import main.Musial;
 import org.apache.commons.io.FileUtils;
 import org.biojava.nbio.genome.parsers.gff.FeatureList;
@@ -18,7 +17,6 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
-import java.util.concurrent.ConcurrentSkipListMap;
 
 /**
  * This class comprises static methods used for reading and writing files.
@@ -135,11 +133,11 @@ public final class IO {
      * Tries to generate the directory specified by the passed {@link File} object.
      *
      * @param file {@link File} object representing a directory.
-     * @throws MusialIOException If the directory could not be generated.
+     * @throws MusialException If the directory could not be generated.
      */
-    public static void generateDirectory(File file) throws MusialIOException {
+    public static void generateDirectory(File file) throws MusialException {
         if (!file.mkdirs()) {
-            throw new MusialIOException("Failed to generate output directory:\t" + file.getAbsolutePath());
+            throw new MusialException("(I/O) Failed to generate output directory:\t" + file.getAbsolutePath());
         }
     }
 
@@ -147,15 +145,15 @@ public final class IO {
      * Tries to generate the file specified by the passed {@link File} object.
      *
      * @param file {@link File} object representing a file.
-     * @throws MusialIOException If the file could not be generated.
+     * @throws MusialException If the file could not be generated.
      */
-    public static void generateFile(File file) throws MusialIOException {
+    public static void generateFile(File file) throws MusialException {
         try {
             if (!file.createNewFile()) {
-                throw new MusialIOException("Failed to generate output file:\t" + file.getAbsolutePath());
+                throw new MusialException("(I/O) Failed to generate output file:\t" + file.getAbsolutePath());
             }
         } catch (IOException e) {
-            throw new MusialIOException(e.getMessage());
+            throw new MusialException(e.getMessage());
         }
 
     }
@@ -165,15 +163,15 @@ public final class IO {
      *
      * @param file   {@link File} object, the source file.
      * @param target {@link File} object, the target file.
-     * @throws MusialIOException If the copy procedure fails.
+     * @throws MusialException If the copy procedure fails.
      */
     @SuppressWarnings("unused")
-    public static void copyFile(File file, File target) throws MusialIOException {
+    public static void copyFile(File file, File target) throws MusialException {
         try {
             Files.copy(file.getAbsoluteFile().toPath(), target.getAbsoluteFile().toPath());
         } catch (IOException e) {
-            throw new MusialIOException(
-                    "Failed to copy file " + file.getAbsolutePath() + " to target " + target.getAbsolutePath());
+            throw new MusialException(
+                    "(I/O) Failed to copy file " + file.getAbsolutePath() + " to target " + target.getAbsolutePath());
         }
     }
 
@@ -245,13 +243,15 @@ public final class IO {
     }
 
     /**
-     * @param outputFile
-     * @param lineContent
-     * @throws MusialIOException
+     * Function to write a generic file with any line content.
+     *
+     * @param outputFile  {@link File} object pointing to the output file.
+     * @param lineContent {@link ArrayList} of {@link String} entries, i.e., the file content to be written.
+     * @throws MusialException If the specified output file is invalid.
      */
-    public static void writeFile(File outputFile, ArrayList<String> lineContent) throws MusialIOException {
+    public static void writeFile(File outputFile, ArrayList<String> lineContent) throws MusialException {
         if (!Validation.isFile(outputFile)) {
-            throw new MusialIOException("Failed to write to file " + outputFile.getAbsolutePath() + "; File does not exist or has no write permission. ");
+            throw new MusialException("(I/O) Failed to write to file " + outputFile.getAbsolutePath() + "; File does not exist or has no write permission. ");
         }
         try (FileWriter writer = new FileWriter(outputFile)) {
             for (String line : lineContent) {
@@ -272,45 +272,45 @@ public final class IO {
      * @param excludedSamples    {@link HashSet} of {@link String}s; Internal sample names to be excluded.
      *
     public static void writeVcf(File outputFile, VariantsDictionary variantsDictionary, HashSet<String> excludedFeatures, HashSet<String> excludedSamples) {
-        try {
-            FileWriter writer = new FileWriter(outputFile);
-            writer.write("##fileformat=VCFv4.2" + IO.LINE_SEPARATOR);
-            writer.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO" + IO.LINE_SEPARATOR);
-            int variantPosition;
-            ConcurrentSkipListMap<String, NucleotideVariantEntry> variants;
-            boolean skip;
-            for (Map.Entry<Integer, ConcurrentSkipListMap<String, NucleotideVariantEntry>> variantPositionEntry : variantsDictionary.nucleotideVariants.entrySet()) {
-                variantPosition = variantPositionEntry.getKey();
-                skip = false;
-                for (String excludedFeature : excludedFeatures) {
-                    if (variantPosition >= variantsDictionary.features.get(excludedFeature).start && variantPosition <= variantsDictionary.features.get(excludedFeature).end) {
-                        skip = true;
-                        break;
-                    }
-                }
-                if (skip) {
-                    continue;
-                }
-                variants = variantPositionEntry.getValue();
-                for (Map.Entry<String, NucleotideVariantEntry> variant : variants.entrySet()) {
-                    if (!excludedSamples.containsAll(variant.getValue().occurrence.keySet())) {
-                        writer.write(variantsDictionary.chromosome + "\t"
-                                + variantPosition + "\t"
-                                + ".\t"
-                                + variant.getValue().annotations.get(NucleotideVariantEntry.PROPERTY_NAME_REFERENCE_CONTENT) + "\t"
-                                + variant.getKey().replace("-", "") + "\t"
-                                + "1000\t"
-                                + ".\t"
-                                + "\t"
-                                + IO.LINE_SEPARATOR);
-                        writer.flush();
-                    }
-                }
-            }
-            writer.close();
-        } catch (IOException e) {
-            Logging.logWarning("Failed to write `VCF` format file to " + outputFile.getAbsolutePath());
-        }
+    try {
+    FileWriter writer = new FileWriter(outputFile);
+    writer.write("##fileformat=VCFv4.2" + IO.LINE_SEPARATOR);
+    writer.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO" + IO.LINE_SEPARATOR);
+    int variantPosition;
+    ConcurrentSkipListMap<String, NucleotideVariantEntry> variants;
+    boolean skip;
+    for (Map.Entry<Integer, ConcurrentSkipListMap<String, NucleotideVariantEntry>> variantPositionEntry : variantsDictionary.nucleotideVariants.entrySet()) {
+    variantPosition = variantPositionEntry.getKey();
+    skip = false;
+    for (String excludedFeature : excludedFeatures) {
+    if (variantPosition >= variantsDictionary.features.get(excludedFeature).start && variantPosition <= variantsDictionary.features.get(excludedFeature).end) {
+    skip = true;
+    break;
+    }
+    }
+    if (skip) {
+    continue;
+    }
+    variants = variantPositionEntry.getValue();
+    for (Map.Entry<String, NucleotideVariantEntry> variant : variants.entrySet()) {
+    if (!excludedSamples.containsAll(variant.getValue().occurrence.keySet())) {
+    writer.write(variantsDictionary.chromosome + "\t"
+    + variantPosition + "\t"
+    + ".\t"
+    + variant.getValue().annotations.get(NucleotideVariantEntry.PROPERTY_NAME_REFERENCE_CONTENT) + "\t"
+    + variant.getKey().replace("-", "") + "\t"
+    + "1000\t"
+    + ".\t"
+    + "\t"
+    + IO.LINE_SEPARATOR);
+    writer.flush();
+    }
+    }
+    }
+    writer.close();
+    } catch (IOException e) {
+    Logging.logWarning("Failed to write `VCF` format file to " + outputFile.getAbsolutePath());
+    }
     }*/
 
 }
