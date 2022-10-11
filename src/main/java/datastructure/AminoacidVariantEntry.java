@@ -22,6 +22,8 @@ public class AminoacidVariantEntry {
      */
     public final ConcurrentSkipListSet<String> occurrence = new ConcurrentSkipListSet<>();
 
+    public final static String PROPERTY_NAME_FREQUENCY = "FRQ";
+
     /**
      * Constructor of {@link AminoacidVariantEntry}.
      */

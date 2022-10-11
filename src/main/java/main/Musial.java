@@ -12,6 +12,7 @@ import me.tongfei.progressbar.ProgressBarBuilder;
 import runnables.SampleAnalyzerRunnable;
 
 import java.io.*;
+import java.text.DecimalFormat;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
@@ -88,6 +89,8 @@ public final class Musial {
      * Factory for cli progress bars.
      */
     private static final ProgressBarBuilder progressBarBuilder = new ProgressBarBuilder().setInitialMax(1).setMaxRenderedLength(120);
+
+    public static final DecimalFormat decimalFormatter = new DecimalFormat("#.#");
 
     /**
      * Main method of MUSIAL; loads meta-information and invokes methods dependent on the user specified module.
@@ -199,6 +202,7 @@ public final class Musial {
             throws InterruptedException, MusialException, IOException {
         try (
                 ProgressBar progressBar_DumpData = buildProgressBar("Dump Updated Data");
+                ProgressBar progressBar_InferVariantFrequencies = buildProgressBar("Infer Variant Frequencies");
                 ProgressBar progressBar_InferCodingFeatureInformation = buildProgressBar("Infer Protein Variants");
                 ProgressBar progressBar_InferFeatureAlleles = buildProgressBar("Infer Feature Alleles");
                 ProgressBar progressBar_RunSnpEffAnnotation = buildProgressBar("Run SnpEff");
@@ -343,6 +347,52 @@ public final class Musial {
                 }
             }
             progressBar_InferCodingFeatureInformation.setExtraMessage(Logging.getDoneMessage());
+
+            // Infer variant frequencies.
+            int totalNoVariants = 0;
+            for (ConcurrentSkipListMap<String, NucleotideVariantEntry> perPositionNucleotideVariants : variantsDictionary.nucleotideVariants.values()) {
+                totalNoVariants += perPositionNucleotideVariants.size();
+            }
+            for (FeatureEntry feature : variantsDictionary.features.values()) {
+                totalNoVariants += feature.aminoacidVariants.size();
+            }
+            progressBar_InferVariantFrequencies.maxHint(totalNoVariants);
+            float noSamples = variantsDictionary.samples.size();
+            float noOccurrences;
+            // Compute frequencies of nucleotide variants.
+            for (ConcurrentSkipListMap<String, NucleotideVariantEntry> perPositionNucleotideVariants : variantsDictionary.nucleotideVariants.values()) {
+                for (NucleotideVariantEntry nucleotideVariant : perPositionNucleotideVariants.values()) {
+                    noOccurrences = 0;
+                    for (String occurrence : nucleotideVariant.occurrence) {
+                        String featureId = occurrence.split(VariantsDictionary.FIELD_SEPARATOR_1)[0];
+                        String alleleId = occurrence.split(VariantsDictionary.FIELD_SEPARATOR_1)[1];
+                        noOccurrences += variantsDictionary.features.get(featureId).alleles.get(alleleId).samples.size();
+                    }
+                    nucleotideVariant.annotations.put(
+                            NucleotideVariantEntry.PROPERTY_NAME_FREQUENCY,
+                            Musial.decimalFormatter.format(100L * (noOccurrences / noSamples)).replace(",", ".")
+                    );
+                    progressBar_InferVariantFrequencies.step();
+                }
+            }
+            // Compute frequencies of aminoacid variants.
+            for (FeatureEntry feature : variantsDictionary.features.values()) {
+                for (ConcurrentSkipListMap<String, AminoacidVariantEntry> perPositionAminoacidVariants : feature.aminoacidVariants.values()) {
+                    for (AminoacidVariantEntry aminoacidVariant : perPositionAminoacidVariants.values()) {
+                        noOccurrences = 0;
+                        for (String occurrence : aminoacidVariant.occurrence) {
+                            noOccurrences += feature.proteoforms.get(occurrence).samples.size();
+                        }
+                        System.out.println(100 * (noOccurrences / noSamples));
+                        System.out.println();
+                        aminoacidVariant.annotations.put(
+                                AminoacidVariantEntry.PROPERTY_NAME_FREQUENCY,
+                                Musial.decimalFormatter.format(100 * (noOccurrences / noSamples)).replace(",", ".")
+                        );
+                        progressBar_InferVariantFrequencies.step();
+                    }
+                }
+            }
 
             // Write updated database to file.
             progressBar_DumpData.maxHint(1);

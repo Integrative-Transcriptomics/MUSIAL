@@ -35,6 +35,8 @@ public class AlleleEntry {
     public final static String PROPERTY_NAME_NUMBER_OF_INSERTIONS = "NO_INS";
     public final static String PROPERTY_NAME_NUMBER_OF_DELETIONS = "NO_DEL";
     public final static String PROPERTY_NAME_CONGLOMERATION_INDEX = "CONG_IDX";
+    public final static String PROPERTY_NAME_FREQUENCY = "FRQ";
+
     /**
      * Constructor of {@link AlleleEntry}.
      *

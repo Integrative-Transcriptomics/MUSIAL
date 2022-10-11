@@ -27,6 +27,7 @@ public class NucleotideVariantEntry {
     public final static String PROPERTY_NAME_SNP_EFF_IMPACT = "SNP_EFF_IMPACT";
 
     public final static String PROPERTY_NAME_SNP_EFF_TYPE = "SNP_EFF_TYPE";
+    public final static String PROPERTY_NAME_FREQUENCY = "FRQ";
 
     /**
      * Constructor of {@link NucleotideVariantEntry}.

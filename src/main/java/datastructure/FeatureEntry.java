@@ -4,6 +4,7 @@ import components.Bio;
 import components.IO;
 import components.Logging;
 import exceptions.MusialException;
+import main.Musial;
 import org.apache.commons.math3.distribution.UniformRealDistribution;
 import org.apache.commons.math3.stat.inference.KolmogorovSmirnovTest;
 import org.biojava.nbio.structure.Chain;
@@ -324,7 +325,6 @@ public final class FeatureEntry {
                 e -> e.getKey() + VariantsDictionary.FIELD_SEPARATOR_1 + e.getValue()
         ).collect(Collectors.joining(VariantsDictionary.FIELD_SEPARATOR_2));
         float referenceProteinLength = (float) (this.translatedNucleotideSequence.length());
-        DecimalFormat decimalFormat = new DecimalFormat("#.#");
         String proteoformName = ProteoformEntry.generateProteoformName(concatVariants);
         if (this.proteoforms.containsKey(proteoformName)) {
             this.proteoforms.get(proteoformName).samples.add(sampleId);
@@ -342,7 +342,7 @@ public final class FeatureEntry {
                     );
                     this.proteoforms.get(proteoformName).annotations.put(
                             ProteoformEntry.PROPERTY_NAME_DIVERGING_TERMINATION_TRUNCATED_PERCENTAGE,
-                            decimalFormat.format(100 * (1 - (Float.parseFloat(variantPosition.split("\\+")[0]) / referenceProteinLength))).replace(",", ".")
+                            Musial.decimalFormatter.format(100 * (1 - (Float.parseFloat(variantPosition.split("\\+")[0]) / referenceProteinLength))).replace(",", ".")
                     );
                 }
                 if (!this.aminoacidVariants.get(variantPosition).containsKey(variantContent)) {
@@ -368,7 +368,7 @@ public final class FeatureEntry {
             // (1) Percentage of variable positions wrt. reference protein length.
             this.proteoforms.get(proteoformName).annotations.put(
                     ProteoformEntry.PROPERTY_NAME_VARIABLE_POSITIONS,
-                    decimalFormat.format(100L * (variantPositions.size() / referenceProteinLength)).replace(",", ".")
+                    Musial.decimalFormatter.format(100L * (variantPositions.size() / referenceProteinLength)).replace(",", ".")
             );
             // (2) No. substitutions, insertions and deletions.
             this.proteoforms.get(proteoformName).annotations.put(
@@ -402,6 +402,11 @@ public final class FeatureEntry {
                         VariantsDictionary.NULL_VALUE
                 );
             }
+            // (4) Frequency of proteoform.
+            this.proteoforms.get(proteoformName).annotations.put(
+                    ProteoformEntry.PROPERTY_NAME_FREQUENCY,
+                    Musial.decimalFormatter.format(100.0 * ((float) this.proteoforms.get(proteoformName).samples.size() / (float) parentDictionary.samples.size())).replace(",", ".")
+            );
         }
         parentDictionary.samples.get(sampleId).annotations.put("PF" + VariantsDictionary.FIELD_SEPARATOR_1 + this.name, proteoformName);
     }
@@ -430,7 +435,7 @@ public final class FeatureEntry {
                 String variantContent = variants.get(variantPosition);
                 assert parentDictionary.nucleotideVariants.containsKey(variantPosition);
                 assert parentDictionary.nucleotideVariants.get(variantPosition).containsKey(variantContent);
-                parentDictionary.nucleotideVariants.get(variantPosition).get(variantContent).occurrence.add(alleleName);
+                parentDictionary.nucleotideVariants.get(variantPosition).get(variantContent).occurrence.add(this.name + VariantsDictionary.FIELD_SEPARATOR_1 + alleleName);
             }
 
             // Compute statistics regarding the variability of the proteoform; Only positions before the first termination are considered.
@@ -441,7 +446,7 @@ public final class FeatureEntry {
             }
             this.alleles.get(alleleName).annotations.put(
                     AlleleEntry.PROPERTY_NAME_VARIABLE_POSITIONS,
-                    decimalFormat.format(100L * (variantsTotalLength / referenceGeneLength)).replace(",", ".")
+                    decimalFormat.format(100.0 * (variantsTotalLength / referenceGeneLength)).replace(",", ".")
             );
             // (2) No. substitutions, insertions and deletions.
             variantsTotalLength = 0;
@@ -467,6 +472,11 @@ public final class FeatureEntry {
             this.alleles.get(alleleName).annotations.put(
                     AlleleEntry.PROPERTY_NAME_NUMBER_OF_DELETIONS,
                     String.valueOf(variantsTotalLength)
+            );
+            // (3) Frequency of allele.
+            this.alleles.get(alleleName).annotations.put(
+                    AlleleEntry.PROPERTY_NAME_FREQUENCY,
+                    Musial.decimalFormatter.format(100.0 * ((float) this.alleles.get(alleleName).samples.size() / (float) parentDictionary.samples.size())).replace(",", ".")
             );
         }
         parentDictionary.samples.get(sampleId).annotations.put("AL" + VariantsDictionary.FIELD_SEPARATOR_1 + this.name, alleleName);
