@@ -9,6 +9,7 @@ import datastructure.*;
 import exceptions.MusialException;
 import me.tongfei.progressbar.ProgressBar;
 import me.tongfei.progressbar.ProgressBarBuilder;
+import me.tongfei.progressbar.ProgressBarStyle;
 import runnables.SampleAnalyzerRunnable;
 
 import java.io.*;
@@ -88,7 +89,10 @@ public final class Musial {
     /**
      * Factory for cli progress bars.
      */
-    private static final ProgressBarBuilder progressBarBuilder = new ProgressBarBuilder().setInitialMax(1).setMaxRenderedLength(120);
+    private static final ProgressBarBuilder progressBarBuilder = new ProgressBarBuilder()
+            .setInitialMax(1)
+            .setMaxRenderedLength(120)
+            .setStyle(ProgressBarStyle.ASCII);
 
     public static final DecimalFormat decimalFormatter = new DecimalFormat("#.#");
 
@@ -132,7 +136,11 @@ public final class Musial {
     }
 
     private static ProgressBar buildProgressBar(String taskName) {
-        return progressBarBuilder.setTaskName(taskName).build();
+        int padding = 0;
+        if (taskName.length() < 40) {
+            padding = 40 - taskName.length();
+        }
+        return progressBarBuilder.setTaskName(taskName + " ".repeat(padding)).build();
     }
 
     /**
@@ -162,8 +170,8 @@ public final class Musial {
         Musial.CONTACT = properties.getProperty("contact");
         Musial.LICENSE = properties.getProperty("license");
         // Print information to stdout.
-        System.out.println(Musial.LOGO + Musial.VERSION);
-        System.out.println(Musial.LICENSE + ", Contact: " + Musial.CONTACT);
+        System.out.println(Musial.LOGO);
+        System.out.println(Musial.VERSION + " " + Musial.LICENSE + ", Contact: " + Musial.CONTACT);
     }
 
     /**
@@ -201,13 +209,20 @@ public final class Musial {
     private static void runUpdateVDict(CLIParametersUpdateVDict cliarguments)
             throws InterruptedException, MusialException, IOException {
         try (
-                ProgressBar progressBar_DumpData = buildProgressBar("Dump Updated Data");
-                ProgressBar progressBar_InferVariantFrequencies = buildProgressBar("Infer Variant Frequencies");
-                ProgressBar progressBar_InferCodingFeatureInformation = buildProgressBar("Infer Protein Variants");
-                ProgressBar progressBar_InferFeatureAlleles = buildProgressBar("Infer Feature Alleles");
-                ProgressBar progressBar_RunSnpEffAnnotation = buildProgressBar("Run SnpEff");
-                ProgressBar progressBar_UpdateSampleInformation = buildProgressBar("Update Sample Information");
-                ProgressBar progressBar_UpdateFeatureInformation = buildProgressBar("Update Feature Information");
+                ProgressBar progressBar_DumpData =
+                        buildProgressBar("Dump Updated Data");
+                ProgressBar progressBar_InferVariantFrequencies =
+                        buildProgressBar("Infer Variant Frequencies");
+                ProgressBar progressBar_InferCodingFeatureInformation =
+                        buildProgressBar("Infer Protein Variants");
+                ProgressBar progressBar_InferFeatureAlleles =
+                        buildProgressBar("Infer Feature Alleles");
+                ProgressBar progressBar_RunSnpEffAnnotation =
+                        buildProgressBar("Run SnpEff");
+                ProgressBar progressBar_UpdateSampleInformation =
+                        buildProgressBar("Update Sample Information");
+                ProgressBar progressBar_UpdateFeatureInformation =
+                        buildProgressBar("Update Feature Information");
         ) {
             // Read-in existing variants dictionary or build new one.
             VariantsDictionary variantsDictionary = VariantsDictionaryFactory.build(cliarguments);
@@ -383,8 +398,6 @@ public final class Musial {
                         for (String occurrence : aminoacidVariant.occurrence) {
                             noOccurrences += feature.proteoforms.get(occurrence).samples.size();
                         }
-                        System.out.println(100 * (noOccurrences / noSamples));
-                        System.out.println();
                         aminoacidVariant.annotations.put(
                                 AminoacidVariantEntry.PROPERTY_NAME_FREQUENCY,
                                 Musial.decimalFormatter.format(100 * (noOccurrences / noSamples)).replace(",", ".")
@@ -393,6 +406,7 @@ public final class Musial {
                     }
                 }
             }
+            progressBar_InferVariantFrequencies.setExtraMessage(Logging.getDoneMessage());
 
             // Write updated database to file.
             progressBar_DumpData.maxHint(1);
