@@ -7,7 +7,6 @@ import datastructure.SampleEntry;
 import datastructure.VariantsDictionary;
 import htsjdk.variant.variantcontext.Allele;
 import htsjdk.variant.variantcontext.VariantContext;
-import me.tongfei.progressbar.ProgressBar;
 import org.javatuples.Triplet;
 
 import java.util.*;
@@ -37,10 +36,6 @@ public final class SampleAnalyzerRunnable implements Runnable {
      * The {@link VariantsDictionary} instance the sample and feature originate from.
      */
     private final VariantsDictionary variantsDictionary;
-    /**
-     * Instance of {@link ProgressBar} used to indicate progress of sample analysis.
-     */
-    private final ProgressBar progressBar;
 
     /**
      * Constructor of the {@link SampleAnalyzerRunnable} class.
@@ -48,14 +43,12 @@ public final class SampleAnalyzerRunnable implements Runnable {
      * @param sampleEntry        The {@link SampleEntry} to be analyzed.
      * @param featureEntry       The {@link FeatureEntry} to be analyzed.
      * @param variantsDictionary The {@link VariantsDictionary} instance the sample and feature originate from.
-     * @param progressBar        Instance of {@link ProgressBar} used to indicate progress of sample analysis.
      */
     public SampleAnalyzerRunnable(SampleEntry sampleEntry, FeatureEntry featureEntry,
-                                  VariantsDictionary variantsDictionary, ProgressBar progressBar) {
+                                  VariantsDictionary variantsDictionary) {
         this.sampleEntry = sampleEntry;
         this.featureEntry = featureEntry;
         this.variantsDictionary = variantsDictionary;
-        this.progressBar = progressBar;
     }
 
     /**
@@ -117,7 +110,6 @@ public final class SampleAnalyzerRunnable implements Runnable {
             Logging.logError("An error occurred during the analysis of sample " + sampleEntry.name + " (file: " + sampleEntry.vcfFile.getAbsolutePath() + "); " + e.getMessage());
             throw e;
         } finally {
-            progressBar.step();
             /* TODO: Handle resolved ambiguous variants. At least log to file.
             if (ambiguousVariantsCount > 0) { ... }
              */

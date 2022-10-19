@@ -1,15 +1,11 @@
 package main;
 
-import cli.CLIParameters;
-import cli.CLIParametersInferSequences;
-import cli.CLIParametersStatistics;
-import cli.CLIParametersUpdateVDict;
+import cli.CLIParser;
+import cli.ModuleParametersBuild;
 import components.*;
 import datastructure.*;
 import exceptions.MusialException;
-import me.tongfei.progressbar.ProgressBar;
-import me.tongfei.progressbar.ProgressBarBuilder;
-import me.tongfei.progressbar.ProgressBarStyle;
+import org.json.simple.JSONObject;
 import runnables.SampleAnalyzerRunnable;
 
 import java.io.*;
@@ -35,10 +31,6 @@ import java.util.stream.Collectors;
  */
 public final class Musial {
 
-    /**
-     * {@link String} representing the logo of the software.
-     */
-    public static String LOGO = "";
     /**
      * {@link String} representing the name of the software; parsed from `/src/main/resources/info.properties`.
      */
@@ -75,10 +67,6 @@ public final class Musial {
         }
     });
     /**
-     * Boolean value to indicate if debugging mode is enabled.
-     */
-    public static boolean DEBUG = false;
-    /**
      * Number of threads to use.
      */
     public static int THREADS = 1;
@@ -87,14 +75,11 @@ public final class Musial {
      */
     public static boolean COMPRESS = false;
     /**
-     * Factory for cli progress bars.
+     * Whether to output cli information messages.
      */
-    private static final ProgressBarBuilder progressBarBuilder = new ProgressBarBuilder()
-            .setInitialMax(1)
-            .setMaxRenderedLength(120)
-            .setStyle(ProgressBarStyle.ASCII);
+    public static boolean SILENT = false;
 
-    public static final DecimalFormat decimalFormatter = new DecimalFormat("#.#");
+    public static final DecimalFormat DECIMAL_FORMATTER = new DecimalFormat("#.#");
 
     /**
      * Main method of MUSIAL; loads meta-information and invokes methods dependent on the user specified module.
@@ -103,52 +88,51 @@ public final class Musial {
      */
     public static void main(String[] args) {
         try {
+            loadMetadata();
             if (args.length == 0) {
-                loadMetadata();
-                System.out.println("| no module specified.");
-                printModuleInformation();
-            }
-            // 1. Retain user specified module and parse command line arguments.
-            for (MusialModules mm : MusialModules.values()) {
-                if (mm.name().equals(args[0])) {
-                    MODULE = mm;
-                    break;
+                Logging.logError("No arguments were specified");
+                printInfo();
+            } else {
+                CLIParser cliParser = new CLIParser(args);
+                if (cliParser.configuration.keySet().size() == 0) {
+                    Logging.logError("No modules were specified in " + Logging.colorParameter(cliParser.arguments.getOptionValue("c")));
+                    printInfo();
+                }
+                for (Object o : cliParser.configuration.keySet()) {
+                    MODULE = null;
+                    String moduleId = String.valueOf(o);
+                    // Match specified modules with implemented modules.
+                    for (MusialModules mm : MusialModules.values()) {
+                        if (mm.name().equals(moduleId)) {
+                            MODULE = mm;
+                            break;
+                        }
+                    }
+                    if (MODULE == null) {
+                        Logging.logWarning("Skip unknown module " + Logging.colorParameter(moduleId));
+                    } else {
+                        JSONObject parameters = (JSONObject) cliParser.configuration.get(moduleId);
+                        switch (MODULE) {
+                            case BUILD -> executeBUILD(new ModuleParametersBuild(parameters));
+                            //case inferSequences -> runInferSequences((CLIParametersInferSequences) arguments);
+                            //case statistics -> runStatistics((CLIParametersStatistics) arguments);
+                        }
+                    }
                 }
             }
-            if (MODULE == null) {
-                loadMetadata();
-                System.out.println("| unknown module " + args[0] + ".");
-                printModuleInformation();
-            } else {
-                loadMetadata();
-            }
-            CLIParameters arguments = parseCLIArguments(args);
-            // 2. Invokes methods dependent on the user specified module.
-            switch (MODULE) {
-                case updateVDict -> runUpdateVDict((CLIParametersUpdateVDict) arguments);
-                //case inferSequences -> runInferSequences((CLIParametersInferSequences) arguments);
-                //case statistics -> runStatistics((CLIParametersStatistics) arguments);
-            }
         } catch (Exception e) {
-            e.printStackTrace();
             Logging.logError(e.getMessage());
+            e.printStackTrace();
+            System.exit(-1);
         }
-    }
-
-    private static ProgressBar buildProgressBar(String taskName) {
-        int padding = 0;
-        if (taskName.length() < 40) {
-            padding = 40 - taskName.length();
-        }
-        return progressBarBuilder.setTaskName(taskName + " ".repeat(padding)).build();
     }
 
     /**
      * Prints information about available modules to the user and exits.
      */
-    public static void printModuleInformation() {
+    public static void printInfo() {
         System.out.println("| available MUSIAL modules:");
-        System.out.println("\tupdateVDict : Generate a new or update an existing variants dictionary JSON file.");
+        System.out.println("\tBUILD : Generates a variants dictionary JSON file.");
         //System.out.println("\tinferSequences : Infer sequence information from an existing variants dictionary.");
         //System.out.println("\tstatistics : Run SnpEff annotation and compute various statistics.");
         System.out.println("| specify -h for any module to obtain more information.");
@@ -165,260 +149,213 @@ public final class Musial {
         InputStream in = Musial.class.getResourceAsStream("/info.properties");
         properties.load(in);
         Musial.NAME = properties.getProperty("name");
-        Musial.LOGO = properties.getProperty("logo");
         Musial.VERSION = properties.getProperty("version");
         Musial.CONTACT = properties.getProperty("contact");
         Musial.LICENSE = properties.getProperty("license");
         // Print information to stdout.
-        System.out.println(Musial.LOGO);
-        System.out.println(Musial.VERSION + " " + Musial.LICENSE + ", Contact: " + Musial.CONTACT);
-    }
-
-    /**
-     * Parses command line arguments by instantiating an object implementing the {@link CLIParameters} interface.
-     * <p>
-     * The command line arguments specified by the user and accepted by the `main` method are passed and used to
-     * instantiate an object implementing the {@link CLIParameters} interface which is returned if all argument
-     * validation steps were successful.
-     * If any error arises during the parsing step the program exits.
-     *
-     * @param args Arguments parsed from the command line.
-     * @return An instance of the {@link CLIParametersUpdateVDict} class.
-     * @throws MusialException See documentation of {@link CLIParameters} implementing classes.
-     */
-    private static CLIParameters parseCLIArguments(String[] args)
-            throws MusialException {
-        CLIParameters cliParameters = null;
-        switch (MODULE) {
-            case updateVDict -> cliParameters = new CLIParametersUpdateVDict(args);
-            case inferSequences -> cliParameters = new CLIParametersInferSequences(args);
-            case statistics -> cliParameters = new CLIParametersStatistics(args);
-        }
-        assert cliParameters != null;
-        return cliParameters;
+        Logging.logSoftwareInfo();
     }
 
     /**
      * Generates a new or updates an existing variants dictionary JSON file based on the specifications parsed from a variants dictionary specification JSON file.
      *
-     * @param cliarguments {@link CLIParametersUpdateVDict} instance yielding parameter specification for the MUSIAL update variants dictionary module.
+     * @param cliarguments {@link ModuleParametersBuild} instance yielding parameter specification for the MUSIAL update variants dictionary module.
      * @throws InterruptedException Thrown if any {@link Runnable} implementing class instance is interrupted by the user.
      * @throws IOException          Thrown if any input or output file is missing or unable to being generated (caused by any native Java method).
      * @throws MusialException      If any method fails wrt. biological context, i.e. parsing of unknown symbols; If any method fails wrt. internal logic, i.e. assignment of proteins to genomes; If any input or output file is missing or unable to being generated.
      */
-    private static void runUpdateVDict(CLIParametersUpdateVDict cliarguments)
+    private static void executeBUILD(ModuleParametersBuild cliarguments)
             throws InterruptedException, MusialException, IOException {
-        try (
-                ProgressBar progressBar_DumpData =
-                        buildProgressBar("Dump Updated Data");
-                ProgressBar progressBar_InferVariantFrequencies =
-                        buildProgressBar("Infer Variant Frequencies");
-                ProgressBar progressBar_InferCodingFeatureInformation =
-                        buildProgressBar("Infer Protein Variants");
-                ProgressBar progressBar_InferFeatureAlleles =
-                        buildProgressBar("Infer Feature Alleles");
-                ProgressBar progressBar_RunSnpEffAnnotation =
-                        buildProgressBar("Run SnpEff");
-                ProgressBar progressBar_UpdateSampleInformation =
-                        buildProgressBar("Update Sample Information");
-                ProgressBar progressBar_UpdateFeatureInformation =
-                        buildProgressBar("Update Feature Information");
-        ) {
-            // Read-in existing variants dictionary or build new one.
-            VariantsDictionary variantsDictionary = VariantsDictionaryFactory.build(cliarguments);
+        Logging.logStatus("Execute module " + Logging.getCustomTag("UPDATE"));
 
-            // Collect feature information.
-            Set<String> featureIdsUpdate = cliarguments.features.keySet();
-            HashSet<String> featureIdsAll = new HashSet<>();
-            featureIdsAll.addAll(featureIdsUpdate);
-            featureIdsAll.addAll(variantsDictionary.features.keySet());
-            progressBar_UpdateFeatureInformation.maxHint(featureIdsAll.size());
-            FastaContainer referenceChromosomeFastaContainer = null;
-            for (FastaContainer fastaContainer : IO.readFastaToSet(cliarguments.referenceFASTA)) {
-                String chromosome = fastaContainer.getHeader().split(" ")[0].trim();
-                if (variantsDictionary.chromosome.equals(chromosome)) {
-                    referenceChromosomeFastaContainer = fastaContainer;
-                    break;
-                }
-            }
-            if (referenceChromosomeFastaContainer == null) {
-                throw new MusialException("(Bio) Failed to match feature chromosome " + variantsDictionary.chromosome + " to specified reference .fasta");
-            }
-            for (String featureId : featureIdsAll) {
-                if (!featureIdsUpdate.contains(featureId) && variantsDictionary.features.containsKey(featureId)) {
-                    // TODO: Remove feature information.
-                    progressBar_UpdateFeatureInformation.step();
-                } else {
-                    if (!variantsDictionary.features.containsKey(featureId)) {
-                        cliarguments.features.get(featureId).imputeNucleotideSequence(referenceChromosomeFastaContainer);
-                        if (cliarguments.features.get(featureId).pdbFile != null) {
-                            cliarguments.features.get(featureId).imputeProteinInformation();
-                        }
-                        variantsDictionary.features.put(featureId, cliarguments.features.get(featureId));
-                    }
-                }
-                progressBar_UpdateFeatureInformation.step();
-            }
-            progressBar_UpdateFeatureInformation.setExtraMessage(Logging.getDoneMessage());
+        // Read-in existing variants dictionary or build new one.
+        VariantsDictionary variantsDictionary = VariantsDictionaryFactory.build(cliarguments);
 
-            // Collect information about sample variants.
-            Set<String> sampleIdsUpdate = cliarguments.samples.keySet();
-            HashSet<String> sampleIdsAll = new HashSet<>();
-            sampleIdsAll.addAll(sampleIdsUpdate);
-            sampleIdsAll.addAll(variantsDictionary.samples.keySet());
-            progressBar_UpdateSampleInformation.maxHint(sampleIdsAll.size());
-            ExecutorService executor = Executors.newFixedThreadPool(Musial.THREADS);
-            for (String sampleId : sampleIdsAll) {
-                if (!sampleIdsUpdate.contains(sampleId) && variantsDictionary.samples.containsKey(sampleId)) {
-                    // TODO: Remove sample information.
-                    progressBar_UpdateSampleInformation.step();
-                } else {
-                    SampleEntry sampleEntry = cliarguments.samples.get(sampleId);
-                    SampleEntry.imputeVCFFileReader(sampleEntry);
-                    variantsDictionary.samples.put(sampleEntry.name, sampleEntry);
-                    for (String featureId : featureIdsUpdate) {
-                        executor.execute(
-                                new SampleAnalyzerRunnable(sampleEntry, cliarguments.features.get(featureId), variantsDictionary, progressBar_UpdateSampleInformation)
-                        );
-                    }
-                }
-            }
-            executor.shutdown();
-            //noinspection ResultOfMethodCallIgnored
-            executor.awaitTermination(30, TimeUnit.MINUTES);
-            progressBar_UpdateSampleInformation.setExtraMessage(Logging.getDoneMessage());
+        // Update feature information.
+        Logging.logStatus(Logging.getStartTag() + " Update feature information");
+        Set<String> specifiedFeatures = cliarguments.features.keySet();
+        HashSet<String> featureIdsAll = new HashSet<>();
+        featureIdsAll.addAll(specifiedFeatures);
+        featureIdsAll.addAll(variantsDictionary.features.keySet());
+        //Logging.logStatus("Match chromosome " + Logging.colorParameter(variantsDictionary.chromosome) + " from " + Logging.colorParameter(cliarguments.referenceFASTA.getAbsolutePath()));
 
-            // Run SnpEff annotation for variants.
-            File tmpDirectory = new File("./tmp/");
-            progressBar_RunSnpEffAnnotation.maxHint(1);
-            try {
-                IO.generateDirectory(tmpDirectory);
-                File variantsFile = new File("./tmp/variants.vcf");
-                IO.generateFile(variantsFile);
-                IO.writeVcf(variantsFile, variantsDictionary);
-                SnpEffAnnotator.runSnpEff(
-                        tmpDirectory,
-                        variantsFile,
-                        cliarguments.referenceFASTA,
-                        cliarguments.referenceGFF,
-                        variantsDictionary.chromosome
-                );
-                List<String> variantAnnotations = IO.readLinesFromFile("./tmp/annotated_variants.vcf").stream().filter(s -> !s.startsWith("#")).collect(Collectors.toList());
-                String[] splitAnnotation;
-                String position;
-                String refContent;
-                StringBuilder altContent;
-                String[] annotationFields;
-                for (String variantAnnotation : variantAnnotations) {
-                    splitAnnotation = variantAnnotation.split("\t");
-                    position = splitAnnotation[1];
-                    refContent = splitAnnotation[3];
-                    altContent = new StringBuilder(splitAnnotation[4]);
-                    if (refContent.length() > altContent.length()) {
-                        altContent.append(String.valueOf(Bio.DELETION_AA1).repeat(refContent.length() - altContent.length()));
-                    }
-                    if (splitAnnotation[7].equals(".")) {
-                        continue;
-                    } else {
-                        annotationFields = splitAnnotation[7].replace("ANN=", "").split("\\|");
-                    }
-                    variantsDictionary.nucleotideVariants.get(Integer.valueOf(position)).get(altContent.toString()).annotations.put(
-                            NucleotideVariantEntry.PROPERTY_NAME_SNP_EFF_TYPE,
-                            annotationFields[1]
-                    );
-                    variantsDictionary.nucleotideVariants.get(Integer.valueOf(position)).get(altContent.toString()).annotations.put(
-                            NucleotideVariantEntry.PROPERTY_NAME_SNP_EFF_IMPACT,
-                            annotationFields[2]
-                    );
-                    altContent.setLength(0);
-                }
-            } finally {
-                IO.deleteDirectory(tmpDirectory);
-                progressBar_RunSnpEffAnnotation.step();
-                progressBar_RunSnpEffAnnotation.setExtraMessage(Logging.getDoneMessage());
+        FastaContainer referenceChromosomeFastaContainer = null;
+        for (FastaContainer fastaContainer : IO.readFastaToSet(cliarguments.referenceFASTA)) {
+            String chromosome = fastaContainer.getHeader().split(" ")[0].trim();
+            if (variantsDictionary.chromosome.equals(chromosome)) {
+                referenceChromosomeFastaContainer = fastaContainer;
+                break;
             }
-
-            // Infer feature alleles from collected variant information.
-            progressBar_InferFeatureAlleles.maxHint(variantsDictionary.features.keySet().size());
-            for (FeatureEntry featureEntry : variantsDictionary.features.values()) {
-                featureEntry.inferAlleleInformation(variantsDictionary);
-                progressBar_InferFeatureAlleles.step();
-            }
-            progressBar_InferFeatureAlleles.setExtraMessage(Logging.getDoneMessage());
-
-            // Infer coding feature variant/proteoform information; For all coding features.
-            ConcurrentSkipListMap<String, String> variants;
-            long noFeaturesWithAssignedProteins = variantsDictionary.features.keySet().stream().filter(
-                    feKey -> variantsDictionary.features.get(feKey).isCodingSequence
-            ).count();
-            progressBar_InferCodingFeatureInformation.maxHint(noFeaturesWithAssignedProteins * variantsDictionary.samples.size());
-            if (noFeaturesWithAssignedProteins > 0) {
-                for (String featureId : variantsDictionary.features.keySet()) {
-                    for (String sampleId : variantsDictionary.samples.keySet()) {
-                        variants = Bio.inferProteoform(variantsDictionary, featureId, sampleId);
-                        variantsDictionary.features.get(featureId).addProteoform(sampleId, variants, variantsDictionary);
-                        progressBar_InferCodingFeatureInformation.step();
-                    }
-                }
-            }
-            progressBar_InferCodingFeatureInformation.setExtraMessage(Logging.getDoneMessage());
-
-            // Infer variant frequencies.
-            int totalNoVariants = 0;
-            for (ConcurrentSkipListMap<String, NucleotideVariantEntry> perPositionNucleotideVariants : variantsDictionary.nucleotideVariants.values()) {
-                totalNoVariants += perPositionNucleotideVariants.size();
-            }
-            for (FeatureEntry feature : variantsDictionary.features.values()) {
-                totalNoVariants += feature.aminoacidVariants.size();
-            }
-            progressBar_InferVariantFrequencies.maxHint(totalNoVariants);
-            float noSamples = variantsDictionary.samples.size();
-            float noOccurrences;
-            // Compute frequencies of nucleotide variants.
-            for (ConcurrentSkipListMap<String, NucleotideVariantEntry> perPositionNucleotideVariants : variantsDictionary.nucleotideVariants.values()) {
-                for (NucleotideVariantEntry nucleotideVariant : perPositionNucleotideVariants.values()) {
-                    noOccurrences = 0;
-                    for (String occurrence : nucleotideVariant.occurrence) {
-                        String featureId = occurrence.split(VariantsDictionary.FIELD_SEPARATOR_1)[0];
-                        String alleleId = occurrence.split(VariantsDictionary.FIELD_SEPARATOR_1)[1];
-                        noOccurrences += variantsDictionary.features.get(featureId).alleles.get(alleleId).samples.size();
-                    }
-                    nucleotideVariant.annotations.put(
-                            NucleotideVariantEntry.PROPERTY_NAME_FREQUENCY,
-                            Musial.decimalFormatter.format(100L * (noOccurrences / noSamples)).replace(",", ".")
-                    );
-                    progressBar_InferVariantFrequencies.step();
-                }
-            }
-            // Compute frequencies of aminoacid variants.
-            for (FeatureEntry feature : variantsDictionary.features.values()) {
-                for (ConcurrentSkipListMap<String, AminoacidVariantEntry> perPositionAminoacidVariants : feature.aminoacidVariants.values()) {
-                    for (AminoacidVariantEntry aminoacidVariant : perPositionAminoacidVariants.values()) {
-                        noOccurrences = 0;
-                        for (String occurrence : aminoacidVariant.occurrence) {
-                            noOccurrences += feature.proteoforms.get(occurrence).samples.size();
-                        }
-                        aminoacidVariant.annotations.put(
-                                AminoacidVariantEntry.PROPERTY_NAME_FREQUENCY,
-                                Musial.decimalFormatter.format(100 * (noOccurrences / noSamples)).replace(",", ".")
-                        );
-                        progressBar_InferVariantFrequencies.step();
-                    }
-                }
-            }
-            progressBar_InferVariantFrequencies.setExtraMessage(Logging.getDoneMessage());
-
-            // Write updated database to file.
-            progressBar_DumpData.maxHint(1);
-            String outputFile = cliarguments.outputFile.getAbsolutePath();
-            File vDictOutfile = new File(outputFile);
-            if (!vDictOutfile.exists()) {
-                IO.generateFile(vDictOutfile);
-            }
-            variantsDictionary.dump(vDictOutfile);
-            progressBar_DumpData.step();
-            progressBar_DumpData.setExtraMessage(Logging.getDoneMessage());
         }
+        if (referenceChromosomeFastaContainer == null) {
+            throw new MusialException("Failed to match chromosome " + Logging.colorParameter(variantsDictionary.chromosome) + " from " + Logging.colorParameter(cliarguments.referenceFASTA.getAbsolutePath()));
+        }
+
+        for (String featureId : featureIdsAll) {
+            if (!specifiedFeatures.contains(featureId) && variantsDictionary.features.containsKey(featureId)) {
+                // TODO: Remove feature information.
+            } else {
+                if (!variantsDictionary.features.containsKey(featureId)) {
+                    cliarguments.features.get(featureId).imputeNucleotideSequence(referenceChromosomeFastaContainer);
+                    if (cliarguments.features.get(featureId).pdbFile != null) {
+                        cliarguments.features.get(featureId).imputeProteinInformation();
+                    }
+                    variantsDictionary.features.put(featureId, cliarguments.features.get(featureId));
+                }
+            }
+        }
+        Logging.logStatus(Logging.getDoneTag() + " Update feature information");
+
+        // Collect information about sample variants.
+        Logging.logStatus("Collect sample information " + Logging.getStartTag());
+        Set<String> sampleIdsUpdate = cliarguments.samples.keySet();
+        HashSet<String> sampleIdsAll = new HashSet<>();
+        sampleIdsAll.addAll(sampleIdsUpdate);
+        sampleIdsAll.addAll(variantsDictionary.samples.keySet());
+        ExecutorService executor = Executors.newFixedThreadPool(Musial.THREADS);
+        for (String sampleId : sampleIdsAll) {
+            if (!sampleIdsUpdate.contains(sampleId) && variantsDictionary.samples.containsKey(sampleId)) {
+                // TODO: Remove sample information.
+            } else {
+                SampleEntry sampleEntry = cliarguments.samples.get(sampleId);
+                SampleEntry.imputeVCFFileReader(sampleEntry);
+                variantsDictionary.samples.put(sampleEntry.name, sampleEntry);
+                for (String featureId : specifiedFeatures) {
+                    executor.execute(
+                            new SampleAnalyzerRunnable(sampleEntry, cliarguments.features.get(featureId), variantsDictionary)
+                    );
+                }
+            }
+        }
+        executor.shutdown();
+        //noinspection ResultOfMethodCallIgnored
+        executor.awaitTermination(30, TimeUnit.MINUTES);
+        Logging.logStatus("Collect feature information " + Logging.getDoneTag());
+
+        // Run SnpEff annotation for variants.
+        Logging.logStatus("Annotate novel variants with SnpEff " + Logging.getStartTag());
+        File tmpDirectory = new File("./tmp/");
+        try {
+            IO.generateDirectory(tmpDirectory);
+            File variantsFile = new File("./tmp/variants.vcf");
+            IO.generateFile(variantsFile);
+            IO.writeVcf(variantsFile, variantsDictionary);
+            SnpEffAnnotator.runSnpEff(
+                    tmpDirectory,
+                    variantsFile,
+                    cliarguments.referenceFASTA,
+                    cliarguments.referenceGFF,
+                    variantsDictionary.chromosome
+            );
+            List<String> variantAnnotations = IO.readLinesFromFile("./tmp/annotated_variants.vcf").stream().filter(s -> !s.startsWith("#")).collect(Collectors.toList());
+            String[] splitAnnotation;
+            String position;
+            String refContent;
+            StringBuilder altContent;
+            String[] annotationFields;
+            for (String variantAnnotation : variantAnnotations) {
+                splitAnnotation = variantAnnotation.split("\t");
+                position = splitAnnotation[1];
+                refContent = splitAnnotation[3];
+                altContent = new StringBuilder(splitAnnotation[4]);
+                if (refContent.length() > altContent.length()) {
+                    altContent.append(String.valueOf(Bio.DELETION_AA1).repeat(refContent.length() - altContent.length()));
+                }
+                if (splitAnnotation[7].equals(".")) {
+                    continue;
+                } else {
+                    annotationFields = splitAnnotation[7].replace("ANN=", "").split("\\|");
+                }
+                variantsDictionary.nucleotideVariants.get(Integer.valueOf(position)).get(altContent.toString()).annotations.put(
+                        NucleotideVariantEntry.PROPERTY_NAME_SNP_EFF_TYPE,
+                        annotationFields[1]
+                );
+                variantsDictionary.nucleotideVariants.get(Integer.valueOf(position)).get(altContent.toString()).annotations.put(
+                        NucleotideVariantEntry.PROPERTY_NAME_SNP_EFF_IMPACT,
+                        annotationFields[2]
+                );
+                altContent.setLength(0);
+            }
+        } finally {
+            IO.deleteDirectory(tmpDirectory);
+        }
+        Logging.logStatus("Annotate novel variants with SnpEff " + Logging.getDoneTag());
+
+        // Infer feature alleles from collected variant information.
+        Logging.logStatus("Infer alleles " + Logging.getStartTag());
+        for (FeatureEntry featureEntry : variantsDictionary.features.values()) {
+            featureEntry.inferAlleleInformation(variantsDictionary);
+        }
+        Logging.logStatus("Infer alleles " + Logging.getDoneTag());
+
+        // Infer coding feature variant/proteoform information; For all coding features.
+        Logging.logStatus("Infer protein variants " + Logging.getStartTag());
+        ConcurrentSkipListMap<String, String> variants;
+        long noFeaturesWithAssignedProteins = variantsDictionary.features.keySet().stream().filter(
+                feKey -> variantsDictionary.features.get(feKey).isCodingSequence
+        ).count();
+        if (noFeaturesWithAssignedProteins > 0) {
+            for (String featureId : variantsDictionary.features.keySet()) {
+                for (String sampleId : variantsDictionary.samples.keySet()) {
+                    variants = Bio.inferProteoform(variantsDictionary, featureId, sampleId);
+                    variantsDictionary.features.get(featureId).addProteoform(sampleId, variants, variantsDictionary);
+                }
+            }
+        }
+        Logging.logStatus("Infer protein variants " + Logging.getDoneTag());
+
+        // Infer variant frequencies.
+        Logging.logStatus("Infer variant statistics " + Logging.getStartTag());
+        int totalNoVariants = 0;
+        for (ConcurrentSkipListMap<String, NucleotideVariantEntry> perPositionNucleotideVariants : variantsDictionary.nucleotideVariants.values()) {
+            totalNoVariants += perPositionNucleotideVariants.size();
+        }
+        for (FeatureEntry feature : variantsDictionary.features.values()) {
+            totalNoVariants += feature.aminoacidVariants.size();
+        }
+        float noSamples = variantsDictionary.samples.size();
+        float noOccurrences;
+        // Compute frequencies of nucleotide variants.
+        for (ConcurrentSkipListMap<String, NucleotideVariantEntry> perPositionNucleotideVariants : variantsDictionary.nucleotideVariants.values()) {
+            for (NucleotideVariantEntry nucleotideVariant : perPositionNucleotideVariants.values()) {
+                noOccurrences = 0;
+                for (String occurrence : nucleotideVariant.occurrence) {
+                    String featureId = occurrence.split(VariantsDictionary.FIELD_SEPARATOR_1)[0];
+                    String alleleId = occurrence.split(VariantsDictionary.FIELD_SEPARATOR_1)[1];
+                    noOccurrences += variantsDictionary.features.get(featureId).alleles.get(alleleId).samples.size();
+                }
+                nucleotideVariant.annotations.put(
+                        NucleotideVariantEntry.PROPERTY_NAME_FREQUENCY,
+                        Musial.DECIMAL_FORMATTER.format(100L * (noOccurrences / noSamples)).replace(",", ".")
+                );
+            }
+        }
+        // Compute frequencies of aminoacid variants.
+        for (FeatureEntry feature : variantsDictionary.features.values()) {
+            for (ConcurrentSkipListMap<String, AminoacidVariantEntry> perPositionAminoacidVariants : feature.aminoacidVariants.values()) {
+                for (AminoacidVariantEntry aminoacidVariant : perPositionAminoacidVariants.values()) {
+                    noOccurrences = 0;
+                    for (String occurrence : aminoacidVariant.occurrence) {
+                        noOccurrences += feature.proteoforms.get(occurrence).samples.size();
+                    }
+                    aminoacidVariant.annotations.put(
+                            AminoacidVariantEntry.PROPERTY_NAME_FREQUENCY,
+                            Musial.DECIMAL_FORMATTER.format(100 * (noOccurrences / noSamples)).replace(",", ".")
+                    );
+                }
+            }
+        }
+        Logging.logStatus("Infer variant statistics " + Logging.getDoneTag());
+
+        // Write updated database to file.
+        Logging.logStatus("Dump updated file " + Logging.getStartTag());
+        String outputFile = cliarguments.outputFile.getAbsolutePath();
+        File vDictOutfile = new File(outputFile);
+        if (!vDictOutfile.exists()) {
+            IO.generateFile(vDictOutfile);
+        }
+        variantsDictionary.dump(vDictOutfile);
+        Logging.logStatus("Dump updated file " + Logging.getDoneTag());
     }
 
     /*

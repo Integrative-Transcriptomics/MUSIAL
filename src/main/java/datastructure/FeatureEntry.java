@@ -342,7 +342,7 @@ public final class FeatureEntry {
                     );
                     this.proteoforms.get(proteoformName).annotations.put(
                             ProteoformEntry.PROPERTY_NAME_DIVERGING_TERMINATION_TRUNCATED_PERCENTAGE,
-                            Musial.decimalFormatter.format(100 * (1 - (Float.parseFloat(variantPosition.split("\\+")[0]) / referenceProteinLength))).replace(",", ".")
+                            Musial.DECIMAL_FORMATTER.format(100 * (1 - (Float.parseFloat(variantPosition.split("\\+")[0]) / referenceProteinLength))).replace(",", ".")
                     );
                 }
                 if (!this.aminoacidVariants.get(variantPosition).containsKey(variantContent)) {
@@ -368,7 +368,7 @@ public final class FeatureEntry {
             // (1) Percentage of variable positions wrt. reference protein length.
             this.proteoforms.get(proteoformName).annotations.put(
                     ProteoformEntry.PROPERTY_NAME_VARIABLE_POSITIONS,
-                    Musial.decimalFormatter.format(100L * (variantPositions.size() / referenceProteinLength)).replace(",", ".")
+                    Musial.DECIMAL_FORMATTER.format(100L * (variantPositions.size() / referenceProteinLength)).replace(",", ".")
             );
             // (2) No. substitutions, insertions and deletions.
             this.proteoforms.get(proteoformName).annotations.put(
@@ -405,7 +405,7 @@ public final class FeatureEntry {
             // (4) Frequency of proteoform.
             this.proteoforms.get(proteoformName).annotations.put(
                     ProteoformEntry.PROPERTY_NAME_FREQUENCY,
-                    Musial.decimalFormatter.format(100.0 * ((float) this.proteoforms.get(proteoformName).samples.size() / (float) parentDictionary.samples.size())).replace(",", ".")
+                    Musial.DECIMAL_FORMATTER.format(100.0 * ((float) this.proteoforms.get(proteoformName).samples.size() / (float) parentDictionary.samples.size())).replace(",", ".")
             );
         }
         parentDictionary.samples.get(sampleId).annotations.put("PF" + VariantsDictionary.FIELD_SEPARATOR_1 + this.name, proteoformName);
@@ -476,7 +476,7 @@ public final class FeatureEntry {
             // (3) Frequency of allele.
             this.alleles.get(alleleName).annotations.put(
                     AlleleEntry.PROPERTY_NAME_FREQUENCY,
-                    Musial.decimalFormatter.format(100.0 * ((float) this.alleles.get(alleleName).samples.size() / (float) parentDictionary.samples.size())).replace(",", ".")
+                    Musial.DECIMAL_FORMATTER.format(100.0 * ((float) this.alleles.get(alleleName).samples.size() / (float) parentDictionary.samples.size())).replace(",", ".")
             );
         }
         parentDictionary.samples.get(sampleId).annotations.put("AL" + VariantsDictionary.FIELD_SEPARATOR_1 + this.name, alleleName);

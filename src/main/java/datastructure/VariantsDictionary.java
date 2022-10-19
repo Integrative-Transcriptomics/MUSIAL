@@ -59,10 +59,6 @@ public class VariantsDictionary {
     @SuppressWarnings("unused")
     public final String date = new SimpleDateFormat("dd/MM/yyyy").format(new Date());
     /**
-     * The chromosome name on which all maintained {@link VariantsDictionary#features} are located.
-     */
-    public final String chromosome;
-    /**
      * TODO
      */
     public final static String FIELD_SEPARATOR_1 = "_";
@@ -83,13 +79,9 @@ public class VariantsDictionary {
      * @param minHet       {@link Double}; Minimal allele frequency to use for het. variant filtering.
      * @param maxHet       {@link Double}; Maximal allele frequency to use for het. variant filtering.
      * @param minQuality   {@link Double}; Minimal Phred scaled genotyping call quality to use for variant filtering.
-     * @param chromosome   {@link String}; Name of the chromosome on which maintained {@link FeatureEntry}s are located;
-     *                     Has to reflect the value in the used input .vcf, .fasta and .gff files.
      */
-    public VariantsDictionary(Double minCoverage, Double minFrequency, Double minHet, Double maxHet, Double minQuality,
-                              String chromosome) {
+    public VariantsDictionary(Double minCoverage, Double minFrequency, Double minHet, Double maxHet, Double minQuality) {
         this.parameters = new VariantsDictionaryParameters(minCoverage, minFrequency, minHet, maxHet, minQuality);
-        this.chromosome = chromosome;
     }
 
     /**

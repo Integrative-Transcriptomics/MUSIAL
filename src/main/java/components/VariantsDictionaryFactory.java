@@ -1,6 +1,7 @@
 package components;
 
-import cli.CLIParametersUpdateVDict;
+import cli.CLIColors;
+import cli.ModuleParametersBuild;
 import datastructure.FeatureEntry;
 import datastructure.VariantsDictionary;
 import exceptions.MusialException;
@@ -21,32 +22,22 @@ import java.io.IOException;
 public final class VariantsDictionaryFactory {
 
     /**
-     * Constructs and returns a new {@link VariantsDictionary} instance from the information specified by the {@link CLIParametersUpdateVDict} instance.
+     * Constructs and returns a new {@link VariantsDictionary} instance from the information specified by the {@link ModuleParametersBuild} instance.
      *
-     * @param cliarguments {@link CLIParametersUpdateVDict} instance yielding parameter specification for the MUSIAL update variants dictionary module.
+     * @param cliarguments {@link ModuleParametersBuild} instance yielding parameter specification for the MUSIAL update variants dictionary module.
      * @return {@link VariantsDictionary} instance.
      * @throws IOException     Thrown if any input or output file is missing or unable to being generated (caused by any native Java method).
      * @throws MusialException Thrown if any method fails wrt. internal logic, i.e. assignment of proteins to genomes.
      */
-    public static VariantsDictionary build(CLIParametersUpdateVDict cliarguments)
+    public static VariantsDictionary build(ModuleParametersBuild cliarguments)
             throws IOException, MusialException {
         if (cliarguments.outputFile.exists()) {
-            Logging.logStatus("Update existing variants dictionary at " + cliarguments.outputFile + ")");
+            Logging.logStatus("Update existing variants dictionary at " + CLIColors.YELLOW_UNDERLINED + cliarguments.outputFile + CLIColors.RESET);
             return IO.readVariantsDictionary(cliarguments.outputFile);
         } else {
-            Logging.logStatus("Generate new variants dictionary at " + cliarguments.outputFile + ")");
-            String chromosome = null;
-            for (FeatureEntry featureEntry : cliarguments.features.values()) {
-                if (chromosome == null) {
-                    chromosome = featureEntry.chromosome;
-                } else if (!featureEntry.chromosome.equals(chromosome)) {
-                    throw new MusialException(
-                            "All features specified for one variant dictionary have to be located on the same chromosome; features " +
-                                    "were specified for " + chromosome + " and " + featureEntry.chromosome + ".");
-                }
-            }
+            Logging.logStatus("Generate new variants dictionary at " + CLIColors.YELLOW_UNDERLINED + cliarguments.outputFile + CLIColors.RESET);
             return new VariantsDictionary(cliarguments.minCoverage, cliarguments.minHomFrequency, cliarguments.minHetFrequency,
-                    cliarguments.maxHetFrequency, cliarguments.minQuality, chromosome);
+                    cliarguments.maxHetFrequency, cliarguments.minQuality);
         }
     }
 
