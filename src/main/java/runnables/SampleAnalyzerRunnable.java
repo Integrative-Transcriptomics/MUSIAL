@@ -64,7 +64,7 @@ public final class SampleAnalyzerRunnable implements Runnable {
             while (variantContextIterator.hasNext()) {
                 VariantContext variantContext = variantContextIterator.next();
                 String variantContig = variantContext.getContig();
-                if (!variantContig.equals(variantsDictionary.chromosome)) {
+                if (!variantContig.equals(featureEntry.chromosome)) {
                     // If the variant is on a chromosome other than the one specified in the variants' dictionary it is skipped.
                     continue;
                 }

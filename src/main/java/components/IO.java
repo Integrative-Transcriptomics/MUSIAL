@@ -282,7 +282,7 @@ public final class IO {
                 variantPosition = variantPositionEntry.getKey();
                 variantsAtPosition = variantPositionEntry.getValue();
                 for (Map.Entry<String, NucleotideVariantEntry> variant : variantsAtPosition.entrySet()) {
-                    writer.write(variantsDictionary.chromosome + "\t"
+                    writer.write(variant.getValue().annotations.get(NucleotideVariantEntry.PROPERTY_NAME_LOCATION) + "\t"
                             + variantPosition + "\t"
                             + ".\t"
                             + variant.getValue().annotations.get(NucleotideVariantEntry.PROPERTY_NAME_REFERENCE_CONTENT) + "\t"

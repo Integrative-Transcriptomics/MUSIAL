@@ -107,6 +107,7 @@ public class VariantsDictionary {
             this.nucleotideVariants.get(position).put(altContent, new NucleotideVariantEntry());
             this.nucleotideVariants.get(position).get(altContent).annotations.put(NucleotideVariantEntry.PROPERTY_NAME_PRIMARY, String.valueOf(isPrimary));
             this.nucleotideVariants.get(position).get(altContent).annotations.put(NucleotideVariantEntry.PROPERTY_NAME_REFERENCE_CONTENT, refContent);
+            this.nucleotideVariants.get(position).get(altContent).annotations.put(NucleotideVariantEntry.PROPERTY_NAME_LOCATION, this.features.get(featureId).chromosome);
         }
         // Add information about variant to temp. annotation of sample. The information is used to infer alleles later
         // and is then discarded.

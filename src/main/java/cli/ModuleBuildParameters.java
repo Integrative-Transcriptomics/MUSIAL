@@ -2,11 +2,11 @@ package cli;
 
 import com.google.gson.internal.LinkedTreeMap;
 import components.IO;
+import components.Logging;
 import components.Validation;
 import datastructure.FeatureEntry;
 import datastructure.SampleEntry;
 import exceptions.MusialException;
-import main.Musial;
 import org.biojava.nbio.genome.parsers.gff.FeatureI;
 import org.biojava.nbio.genome.parsers.gff.FeatureList;
 import org.biojava.nbio.genome.parsers.gff.Location;
@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
  * @version 2.1
  * @since 2.0
  */
-public final class ModuleParametersBuild {
+public final class ModuleBuildParameters {
     /**
      * Minimum (read) coverage in order to call a SNV.
      */
@@ -72,90 +72,100 @@ public final class ModuleParametersBuild {
      * {@link FeatureList} object specifying parsed genome features.
      */
     private FeatureList referenceFeatures = null;
+    /**
+     * Prefix to use for exception messages.
+     */
+    @SuppressWarnings("FieldCanBeLocal")
+    private final String EXCEPTION_PREFIX = "(Module BUILD Configuration)";
 
     /**
-     * Constructor of the {@link ModuleParametersBuild} class.
+     * Constructor of the {@link ModuleBuildParameters} class.
      * <p>
      * Used to parse and validate command line interface input. Parsed arguments are stored - and accessible by other
      * components - via class properties.
      *
-     * @param parameters {@link JSONObject} containing parameter information.
+     * @param parameters {@link LinkedTreeMap} containing parameter information.
      * @throws MusialException If IO file validation fails; If CLI parameter validation fails.
      */
-    public ModuleParametersBuild(JSONObject parameters)
+    public ModuleBuildParameters(LinkedTreeMap<Object, Object> parameters)
             throws MusialException {
         // Parse minCoverage
-        if (Validation.isPositiveDouble(String.valueOf(parameters.get("minCoverage")))) {
+        if (parameters.containsKey("minCoverage")
+                && Validation.isPositiveDouble(String.valueOf(parameters.get("minCoverage")))) {
             this.minCoverage = (Double) parameters.get("minCoverage");
         } else {
-            throw new MusialException(
-                    "(CLI Parameter Parsing/Initialization) Invalid `minCoverage` " + parameters.get("minCoverage") + "; expected positive float.");
+            throw new MusialException(EXCEPTION_PREFIX + " Invalid or missing " + Logging.colorParameter("minCoverage") + "; expected positive float.");
         }
         // Parse minFrequency
-        if (Validation.isPercentage(String.valueOf(parameters.get("minHomFrequency")))) {
+        if (parameters.containsKey("minHomFrequency")
+                && Validation.isPercentage(String.valueOf(parameters.get("minHomFrequency")))) {
             this.minHomFrequency = (Double) parameters.get("minHomFrequency");
         } else {
-            throw new MusialException(
-                    "(CLI Parameter Parsing/Initialization) Invalid `minHomFrequency` " + parameters.get("minHomFrequency") +
-                            "; expected float between 0.0 and 1.0.");
+            throw new MusialException(EXCEPTION_PREFIX + " Invalid or missing " + Logging.colorParameter("minHomFrequency") + "; expected float between 0.0 and 1.0.");
         }
         // Parse minHetFrequency
-        if (Validation.isPercentage(String.valueOf(parameters.get("minHetFrequency")))) {
+        if (parameters.containsKey("minHetFrequency")
+                && Validation.isPercentage(String.valueOf(parameters.get("minHetFrequency")))) {
             this.minHetFrequency = (Double) parameters.get("minHetFrequency");
         } else {
-            throw new MusialException(
-                    "(CLI Parameter Parsing/Initialization) Invalid `minHetFrequency` " + parameters.get("minHetFrequency") +
-                            "; expected float between 0.0 and 1.0.");
+            throw new MusialException(EXCEPTION_PREFIX + " Invalid or missing " + Logging.colorParameter("minHetFrequency") + "; expected float between 0.0 and 1.0.");
         }
         // Parse maxHetFrequency
-        if (Validation.isPercentage(String.valueOf(parameters.get("maxHetFrequency")))) {
+        if (parameters.containsKey("maxHetFrequency")
+                && Validation.isPercentage(String.valueOf(parameters.get("maxHetFrequency")))) {
             this.maxHetFrequency = (Double) parameters.get("maxHetFrequency");
         } else {
-            throw new MusialException(
-                    "(CLI Parameter Parsing/Initialization) Invalid `maxHetFrequency` " + parameters.get("maxHetFrequency") +
-                            "; expected float between 0.0 and 1.0.");
+            throw new MusialException(EXCEPTION_PREFIX + " Invalid or missing " + Logging.colorParameter("maxHetFrequency") + "; expected float between 0.0 and 1.0.");
         }
         // Parse minQuality
-        if (Validation.isPositiveDouble(String.valueOf(parameters.get("minQuality")))) {
+        if (parameters.containsKey("minQuality")
+                && Validation.isPositiveDouble(String.valueOf(parameters.get("minQuality")))) {
             this.minQuality = (Double) parameters.get("minQuality");
         } else {
-            throw new MusialException(
-                    "(CLI Parameter Parsing/Initialization) Invalid `minQuality` " + parameters.get("minQuality") + "; expected positive float.");
-        }
-        // Parse No. threads to use
-        if (Validation.isPositiveInteger(String.valueOf(Math.round((Double) parameters.get("threads"))))) {
-            Musial.THREADS = (int) Math.round((Double) parameters.get("threads"));
-        } else {
-            throw new MusialException(
-                    "(CLI Parameter Parsing/Initialization) Invalid `threads` " + parameters.get("threads") + "; expected positive integer.");
+            throw new MusialException(EXCEPTION_PREFIX + " Invalid or missing " + Logging.colorParameter("minQuality") + "; expected positive float.");
         }
         // Parse reference genome (.fasta)
+        if (!parameters.containsKey("referenceFASTA")) {
+            throw new MusialException(EXCEPTION_PREFIX + " Missing " + Logging.colorParameter("referenceFASTA") + "; expected path to file.");
+        }
         File r = new File((String) parameters.get("referenceFASTA"));
         if (Validation.isFile(r)) {
             this.referenceFASTA = r;
         } else {
-            throw new MusialException(
-                    "(CLI Parameter Parsing/Initialization) Invalid `referenceFASTA` " + parameters.get("referenceFASTA") + "; failed to read file.");
+            throw new MusialException(EXCEPTION_PREFIX + " Invalid " + Logging.colorParameter("referenceFASTA") + "; failed to read file.");
         }
         // Parse reference annotation (.gff/.gff3)
+        if (!parameters.containsKey("referenceGFF")) {
+            throw new MusialException(EXCEPTION_PREFIX + " Missing " + Logging.colorParameter("referenceGFF") + "; expected path to file.");
+        }
         File a = new File((String) parameters.get("referenceGFF"));
         if (Validation.isFile(a)) {
             this.referenceGFF = a;
         } else {
-            throw new MusialException(
-                    "(CLI Parameter Parsing/Initialization) Invalid `referenceGFF` " + parameters.get("referenceGFF") + "; failed to read file.");
+            throw new MusialException(EXCEPTION_PREFIX + " Invalid " + Logging.colorParameter("referenceGFF") + "; failed to read file.");
         }
         // Parse output file
+        if (!parameters.containsKey("outputFile")) {
+            throw new MusialException(EXCEPTION_PREFIX + " Missing " + Logging.colorParameter("outputFile") + "; expected path to file.");
+        }
         File o = new File((String) parameters.get("outputFile"));
         if (Validation.isDirectory(new File(o.getParent()))) {
             this.outputFile = o;
         } else {
-            throw new MusialException(
-                    "(CLI Parameter Parsing/Initialization) Invalid `outputFile` " + parameters.get("outputFile") + "; unable to access parent directory.");
+            throw new MusialException(EXCEPTION_PREFIX + " Invalid " + Logging.colorParameter("outputFile") + " " + Logging.colorParameter((String) parameters.get("outputFile")) + "; unable to access directory.");
+        }
+        if (Validation.isFile(this.outputFile)) {
+            throw new MusialException(EXCEPTION_PREFIX + " Specified " + Logging.colorParameter("outputFile") + " " + Logging.colorParameter((String) parameters.get("outputFile")) + " already exists.");
         }
         // Parse samples
+        if (!parameters.containsKey("samples")) {
+            throw new MusialException(EXCEPTION_PREFIX + " Missing " + Logging.colorParameter("samples") + "; expected at least one entry.");
+        }
         //noinspection rawtypes
         LinkedTreeMap samples = (LinkedTreeMap) parameters.get("samples");
+        if (samples.keySet().size() == 0) {
+            throw new MusialException(EXCEPTION_PREFIX + " Missing " + Logging.colorParameter("samples") + "; expected at least one entry.");
+        }
         //noinspection rawtypes
         LinkedTreeMap sampleEntry;
         for (Object sampleKey : samples.keySet()) {
@@ -163,7 +173,7 @@ public final class ModuleParametersBuild {
             sampleEntry = (LinkedTreeMap) samples.get(sampleKey);
             File sampleVcfFile = new File((String) sampleEntry.get("vcfFile"));
             if (sampleEntry.get("vcfFile") != null && !Validation.isFile(sampleVcfFile)) {
-                throw new MusialException("(CLI Parameter Parsing/Initialization) Failed to access specified `vcf` file for sample " + sampleKey);
+                throw new MusialException(EXCEPTION_PREFIX + " Failed to access specified `vcf` file for sample " + Logging.colorParameter((String) sampleKey));
             }
             //noinspection unchecked
             addSample(
@@ -173,8 +183,14 @@ public final class ModuleParametersBuild {
             );
         }
         // Parse features
+        if (!parameters.containsKey("features")) {
+            throw new MusialException(EXCEPTION_PREFIX + " Missing " + Logging.colorParameter("features") + "; expected at least one entry.");
+        }
         //noinspection rawtypes
         LinkedTreeMap features = (LinkedTreeMap) parameters.get("features");
+        if (features.keySet().size() == 0) {
+            throw new MusialException(EXCEPTION_PREFIX + " Missing " + Logging.colorParameter("features") + "; expected at least one entry.");
+        }
         //noinspection rawtypes
         LinkedTreeMap featureEntry;
         for (Object featureKey : features.keySet()) {
@@ -184,15 +200,26 @@ public final class ModuleParametersBuild {
             if (featureEntry.containsKey("pdbFile")) {
                 featurePdbFile = new File((String) featureEntry.get("pdbFile"));
                 if (featureEntry.get("pdbFile") != null && !Validation.isFile(featurePdbFile)) {
-                    throw new MusialException("(CLI Parameter Parsing/Initialization) Failed to access specified `pdb` file for feature " + featureKey + " " + featurePdbFile);
+                    throw new MusialException(EXCEPTION_PREFIX + " Failed to access specified `pdb` file for feature " + Logging.colorParameter((String) featureKey));
                 }
             } else {
                 featurePdbFile = null;
             }
             //noinspection unchecked
+            String matchKey = (String) featureEntry
+                    .keySet()
+                    .stream()
+                    .filter(key -> key.toString().startsWith("MATCH_"))
+                    .findFirst()
+                    .orElse(null);
+            if (matchKey == null || featureEntry.get(matchKey) == null) {
+                throw new MusialException(EXCEPTION_PREFIX + " Failed to find `gff` attribute key/value pair to match feature " + Logging.colorParameter((String) featureKey));
+            }
+            //noinspection unchecked
             addFeature(
                     (String) featureKey,
-                    (String) featureEntry.get("MATCH_AS"),
+                    matchKey.replace("MATCH_", ""),
+                    (String) featureEntry.get(matchKey),
                     featurePdbFile,
                     (Map<String, String>) featureEntry.get("annotations")
             );
@@ -200,7 +227,7 @@ public final class ModuleParametersBuild {
     }
 
     /**
-     * Initializes a {@link SampleEntry} object with the specified parameters and adds it to the features list.
+     * Initializes a {@link SampleEntry} object with the specified parameters and adds it to the samples list.
      *
      * @param name        {@link String}; The internal name to use for the sample.
      * @param vcfFile     {@link File} object pointing to a .vcf format file.
@@ -213,8 +240,7 @@ public final class ModuleParametersBuild {
             sampleEntry.annotations.putAll(annotations);
             this.samples.put(name, sampleEntry);
         } else {
-            throw new MusialException(
-                    "(CLI Parameter Parsing/Initialization) Specified sample's variant calls input file does not exist or has no read permission:\t" + vcfFile.getAbsolutePath());
+            throw new MusialException(EXCEPTION_PREFIX + " Failed to access `vcf` file for sample " + Logging.colorParameter(name) + ":\t" + Logging.colorParameter(vcfFile.getAbsolutePath()));
         }
     }
 
@@ -222,30 +248,28 @@ public final class ModuleParametersBuild {
      * Initializes a {@link FeatureEntry} object with the specified parameters and adds it to the features list.
      *
      * @param name        {@link String}; The internal name to use for the feature.
-     * @param featureName {@link String}; The value of the NAME attribute in the specified .gff format reference annotation to match the feature from.
+     * @param matchKey    {@link String}; The key of the attribute in the specified .gff format reference annotation to match the feature from.
+     * @param matchValue  {@link String}; The value of the attribute in the specified .gff format reference annotation to match the feature from.
      * @param pdbFile     {@link File}; Optional object pointing to a .pdb format file yielding a protein structure derived for the (gene) feature.
      * @param annotations {@link java.util.HashMap} of {@link String} key/pair values; feature meta information.
      * @throws MusialException If the initialization of the {@link FeatureEntry} fails; If the specified .gff reference annotation or .pdb protein file can not be read; If the specified feature is not found or parsed multiple times from the reference annotation.
      */
-    private void addFeature(String name, String featureName, File pdbFile, Map<String, String> annotations)
+    private void addFeature(String name, String matchKey, String matchValue, File pdbFile, Map<String, String> annotations)
             throws MusialException {
         if (this.referenceFeatures == null) {
             try {
                 this.referenceFeatures = IO.readGFF(this.referenceGFF);
             } catch (IOException e) {
-                throw new MusialException(
-                        "(CLI Parameter Parsing/Initialization) Failed to read specified reference genome annotation " + this.referenceGFF.getAbsolutePath() + "\t" +
-                                e.getMessage());
+                throw new MusialException(EXCEPTION_PREFIX + " Failed to read specified `gff` " + Logging.colorParameter(this.referenceGFF.getAbsolutePath()) + ":\t" +
+                        e.getMessage());
             }
         }
-        FeatureList matchedFeatures = this.referenceFeatures.selectByAttribute("Name", featureName);
+        FeatureList matchedFeatures = this.referenceFeatures.selectByAttribute(matchKey, matchValue);
         if (matchedFeatures.size() == 0) {
-            throw new MusialException("(CLI Parameter Parsing/Initialization) Feature " + featureName + " not found in the specified reference genome annotation.");
+            throw new MusialException(EXCEPTION_PREFIX + " Failed to match feature " + Logging.colorParameter(name) + " with attribute pair " +
+                    Logging.colorParameter(matchKey + "=" + matchValue));
         } else if (matchedFeatures.size() > 1) {
-            throw new MusialException("(CLI Parameter Parsing/Initialization) Feature " + featureName + " found more than once in the specified reference genome " +
-                    "annotation.");
-        } else if (this.features.containsKey(featureName)) {
-            throw new MusialException("(CLI Parameter Parsing/Initialization) Feature " + featureName + " was specified multiple times.");
+            throw new MusialException(EXCEPTION_PREFIX + " Feature " + Logging.colorParameter(name) + " was matched multiple times ");
         } else {
             FeatureI matchedFeature = matchedFeatures.get(0);
             Location featureCoordinates = matchedFeature.location();
@@ -262,8 +286,7 @@ public final class ModuleParametersBuild {
             if (Validation.isFile(pdbFile)) {
                 this.features.get(name).pdbFile = pdbFile;
             } else {
-                throw new MusialException(
-                        "(CLI Parameter Parsing/Initialization) Specified feature `PDB` file " + pdbFile.getAbsolutePath() + " does not exist or has no read permission.");
+                throw new MusialException(EXCEPTION_PREFIX + " Failed to access `pdb` file for feature " + Logging.colorParameter(name) + ":\t" + Logging.colorParameter(pdbFile.getAbsolutePath()));
             }
         }
     }

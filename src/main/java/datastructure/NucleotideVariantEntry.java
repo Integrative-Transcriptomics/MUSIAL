@@ -23,11 +23,10 @@ public class NucleotideVariantEntry {
     public final ConcurrentSkipListSet<String> occurrence = new ConcurrentSkipListSet<>();
     public final static String PROPERTY_NAME_PRIMARY = "PRIMARY";
     public final static String PROPERTY_NAME_REFERENCE_CONTENT = "REF_CONT";
-
     public final static String PROPERTY_NAME_SNP_EFF_IMPACT = "SNP_EFF_IMPACT";
-
     public final static String PROPERTY_NAME_SNP_EFF_TYPE = "SNP_EFF_TYPE";
     public final static String PROPERTY_NAME_FREQUENCY = "FRQ";
+    public final static String PROPERTY_NAME_LOCATION = "LOC";
 
     /**
      * Constructor of {@link NucleotideVariantEntry}.

@@ -45,7 +45,12 @@ public class CLIParser {
         options.addOption(
                 Option.builder("c")
                         .longOpt("configuration")
-                        .desc("Path to a .JSON file yielding the parameter sets to run MUSIAL modules. Please visit " + Logging.colorParameter("https://github.com/Integrative-Transcriptomics/MUSIAL") + " for more information about how to specify MUSIAL configuration files.")
+                        .desc(
+                                "Path to a .json file specifying the run configurations for one or more MUSIAL modules."
+                                        + " Please visit https://github.com/Integrative-Transcriptomics/MUSIAL for a detailed explanation on how to specify MUSIAL configuration files."
+                                        + "\nAvailable modules are:"
+                                        + "\nBUILD: Generate a new variants dictionary .json file from multiple .vcf files wrt. one reference (.fasta + .gff)."
+                        )
                         .hasArg()
                         .required()
                         .build());
@@ -68,15 +73,11 @@ public class CLIParser {
         CommandLineParser parser = new DefaultParser();
         Consumer<Options> checkHelp = (Options checkOptions) -> {
             for (String arg : args) {
-                if (Objects.equals(arg, "-h")
-                        || Objects.equals(arg, "--help")
-                        || Objects.equals(arg, "h")
-                        || Objects.equals(arg, "help")) {
-                    Musial.printInfo();
+                if (Objects.equals(arg, "-h") || Objects.equals(arg, "--help")) {
                     helpformatter.printHelp(
                             160,
-                            "java -jar " + Musial.NAME + "-" + Musial.VERSION + ".jar -configuration <FILE_PATH> [-silent|-compress]",
-                            IO.LINE_SEPARATOR + "TODO",
+                            "java -jar " + Musial.NAME + "-" + Musial.VERSION + ".jar",
+                            "command line arguments:",
                             options,
                             "",
                             true
@@ -106,9 +107,9 @@ public class CLIParser {
                         "(CLI Argument Parsing Failed) " + e.getMessage());
             }
             // Set specified value for silent.
-            Musial.SILENT = options.hasOption("s");
+            Musial.SILENT = arguments.hasOption("s");
             // Set specified value for compress.
-            Musial.COMPRESS = options.hasOption("k");
+            Musial.COMPRESS = arguments.hasOption("k");
         } catch (ParseException e) {
             throw new MusialException("(CLI Argument Parsing Failed) " + e.getMessage());
         }

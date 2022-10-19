@@ -1,7 +1,9 @@
 package main;
 
+import cli.CLIColors;
 import cli.CLIParser;
-import cli.ModuleParametersBuild;
+import cli.ModuleBuildParameters;
+import com.google.gson.internal.LinkedTreeMap;
 import components.*;
 import datastructure.*;
 import exceptions.MusialException;
@@ -52,22 +54,22 @@ public final class Musial {
      */
     public static MusialModules MODULE = null;
     /**
-     * Original output stream.
+     * Original system output stream.
      */
     public static final PrintStream ORIGINAL_OUT_STREAM = System.out;
     /**
-     * Original error stream.
+     * Original system error stream.
      */
     public static final PrintStream ORIGINAL_ERR_STREAM = System.err;
     /**
-     * Alternative output stream to dump log massages.
+     * Alternative output stream to ignore logging.
      */
     public static final PrintStream EMPTY_STREAM = new PrintStream(new OutputStream() {
         public void write(int b) {
         }
     });
     /**
-     * Number of threads to use.
+     * The number of threads to use.
      */
     public static int THREADS = 1;
     /**
@@ -78,13 +80,15 @@ public final class Musial {
      * Whether to output cli information messages.
      */
     public static boolean SILENT = false;
-
+    /**
+     * Project wide formatter to convert decimal numbers to strings.
+     */
     public static final DecimalFormat DECIMAL_FORMATTER = new DecimalFormat("#.#");
 
     /**
-     * Main method of MUSIAL; loads meta-information and invokes methods dependent on the user specified module.
+     * Main method of MUSIAL; loads meta-information and invokes methods dependent on the run configuration.
      *
-     * @param args {@link String[]} comprising the arguments parsed from the command line.
+     * @param args {@link String[]} comprising the arguments parsed from command line.
      */
     public static void main(String[] args) {
         try {
@@ -109,11 +113,11 @@ public final class Musial {
                         }
                     }
                     if (MODULE == null) {
-                        Logging.logWarning("Skip unknown module " + Logging.colorParameter(moduleId));
+                        Logging.logWarning("Skip unknown module " + Logging.getCustomTag(moduleId));
                     } else {
-                        JSONObject parameters = (JSONObject) cliParser.configuration.get(moduleId);
+                        LinkedTreeMap<Object, Object> parameters = (LinkedTreeMap) cliParser.configuration.get(moduleId);
                         switch (MODULE) {
-                            case BUILD -> executeBUILD(new ModuleParametersBuild(parameters));
+                            case BUILD -> executeBUILD(new ModuleBuildParameters(parameters));
                             //case inferSequences -> runInferSequences((CLIParametersInferSequences) arguments);
                             //case statistics -> runStatistics((CLIParametersStatistics) arguments);
                         }
@@ -131,12 +135,7 @@ public final class Musial {
      * Prints information about available modules to the user and exits.
      */
     public static void printInfo() {
-        System.out.println("| available MUSIAL modules:");
-        System.out.println("\tBUILD : Generates a variants dictionary JSON file.");
-        //System.out.println("\tinferSequences : Infer sequence information from an existing variants dictionary.");
-        //System.out.println("\tstatistics : Run SnpEff annotation and compute various statistics.");
-        System.out.println("| specify -h for any module to obtain more information.");
-        System.exit(0);
+        System.out.println("Please type " + CLIColors.BLACK_BOLD + "java -jar " + Musial.NAME + "-" + Musial.VERSION + ".jar [-h|--help]" + CLIColors.RESET + " for more information.");
     }
 
     /**
@@ -159,55 +158,45 @@ public final class Musial {
     /**
      * Generates a new or updates an existing variants dictionary JSON file based on the specifications parsed from a variants dictionary specification JSON file.
      *
-     * @param cliarguments {@link ModuleParametersBuild} instance yielding parameter specification for the MUSIAL update variants dictionary module.
+     * @param cliarguments {@link ModuleBuildParameters} instance yielding parameter specification for the MUSIAL update variants dictionary module.
      * @throws InterruptedException Thrown if any {@link Runnable} implementing class instance is interrupted by the user.
      * @throws IOException          Thrown if any input or output file is missing or unable to being generated (caused by any native Java method).
      * @throws MusialException      If any method fails wrt. biological context, i.e. parsing of unknown symbols; If any method fails wrt. internal logic, i.e. assignment of proteins to genomes; If any input or output file is missing or unable to being generated.
      */
-    private static void executeBUILD(ModuleParametersBuild cliarguments)
+    private static void executeBUILD(ModuleBuildParameters cliarguments)
             throws InterruptedException, MusialException, IOException {
-        Logging.logStatus("Execute module " + Logging.getCustomTag("UPDATE"));
+        Logging.logStatus("Execute module " + Logging.getCustomTag("BUILD"));
 
-        // Read-in existing variants dictionary or build new one.
+        // Build new empty variants dictionary.
         VariantsDictionary variantsDictionary = VariantsDictionaryFactory.build(cliarguments);
 
-        // Update feature information.
-        Logging.logStatus(Logging.getStartTag() + " Update feature information");
+        // Add feature information.
+        Logging.logStatus(Logging.getStartTag() + " Add feature information");
         Set<String> specifiedFeatures = cliarguments.features.keySet();
-        HashSet<String> featureIdsAll = new HashSet<>();
-        featureIdsAll.addAll(specifiedFeatures);
-        featureIdsAll.addAll(variantsDictionary.features.keySet());
-        //Logging.logStatus("Match chromosome " + Logging.colorParameter(variantsDictionary.chromosome) + " from " + Logging.colorParameter(cliarguments.referenceFASTA.getAbsolutePath()));
-
-        FastaContainer referenceChromosomeFastaContainer = null;
-        for (FastaContainer fastaContainer : IO.readFastaToSet(cliarguments.referenceFASTA)) {
-            String chromosome = fastaContainer.getHeader().split(" ")[0].trim();
-            if (variantsDictionary.chromosome.equals(chromosome)) {
-                referenceChromosomeFastaContainer = fastaContainer;
-                break;
-            }
-        }
-        if (referenceChromosomeFastaContainer == null) {
-            throw new MusialException("Failed to match chromosome " + Logging.colorParameter(variantsDictionary.chromosome) + " from " + Logging.colorParameter(cliarguments.referenceFASTA.getAbsolutePath()));
-        }
-
-        for (String featureId : featureIdsAll) {
-            if (!specifiedFeatures.contains(featureId) && variantsDictionary.features.containsKey(featureId)) {
-                // TODO: Remove feature information.
-            } else {
-                if (!variantsDictionary.features.containsKey(featureId)) {
-                    cliarguments.features.get(featureId).imputeNucleotideSequence(referenceChromosomeFastaContainer);
-                    if (cliarguments.features.get(featureId).pdbFile != null) {
-                        cliarguments.features.get(featureId).imputeProteinInformation();
-                    }
-                    variantsDictionary.features.put(featureId, cliarguments.features.get(featureId));
+        FastaContainer featureContig;
+        for (String featureId : specifiedFeatures) {
+            featureContig = null;
+            for (FastaContainer fastaContainer : IO.readFastaToSet(cliarguments.referenceFASTA)) {
+                String contig = fastaContainer.getHeader().split(" ")[0].trim();
+                if (cliarguments.features.get(featureId).chromosome.equals(contig)) {
+                    featureContig = fastaContainer;
+                    break;
                 }
             }
+            if (featureContig == null) {
+                throw new MusialException("Failed to match contig " + Logging.colorParameter(cliarguments.features.get(featureId).chromosome) + " from `fasta` file " + Logging.colorParameter(cliarguments.referenceFASTA.getAbsolutePath()));
+            } else {
+                cliarguments.features.get(featureId).imputeNucleotideSequence(featureContig);
+                if (cliarguments.features.get(featureId).pdbFile != null) {
+                    cliarguments.features.get(featureId).imputeProteinInformation();
+                }
+                variantsDictionary.features.put(featureId, cliarguments.features.get(featureId));
+            }
         }
-        Logging.logStatus(Logging.getDoneTag() + " Update feature information");
+        Logging.logStatus(Logging.getDoneTag() + " Add feature information");
 
         // Collect information about sample variants.
-        Logging.logStatus("Collect sample information " + Logging.getStartTag());
+        Logging.logStatus(Logging.getStartTag() + "Add sample information ");
         Set<String> sampleIdsUpdate = cliarguments.samples.keySet();
         HashSet<String> sampleIdsAll = new HashSet<>();
         sampleIdsAll.addAll(sampleIdsUpdate);
@@ -230,7 +219,7 @@ public final class Musial {
         executor.shutdown();
         //noinspection ResultOfMethodCallIgnored
         executor.awaitTermination(30, TimeUnit.MINUTES);
-        Logging.logStatus("Collect feature information " + Logging.getDoneTag());
+        Logging.logStatus(Logging.getDoneTag() + "Add sample information");
 
         // Run SnpEff annotation for variants.
         Logging.logStatus("Annotate novel variants with SnpEff " + Logging.getStartTag());
@@ -244,8 +233,7 @@ public final class Musial {
                     tmpDirectory,
                     variantsFile,
                     cliarguments.referenceFASTA,
-                    cliarguments.referenceGFF,
-                    variantsDictionary.chromosome
+                    cliarguments.referenceGFF
             );
             List<String> variantAnnotations = IO.readLinesFromFile("./tmp/annotated_variants.vcf").stream().filter(s -> !s.startsWith("#")).collect(Collectors.toList());
             String[] splitAnnotation;

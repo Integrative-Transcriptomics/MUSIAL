@@ -1,5 +1,6 @@
 package components;
 
+import datastructure.FastaContainer;
 import exceptions.MusialException;
 
 import java.io.File;
@@ -10,7 +11,9 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Runs a local installation of SnpEff via command line.
@@ -26,17 +29,15 @@ public final class SnpEffAnnotator {
     /**
      * Initializes all necessary configuration files and runs SnpEff on a single .vcf file.
      *
-     * @param targetDir           {@link File} instance pointing to the directory at which SnpEff shall be run.
-     * @param targetVcf           {@link File} instance pointing to the vcf file to annotate.
-     * @param referenceFasta      {@link File} instance pointing to the fasta file containing the reference genome.
-     * @param referenceGff        {@link File} instance pointing to the gff file containing the reference genome annotation.
-     * @param referenceChromosome {@link String} storing the reference chromosome name.
+     * @param targetDir      {@link File} instance pointing to the directory at which SnpEff shall be run.
+     * @param targetVcf      {@link File} instance pointing to the vcf file to annotate.
+     * @param referenceFasta {@link File} instance pointing to the fasta file containing the reference genome.
+     * @param referenceGff   {@link File} instance pointing to the gff file containing the reference genome annotation.
      * @throws IOException     Thrown if any input or output file is missing or unable to being generated (caused by any native Java method).
      * @throws MusialException Thrown if any input or output file is missing or unable to being generated (caused by any MUSIAL method).
      */
     @SuppressWarnings({"DuplicateExpressions", "unused"})
-    public static void runSnpEff(File targetDir, File targetVcf, File referenceFasta, File referenceGff,
-                                 String referenceChromosome)
+    public static void runSnpEff(File targetDir, File targetVcf, File referenceFasta, File referenceGff)
             throws IOException, MusialException {
         // 1. Copy snpEff from JAR to target directory.
         if (targetDir.isDirectory()) {
@@ -59,32 +60,33 @@ public final class SnpEffAnnotator {
         }
         // 2. Copy reference .gff and .fasta into snpEff/data directory.
         IO.generateDirectory(new File(targetDir.toPath() + "/data/"));
-        IO.generateDirectory(new File(targetDir.toPath() + "/data/" + referenceChromosome));
+        IO.generateDirectory(new File(targetDir.toPath() + "/data/VARIANTS"));
         Files.copy(
                 referenceGff.toPath(),
-                Path.of(targetDir.toPath() + "/data/" + referenceChromosome + "/genes.gff"),
+                Path.of(targetDir.toPath() + "/data/VARIANTS/genes.gff"),
                 StandardCopyOption.REPLACE_EXISTING
         );
         IO.generateDirectory(new File(targetDir.toPath() + "/data/genomes/"));
         Files.copy(
                 referenceFasta.toPath(),
-                Path.of(targetDir.toPath() + "/data/genomes/" + referenceChromosome + ".fa"),
+                Path.of(targetDir.toPath() + "/data/genomes/VARIANTS.fa"),
                 StandardCopyOption.REPLACE_EXISTING
         );
         // 3. Add reference .fasta and .gff information to snpEff.config.
         Files.writeString(
                 Path.of(targetDir + "/snpEff.config"),
-                "\n# " + referenceChromosome + " genome",
+                "\n# VARIANTS GENOME INFORMATION",
                 StandardOpenOption.APPEND
         );
+        HashSet<FastaContainer> referenceFastaEntries = IO.readFastaToSet(referenceFasta);
         Files.writeString(
                 Path.of(targetDir + "/snpEff.config"),
-                "\n" + referenceChromosome + ".genome : " + referenceChromosome,
+                "\n\tVARIANTS.chromosomes : " + referenceFastaEntries.stream().map(fastaContainer -> fastaContainer.getHeader().split(" ")[0].trim()).collect(Collectors.joining(", ")),
                 StandardOpenOption.APPEND
         );
 
         // 4. Generate database with reference genome information.
-        String[] createSNPEffDatabase = {"java", "-jar", "snpEff.jar", "build", "-gff3", "-v", referenceChromosome};
+        String[] createSNPEffDatabase = {"java", "-jar", "snpEff.jar", "build", "-gff3", "-v", "VARIANTS"};
         CL.runCommand(createSNPEffDatabase, targetDir + "/" + "snpEffDatabase.log", "",
                 targetDir.getAbsolutePath());
 
@@ -100,7 +102,7 @@ public final class SnpEffAnnotator {
                 "-no-intergenic",
                 "-s",
                 new File(targetDir + "/" + "snpEff.html").getAbsolutePath(),
-                referenceChromosome,
+                "VARIANTS",
                 targetVcf.getAbsolutePath()
         };
         CL.runCommand(runSNPEff,
