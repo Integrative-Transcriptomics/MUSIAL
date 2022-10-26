@@ -10,7 +10,6 @@ import exceptions.MusialException;
 import org.biojava.nbio.genome.parsers.gff.FeatureI;
 import org.biojava.nbio.genome.parsers.gff.FeatureList;
 import org.biojava.nbio.genome.parsers.gff.Location;
-import org.json.simple.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
@@ -18,7 +17,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 /**
- * Parses command line interface arguments for the `MUSIAL updateVDict` module.
+ * Parses command line interface arguments for the `MUSIAL BUILD` module.
  * <p>
  * Used to parse and validate passed command line options or print help information to the user. Parsed arguments are
  * stored to be accessible for other components of the tool.

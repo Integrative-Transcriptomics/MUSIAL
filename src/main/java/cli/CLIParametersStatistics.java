@@ -25,7 +25,7 @@ import java.util.function.Consumer;
  * @version 2.1
  * @since 2.1
  */
-public final class CLIParametersStatistics implements CLIParameters {
+public final class CLIParametersStatistics {
 
     /**
      * The unprocessed command line content passed by the user.
