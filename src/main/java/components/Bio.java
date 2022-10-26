@@ -706,7 +706,7 @@ public final class Bio {
      * @return {@link ConcurrentSkipListMap} mapping positions to variant contents.
      * @throws MusialException If any translation procedure of nucleotide sequences fails.
      */
-    public static ConcurrentSkipListMap<String, String> inferProteoform(
+    public static ConcurrentSkipListMap<String, String> inferAminoacidVariants(
             VariantsDictionary variantsDictionary, String fId, String sId)
             throws MusialException {
         String sampleNucleotideSequence = variantsDictionary.getSampleNucleotideSequence(fId, sId);

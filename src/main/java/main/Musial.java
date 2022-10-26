@@ -7,7 +7,6 @@ import com.google.gson.internal.LinkedTreeMap;
 import components.*;
 import datastructure.*;
 import exceptions.MusialException;
-import org.json.simple.JSONObject;
 import runnables.SampleAnalyzerRunnable;
 
 import java.io.*;
@@ -113,7 +112,7 @@ public final class Musial {
                         }
                     }
                     if (MODULE == null) {
-                        Logging.logWarning("Skip unknown module " + Logging.getCustomTag(moduleId));
+                        Logging.logWarning("Skip unknown module " + Logging.getPurpleTag(moduleId));
                     } else {
                         LinkedTreeMap<Object, Object> parameters = (LinkedTreeMap) cliParser.configuration.get(moduleId);
                         switch (MODULE) {
@@ -165,7 +164,7 @@ public final class Musial {
      */
     private static void executeBUILD(ModuleBuildParameters cliarguments)
             throws InterruptedException, MusialException, IOException {
-        Logging.logStatus("Execute module " + Logging.getCustomTag("BUILD"));
+        Logging.logStatus("Execute module " + Logging.getPurpleTag("BUILD"));
 
         // Build new empty variants dictionary.
         VariantsDictionary variantsDictionary = VariantsDictionaryFactory.build(cliarguments);
@@ -173,6 +172,7 @@ public final class Musial {
         // Add feature information.
         Logging.logStatus(Logging.getStartTag() + " Add feature information");
         Set<String> specifiedFeatures = cliarguments.features.keySet();
+        // Fetch fasta container of feature parent sequence.
         FastaContainer featureContig;
         for (String featureId : specifiedFeatures) {
             featureContig = null;
@@ -196,7 +196,7 @@ public final class Musial {
         Logging.logStatus(Logging.getDoneTag() + " Add feature information");
 
         // Collect information about sample variants.
-        Logging.logStatus(Logging.getStartTag() + "Add sample information ");
+        Logging.logStatus(Logging.getStartTag() + " Add sample information ");
         Set<String> sampleIdsUpdate = cliarguments.samples.keySet();
         HashSet<String> sampleIdsAll = new HashSet<>();
         sampleIdsAll.addAll(sampleIdsUpdate);
@@ -219,10 +219,10 @@ public final class Musial {
         executor.shutdown();
         //noinspection ResultOfMethodCallIgnored
         executor.awaitTermination(30, TimeUnit.MINUTES);
-        Logging.logStatus(Logging.getDoneTag() + "Add sample information");
+        Logging.logStatus(Logging.getDoneTag() + " Add sample information");
 
         // Run SnpEff annotation for variants.
-        Logging.logStatus("Annotate novel variants with SnpEff " + Logging.getStartTag());
+        Logging.logStatus(Logging.getStartTag() + " Annotate novel variants with SnpEff");
         File tmpDirectory = new File("./tmp/");
         try {
             IO.generateDirectory(tmpDirectory);
@@ -267,33 +267,31 @@ public final class Musial {
         } finally {
             IO.deleteDirectory(tmpDirectory);
         }
-        Logging.logStatus("Annotate novel variants with SnpEff " + Logging.getDoneTag());
+        Logging.logStatus(Logging.getDoneTag() + " Annotate novel variants with SnpEff");
 
         // Infer feature alleles from collected variant information.
-        Logging.logStatus("Infer alleles " + Logging.getStartTag());
+        Logging.logStatus(Logging.getStartTag() + " Infer alleles");
         for (FeatureEntry featureEntry : variantsDictionary.features.values()) {
             featureEntry.inferAlleleInformation(variantsDictionary);
         }
-        Logging.logStatus("Infer alleles " + Logging.getDoneTag());
+        Logging.logStatus(Logging.getDoneTag() + " Infer alleles");
 
         // Infer coding feature variant/proteoform information; For all coding features.
-        Logging.logStatus("Infer protein variants " + Logging.getStartTag());
-        ConcurrentSkipListMap<String, String> variants;
-        long noFeaturesWithAssignedProteins = variantsDictionary.features.keySet().stream().filter(
+        Logging.logStatus(Logging.getStartTag() + " Infer protein variants");
+        ConcurrentSkipListMap<String, String> aminoacidVariants;
+        List<String> featureIdsWithProteinInformation = variantsDictionary.features.keySet().stream().filter(
                 feKey -> variantsDictionary.features.get(feKey).isCodingSequence
-        ).count();
-        if (noFeaturesWithAssignedProteins > 0) {
-            for (String featureId : variantsDictionary.features.keySet()) {
-                for (String sampleId : variantsDictionary.samples.keySet()) {
-                    variants = Bio.inferProteoform(variantsDictionary, featureId, sampleId);
-                    variantsDictionary.features.get(featureId).addProteoform(sampleId, variants, variantsDictionary);
-                }
+        ).collect(Collectors.toList());
+        for (String featureId : featureIdsWithProteinInformation) {
+            for (String sampleId : variantsDictionary.samples.keySet()) {
+                aminoacidVariants = Bio.inferAminoacidVariants(variantsDictionary, featureId, sampleId);
+                variantsDictionary.features.get(featureId).addProteoform(sampleId, aminoacidVariants, variantsDictionary);
             }
         }
-        Logging.logStatus("Infer protein variants " + Logging.getDoneTag());
+        Logging.logStatus(Logging.getDoneTag() + " Infer protein variants");
 
         // Infer variant frequencies.
-        Logging.logStatus("Infer variant statistics " + Logging.getStartTag());
+        Logging.logStatus(Logging.getStartTag() + " Infer variant statistics");
         int totalNoVariants = 0;
         for (ConcurrentSkipListMap<String, NucleotideVariantEntry> perPositionNucleotideVariants : variantsDictionary.nucleotideVariants.values()) {
             totalNoVariants += perPositionNucleotideVariants.size();
@@ -333,17 +331,17 @@ public final class Musial {
                 }
             }
         }
-        Logging.logStatus("Infer variant statistics " + Logging.getDoneTag());
+        Logging.logStatus(Logging.getDoneTag() + " Infer variant statistics");
 
         // Write updated database to file.
-        Logging.logStatus("Dump updated file " + Logging.getStartTag());
+        Logging.logStatus(Logging.getStartTag() + " Dump to file");
         String outputFile = cliarguments.outputFile.getAbsolutePath();
         File vDictOutfile = new File(outputFile);
         if (!vDictOutfile.exists()) {
             IO.generateFile(vDictOutfile);
         }
         variantsDictionary.dump(vDictOutfile);
-        Logging.logStatus("Dump updated file " + Logging.getDoneTag());
+        Logging.logStatus(Logging.getDoneTag() + " Dump to file");
     }
 
     /*

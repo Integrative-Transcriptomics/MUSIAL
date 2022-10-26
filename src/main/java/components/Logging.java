@@ -131,7 +131,7 @@ public final class Logging {
      * @param content {@link String} content to use in tag.
      * @return Colorized custom {@link String}.
      */
-    public static String getCustomTag(String content) {
+    public static String getPurpleTag(String content) {
         return CLIColors.PURPLE_BACKGROUND_BRIGHT + CLIColors.BLACK_BOLD + content + CLIColors.RESET;
     }
 
