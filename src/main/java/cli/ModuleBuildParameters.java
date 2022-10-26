@@ -13,6 +13,7 @@ import org.biojava.nbio.genome.parsers.gff.Location;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 
@@ -24,7 +25,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
  *
  * @author Simon Hackl
  * @version 2.1
- * @since 2.0
+ * @since 2.1
  */
 public final class ModuleBuildParameters {
     /**
@@ -174,11 +175,17 @@ public final class ModuleBuildParameters {
             if (sampleEntry.get("vcfFile") != null && !Validation.isFile(sampleVcfFile)) {
                 throw new MusialException(EXCEPTION_PREFIX + " Failed to access specified `vcf` file for sample " + Logging.colorParameter((String) sampleKey));
             }
-            //noinspection unchecked
+            Map<String, String> annotations;
+            if (sampleEntry.containsKey("annotations")) {
+                //noinspection unchecked
+                annotations = (Map<String, String>) sampleEntry.get("annotations");
+            } else {
+                annotations = new HashMap<>();
+            }
             addSample(
                     (String) sampleKey,
                     sampleVcfFile,
-                    (Map<String, String>) sampleEntry.get("annotations")
+                    annotations
             );
         }
         // Parse features
@@ -214,13 +221,19 @@ public final class ModuleBuildParameters {
             if (matchKey == null || featureEntry.get(matchKey) == null) {
                 throw new MusialException(EXCEPTION_PREFIX + " Failed to find `gff` attribute key/value pair to match feature " + Logging.colorParameter((String) featureKey));
             }
-            //noinspection unchecked
+            Map<String, String> annotations;
+            if (featureEntry.containsKey("annotations")) {
+                //noinspection unchecked
+                annotations = (Map<String, String>) featureEntry.get("annotations");
+            } else {
+                annotations = new HashMap<>();
+            }
             addFeature(
                     (String) featureKey,
                     matchKey.replace("MATCH_", ""),
                     (String) featureEntry.get(matchKey),
                     featurePdbFile,
-                    (Map<String, String>) featureEntry.get("annotations")
+                    annotations
             );
         }
     }

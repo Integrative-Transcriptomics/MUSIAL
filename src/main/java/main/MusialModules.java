@@ -12,15 +12,11 @@ package main;
  */
 public enum MusialModules {
     /**
-     * Updates an existing or generates a new variants dictionary JSON file.
+     * Generate a new variants dictionary JSON file.
      */
     BUILD,
     /**
-     * Infer nucleotide and/or amino-acid sequences from an existing variants dictionary JSON file.
+     * Extracts nucleotide variants as a table (.tsv).
      */
-    inferSequences,
-    /**
-     * Run SnpEff to annotate nucleotide variants and compute various statistics.
-     */
-    statistics
+    EXTRACT_NUC_VARIANTS_TABLE
 }

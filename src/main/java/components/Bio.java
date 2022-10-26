@@ -587,7 +587,7 @@ public final class Bio {
      * Computes variants from two aligned sequences.
      * <p>
      * Variants are extracted wrt. the query versus the target sequence and formatted as p@r@a, where p is the variant
-     * position, r is the reference content and a is the single alternate alleles content..
+     * position, r is the reference content and a is the single position alternate content content.
      *
      * @param targetSequence {@link String} representation of the target sequence (i.e. reference).
      * @param querySequence  {@link String} representation of the query sequence (i.e. the one with variants).
@@ -711,6 +711,7 @@ public final class Bio {
             throws MusialException {
         String sampleNucleotideSequence = variantsDictionary.getSampleNucleotideSequence(fId, sId);
         Function<Triplet<Integer, String, String>, ConcurrentSkipListMap<String, String>> extractVariantsFromAlignment = (sa) -> {
+            //noinspection DuplicatedCode
             ConcurrentSkipListMap<String, String> variants = new ConcurrentSkipListMap<>((s1, s2) -> {
                 int p1 = Integer.parseInt(s1.split("\\+")[0]);
                 int p2 = Integer.parseInt(s2.split("\\+")[0]);

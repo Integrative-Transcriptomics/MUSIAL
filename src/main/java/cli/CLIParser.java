@@ -6,6 +6,7 @@ import components.Logging;
 import exceptions.MusialException;
 import main.Musial;
 import org.apache.commons.cli.*;
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 import java.io.BufferedReader;
@@ -29,7 +30,7 @@ import java.util.function.Consumer;
  */
 public class CLIParser {
 
-    public JSONObject configuration;
+    public JSONArray configuration;
 
     public CommandLine arguments;
 
@@ -50,6 +51,7 @@ public class CLIParser {
                                         + " Please visit https://github.com/Integrative-Transcriptomics/MUSIAL for a detailed explanation on how to specify MUSIAL configuration files."
                                         + "\nAvailable modules are:"
                                         + "\nBUILD: Generate a new variants dictionary .json file from multiple .vcf files wrt. one reference (.fasta + .gff)."
+                                        + "\nEXTRACT_NUC_VARIANTS_TABLE: Extract stored nucleotide variants of specified samples and features as a .tsv file."
                         )
                         .hasArg()
                         .required()
@@ -101,7 +103,7 @@ public class CLIParser {
                             )
             ) {
                 Gson gson = new Gson();
-                this.configuration = gson.fromJson(bufferedReader, JSONObject.class);
+                this.configuration = gson.fromJson(bufferedReader, JSONArray.class);
             } catch (Exception e) {
                 throw new MusialException(
                         "(CLI Argument Parsing Failed) " + e.getMessage());

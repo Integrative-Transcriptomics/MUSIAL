@@ -166,7 +166,6 @@ public class VariantsDictionary {
                      Writer writer = new OutputStreamWriter(new GZIPOutputStream(output), StandardCharsets.UTF_8)) {
                     writer.write(dumpString);
                 }
-
                 // Write compressed (brotli) JSON.
                 gson = new GsonBuilder().create();
                 dumpString = gson.toJson(this);
@@ -177,7 +176,7 @@ public class VariantsDictionary {
                 // Write to pretty JSON.
                 gson = new GsonBuilder().setPrettyPrinting().create();
                 dumpString = gson.toJson(this);
-                FileWriter variantDBWriter = new FileWriter(dumpFilePath);
+                Writer variantDBWriter = new FileWriter(dumpFilePath);
                 variantDBWriter.write(dumpString);
                 variantDBWriter.close();
             }
@@ -192,11 +191,12 @@ public class VariantsDictionary {
      * <p>
      * Variants are returned wrt. the features start and end coordinates and its strand orientation.
      *
-     * @param featureId {@link String}; The name/id of the feature for which variants shall be extracted.
-     * @param sampleId  {@link String}; The name/id of the sample for which variants shall be extracted.
+     * @param featureId         {@link String}; The name/id of the feature for which variants shall be extracted.
+     * @param sampleId          {@link String}; The name/id of the sample for which variants shall be extracted.
+     * @param relativeToFeature {@link Boolean}; Whether to extract variants position and content wrt. feature (true).
      * @return {@link HashMap} of variants extracted for the specified feature and sample.
      */
-    public HashMap<Integer, String> getSampleNucleotideVariants(String featureId, String sampleId) {
+    public HashMap<Integer, String> getNucleotideVariants(String featureId, String sampleId, boolean relativeToFeature) {
         String sampleAllele = this.samples.get(sampleId).annotations.get("AL" + FIELD_SEPARATOR_1 + featureId);
         String concatVariants = this.features.get(featureId).alleles.get(sampleAllele).annotations.get(AlleleEntry.PROPERTY_NAME_VARIANTS);
         HashMap<Integer, String> variants = new HashMap<>();
@@ -208,10 +208,14 @@ public class VariantsDictionary {
             for (String variant : concatVariants.split(FIELD_SEPARATOR_2)) {
                 variantPosition = Integer.parseInt(variant.split(FIELD_SEPARATOR_1)[0]);
                 variantContent = variant.split(FIELD_SEPARATOR_1)[1];
-                relativeVariantPosition = features.get(featureId).isSense ? variantPosition - features.get(featureId).start + 1 :
-                        features.get(featureId).end - variantPosition + 1;
-                relativeVariantContent = features.get(featureId).isSense ? variantContent : Bio.reverseComplement(variantContent);
-                variants.put(relativeVariantPosition, relativeVariantContent);
+                if (relativeToFeature) {
+                    relativeVariantPosition = features.get(featureId).isSense ? variantPosition - features.get(featureId).start + 1 :
+                            features.get(featureId).end - variantPosition + 1;
+                    relativeVariantContent = features.get(featureId).isSense ? variantContent : Bio.reverseComplement(variantContent);
+                    variants.put(relativeVariantPosition, relativeVariantContent);
+                } else {
+                    variants.put(variantPosition, variantContent);
+                }
             }
         }
         return variants;
@@ -232,7 +236,7 @@ public class VariantsDictionary {
         } else {
             char[] referenceSequence = features.get(featureId).isSense ? features.get(featureId).nucleotideSequence.toCharArray() : Bio.reverseComplement(features.get(featureId).nucleotideSequence).toCharArray();
             StringBuilder sequenceBuilder = new StringBuilder();
-            HashMap<Integer, String> variants = getSampleNucleotideVariants(featureId, sampleId);
+            HashMap<Integer, String> variants = getNucleotideVariants(featureId, sampleId, true);
             String variant;
             long skipPositions = 0;
             for (int i = 1; i <= referenceSequence.length; i++) {
