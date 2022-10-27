@@ -6,6 +6,7 @@ import datastructure.FastaContainer;
 import datastructure.NucleotideVariantEntry;
 import datastructure.VariantsDictionary;
 import exceptions.MusialException;
+import htsjdk.samtools.util.Tuple;
 import main.Musial;
 import org.apache.commons.io.FileUtils;
 import org.biojava.nbio.genome.parsers.gff.FeatureList;
@@ -218,6 +219,7 @@ public final class IO {
     }
 
     /**
+     * // TODO: Fix comment.
      * Writes a fasta format file to the specified output file from a {@link HashMap} instance mapping sequences to
      * lists of identifiers (used to construct the fasta entry headers).
      * <p>
@@ -227,13 +229,12 @@ public final class IO {
      * @param outputFile {@link File} object pointing to the output fasta file.
      * @param sequences  {@link HashMap} mapping sequences to {@link ArrayList} of strings.
      */
-    @SuppressWarnings("unused")
-    public static void writeFasta(File outputFile, HashMap<String, ArrayList<String>> sequences) {
+    public static void writeFasta(File outputFile, ArrayList<Tuple<String, String>> sequences) {
         try {
             FileWriter writer = new FileWriter(outputFile);
-            for (Map.Entry<String, ArrayList<String>> sequenceEntry : sequences.entrySet()) {
-                writer.write(">" + String.join("|", sequenceEntry.getValue()) + IO.LINE_SEPARATOR);
-                for (String l : Splitter.fixedLength(80).split(sequenceEntry.getKey())) {
+            for (Tuple<String, String> sequence : sequences) {
+                writer.write(sequence.a + "\n");
+                for (String l : Splitter.fixedLength(80).split(sequence.b)) {
                     writer.write(l + IO.LINE_SEPARATOR);
                 }
                 writer.flush();

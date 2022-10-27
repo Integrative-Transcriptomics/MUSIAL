@@ -7,10 +7,10 @@ import cli.ModuleExtractParameters;
 import com.aayushatharva.brotli4j.Brotli4jLoader;
 import com.aayushatharva.brotli4j.encoder.Encoder;
 import com.google.gson.internal.LinkedTreeMap;
-import com.sun.source.tree.Tree;
 import components.*;
 import datastructure.*;
 import exceptions.MusialException;
+import htsjdk.samtools.util.Tuple;
 import runnables.SampleAnalyzerRunnable;
 
 import java.io.*;
@@ -126,7 +126,7 @@ public final class Musial {
                                             (LinkedTreeMap<Object, Object>) o
                                     )
                             );
-                            case EXTRACT_NUC_VARIANTS_TABLE -> executeEXTRACT_NUC_VARIANTS_TABLE(
+                            case EXTRACT -> executeEXTRACT(
                                     new ModuleExtractParameters(
                                             (LinkedTreeMap<Object, Object>) o
                                     )
@@ -169,7 +169,7 @@ public final class Musial {
     /**
      * Generates a new or updates an existing variants dictionary JSON file based on the specifications parsed from a variants dictionary specification JSON file.
      *
-     * @param parameters {@link ModuleBuildParameters} instance yielding parameter specification for the MUSIAL update variants dictionary module.
+     * @param parameters {@link ModuleBuildParameters} instance yielding parameter specification for the MUSIAL BUILD module.
      * @throws InterruptedException Thrown if any {@link Runnable} implementing class instance is interrupted by the user.
      * @throws IOException          Thrown if any input or output file is missing or unable to being generated (caused by any native Java method).
      * @throws MusialException      If any method fails wrt. biological context, i.e. parsing of unknown symbols; If any method fails wrt. internal logic, i.e. assignment of proteins to genomes; If any input or output file is missing or unable to being generated.
@@ -286,7 +286,7 @@ public final class Musial {
 
         // Infer coding feature variant/proteoform information; For all coding features.
         Logging.logStatus(Logging.getStartTag() + " Infer protein variants");
-        ConcurrentSkipListMap<String, String> aminoacidVariants;
+        ConcurrentSkipListMap<String, Tuple<String, String>> aminoacidVariants;
         List<String> featureIdsWithProteinInformation = variantsDictionary.features.keySet().stream().filter(
                 feKey -> variantsDictionary.features.get(feKey).isCodingSequence
         ).collect(Collectors.toList());
@@ -355,457 +355,119 @@ public final class Musial {
     }
 
     /**
+     * TODO
      *
+     * @param parameters {@link ModuleExtractParameters} instance yielding parameter specification for MUSIAL EXTRACT modules.
+     * @throws IOException     Thrown if any input or output file is missing or unable to being generated (caused by any native Java method).
+     * @throws MusialException If any method fails wrt. biological context or internal logic, e.g. only samples were specified that are not stored in the specified variants dictionary.
      */
-    private static void executeEXTRACT_NUC_VARIANTS_TABLE(ModuleExtractParameters parameters) throws IOException, MusialException {
-        Logging.logStatus("Execute module " + Logging.getPurpleTag("EXTRACT_NUC_VARIANTS_TABLE"));
+    @SuppressWarnings("DuplicatedCode")
+    private static void executeEXTRACT(ModuleExtractParameters parameters) throws IOException, MusialException {
+        Logging.logStatus(
+                "Execute module "
+                        + Logging.getPurpleTag("EXTRACT")
+                        + " " + Logging.getPurpleTag(parameters.contentMode)
+                        + " " + Logging.getPurpleTag(parameters.outputMode)
+                        + " " + Logging.getPurpleTag("Excl. indels: " + parameters.excludeIndels)
+                        + " " + Logging.getPurpleTag("Incl. non-variant positions: " + parameters.includeNonVariantPositions)
+                        + " " + Logging.getPurpleTag("Group samples: " + parameters.grouped)
+        );
 
         // Load variants dictionary.
         VariantsDictionary variantsDictionary = VariantsDictionaryFactory.load(parameters.inputFile);
 
-        // Validate parameters, i.e., ensure that specified samples and features are actually stored.
-        Logging.logStatus(Logging.getStartTag() + " Validate parameters");
-        List<String> sampleIds;
-        List<String> featureIds;
-        // Validate sample information.
-        if (parameters.samples.size() != 0) {
-            sampleIds = parameters.samples.stream().filter(variantsDictionary.samples::containsKey).collect(Collectors.toList());
-        } else {
-            sampleIds = new ArrayList<>(variantsDictionary.samples.keySet());
-        }
-        if (sampleIds.size() == 0) {
-            throw new MusialException("The number of specified valid samples is zero; " + String.join(" ,", sampleIds));
-        }
-        // Validate feature information.
-        if (parameters.features.size() != 0) {
-            featureIds = parameters.features.stream().filter(variantsDictionary.features::containsKey).collect(Collectors.toList());
-        } else {
-            featureIds = new ArrayList<>(variantsDictionary.features.keySet());
-        }
-        if (featureIds.size() == 0) {
-            throw new MusialException("The number of specified valid features is zero; " + String.join(" ,", featureIds));
-        }
-        Logging.logStatus(Logging.getDoneTag() + " Validate parameters");
-
-        // Collect variant information.
-        Logging.logStatus(Logging.getStartTag() + " Write variant table per feature");
-        // HashMap mapping position -> allele -> nuc. content.
-        TreeMap<String, HashMap<String, String>> mergedVariants;
-        // HashMap containing the variants wrt. one sample/allele and one feature.
-        HashMap<Integer, String> singularVariants;
-        HashSet<String> processedAlleles;
-        String sampleAlleleId;
-        int variantStart;
-        String variantPosition;
-        char[] variantContents;
-        char[] referenceContents;
-        String variantContent;
-        boolean isInsertion;
-        boolean isDeletion;
-        Writer outputWriter;
-        StringBuilder outputContentBuilder;
-        for (String featureId : featureIds) {
-            // Collect variant information for feature.
-            mergedVariants = new TreeMap<>((s1, s2) -> {
-                int p1 = Integer.parseInt(s1.split("\\+")[0]);
-                int p2 = Integer.parseInt(s2.split("\\+")[0]);
-                if (p1 != p2) {
-                    return Integer.compare(p1, p2);
-                } else {
-                    int i1 = s1.contains("\\+") ? Integer.parseInt(s1.split("\\+")[1]) : 0;
-                    int i2 = s2.contains("\\+") ? Integer.parseInt(s2.split("\\+")[1]) : 0;
-                    return Integer.compare(i1, i2);
+        // Process each feature.
+        for (String featureIdentifier : parameters.features) {
+            switch (parameters.outputMode) {
+                case ModuleExtractParameters.OUTPUT_MODE_TABLE -> {
+                    VariantsTable variantsTable = new VariantsTable(
+                            variantsDictionary,
+                            parameters.samples,
+                            featureIdentifier,
+                            parameters.contentMode,
+                            parameters.excludeIndels,
+                            parameters.includeNonVariantPositions,
+                            false
+                    );
+                    StringBuilder outputContentBuilder = new StringBuilder();
+                    // Prepare comment lines.
+                    outputContentBuilder
+                            .append("#")
+                            .append(NAME)
+                            .append(VERSION)
+                            .append(";")
+                            .append(Logging.getTimestampDayTime())
+                            .append(";")
+                            .append("NUC_VARIANTS_TABLE")
+                            .append(IO.LINE_SEPARATOR);
+                    outputContentBuilder
+                            .append("#")
+                            .append("FEATURE=")
+                            .append(featureIdentifier)
+                            .append(";START=")
+                            .append(variantsDictionary.features.get(featureIdentifier).start)
+                            .append(";END=")
+                            .append(variantsDictionary.features.get(featureIdentifier).end)
+                            .append(";CHR=")
+                            .append(variantsDictionary.features.get(featureIdentifier).chromosome)
+                            .append(";SENSE=")
+                            .append(variantsDictionary.features.get(featureIdentifier).isSense)
+                            .append(IO.LINE_SEPARATOR);
+                    // Add table content string.
+                    outputContentBuilder.append(variantsTable.toString(parameters.grouped));
+                    // FIXME: Compress full output directory and use better file name.
+                    if (Musial.COMPRESS) {
+                        // Write compressed (brotli) output.
+                        Brotli4jLoader.ensureAvailability();
+                        byte[] compressed = Encoder.compress(outputContentBuilder.toString().getBytes());
+                        Files.write(Paths.get(parameters.outputDirectory + "/" + featureIdentifier + ".tsv.br"), compressed);
+                    } else {
+                        // Write plain output.
+                        Writer outputWriter = new BufferedWriter(
+                                new FileWriter(parameters.outputDirectory + "/" + featureIdentifier + ".tsv")
+                        );
+                        outputWriter.write(outputContentBuilder.toString());
+                        outputWriter.close();
+                    }
                 }
-            });
-            processedAlleles = new HashSet<>();
-            for (String sampleId : sampleIds) {
-                sampleAlleleId = variantsDictionary.samples.get(sampleId).annotations.get("AL" + FIELD_SEPARATOR_1 + featureId);
-                if (sampleAlleleId.equals(AlleleEntry.PROPERTY_NAME_REFERENCE_ID)) {
-                    continue;
-                }
-                if (!processedAlleles.contains(sampleAlleleId)) {
-                    singularVariants = variantsDictionary.getNucleotideVariants(featureId, sampleId, false);
-                    for (Map.Entry<Integer, String> variantEntry : singularVariants.entrySet()) {
-                        variantStart = variantEntry.getKey();
-                        variantContents = variantEntry.getValue().toCharArray();
-                        referenceContents = variantsDictionary.nucleotideVariants.get(variantStart).get(variantEntry.getValue()).annotations.get(NucleotideVariantEntry.PROPERTY_NAME_REFERENCE_CONTENT).toCharArray();
-                        isInsertion = variantContents.length > referenceContents.length;
-                        isDeletion = variantEntry.getValue().contains(String.valueOf(Bio.DELETION_AA1));
-                        if ((isInsertion || isDeletion) && parameters.SNVOnly) {
-                            continue;
-                        }
-                        if (isInsertion) {
-                            referenceContents = variantContents;
-                            for (int i = 1; i < referenceContents.length; i++) {
-                                referenceContents[i] = Bio.DELETION_AA1;
+                case ModuleExtractParameters.OUTPUT_MODE_SEQUENCE_ALIGNED -> {
+                    VariantsTable variantsTable = new VariantsTable(
+                            variantsDictionary,
+                            parameters.samples,
+                            featureIdentifier,
+                            parameters.contentMode,
+                            parameters.excludeIndels,
+                            parameters.includeNonVariantPositions,
+                            false
+                    );
+                    ArrayList<Tuple<String, String>> fastaEntries = new ArrayList<>();
+                    if (parameters.grouped) {
+                        HashSet<String> accessors = new HashSet<>();
+                        for (String sample : parameters.samples) {
+                            switch (parameters.contentMode) {
+                                case ModuleExtractParameters.CONTENT_MODE_AMINOACID -> accessors.add(
+                                        variantsDictionary.samples.get(sample).annotations.get("PF" + FIELD_SEPARATOR_1 + featureIdentifier)
+                                );
+                                case ModuleExtractParameters.CONTENT_MODE_NUCLEOTIDE -> accessors.add(
+                                        variantsDictionary.samples.get(sample).annotations.get("AL" + FIELD_SEPARATOR_1 + featureIdentifier)
+                                );
                             }
                         }
-                        for (int i = 0; i < variantContents.length; i++) {
-                            variantContent = String.valueOf(variantContents[i]);
-                            if (isInsertion && i > 0) {
-                                variantPosition = variantStart + "+" + i;
-                            } else {
-                                variantPosition = String.valueOf(variantStart + i);
-                            }
-                            if (!mergedVariants.containsKey(variantPosition)) {
-                                mergedVariants.put(variantPosition, new HashMap<>());
-                            }
-                            if (!mergedVariants.get(variantPosition).containsKey("Reference")) {
-                                mergedVariants.get(variantPosition).put("Reference", String.valueOf(referenceContents[i]));
-                            }
-                            mergedVariants.get(variantPosition).put(sampleAlleleId, variantContent);
+                        for (String accessor : accessors) {
+                            fastaEntries.add(variantsTable.getFastaEntry(accessor));
+                        }
+                    } else {
+                        for (String sample : parameters.samples) {
+                            fastaEntries.add(variantsTable.getFastaEntry(sample));
                         }
                     }
-                    processedAlleles.add(sampleAlleleId);
+                    IO.writeFasta(
+                            new File(parameters.outputDirectory + "/" + featureIdentifier + ".fasta"),
+                            fastaEntries
+                    );
                 }
-            }
-            // Fill in reference content for non-variant positions per allele.
-            for (String processedVariantPosition : mergedVariants.keySet()) {
-                for (String processedAllele : processedAlleles) {
-                    if (!mergedVariants.get(processedVariantPosition).containsKey(processedAllele)) {
-                        mergedVariants.get(processedVariantPosition).put(processedAllele, ".");
-                    }
-                }
-            }
-            // Construct output string.
-            // Write info and header lines.
-            outputContentBuilder = new StringBuilder();
-            outputContentBuilder
-                    .append("#")
-                    .append(NAME)
-                    .append(VERSION)
-                    .append(";")
-                    .append(Logging.getTimestampDayTime())
-                    .append(";")
-                    .append("NUC_VARIANTS_TABLE")
-                    .append(IO.LINE_SEPARATOR);
-            outputContentBuilder
-                    .append("#")
-                    .append("FEATURE=")
-                    .append(featureId)
-                    .append(";START=")
-                    .append(variantsDictionary.features.get(featureId).start)
-                    .append(";END=")
-                    .append(variantsDictionary.features.get(featureId).end)
-                    .append(";CHR=")
-                    .append(variantsDictionary.features.get(featureId).chromosome)
-                    .append(";SENSE=")
-                    .append(variantsDictionary.features.get(featureId).isSense)
-                    .append(IO.LINE_SEPARATOR);
-            outputContentBuilder
-                    .append("Position\tReference");
-            if (variantsDictionary.features.get(featureId).alleles.containsKey(AlleleEntry.PROPERTY_NAME_REFERENCE_ID)) {
-                for (String sampleId : variantsDictionary.features.get(featureId).alleles.get(AlleleEntry.PROPERTY_NAME_REFERENCE_ID).samples) {
-                    outputContentBuilder.append("\t").append(sampleId);
-                }
-            }
-            for (String processedAllele : processedAlleles) {
-                for (String sampleId : variantsDictionary.features.get(featureId).alleles.get(processedAllele).samples) {
-                    outputContentBuilder.append("\t").append(sampleId);
-                }
-            }
-            outputContentBuilder.append(IO.LINE_SEPARATOR);
-            for (Map.Entry<String, HashMap<String, String>> processedVariant : mergedVariants.entrySet()) {
-                outputContentBuilder
-                        .append(processedVariant.getKey())
-                        .append("\t")
-                        .append(processedVariant.getValue().get("Reference"));
-                if (variantsDictionary.features.get(featureId).alleles.containsKey(AlleleEntry.PROPERTY_NAME_REFERENCE_ID)) {
-                    for (String ignored : variantsDictionary.features.get(featureId).alleles.get(AlleleEntry.PROPERTY_NAME_REFERENCE_ID).samples) {
-                        outputContentBuilder
-                                .append("\t")
-                                .append(".");
-                    }
-                }
-                for (String processedAllele : processedAlleles) {
-                    for (String ignored : variantsDictionary.features.get(featureId).alleles.get(processedAllele).samples) {
-                        outputContentBuilder
-                                .append("\t")
-                                .append(processedVariant.getValue().get(processedAllele));
-                    }
-                }
-                outputContentBuilder.append(IO.LINE_SEPARATOR);
-            }
-            //Write built content string to file.
-            if (Musial.COMPRESS) {
-                // Write compressed (brotli) output.
-                Brotli4jLoader.ensureAvailability();
-                byte[] compressed = Encoder.compress(outputContentBuilder.toString().getBytes());
-                Files.write(Paths.get(parameters.outputDirectory + "/" + featureId + ".tsv.br"), compressed);
-            } else {
-                // Write plain output.
-                outputWriter = new BufferedWriter(
-                        new FileWriter(parameters.outputDirectory + "/" + featureId + ".tsv")
-                );
-                outputWriter.write(outputContentBuilder.toString());
-                outputWriter.close();
+                default -> throw new MusialException("Unable to process output mode " + parameters.outputMode);
             }
         }
-        Logging.logStatus(Logging.getDoneTag() + " Write variant table per feature");
     }
-
-    /**
-     * Extract genotype and/or proteoform sequences as alignment or unaligned in .fasta format from an existing variants dictionary.
-     * <p>
-     * Sequences are written in coding direction.
-     *
-     * @param cliarguments {@link CLIParametersInferSequences} instance yielding parameter specification for the MUSIAL infer sequences module.
-     * @throws MusialIOException  If the generation of output directories or files fails.
-     * @throws MusialBioException If sequence extraction procedures from the specified {@link VariantsDictionary} instance fail.
-     *
-    private static void run (CLIParametersInferSequences cliarguments) throws MusialIOException, MusialBioException {
-    // TODO: Generalize methods; Currently code is heavily duplicated for debugging.
-    HashMap<String, ArrayList<String>> sequences; // Stores sequences as keys pointing to list of proteoforms/samples.
-    String sequence;
-    String VSWAB;
-    // Write genotype sequences.
-    if (cliarguments.GS) {
-    Logging.logStatus("Write genotype sequences.");
-    try (ProgressBar pb = buildProgress()) {
-    pb.maxHint(cliarguments.inputVDict.features.size());
-    int gtIndex;
-    for (FeatureEntry featureEntry : cliarguments.inputVDict.features.values()) {
-    sequences = new HashMap<>();
-    // Access and store wild-type nucleotide sequence.
-    String featureWildTypeNucleotideSequence = featureEntry.nucleotideSequence;
-    sequences.put(featureWildTypeNucleotideSequence, new ArrayList<>());
-    sequences.get(featureWildTypeNucleotideSequence).add(VariantsDictionary.WILD_TYPE_SAMPLE_ID);
-    for (SampleEntry sampleEntry : cliarguments.inputVDict.samples.values()) {
-    VSWAB = sampleEntry.annotations.get(featureEntry.name + VariantsDictionary.ATTRIBUTE_VARIANT_SWAB_NAME);
-    if (VSWAB == null) {
-    sequences.get(featureWildTypeNucleotideSequence).add(sampleEntry.name);
-    } else {
-    sequence = cliarguments.inputVDict.getSampleNucleotideSequence(featureEntry.name, sampleEntry.name);
-    if (sequences.containsKey(sequence)) {
-    sequences.get(sequence).add(sampleEntry.name);
-    } else {
-    sequences.put(sequence, new ArrayList<>());
-    sequences.get(sequence).add(sampleEntry.name);
-    }
-    }
-    }
-    gtIndex = 1;
-    for (String s : sequences.keySet()) {
-    sequences.get(s).add(0, "GT" + gtIndex);
-    gtIndex += 1;
-    }
-    File gtsOutDir = new File(cliarguments.outputDirectory.getAbsolutePath() + "/GenotypeSequences/");
-    if (!Validation.isDirectory(gtsOutDir)) {
-    IO.generateDirectory(gtsOutDir);
-    }
-    IO.writeFasta(
-    new File(cliarguments.outputDirectory.getAbsolutePath() + "/GenotypeSequences/" + featureEntry.chromosome + "_" + featureEntry.name + "_" + cliarguments.samples.size() + "_genotypeSequences.fasta"),
-    sequences
-    );
-    pb.step();
-    }
-    }
-    }
-    // Write proteoform sequences.
-    if (cliarguments.PS) {
-    Logging.logStatus("Write proteoform sequences.");
-    try (ProgressBar pb = buildProgress()) {
-    pb.maxHint(cliarguments.inputVDict.features.size());
-    for (FeatureEntry featureEntry : cliarguments.inputVDict.features.values()) {
-    sequences = new HashMap<>();
-    for (String pfId : cliarguments.inputVDict.features.get(featureEntry.name).allocatedProtein.proteoforms.keySet()) {
-    sequence = cliarguments.inputVDict.getProteoformSequence(featureEntry.name, pfId);
-    sequences.put(sequence, new ArrayList<>());
-    sequences.get(sequence).add(pfId);
-    sequences.get(sequence).add(
-    "VP=" + featureEntry.allocatedProtein.proteoforms.get(pfId).annotations.get("VP")
-    + ";PT=" + featureEntry.allocatedProtein.proteoforms.get(pfId).annotations.get("PT")
-    );
-    sequences.get(sequence).addAll(featureEntry.allocatedProtein.proteoforms.get(pfId).samples);
-    }
-    File pfsOutDir = new File(cliarguments.outputDirectory.getAbsolutePath() + "/ProteoformSequences/");
-    if (!Validation.isDirectory(pfsOutDir)) {
-    IO.generateDirectory(pfsOutDir);
-    }
-    IO.writeFasta(
-    new File(cliarguments.outputDirectory.getAbsolutePath() + "/ProteoformSequences/" + featureEntry.chromosome + "_" + featureEntry.name + "_" + cliarguments.samples.size() + "_proteoformSequences.fasta"),
-    sequences
-    );
-    pb.step();
-    }
-    }
-    }
-    // Write genotype sequences MSA.
-    ConcurrentSkipListMap<String, HashMap<String, Character>> perPositionContents =
-    new ConcurrentSkipListMap<>((k1, k2) -> {
-    int p1 = Integer.parseInt(k1.split("\\+")[0]);
-    int p2 = Integer.parseInt(k2.split("\\+")[0]);
-    if (p1 == p2) {
-    p1 = Integer.parseInt(k1.split("\\+")[1]);
-    p2 = Integer.parseInt(k2.split("\\+")[1]);
-    }
-    return Integer.compare(p1, p2);
-    });
-    char[] sequenceChars;
-    String positionContent;
-    String positionStr;
-    int positionInt;
-    int entryIndex;
-    int VSWABHashCode;
-    HashMap<String, ArrayList<String>> faSequences;
-    ArrayList<String> faHeadersList;
-    StringBuilder faSequenceBuilder = new StringBuilder();
-    if (cliarguments.GSMSA) {
-    Logging.logStatus("Write genotype sequences alignment.");
-    try (ProgressBar pb = buildProgress()) {
-    pb.maxHint(cliarguments.inputVDict.features.size());
-    HashMap<Integer, String> variants;
-    HashMap<Integer, String> VSWABHashToGTIdentifier = new HashMap<>();
-    HashMap<String, TreeSet<String>> GTIdentifierToSamples = new HashMap<>();
-    for (FeatureEntry featureEntry : cliarguments.inputVDict.features.values()) {
-    perPositionContents.clear();
-    VSWABHashToGTIdentifier.clear();
-    GTIdentifierToSamples.clear();
-    entryIndex = 1;
-    // Extract reference sequence information.
-    sequenceChars = featureEntry.isSense ? featureEntry.nucleotideSequence.toCharArray() : Bio.reverseComplement(featureEntry.nucleotideSequence).toCharArray();
-    for (int i = 0; i < sequenceChars.length; i++) {
-    if (!perPositionContents.containsKey((i + 1) + "+0")) {
-    perPositionContents.put((i + 1) + "+0", new HashMap<>());
-    }
-    perPositionContents.get((i + 1) + "+0").put("GT0", sequenceChars[i]);
-    }
-    VSWABHashToGTIdentifier.put(0, "GT0");
-    GTIdentifierToSamples.put("GT0", new TreeSet<>(cliarguments.inputVDict.samples.keySet()));
-    // Infer per sample variant content information.
-    for (SampleEntry sampleEntry : cliarguments.inputVDict.samples.values()) {
-    if (sampleEntry.annotations.containsKey(featureEntry.name + VariantsDictionary.ATTRIBUTE_VARIANT_SWAB_NAME)) {
-    VSWAB = sampleEntry.annotations.get(featureEntry.name + VariantsDictionary.ATTRIBUTE_VARIANT_SWAB_NAME);
-    VSWABHashCode = VSWAB.hashCode();
-    if (!VSWABHashToGTIdentifier.containsKey(VSWABHashCode)) {
-    VSWABHashToGTIdentifier.put(VSWABHashCode, "GT" + entryIndex);
-    GTIdentifierToSamples.put("GT" + entryIndex, new TreeSet<>());
-    // Add variants from VSWAB:
-    variants = cliarguments.inputVDict.getSampleNucleotideVariants(featureEntry.name, sampleEntry.name);
-    for (Map.Entry<Integer, String> variantEntry : variants.entrySet()) {
-    positionInt = variantEntry.getKey();
-    positionContent = variantEntry.getValue();
-    sequenceChars = positionContent.toCharArray();
-    if (positionContent.contains(String.valueOf(Bio.DELETION_AA1))) {
-    for (int i = 0; i < sequenceChars.length; i++) {
-    if (!perPositionContents.containsKey(positionInt + i + "+0")) {
-    perPositionContents.put(positionInt + i + "+0", new HashMap<>());
-    }
-    perPositionContents.get(positionInt + i + "+0").put("GT" + entryIndex, sequenceChars[i]);
-    }
-    } else {
-    for (int i = 0; i < sequenceChars.length; i++) {
-    if (!perPositionContents.containsKey(positionInt + "+" + i)) {
-    perPositionContents.put(positionInt + "+" + i, new HashMap<>());
-    }
-    perPositionContents.get(positionInt + "+" + i).put("GT" + entryIndex, sequenceChars[i]);
-    }
-    }
-    }
-    entryIndex += 1;
-    }
-    GTIdentifierToSamples.get(VSWABHashToGTIdentifier.get(VSWABHashCode)).add(sampleEntry.name);
-    GTIdentifierToSamples.get("GT0").remove(sampleEntry.name);
-    }
-    }
-    faSequences = new HashMap<>();
-    for (String gtIdentifier : GTIdentifierToSamples.keySet()) {
-    faHeadersList = new ArrayList<>();
-    faHeadersList.add(gtIdentifier);
-    faHeadersList.addAll(GTIdentifierToSamples.get(gtIdentifier));
-    faSequenceBuilder.setLength(0);
-    for (String p : perPositionContents.keySet()) {
-    if (!(cliarguments.skipConserved && perPositionContents.get(p).keySet().size() == 1)) {
-    if (perPositionContents.get(p).containsKey(gtIdentifier)) {
-    faSequenceBuilder.append(perPositionContents.get(p).get(gtIdentifier));
-    } else {
-    if (perPositionContents.get(p).containsKey("GT0")) {
-    faSequenceBuilder.append(perPositionContents.get(p).get("GT0"));
-    } else {
-    faSequenceBuilder.append(Bio.GAP);
-    }
-    }
-    }
-    }
-    faSequences.put(faSequenceBuilder.toString(), faHeadersList);
-    }
-    IO.writeFasta(
-    new File(cliarguments.outputDirectory.getAbsolutePath() + "/GenotypeSequences/" + featureEntry.chromosome + "_" + featureEntry.name + "_" + cliarguments.samples.size() + "_genotypeSequencesAlignment.fasta"),
-    faSequences
-    );
-    pb.step();
-    }
-    }
-    }
-    // Write proteoform sequences MSA.
-    TreeSet<String> faEntryIds;
-    if (cliarguments.PSMSA) {
-    Logging.logStatus("Write proteoform sequences alignment.");
-    try (ProgressBar pb = buildProgress()) {
-    pb.maxHint(cliarguments.inputVDict.features.size());
-    for (FeatureEntry featureEntry : cliarguments.inputVDict.features.values()) {
-    perPositionContents.clear();
-    HashMap<String, String> variants;
-    faEntryIds = new TreeSet<>();
-    for (ProteoformEntry proteoform : featureEntry.allocatedProtein.proteoforms.values()) {
-    if (proteoform.name.equals(AllocatedProteinEntry.WILD_TYPE_PROTEOFORM_ID)) {
-    sequenceChars = cliarguments.inputVDict.getProteoformSequence(featureEntry.name, proteoform.name).toCharArray();
-    for (int i = 0; i < sequenceChars.length; i++) {
-    if (!perPositionContents.containsKey((i + 1) + "+0")) {
-    perPositionContents.put((i + 1) + "+0", new HashMap<>());
-    }
-    perPositionContents.get((i + 1) + "+0").put(proteoform.name, sequenceChars[i]);
-    }
-    faEntryIds.add(proteoform.name);
-    } else {
-    variants = cliarguments.inputVDict.getProteoformAminoacidVariants(featureEntry.name, proteoform.name);
-    for (Map.Entry<String, String> variantEntry : variants.entrySet()) {
-    positionStr = variantEntry.getKey();
-    positionContent = variantEntry.getValue();
-    if (!perPositionContents.containsKey(positionStr)) {
-    perPositionContents.put(positionStr, new HashMap<>());
-    }
-    perPositionContents.get(positionStr).put(proteoform.name, positionContent.charAt(0));
-    }
-    faEntryIds.add(proteoform.name);
-    }
-    }
-    faSequences = new HashMap<>();
-    for (String faEntryId : faEntryIds) {
-    faSequenceBuilder.setLength(0);
-    faHeadersList = new ArrayList<>();
-    for (String p : perPositionContents.keySet()) {
-    if (!(cliarguments.skipConserved && perPositionContents.get(p).keySet().size() == 1)) {
-    if (perPositionContents.get(p).containsKey(faEntryId)) {
-    faSequenceBuilder.append(perPositionContents.get(p).get(faEntryId));
-    } else {
-    if (perPositionContents.get(p).containsKey(VariantsDictionary.WILD_TYPE_SAMPLE_ID)) {
-    faSequenceBuilder.append(perPositionContents.get(p).get(VariantsDictionary.WILD_TYPE_SAMPLE_ID));
-    } else {
-    faSequenceBuilder.append(Bio.GAP);
-    }
-    }
-    }
-    }
-    faHeadersList.add(faEntryId);
-    faHeadersList.add(
-    "VP=" + featureEntry.allocatedProtein.proteoforms.get(faEntryId).annotations.get("VP")
-    + ";PT=" + featureEntry.allocatedProtein.proteoforms.get(faEntryId).annotations.get("PT")
-    );
-    faHeadersList.addAll(
-    featureEntry.allocatedProtein.proteoforms.get(faEntryId).samples
-    );
-    faSequences.put(faSequenceBuilder.toString(), faHeadersList);
-    }
-    IO.writeFasta(
-    new File(cliarguments.outputDirectory.getAbsolutePath() + "/ProteoformSequences/" + featureEntry.chromosome + "_" + featureEntry.name + "_" + cliarguments.samples.size() + "_proteoformSequencesAlignment.fasta"),
-    faSequences
-    );
-    pb.step();
-    }
-    }
-    }
-    }
-     */
-
 }

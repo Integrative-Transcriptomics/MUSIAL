@@ -4,6 +4,7 @@ import com.google.common.base.Splitter;
 import datastructure.FeatureEntry;
 import datastructure.VariantsDictionary;
 import exceptions.MusialException;
+import htsjdk.samtools.util.Tuple;
 import org.javatuples.Triplet;
 
 import java.util.*;
@@ -706,13 +707,13 @@ public final class Bio {
      * @return {@link ConcurrentSkipListMap} mapping positions to variant contents.
      * @throws MusialException If any translation procedure of nucleotide sequences fails.
      */
-    public static ConcurrentSkipListMap<String, String> inferAminoacidVariants(
+    public static ConcurrentSkipListMap<String, Tuple<String, String>> inferAminoacidVariants(
             VariantsDictionary variantsDictionary, String fId, String sId)
             throws MusialException {
         String sampleNucleotideSequence = variantsDictionary.getSampleNucleotideSequence(fId, sId);
-        Function<Triplet<Integer, String, String>, ConcurrentSkipListMap<String, String>> extractVariantsFromAlignment = (sa) -> {
+        Function<Triplet<Integer, String, String>, ConcurrentSkipListMap<String, Tuple<String, String>>> extractVariantsFromAlignment = (sa) -> {
             //noinspection DuplicatedCode
-            ConcurrentSkipListMap<String, String> variants = new ConcurrentSkipListMap<>((s1, s2) -> {
+            ConcurrentSkipListMap<String, Tuple<String, String>> variants = new ConcurrentSkipListMap<>((s1, s2) -> {
                 int p1 = Integer.parseInt(s1.split("\\+")[0]);
                 int p2 = Integer.parseInt(s2.split("\\+")[0]);
                 if (p1 != p2) {
@@ -746,7 +747,13 @@ public final class Bio {
                         // CASE: Substitution in sample.
                         consecutiveInsertionCount = 0;
                     }
-                    variants.put(i - totalInsertionCount + 1 + "+" + consecutiveInsertionCount, String.valueOf(alignedSampleCharacter));
+                    variants.put(
+                            i - totalInsertionCount + 1 + "+" + consecutiveInsertionCount,
+                            new Tuple<String, String>(
+                                    String.valueOf(alignedSampleCharacter),
+                                    String.valueOf(alignedReferenceCharacter)
+                            )
+                    );
                 } else {
                     consecutiveInsertionCount = 0;
                 }

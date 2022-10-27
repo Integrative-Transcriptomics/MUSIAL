@@ -38,10 +38,33 @@ public class ModuleExtractParameters {
     /**
      * {@link Boolean} whether to include only SNVs.
      */
-    public boolean SNVOnly;
+    public boolean excludeIndels;
+    /**
+     * {@link Boolean} whether to include non-variant positions.
+     */
+    public boolean includeNonVariantPositions;
+    /**
+     * {@link String} specifying the mode of output files generated. Either "SEQUENCE", "SEQUENCE_ALIGNED" or "TABLE".
+     */
+    public String outputMode;
+    /**
+     * {@link String} specifying the content, i.e., either "NUCLEOTIDE" or "AMINOACID".
+     */
+    public String contentMode;
+    /**
+     * {@link Boolean} whether to group samples by proteoform/alleles.
+     */
+    public boolean grouped;
+
+    public static final String OUTPUT_MODE_SEQUENCE = "SEQUENCE";
+    public static final String OUTPUT_MODE_SEQUENCE_ALIGNED = "SEQUENCE_ALIGNED";
+    public static final String OUTPUT_MODE_TABLE = "TABLE";
+    public static final String CONTENT_MODE_NUCLEOTIDE = "NUCLEOTIDE";
+    public static final String CONTENT_MODE_AMINOACID = "AMINOACID";
+
 
     @SuppressWarnings("FieldCanBeLocal")
-    private final String EXCEPTION_PREFIX = "(Module BUILD Configuration)";
+    private final String EXCEPTION_PREFIX = "(Module EXTRACT Configuration)";
 
     /**
      * Constructor of the {@link ModuleExtractParameters} class.
@@ -93,10 +116,60 @@ public class ModuleExtractParameters {
         }
 
         // Parse boolean parameter whether to exclude indels.
-        if (parameters.containsKey("snvOnly")) {
-            this.SNVOnly = (boolean) parameters.get("snvOnly");
+        if (parameters.containsKey("excludeIndels")) {
+            this.excludeIndels = (boolean) parameters.get("excludeIndels");
         } else {
-            this.SNVOnly = false;
+            this.excludeIndels = false;
+        }
+
+        // Parse boolean parameter whether to include non-variant positions.
+        if (parameters.containsKey("includeNonVariantPositions")) {
+            this.includeNonVariantPositions = (boolean) parameters.get("includeNonVariantPositions");
+        } else {
+            this.excludeIndels = false;
+        }
+
+        // Parse boolean parameter whether to group samples by allele/proteoform.
+        if (parameters.containsKey("grouped")) {
+            this.excludeIndels = (boolean) parameters.get("grouped");
+        } else {
+            this.excludeIndels = false;
+        }
+
+        // Parse string parameter of content mode.
+        if (parameters.containsKey("contentMode")) {
+            this.contentMode = (String) parameters.get("contentMode");
+            if (!this.contentMode.equals(CONTENT_MODE_NUCLEOTIDE) && !this.contentMode.equals(CONTENT_MODE_AMINOACID)) {
+                throw new MusialException(
+                        EXCEPTION_PREFIX
+                                + " Unknown content mode "
+                                + this.contentMode
+                );
+            }
+        } else {
+            throw new MusialException(
+                    EXCEPTION_PREFIX
+                            + " Unknown content mode "
+                            + this.contentMode
+            );
+        }
+
+        // Parse string parameter of output mode.
+        if (parameters.containsKey("outputMode")) {
+            this.outputMode = (String) parameters.get("outputMode");
+            if (!this.outputMode.equals(OUTPUT_MODE_SEQUENCE) && !this.outputMode.equals(OUTPUT_MODE_SEQUENCE_ALIGNED) && !this.outputMode.equals(OUTPUT_MODE_TABLE)) {
+                throw new MusialException(
+                        EXCEPTION_PREFIX
+                                + " Unknown output mode "
+                                + this.outputMode
+                );
+            }
+        } else {
+            throw new MusialException(
+                    EXCEPTION_PREFIX
+                            + " Unknown output mode "
+                            + this.outputMode
+            );
         }
     }
 

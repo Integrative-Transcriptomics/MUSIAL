@@ -16,7 +16,7 @@ public enum MusialModules {
      */
     BUILD,
     /**
-     * Extracts nucleotide variants as a table (.tsv).
+     * Extract tables or sequences of nucleotide or aminoacid variants in .tsv or .fasta format.
      */
-    EXTRACT_NUC_VARIANTS_TABLE
+    EXTRACT
 }

@@ -24,6 +24,8 @@ public class AminoacidVariantEntry {
 
     public final static String PROPERTY_NAME_FREQUENCY = "FRQ";
 
+    public final static String PROPERTY_NAME_REFERENCE_CONTENT = "REF_CONT";
+
     /**
      * Constructor of {@link AminoacidVariantEntry}.
      */

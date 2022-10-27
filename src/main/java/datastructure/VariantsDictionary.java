@@ -5,6 +5,7 @@ import com.aayushatharva.brotli4j.encoder.Encoder;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import components.Bio;
+import components.Logging;
 import exceptions.MusialException;
 import main.Musial;
 
@@ -13,11 +14,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.zip.GZIPOutputStream;
 
 /**
@@ -189,7 +189,7 @@ public class VariantsDictionary {
      * Extracts a {@link HashMap} of {@link Integer}/{@link String} key/value pairs reflecting all variants wrt. one
      * sample and feature.
      * <p>
-     * Variants are returned wrt. the features start and end coordinates and its strand orientation.
+     * If specified, variants are returned wrt. the features start and end coordinates and its strand orientation.
      *
      * @param featureId         {@link String}; The name/id of the feature for which variants shall be extracted.
      * @param sampleId          {@link String}; The name/id of the sample for which variants shall be extracted.
@@ -325,4 +325,81 @@ public class VariantsDictionary {
         proteoformContent.values().forEach(proteoformSequenceBuilder::append);
         return proteoformSequenceBuilder.toString().replace("-", "");
     }
+
+    /**
+     * Removes any sample ids from the passed list that are not associated with an actual {@link SampleEntry} in
+     * {@link VariantsDictionary#samples}.
+     * <p>
+     * If an empty list ist provided, a list of the keys stored in {@link VariantsDictionary#samples} is returned.
+     *
+     * @param sampleIds {@link ArrayList} of sample ids ({@link String}s) to filter.
+     * @return {@link ArrayList} of sample ids that are associated with an entry in this instance.
+     * @throws MusialException If none of the passed sample ids is associated with an entry in this instance.
+     */
+    public ArrayList<String> removeInvalidSampleIds(ArrayList<String> sampleIds) throws MusialException {
+        List<String> filteredSampleIds;
+        if (sampleIds.size() == 0) {
+            return new ArrayList<>(this.samples.keySet());
+        } else {
+            filteredSampleIds = sampleIds.stream().filter(this.samples::containsKey).collect(Collectors.toList());
+            if (sampleIds.size() != filteredSampleIds.size()) {
+                Logging.logWarning(
+                        "Removed " + (sampleIds.size() - filteredSampleIds.size()) + " sample ids for which no entry is stored."
+                );
+            }
+        }
+        if (filteredSampleIds.size() == 0) {
+            throw new MusialException("The number of specified valid samples is zero.");
+        } else {
+            return (ArrayList<String>) filteredSampleIds;
+        }
+    }
+
+    /**
+     * Removes any feature ids from the passed list that are not associated with an actual {@link FeatureEntry} in
+     * {@link VariantsDictionary#features} or do not match with the specified criteria.
+     * <p>
+     * If an empty list is provided, a list of the keys stored in {@link VariantsDictionary#features} that pass the
+     * specified criteria is returned.
+     *
+     * @param featureIds {@link ArrayList} of feature ids ({@link String}s) to filter.
+     * @param criteria   A {@link Function} that is additionally used to filter the input list.
+     * @return {@link ArrayList} of feature ids that are associated with an entry in this instance and pass the specified criteria.
+     * @throws MusialException If none of the passed/stored feature ids passes the filtering.
+     */
+    public ArrayList<String> removeInvalidFeatureIds(ArrayList<String> featureIds, Function<String, Boolean> criteria) throws MusialException {
+        List<String> filteredFeatureIds;
+        if (featureIds.size() == 0) {
+            featureIds = new ArrayList<>(this.features.keySet());
+        }
+        filteredFeatureIds = featureIds.stream().filter(
+                fId -> this.features.containsKey(fId) && criteria.apply(fId)
+        ).collect(Collectors.toList());
+        if (featureIds.size() != filteredFeatureIds.size()) {
+            Logging.logWarning(
+                    "Removed " + (featureIds.size() - filteredFeatureIds.size()) + " feature ids."
+            );
+        }
+        if (filteredFeatureIds.size() == 0) {
+            throw new MusialException("The number of specified valid features is zero.");
+        } else {
+            return (ArrayList<String>) filteredFeatureIds;
+        }
+    }
+
+    /**
+     * Removes any feature ids from the passed list that are not associated with an actual {@link FeatureEntry} in
+     * {@link VariantsDictionary#features}.
+     * <p>
+     * If an empty list is provided, a list of the keys stored in {@link VariantsDictionary#features} is returned.
+     *
+     * @param featureIds {@link ArrayList} of feature ids ({@link String}s) to filter.
+     * @return {@link ArrayList} of feature ids that are associated with an entry in this instance.
+     * @throws MusialException If none of the passed feature ids passes the filtering.
+     */
+    public ArrayList<String> removeInvalidFeatureIds(ArrayList<String> featureIds) throws MusialException {
+        return removeInvalidFeatureIds(featureIds, s -> true);
+    }
+
+
 }

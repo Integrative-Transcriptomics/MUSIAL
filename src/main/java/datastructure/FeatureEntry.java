@@ -4,6 +4,7 @@ import components.Bio;
 import components.IO;
 import components.Logging;
 import exceptions.MusialException;
+import htsjdk.samtools.util.Tuple;
 import main.Musial;
 import org.apache.commons.math3.distribution.UniformRealDistribution;
 import org.apache.commons.math3.stat.inference.KolmogorovSmirnovTest;
@@ -320,7 +321,7 @@ public final class FeatureEntry {
      * @param parentDictionary {@link VariantsDictionary} this {@link FeatureEntry} is stored in. Used to record
      *                         occurrence of variants in the added proteoform.
      */
-    public void addProteoform(String sampleId, ConcurrentSkipListMap<String, String> variants, VariantsDictionary parentDictionary) {
+    public void addProteoform(String sampleId, ConcurrentSkipListMap<String, Tuple<String, String>> variants, VariantsDictionary parentDictionary) {
         String concatVariants = variants.entrySet().stream().map(
                 e -> e.getKey() + VariantsDictionary.FIELD_SEPARATOR_1 + e.getValue()
         ).collect(Collectors.joining(VariantsDictionary.FIELD_SEPARATOR_2));
@@ -334,7 +335,8 @@ public final class FeatureEntry {
                 if (!this.aminoacidVariants.containsKey(variantPosition)) {
                     this.aminoacidVariants.put(variantPosition, new ConcurrentSkipListMap<>());
                 }
-                String variantContent = variants.get(variantPosition);
+                String variantContent = variants.get(variantPosition).a;
+                String referenceContent = variants.get(variantPosition).b;
                 if (variantContent.equals(String.valueOf(Bio.TERMINATION_AA1)) && !this.proteoforms.get(proteoformName).annotations.containsKey(ProteoformEntry.PROPERTY_NAME_DIVERGING_TERMINATION_POSITION)) {
                     this.proteoforms.get(proteoformName).annotations.put(
                             ProteoformEntry.PROPERTY_NAME_DIVERGING_TERMINATION_POSITION,
@@ -349,6 +351,7 @@ public final class FeatureEntry {
                     AminoacidVariantEntry aminoacidVariantAnnotationEntry = new AminoacidVariantEntry();
                     // TODO: Infer causative nucleotide variants.
                     this.aminoacidVariants.get(variantPosition).put(variantContent, aminoacidVariantAnnotationEntry);
+                    this.aminoacidVariants.get(variantPosition).get(variantContent).annotations.put(AminoacidVariantEntry.PROPERTY_NAME_REFERENCE_CONTENT, referenceContent);
                 }
                 this.aminoacidVariants.get(variantPosition).get(variantContent).occurrence.add(proteoformName);
             }
@@ -374,19 +377,19 @@ public final class FeatureEntry {
             this.proteoforms.get(proteoformName).annotations.put(
                     ProteoformEntry.PROPERTY_NAME_NUMBER_OF_SUBSTITUTIONS,
                     String.valueOf(variants.entrySet().stream().filter(
-                            e -> Objects.equals(e.getKey().split("\\+")[1], "0") && !e.getValue().equals(String.valueOf(Bio.DELETION_AA1))
+                            e -> Objects.equals(e.getKey().split("\\+")[1], "0") && !e.getValue().a.equals(String.valueOf(Bio.DELETION_AA1))
                     ).count())
             );
             this.proteoforms.get(proteoformName).annotations.put(
                     ProteoformEntry.PROPERTY_NAME_NUMBER_OF_INSERTIONS,
                     String.valueOf(variants.entrySet().stream().filter(
-                            e -> !Objects.equals(e.getKey().split("\\+")[1], "0") && !e.getValue().equals(String.valueOf(Bio.DELETION_AA1))
+                            e -> !Objects.equals(e.getKey().split("\\+")[1], "0") && !e.getValue().a.equals(String.valueOf(Bio.DELETION_AA1))
                     ).count())
             );
             this.proteoforms.get(proteoformName).annotations.put(
                     ProteoformEntry.PROPERTY_NAME_NUMBER_OF_DELETIONS,
                     String.valueOf(variants.entrySet().stream().filter(
-                            e -> Objects.equals(e.getKey().split("\\+")[1], "0") && e.getValue().equals(String.valueOf(Bio.DELETION_AA1))
+                            e -> Objects.equals(e.getKey().split("\\+")[1], "0") && e.getValue().a.equals(String.valueOf(Bio.DELETION_AA1))
                     ).count())
             );
             // (3) Conglomeration index; i.e., the p-value of a KS-Test of the observed variant positions compared to a uniform distribution of variant positions.

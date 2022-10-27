@@ -51,7 +51,7 @@ public class CLIParser {
                                         + " Please visit https://github.com/Integrative-Transcriptomics/MUSIAL for a detailed explanation on how to specify MUSIAL configuration files."
                                         + "\nAvailable modules are:"
                                         + "\nBUILD: Generate a new variants dictionary .json file from multiple .vcf files wrt. one reference (.fasta + .gff)."
-                                        + "\nEXTRACT_NUC_VARIANTS_TABLE: Extract stored nucleotide variants of specified samples and features as a .tsv file."
+                                        + "\nEXTRACT: Extract stored nucleotide or aminoacid variants of specified samples and features as a .tsv (tabular overview) or .fasta (sequences) file."
                         )
                         .hasArg()
                         .required()
