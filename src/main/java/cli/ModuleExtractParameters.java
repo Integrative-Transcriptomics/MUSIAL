@@ -44,23 +44,17 @@ public class ModuleExtractParameters {
      */
     public boolean includeNonVariantPositions;
     /**
-     * {@link String} specifying the mode of output files generated. Either "SEQUENCE", "SEQUENCE_ALIGNED" or "TABLE".
+     * {@link ModuleExtractOutputModes} specifying the mode of output files generated. Either "SEQUENCE", "SEQUENCE_ALIGNED" or "TABLE".
      */
-    public String outputMode;
+    public ModuleExtractOutputModes outputMode;
     /**
-     * {@link String} specifying the content, i.e., either "NUCLEOTIDE" or "AMINOACID".
+     * {@link ModuleExtractContentModes} specifying the content, i.e., either "NUCLEOTIDE" or "AMINOACID".
      */
-    public String contentMode;
+    public ModuleExtractContentModes contentMode;
     /**
      * {@link Boolean} whether to group samples by proteoform/alleles.
      */
     public boolean grouped;
-
-    public static final String OUTPUT_MODE_SEQUENCE = "SEQUENCE";
-    public static final String OUTPUT_MODE_SEQUENCE_ALIGNED = "SEQUENCE_ALIGNED";
-    public static final String OUTPUT_MODE_TABLE = "TABLE";
-    public static final String CONTENT_MODE_NUCLEOTIDE = "NUCLEOTIDE";
-    public static final String CONTENT_MODE_AMINOACID = "AMINOACID";
 
 
     @SuppressWarnings("FieldCanBeLocal")
@@ -126,49 +120,49 @@ public class ModuleExtractParameters {
         if (parameters.containsKey("includeNonVariantPositions")) {
             this.includeNonVariantPositions = (boolean) parameters.get("includeNonVariantPositions");
         } else {
-            this.excludeIndels = false;
+            this.includeNonVariantPositions = false;
         }
 
         // Parse boolean parameter whether to group samples by allele/proteoform.
         if (parameters.containsKey("grouped")) {
-            this.excludeIndels = (boolean) parameters.get("grouped");
+            this.grouped = (boolean) parameters.get("grouped");
         } else {
-            this.excludeIndels = false;
+            this.grouped = false;
         }
 
         // Parse string parameter of content mode.
         if (parameters.containsKey("contentMode")) {
-            this.contentMode = (String) parameters.get("contentMode");
-            if (!this.contentMode.equals(CONTENT_MODE_NUCLEOTIDE) && !this.contentMode.equals(CONTENT_MODE_AMINOACID)) {
+            try {
+                this.contentMode = ModuleExtractContentModes.valueOf((String) parameters.get("contentMode"));
+            } catch (IllegalArgumentException e) {
                 throw new MusialException(
                         EXCEPTION_PREFIX
                                 + " Unknown content mode "
-                                + this.contentMode
+                                + parameters.get("contentMode")
                 );
             }
         } else {
             throw new MusialException(
                     EXCEPTION_PREFIX
-                            + " Unknown content mode "
-                            + this.contentMode
+                            + " No content mode was specified"
             );
         }
 
         // Parse string parameter of output mode.
         if (parameters.containsKey("outputMode")) {
-            this.outputMode = (String) parameters.get("outputMode");
-            if (!this.outputMode.equals(OUTPUT_MODE_SEQUENCE) && !this.outputMode.equals(OUTPUT_MODE_SEQUENCE_ALIGNED) && !this.outputMode.equals(OUTPUT_MODE_TABLE)) {
+            try {
+                this.outputMode = ModuleExtractOutputModes.valueOf((String) parameters.get("outputMode"));
+            } catch (IllegalArgumentException e) {
                 throw new MusialException(
                         EXCEPTION_PREFIX
                                 + " Unknown output mode "
-                                + this.outputMode
+                                + parameters.get("outputMode")
                 );
             }
         } else {
             throw new MusialException(
                     EXCEPTION_PREFIX
-                            + " Unknown output mode "
-                            + this.outputMode
+                            + " No output mode was specified"
             );
         }
     }

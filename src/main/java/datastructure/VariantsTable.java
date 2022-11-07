@@ -1,36 +1,36 @@
 package datastructure;
 
+import cli.ModuleExtractContentModes;
 import components.Bio;
 import components.Logging;
 import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static datastructure.VariantsDictionary.FIELD_SEPARATOR_1;
 
 public class VariantsTable {
 
-    private TreeMap<String, HashMap<String, String>> variantsTable = new TreeMap<>((s1, s2) -> {
+    private final TreeMap<String, HashMap<String, String>> variantsTable = new TreeMap<>((s1, s2) -> {
         int p1 = Integer.parseInt(s1.split("\\+")[0]);
         int p2 = Integer.parseInt(s2.split("\\+")[0]);
         if (p1 != p2) {
             return Integer.compare(p1, p2);
         } else {
-            int i1 = s1.contains("\\+") ? Integer.parseInt(s1.split("\\+")[1]) : 0;
-            int i2 = s2.contains("\\+") ? Integer.parseInt(s2.split("\\+")[1]) : 0;
+            int i1 = Integer.parseInt(s1.split("\\+")[1]);
+            int i2 = Integer.parseInt(s2.split("\\+")[1]);
             return Integer.compare(i1, i2);
         }
     });
 
-    private VariantsDictionary parentDictionary;
+    private final VariantsDictionary parentDictionary;
 
-    private ArrayList<String> sampleIdentifiers;
+    private final ArrayList<String> sampleIdentifiers;
 
-    private String featureIdentfier;
+    private final String featureIdentifier;
 
-    public final String mode;
+    public final ModuleExtractContentModes contentMode;
 
     public final boolean excludeIndels;
 
@@ -38,61 +38,53 @@ public class VariantsTable {
 
     public final boolean redundantReferenceContent;
 
-    public static final String MODE_NUCLEOTIDE = "NUCLEOTIDE";
-
-    public static final String MODE_AMINOACID = "AMINOACID";
-
-    public static final String LAYER_SAMPLE = "SAMPLE";
-
-    public static final String LAYER_GROUPED = "GROUPED";
-
     @SuppressWarnings("FieldCanBeLocal")
-    private final String EXCEPTION_PREFIX = "(Variants Table Construction Failed)";
+    private final String EXCEPTION_PREFIX = "(Variants Table)";
 
     public VariantsTable(VariantsDictionary parentDictionary, ArrayList<String> sampleIdentifiers,
-                         String featureIdentfier, String mode, boolean excludeIndels,
+                         String featureIdentifier, ModuleExtractContentModes contentMode, boolean excludeIndels,
                          boolean includeNonVariantPositions, boolean redundantReferenceContent) throws MusialException {
         this.parentDictionary = parentDictionary;
         this.sampleIdentifiers = this.parentDictionary.removeInvalidSampleIds(sampleIdentifiers);
-        this.featureIdentfier = featureIdentfier;
-        this.mode = mode;
+        this.featureIdentifier = featureIdentifier;
+        this.contentMode = contentMode;
         this.excludeIndels = excludeIndels;
         this.includeNonVariantPositions = includeNonVariantPositions;
         this.redundantReferenceContent = redundantReferenceContent;
         // Check validity of specified input and construction mode.
-        if (!this.parentDictionary.features.containsKey(this.featureIdentfier)) {
+        if (!this.parentDictionary.features.containsKey(this.featureIdentifier)) {
             throw new MusialException(
                     EXCEPTION_PREFIX
                             + " Feature "
-                            + this.featureIdentfier
+                            + this.featureIdentifier
                             + " not stored in specified parent dictionary"
             );
         }
-        if (this.mode.equals(MODE_AMINOACID)
-                && !this.parentDictionary.features.get(this.featureIdentfier).isCodingSequence) {
+        if (this.contentMode.equals(ModuleExtractContentModes.AMINOACID)
+                && !this.parentDictionary.features.get(this.featureIdentifier).isCodingSequence) {
             throw new MusialException(
                     EXCEPTION_PREFIX
                             + " Non-coding feature "
-                            + this.featureIdentfier
+                            + this.featureIdentifier
                             + " incompatible with mode "
-                            + this.mode);
+                            + this.contentMode);
         }
         Logging.logStatus(
-                "Construct VariantsTable of feature "
-                        + featureIdentfier
+                "Construct variants table ("
+                        + this.contentMode
+                        + ") of feature "
+                        + featureIdentifier
                         + " and "
                         + sampleIdentifiers.size()
-                        + " samples in mode "
-                        + this.mode
+                        + " samples"
         );
-        switch (mode) {
-            case MODE_NUCLEOTIDE -> constructNucleotideTable();
-            case MODE_AMINOACID -> constructAminoacidTable();
-            default -> throw new MusialException("(VariantsTable) Unknown construction mode " + mode);
+        switch (contentMode) {
+            case NUCLEOTIDE -> constructNucleotideTable();
+            case AMINOACID -> constructAminoacidTable();
         }
     }
 
-    private void constructNucleotideTable() {
+    private void constructNucleotideTable() throws MusialException {
         HashMap<Integer, String> perAlleleVariants;
         HashSet<String> processedAlleles = new HashSet<>();
         String sampleAlleleIdentifier;
@@ -107,13 +99,13 @@ public class VariantsTable {
             sampleAlleleIdentifier =
                     this.parentDictionary
                             .samples.get(sampleIdentifier)
-                            .annotations.get("AL" + FIELD_SEPARATOR_1 + this.featureIdentfier);
+                            .annotations.get("AL" + FIELD_SEPARATOR_1 + this.featureIdentifier);
             if (sampleAlleleIdentifier.equals(AlleleEntry.PROPERTY_NAME_REFERENCE_ID)) {
                 continue;
             }
             if (!processedAlleles.contains(sampleAlleleIdentifier)) {
                 perAlleleVariants = this.parentDictionary
-                        .getNucleotideVariants(this.featureIdentfier, sampleIdentifier, false);
+                        .getNucleotideVariants(this.featureIdentifier, sampleIdentifier, false);
                 for (Map.Entry<Integer, String> variantEntry : perAlleleVariants.entrySet()) {
                     variantStart = variantEntry.getKey();
                     variantContents = variantEntry.getValue().toCharArray();
@@ -176,13 +168,13 @@ public class VariantsTable {
         // Impute reference content for non-variant positions per allele.
         if (this.includeNonVariantPositions) {
             char[] referenceSequenceChars = this.parentDictionary
-                    .features.get(this.featureIdentfier)
+                    .features.get(this.featureIdentifier)
                     .nucleotideSequence.toCharArray();
             String position;
             String referenceContent;
             for (int i = 0; i < referenceSequenceChars.length; i++) {
                 referenceContent = String.valueOf(referenceSequenceChars[i]);
-                position = this.parentDictionary.features.get(this.featureIdentfier).start + i + 1 + "+0";
+                position = this.parentDictionary.features.get(this.featureIdentifier).start + i + "+0";
                 if (!this.variantsTable.containsKey(position)) {
                     this.variantsTable.put(position, new HashMap<>());
                 }
@@ -206,7 +198,7 @@ public class VariantsTable {
         }
     }
 
-    private void constructAminoacidTable() {
+    private void constructAminoacidTable() throws MusialException {
         HashMap<String, String> perProteoformVariants;
         HashSet<String> processedProteoforms = new HashSet<>();
         String sampleProteoformIdentifier;
@@ -218,18 +210,18 @@ public class VariantsTable {
         for (String sampleIdentifier : this.sampleIdentifiers) {
             sampleProteoformIdentifier = this.parentDictionary
                     .samples.get(sampleIdentifier)
-                    .annotations.get("PF" + FIELD_SEPARATOR_1 + this.featureIdentfier);
+                    .annotations.get("PF" + FIELD_SEPARATOR_1 + this.featureIdentifier);
             if (sampleProteoformIdentifier.equals(ProteoformEntry.PROPERTY_NAME_REFERENCE_ID)) {
                 continue;
             }
             if (!processedProteoforms.contains(sampleProteoformIdentifier)) {
                 perProteoformVariants = this.parentDictionary
-                        .getProteoformAminoacidVariants(this.featureIdentfier, sampleIdentifier);
+                        .getAminoacidVariants(this.featureIdentifier, sampleIdentifier);
                 for (Map.Entry<String, String> variantEntry : perProteoformVariants.entrySet()) {
                     variantPosition = variantEntry.getKey();
                     variantContent = variantEntry.getValue();
                     referenceContent = this.parentDictionary
-                            .features.get(this.featureIdentfier)
+                            .features.get(this.featureIdentifier)
                             .aminoacidVariants.get(variantPosition).get(variantContent)
                             .annotations.get(AminoacidVariantEntry.PROPERTY_NAME_REFERENCE_CONTENT);
                     isInsertion = !variantPosition.split("\\+")[1].equals("0");
@@ -242,10 +234,10 @@ public class VariantsTable {
                     }
                     if (!this.variantsTable
                             .get(variantPosition)
-                            .containsKey(AlleleEntry.PROPERTY_NAME_REFERENCE_ID)) {
+                            .containsKey(ProteoformEntry.PROPERTY_NAME_REFERENCE_ID)) {
                         this.variantsTable
                                 .get(variantPosition)
-                                .put(AlleleEntry.PROPERTY_NAME_REFERENCE_ID, referenceContent);
+                                .put(ProteoformEntry.PROPERTY_NAME_REFERENCE_ID, referenceContent);
                     }
                     this.variantsTable
                             .get(variantPosition)
@@ -274,7 +266,7 @@ public class VariantsTable {
         // Impute reference content for non-variant positions per allele.
         if (this.includeNonVariantPositions) {
             char[] referenceSequenceChars = this.parentDictionary
-                    .features.get(this.featureIdentfier)
+                    .features.get(this.featureIdentifier)
                     .translatedNucleotideSequence.toCharArray();
             String position;
             for (int i = 0; i < referenceSequenceChars.length; i++) {
@@ -301,36 +293,34 @@ public class VariantsTable {
                 }
             }
         }
-
     }
 
-    public String toString(boolean grouped) throws MusialException {
-        if (!this.mode.equals(MODE_AMINOACID) && !this.mode.equals(MODE_NUCLEOTIDE)) {
-            throw new MusialException(
-                    EXCEPTION_PREFIX
-                            + " Unable to convert table to string with mode "
-                            + this.mode
-            );
-        }
+    public String toString(boolean grouped) {
         StringBuilder tableStringBuilder = new StringBuilder();
         ArrayList<String> fields = new ArrayList<>();
         fields.add("Position");
         if (grouped) {
             HashSet<String> groupIdentifiers = new HashSet<>();
             this.sampleIdentifiers.forEach(sId -> groupIdentifiers.add(
-                    switch (this.mode) {
-                        case MODE_NUCLEOTIDE -> this.parentDictionary
+                    switch (this.contentMode) {
+                        case NUCLEOTIDE -> this.parentDictionary
                                 .samples.get(sId)
-                                .annotations.get("AL" + FIELD_SEPARATOR_1 + this.featureIdentfier);
-                        case MODE_AMINOACID -> this.parentDictionary
+                                .annotations.get("AL" + FIELD_SEPARATOR_1 + this.featureIdentifier);
+                        case AMINOACID -> this.parentDictionary
                                 .samples.get(sId)
-                                .annotations.get("PF" + FIELD_SEPARATOR_1 + this.featureIdentfier);
+                                .annotations.get("PF" + FIELD_SEPARATOR_1 + this.featureIdentifier);
                     }
             ));
+            groupIdentifiers.remove(
+                    switch (this.contentMode) {
+                        case NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
+                        case AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
+                    }
+            );
             fields.add(
-                    switch (this.mode) {
-                        case MODE_NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
-                        case MODE_AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
+                    switch (this.contentMode) {
+                        case NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
+                        case AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
                     }
             );
             fields.addAll(groupIdentifiers);
@@ -342,9 +332,9 @@ public class VariantsTable {
                 fields.add(storedPosition);
                 fields.add(
                         this.variantsTable.get(storedPosition).get(
-                                switch (this.mode) {
-                                    case MODE_NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
-                                    case MODE_AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
+                                switch (this.contentMode) {
+                                    case NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
+                                    case AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
                                 }
                         )
                 );
@@ -368,22 +358,22 @@ public class VariantsTable {
                 fields.add(storedPosition);
                 fields.add(
                         this.variantsTable.get(storedPosition).get(
-                                switch (this.mode) {
-                                    case MODE_NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
-                                    case MODE_AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
+                                switch (this.contentMode) {
+                                    case NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
+                                    case AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
                                 }
                         )
                 );
                 for (String sampleIdentifier : this.sampleIdentifiers) {
                     fields.add(
                             this.variantsTable.get(storedPosition).get(
-                                    switch (this.mode) {
-                                        case MODE_NUCLEOTIDE -> this.parentDictionary
+                                    switch (this.contentMode) {
+                                        case NUCLEOTIDE -> this.parentDictionary
                                                 .samples.get(sampleIdentifier)
-                                                .annotations.get("AL" + FIELD_SEPARATOR_1 + this.featureIdentfier);
-                                        case MODE_AMINOACID -> this.parentDictionary
+                                                .annotations.get("AL" + FIELD_SEPARATOR_1 + this.featureIdentifier);
+                                        case AMINOACID -> this.parentDictionary
                                                 .samples.get(sampleIdentifier)
-                                                .annotations.get("PF" + FIELD_SEPARATOR_1 + this.featureIdentfier);
+                                                .annotations.get("PF" + FIELD_SEPARATOR_1 + this.featureIdentifier);
                                     }
                             )
                     );
@@ -396,31 +386,19 @@ public class VariantsTable {
         return tableStringBuilder.toString();
     }
 
-
-    @SuppressWarnings("UnusedAssignment")
     public Tuple<String, String> getFastaEntry(String accessIdentifier) throws MusialException {
         String entryIdentifier;
-        boolean isSample;
-        if (!this.mode.equals(MODE_AMINOACID) && !this.mode.equals(MODE_NUCLEOTIDE)) {
-            throw new MusialException(
-                    EXCEPTION_PREFIX
-                            + " Unable to generate .fasta entry with mode "
-                            + this.mode
-            );
-        }
         if (this.parentDictionary.samples.containsKey(accessIdentifier)) {
-            entryIdentifier = switch (this.mode) {
-                case MODE_NUCLEOTIDE -> this.parentDictionary.samples.get(accessIdentifier)
-                        .annotations.get("AL" + FIELD_SEPARATOR_1 + this.featureIdentfier);
-                case MODE_AMINOACID -> this.parentDictionary.samples.get(accessIdentifier)
-                        .annotations.get("PF" + FIELD_SEPARATOR_1 + this.featureIdentfier);
+            entryIdentifier = switch (this.contentMode) {
+                case NUCLEOTIDE -> this.parentDictionary.samples.get(accessIdentifier)
+                        .annotations.get("AL" + FIELD_SEPARATOR_1 + this.featureIdentifier);
+                case AMINOACID -> this.parentDictionary.samples.get(accessIdentifier)
+                        .annotations.get("PF" + FIELD_SEPARATOR_1 + this.featureIdentifier);
             };
-            isSample = true;
         } else if (
-                (this.mode.equals(MODE_NUCLEOTIDE) && this.parentDictionary.features.get(this.featureIdentfier).alleles.containsKey(accessIdentifier))
-                        || (this.mode.equals(MODE_AMINOACID) && this.parentDictionary.features.get(this.featureIdentfier).proteoforms.containsKey(accessIdentifier))) {
+                (this.contentMode.equals(ModuleExtractContentModes.NUCLEOTIDE) && this.parentDictionary.features.get(this.featureIdentifier).alleles.containsKey(accessIdentifier))
+                        || (this.contentMode.equals(ModuleExtractContentModes.AMINOACID) && this.parentDictionary.features.get(this.featureIdentifier).proteoforms.containsKey(accessIdentifier))) {
             entryIdentifier = accessIdentifier;
-            isSample = false;
         } else {
             throw new MusialException(
                     EXCEPTION_PREFIX
@@ -428,10 +406,36 @@ public class VariantsTable {
                             + accessIdentifier
             );
         }
-        String header = ">lcl|"
-                + accessIdentifier
-                + " [FEATURE=" + this.featureIdentfier + "]";
-        String sequence = this.variantsTable.values().stream().map(hm -> hm.get(entryIdentifier)).collect(Collectors.joining());
-        return new Tuple<>(header, sequence);
+        StringBuilder headerStringBuilder = new StringBuilder();
+        headerStringBuilder
+                .append(">lcl|")
+                .append(accessIdentifier)
+                .append(" [FEATURE=")
+                .append(this.featureIdentifier)
+                .append("]");
+        HashMap<String, String> annotations = switch (this.contentMode) {
+            case NUCLEOTIDE -> this.parentDictionary.features.get(featureIdentifier)
+                    .alleles.get(accessIdentifier).annotations;
+            case AMINOACID -> this.parentDictionary.features.get(featureIdentifier)
+                    .proteoforms.get(accessIdentifier).annotations;
+        };
+        for (Map.Entry<String, String> annotation : annotations.entrySet()) {
+            //noinspection ConstantConditions
+            if (annotation.getKey().equals(AlleleEntry.PROPERTY_NAME_VARIANTS)
+                    || annotation.getKey().equals(ProteoformEntry.PROPERTY_NAME_VARIANTS)) {
+                continue;
+            }
+            headerStringBuilder
+                    .append(" [")
+                    .append(annotation.getKey())
+                    .append("=")
+                    .append(annotation.getValue())
+                    .append("]");
+        }
+        StringBuilder sequenceStringBuilder = new StringBuilder();
+        for (HashMap<String, String> value : variantsTable.values()) {
+            sequenceStringBuilder.append(value.get(entryIdentifier));
+        }
+        return new Tuple<>(headerStringBuilder.toString(), sequenceStringBuilder.toString());
     }
 }

@@ -71,6 +71,9 @@ public class VariantsDictionary {
      */
     public final static String NULL_VALUE = "N/A";
 
+    @SuppressWarnings("FieldCanBeLocal")
+    private final String EXCEPTION_PREFIX = "(Variants Dictionary) ";
+
     /**
      * Constructor of {@link VariantsDictionary}.
      *
@@ -187,20 +190,23 @@ public class VariantsDictionary {
 
     /**
      * Extracts a {@link HashMap} of {@link Integer}/{@link String} key/value pairs reflecting all variants wrt. one
-     * sample and feature.
+     * sample/allele and feature.
      * <p>
      * If specified, variants are returned wrt. the features start and end coordinates and its strand orientation.
      *
      * @param featureId         {@link String}; The name/id of the feature for which variants shall be extracted.
-     * @param sampleId          {@link String}; The name/id of the sample for which variants shall be extracted.
+     * @param accessorId        {@link String}; The name/id of the sample/allele for which variants shall be extracted.
      * @param relativeToFeature {@link Boolean}; Whether to extract variants position and content wrt. feature (true).
      * @return {@link HashMap} of variants extracted for the specified feature and sample.
      */
-    public HashMap<Integer, String> getNucleotideVariants(String featureId, String sampleId, boolean relativeToFeature) {
-        String sampleAllele = this.samples.get(sampleId).annotations.get("AL" + FIELD_SEPARATOR_1 + featureId);
-        String concatVariants = this.features.get(featureId).alleles.get(sampleAllele).annotations.get(AlleleEntry.PROPERTY_NAME_VARIANTS);
+    public HashMap<Integer, String> getNucleotideVariants(String featureId, String accessorId, boolean relativeToFeature) throws MusialException {
+        validateFeatureIdentifier(featureId, false);
+        String alleleIdentifier = getAlleleIdentifier(featureId, accessorId);
+        String concatVariants = this.features.get(featureId)
+                .alleles.get(alleleIdentifier)
+                .annotations.get(AlleleEntry.PROPERTY_NAME_VARIANTS);
         HashMap<Integer, String> variants = new HashMap<>();
-        if (!sampleAllele.equals(AlleleEntry.PROPERTY_NAME_REFERENCE_ID)) {
+        if (!alleleIdentifier.equals(AlleleEntry.PROPERTY_NAME_REFERENCE_ID)) {
             int variantPosition;
             int relativeVariantPosition;
             String variantContent;
@@ -226,17 +232,21 @@ public class VariantsDictionary {
      * <p>
      * All deletions are removed from the resulting sequence.
      *
-     * @param featureId {@link String}; The name/id of the feature for which the sequence shall be extracted.
-     * @param sampleId  {@link String}; The name/id of the sample for which the sequence shall be extracted.
+     * @param featureId  {@link String}; The name/id of the feature for which the sequence shall be extracted.
+     * @param accessorId {@link String}; The name/id of the sample for which the sequence shall be extracted.
      * @return {@link String}; Nucleotide sequence of one sample wrt. one feature.
      */
-    public String getSampleNucleotideSequence(String featureId, String sampleId) {
-        if (samples.get(sampleId).annotations.get("AL" + FIELD_SEPARATOR_1 + featureId).equals(AlleleEntry.PROPERTY_NAME_REFERENCE_ID)) {
+    public String getNucleotideSequence(String featureId, String accessorId) throws MusialException {
+        validateFeatureIdentifier(featureId, false);
+        if (accessorId.equals(AlleleEntry.PROPERTY_NAME_REFERENCE_ID))
+            return features.get(featureId).nucleotideSequence;
+        String alleleIdentifier = getAlleleIdentifier(featureId, accessorId);
+        if (alleleIdentifier.equals(AlleleEntry.PROPERTY_NAME_REFERENCE_ID)) {
             return features.get(featureId).nucleotideSequence;
         } else {
             char[] referenceSequence = features.get(featureId).isSense ? features.get(featureId).nucleotideSequence.toCharArray() : Bio.reverseComplement(features.get(featureId).nucleotideSequence).toCharArray();
             StringBuilder sequenceBuilder = new StringBuilder();
-            HashMap<Integer, String> variants = getNucleotideVariants(featureId, sampleId, true);
+            HashMap<Integer, String> variants = getNucleotideVariants(featureId, accessorId, true);
             String variant;
             long skipPositions = 0;
             for (int i = 1; i <= referenceSequence.length; i++) {
@@ -268,15 +278,14 @@ public class VariantsDictionary {
      * - Keys of the returned map are formatted as X+Y; X is the position wrt. the reference protein and Y the number of
      * inserted positions.
      *
-     * @param featureId    {@link String}; The name/id of the feature for which variants shall be extracted.
-     * @param proteoformId {@link String}; The name/id of the proteoform for which variants shall be extracted.
+     * @param featureId  {@link String}; The name/id of the feature for which variants shall be extracted.
+     * @param accessorId {@link String}; The name/id of the proteoform for which variants shall be extracted.
      * @return {@link HashMap} of variants extracted for the specified feature and proteoform.
      */
-    public HashMap<String, String> getProteoformAminoacidVariants(String featureId, String proteoformId) {
-        if (!features.get(featureId).isCodingSequence) {
-            return null;
-        }
-        String concatVariants = features.get(featureId).proteoforms.get(proteoformId).annotations.get(ProteoformEntry.PROPERTY_NAME_VARIANTS);
+    public HashMap<String, String> getAminoacidVariants(String featureId, String accessorId) throws MusialException {
+        validateFeatureIdentifier(featureId, true);
+        String proteoformIdentifier = getProteoformIdentifier(featureId, accessorId);
+        String concatVariants = features.get(featureId).proteoforms.get(proteoformIdentifier).annotations.get(ProteoformEntry.PROPERTY_NAME_VARIANTS);
         HashMap<String, String> variants = new HashMap<>();
         if (!concatVariants.equals("")) {
             String variantPosition;
@@ -296,14 +305,13 @@ public class VariantsDictionary {
      * <p>
      * The translated reference feature sequence will be used as the reference aminoacid sequence.
      *
-     * @param featureId    {@link String}; The name/id of the feature for which the sequence shall be extracted.
-     * @param proteoformId {@link String}; The name/id of the proteoform for which the sequence shall be extracted.
+     * @param featureId  {@link String}; The name/id of the feature for which the sequence shall be extracted.
+     * @param accessorId {@link String}; The name/id of the proteoform for which the sequence shall be extracted.
      * @return {@link String}; Amino-acid sequence of one proteoform wrt. one feature.
      */
-    public String getProteoformSequence(String featureId, String proteoformId) {
-        if (!features.get(featureId).isCodingSequence) {
-            return null;
-        }
+    public String getAminoacidSequence(String featureId, String accessorId) throws MusialException {
+        validateFeatureIdentifier(featureId, true);
+        String proteoformidentifier = getProteoformIdentifier(featureId, accessorId);
         //noinspection DuplicatedCode
         TreeMap<String, String> proteoformContent = new TreeMap<>((s1, s2) -> {
             int p1 = Integer.parseInt(s1.split("\\+")[0]);
@@ -320,7 +328,7 @@ public class VariantsDictionary {
         for (int i = 0; i < referenceProteoformSequenceContent.length; i++) {
             proteoformContent.put((i + 1) + "+0", String.valueOf(referenceProteoformSequenceContent[i]));
         }
-        proteoformContent.putAll(getProteoformAminoacidVariants(featureId, proteoformId));
+        proteoformContent.putAll(getAminoacidVariants(featureId, proteoformidentifier));
         StringBuilder proteoformSequenceBuilder = new StringBuilder();
         proteoformContent.values().forEach(proteoformSequenceBuilder::append);
         return proteoformSequenceBuilder.toString().replace("-", "");
@@ -401,5 +409,64 @@ public class VariantsDictionary {
         return removeInvalidFeatureIds(featureIds, s -> true);
     }
 
+    /**
+     * @param featureId
+     * @param coding
+     * @throws MusialException
+     */
+    public void validateFeatureIdentifier(String featureId, boolean coding) throws MusialException {
+        if (!this.features.containsKey(featureId)) throw new MusialException(EXCEPTION_PREFIX
+                + "No feature is stored with identifier "
+                + featureId
+        );
+        if (coding && !features.get(featureId).isCodingSequence) throw new MusialException(EXCEPTION_PREFIX
+                + "The feature stored with identifier "
+                + featureId
+                + " is no coding sequence."
+        );
+    }
+
+    /**
+     * @param featureId
+     * @param accessorId
+     * @return
+     * @throws MusialException
+     */
+    public String getAlleleIdentifier(String featureId, String accessorId) throws MusialException {
+        String alleleIdentifier;
+        if (this.samples.containsKey(accessorId)) {
+            alleleIdentifier = this.samples.get(accessorId).annotations.get("AL" + FIELD_SEPARATOR_1 + featureId);
+        } else if (this.features.get(featureId).alleles.containsKey(accessorId)) {
+            alleleIdentifier = accessorId;
+        } else {
+            throw new MusialException(
+                    EXCEPTION_PREFIX
+                            + "No allele is stored with identifier "
+                            + accessorId
+            );
+        }
+        return alleleIdentifier;
+    }
+
+    /**
+     * @param featureId
+     * @param accessorId
+     * @return
+     */
+    public String getProteoformIdentifier(String featureId, String accessorId) throws MusialException {
+        String proteoformIdentifier;
+        if (this.samples.containsKey(accessorId)) {
+            proteoformIdentifier = this.samples.get(accessorId).annotations.get("PF" + FIELD_SEPARATOR_1 + featureId);
+        } else if (this.features.get(featureId).alleles.containsKey(accessorId)) {
+            proteoformIdentifier = accessorId;
+        } else {
+            throw new MusialException(
+                    EXCEPTION_PREFIX
+                            + "No allele is stored with identifier "
+                            + accessorId
+            );
+        }
+        return proteoformIdentifier;
+    }
 
 }

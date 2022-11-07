@@ -323,7 +323,7 @@ public final class FeatureEntry {
      */
     public void addProteoform(String sampleId, ConcurrentSkipListMap<String, Tuple<String, String>> variants, VariantsDictionary parentDictionary) {
         String concatVariants = variants.entrySet().stream().map(
-                e -> e.getKey() + VariantsDictionary.FIELD_SEPARATOR_1 + e.getValue()
+                e -> e.getKey() + VariantsDictionary.FIELD_SEPARATOR_1 + e.getValue().a
         ).collect(Collectors.joining(VariantsDictionary.FIELD_SEPARATOR_2));
         float referenceProteinLength = (float) (this.translatedNucleotideSequence.length());
         String proteoformName = ProteoformEntry.generateProteoformName(concatVariants);
@@ -397,7 +397,7 @@ public final class FeatureEntry {
             if (dArrVariantPositions.length > 1) {
                 this.proteoforms.get(proteoformName).annotations.put(
                         ProteoformEntry.PROPERTY_NAME_CONGLOMERATION_INDEX,
-                        String.valueOf(new KolmogorovSmirnovTest().kolmogorovSmirnovTest(new UniformRealDistribution(1.0, referenceProteinLength), dArrVariantPositions, false))
+                        String.valueOf(Musial.DECIMAL_FORMATTER.format(new KolmogorovSmirnovTest().kolmogorovSmirnovTest(new UniformRealDistribution(1.0, referenceProteinLength), dArrVariantPositions, false)))
                 );
             } else {
                 this.proteoforms.get(proteoformName).annotations.put(
@@ -405,11 +405,6 @@ public final class FeatureEntry {
                         VariantsDictionary.NULL_VALUE
                 );
             }
-            // (4) Frequency of proteoform.
-            this.proteoforms.get(proteoformName).annotations.put(
-                    ProteoformEntry.PROPERTY_NAME_FREQUENCY,
-                    Musial.DECIMAL_FORMATTER.format(100.0 * ((float) this.proteoforms.get(proteoformName).samples.size() / (float) parentDictionary.samples.size())).replace(",", ".")
-            );
         }
         parentDictionary.samples.get(sampleId).annotations.put("PF" + VariantsDictionary.FIELD_SEPARATOR_1 + this.name, proteoformName);
     }
@@ -440,7 +435,6 @@ public final class FeatureEntry {
                 assert parentDictionary.nucleotideVariants.get(variantPosition).containsKey(variantContent);
                 parentDictionary.nucleotideVariants.get(variantPosition).get(variantContent).occurrence.add(this.name + VariantsDictionary.FIELD_SEPARATOR_1 + alleleName);
             }
-
             // Compute statistics regarding the variability of the proteoform; Only positions before the first termination are considered.
             // (1) Percentage of variable positions wrt. reference protein length.
             int variantsTotalLength = 0;
@@ -475,11 +469,6 @@ public final class FeatureEntry {
             this.alleles.get(alleleName).annotations.put(
                     AlleleEntry.PROPERTY_NAME_NUMBER_OF_DELETIONS,
                     String.valueOf(variantsTotalLength)
-            );
-            // (3) Frequency of allele.
-            this.alleles.get(alleleName).annotations.put(
-                    AlleleEntry.PROPERTY_NAME_FREQUENCY,
-                    Musial.DECIMAL_FORMATTER.format(100.0 * ((float) this.alleles.get(alleleName).samples.size() / (float) parentDictionary.samples.size())).replace(",", ".")
             );
         }
         parentDictionary.samples.get(sampleId).annotations.put("AL" + VariantsDictionary.FIELD_SEPARATOR_1 + this.name, alleleName);

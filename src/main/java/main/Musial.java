@@ -85,6 +85,10 @@ public final class Musial {
      */
     public static boolean SILENT = false;
     /**
+     * Whether to print stack trace.
+     */
+    private static final boolean DEBUG = true;
+    /**
      * Project wide formatter to convert decimal numbers to strings.
      */
     public static final DecimalFormat DECIMAL_FORMATTER = new DecimalFormat("#.##");
@@ -137,7 +141,7 @@ public final class Musial {
             }
         } catch (Exception e) {
             Logging.logError(e.getMessage());
-            e.printStackTrace();
+            if (DEBUG) e.printStackTrace();
             System.exit(-1);
         }
     }
@@ -230,7 +234,7 @@ public final class Musial {
         Logging.logStatus(Logging.getDoneTag() + " Add sample information");
 
         // Run SnpEff annotation for variants.
-        Logging.logStatus(Logging.getStartTag() + " Annotate novel variants with SnpEff");
+        Logging.logStatus(Logging.getStartTag() + " Annotate variants with SnpEff");
         File tmpDirectory = new File("./tmp/");
         try {
             IO.generateDirectory(tmpDirectory);
@@ -275,17 +279,24 @@ public final class Musial {
         } finally {
             IO.deleteDirectory(tmpDirectory);
         }
-        Logging.logStatus(Logging.getDoneTag() + " Annotate novel variants with SnpEff");
+        Logging.logStatus(Logging.getDoneTag() + " Annotate variants with SnpEff");
 
         // Infer feature alleles from collected variant information.
         Logging.logStatus(Logging.getStartTag() + " Infer alleles");
         for (FeatureEntry featureEntry : variantsDictionary.features.values()) {
             featureEntry.inferAlleleInformation(variantsDictionary);
+            // Compute allele frequency.
+            for (AlleleEntry alleleEntry : featureEntry.alleles.values()) {
+                alleleEntry.annotations.put(
+                        AlleleEntry.PROPERTY_NAME_FREQUENCY,
+                        Musial.DECIMAL_FORMATTER.format(100.0 * (alleleEntry.samples.size() / (float) variantsDictionary.samples.size())).replace(",", ".")
+                );
+            }
         }
         Logging.logStatus(Logging.getDoneTag() + " Infer alleles");
 
         // Infer coding feature variant/proteoform information; For all coding features.
-        Logging.logStatus(Logging.getStartTag() + " Infer protein variants");
+        Logging.logStatus(Logging.getStartTag() + " Infer proteoforms");
         ConcurrentSkipListMap<String, Tuple<String, String>> aminoacidVariants;
         List<String> featureIdsWithProteinInformation = variantsDictionary.features.keySet().stream().filter(
                 feKey -> variantsDictionary.features.get(feKey).isCodingSequence
@@ -295,20 +306,17 @@ public final class Musial {
                 aminoacidVariants = Bio.inferAminoacidVariants(variantsDictionary, featureId, sampleId);
                 variantsDictionary.features.get(featureId).addProteoform(sampleId, aminoacidVariants, variantsDictionary);
             }
+            for (ProteoformEntry proteoformEntry : variantsDictionary.features.get(featureId).proteoforms.values()) {
+                proteoformEntry.annotations.put(
+                        ProteoformEntry.PROPERTY_NAME_FREQUENCY,
+                        Musial.DECIMAL_FORMATTER.format(100.0 * (proteoformEntry.samples.size() / (float) variantsDictionary.samples.size())).replace(",", ".")
+                );
+            }
         }
-        Logging.logStatus(Logging.getDoneTag() + " Infer protein variants");
+        Logging.logStatus(Logging.getDoneTag() + " Infer proteoforms");
 
         // Infer variant frequencies.
-        Logging.logStatus(Logging.getStartTag() + " Infer variant statistics");
-        /** FIXME: Currently unused code snippet.
-         * int totalNoVariants = 0;
-         * for (ConcurrentSkipListMap<String, NucleotideVariantEntry> perPositionNucleotideVariants : variantsDictionary.nucleotideVariants.values()) {
-         *     totalNoVariants += perPositionNucleotideVariants.size();
-         * }
-         * for (FeatureEntry feature : variantsDictionary.features.values()) {
-         *     totalNoVariants += feature.aminoacidVariants.size();
-         * }
-         */
+        Logging.logStatus(Logging.getStartTag() + " Compute statistics");
         float noSamples = variantsDictionary.samples.size();
         float noOccurrences;
         // Compute frequencies of nucleotide variants.
@@ -341,7 +349,7 @@ public final class Musial {
                 }
             }
         }
-        Logging.logStatus(Logging.getDoneTag() + " Infer variant statistics");
+        Logging.logStatus(Logging.getDoneTag() + " Compute statistics");
 
         // Write updated database to file.
         Logging.logStatus(Logging.getStartTag() + " Dump to file");
@@ -366,8 +374,8 @@ public final class Musial {
         Logging.logStatus(
                 "Execute module "
                         + Logging.getPurpleTag("EXTRACT")
-                        + " " + Logging.getPurpleTag(parameters.contentMode)
-                        + " " + Logging.getPurpleTag(parameters.outputMode)
+                        + " " + Logging.getPurpleTag(String.valueOf(parameters.contentMode))
+                        + " " + Logging.getPurpleTag(String.valueOf(parameters.outputMode))
                         + " " + Logging.getPurpleTag("Excl. indels: " + parameters.excludeIndels)
                         + " " + Logging.getPurpleTag("Incl. non-variant positions: " + parameters.includeNonVariantPositions)
                         + " " + Logging.getPurpleTag("Group samples: " + parameters.grouped)
@@ -375,11 +383,16 @@ public final class Musial {
 
         // Load variants dictionary.
         VariantsDictionary variantsDictionary = VariantsDictionaryFactory.load(parameters.inputFile);
-
+        if (parameters.samples.size() == 0) {
+            parameters.samples = new ArrayList<>(variantsDictionary.samples.keySet());
+        }
+        if (parameters.features.size() == 0) {
+            parameters.features = new ArrayList<>(variantsDictionary.features.keySet());
+        }
         // Process each feature.
         for (String featureIdentifier : parameters.features) {
             switch (parameters.outputMode) {
-                case ModuleExtractParameters.OUTPUT_MODE_TABLE -> {
+                case TABLE -> {
                     VariantsTable variantsTable = new VariantsTable(
                             variantsDictionary,
                             parameters.samples,
@@ -430,7 +443,7 @@ public final class Musial {
                         outputWriter.close();
                     }
                 }
-                case ModuleExtractParameters.OUTPUT_MODE_SEQUENCE_ALIGNED -> {
+                case SEQUENCE_ALIGNED -> {
                     VariantsTable variantsTable = new VariantsTable(
                             variantsDictionary,
                             parameters.samples,
@@ -438,17 +451,17 @@ public final class Musial {
                             parameters.contentMode,
                             parameters.excludeIndels,
                             parameters.includeNonVariantPositions,
-                            false
+                            true
                     );
                     ArrayList<Tuple<String, String>> fastaEntries = new ArrayList<>();
                     if (parameters.grouped) {
                         HashSet<String> accessors = new HashSet<>();
                         for (String sample : parameters.samples) {
                             switch (parameters.contentMode) {
-                                case ModuleExtractParameters.CONTENT_MODE_AMINOACID -> accessors.add(
+                                case AMINOACID -> accessors.add(
                                         variantsDictionary.samples.get(sample).annotations.get("PF" + FIELD_SEPARATOR_1 + featureIdentifier)
                                 );
-                                case ModuleExtractParameters.CONTENT_MODE_NUCLEOTIDE -> accessors.add(
+                                case NUCLEOTIDE -> accessors.add(
                                         variantsDictionary.samples.get(sample).annotations.get("AL" + FIELD_SEPARATOR_1 + featureIdentifier)
                                 );
                             }
@@ -466,7 +479,6 @@ public final class Musial {
                             fastaEntries
                     );
                 }
-                default -> throw new MusialException("Unable to process output mode " + parameters.outputMode);
             }
         }
     }

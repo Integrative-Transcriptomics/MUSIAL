@@ -710,7 +710,7 @@ public final class Bio {
     public static ConcurrentSkipListMap<String, Tuple<String, String>> inferAminoacidVariants(
             VariantsDictionary variantsDictionary, String fId, String sId)
             throws MusialException {
-        String sampleNucleotideSequence = variantsDictionary.getSampleNucleotideSequence(fId, sId);
+        String sampleNucleotideSequence = variantsDictionary.getNucleotideSequence(fId, sId);
         Function<Triplet<Integer, String, String>, ConcurrentSkipListMap<String, Tuple<String, String>>> extractVariantsFromAlignment = (sa) -> {
             //noinspection DuplicatedCode
             ConcurrentSkipListMap<String, Tuple<String, String>> variants = new ConcurrentSkipListMap<>((s1, s2) -> {
@@ -765,7 +765,7 @@ public final class Bio {
                 && sampleNucleotideSequence != null) {
             sampleNucleotideSequence = sampleNucleotideSequence.replace("-", "");
             FeatureEntry featureEntry = variantsDictionary.features.get(fId);
-            String referenceProteinSequence = Bio.translateNucSequence(featureEntry.nucleotideSequence, true, true, featureEntry.isSense);
+            String referenceProteinSequence = variantsDictionary.features.get(fId).translatedNucleotideSequence;
             String sampleProteinSequence = Bio.translateNucSequence(sampleNucleotideSequence, true, true, featureEntry.isSense);
             Triplet<Integer, String, String> sa = Bio.globalAminoAcidSequenceAlignment(
                     referenceProteinSequence,
