@@ -265,7 +265,8 @@ public final class FeatureEntry {
                             5,
                             4,
                             Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FREE,
-                            Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FREE
+                            Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FREE,
+                            null
                     );
             alignedChainSequence = alignedSequences.getValue1().toCharArray();
             alignedTranslatedNucleotideSequence = alignedSequences.getValue2().toCharArray();

@@ -7,6 +7,8 @@ import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;
 import org.javatuples.Triplet;
 
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Function;
@@ -372,11 +374,13 @@ public final class Bio {
      * @param nucSeq2    {@link String} representation of the second nucleotide sequence for alignment.
      * @param left_mode  {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle left-marginal gaps.
      * @param right_mode {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle right-marginal gaps.
+     * @param bandWidth  {@link Integer} specifying the band-width for banded alignment or null for non-banded alignment.
      * @return {@link Triplet} storing the alignment score, the aligned first sequence and the aligned second sequence.
      */
     public static Triplet<Integer, String, String> globalNucleotideSequenceAlignment(String nucSeq1, String nucSeq2,
                                                                                      GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES left_mode,
-                                                                                     GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES right_mode) {
+                                                                                     GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES right_mode,
+                                                                                     Integer bandWidth) throws MusialException {
         HashMap<Character, Integer> simpleNucleotideScoringMatrixIndexMap = new HashMap<>() {{
             put('A', 0);
             put('C', 1);
@@ -393,7 +397,7 @@ public final class Bio {
         };
         return globalSequenceAlignment(nucSeq1, nucSeq2, simpleNucleotideScoringMatrixIndexMap,
                 simpleNucleotideScoringMatrix,
-                2, 1, left_mode, right_mode);
+                2, 1, left_mode, right_mode, bandWidth);
     }
 
     /**
@@ -408,15 +412,17 @@ public final class Bio {
      * @param gapExtendPenalty {@link Integer} (positive!) to use as gap extension penalty.
      * @param left_mode        {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle left-marginal gaps.
      * @param right_mode       {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle right-marginal gaps.
+     * @param bandWidth        {@link Integer} specifying the band-width for banded alignment or null for non-banded alignment.
      * @return {@link Triplet} storing the alignment score, the aligned first sequence and the aligned second sequence.
      */
     public static Triplet<Integer, String, String> globalAminoAcidSequenceAlignment(String aaSeq1, String aaSeq2,
                                                                                     int gapOpenPenalty,
                                                                                     int gapExtendPenalty,
                                                                                     GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES left_mode,
-                                                                                    GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES right_mode) {
+                                                                                    GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES right_mode,
+                                                                                    Integer bandWidth) throws MusialException {
         return globalSequenceAlignment(aaSeq1, aaSeq2, AA1_PAM120_INDEX, PAM120, gapOpenPenalty, gapExtendPenalty,
-                left_mode, right_mode);
+                left_mode, right_mode, bandWidth);
     }
 
     /**
@@ -430,14 +436,20 @@ public final class Bio {
      * @param gapExtendPenalty      {@link Integer} value used to penalize the extension of a gap.
      * @param left_mode             {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle left-marginal gaps.
      * @param right_mode            {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle right-marginal gaps.
+     * @param bandWidth             {@link Integer} specifying the band-width for banded alignment or null for non-banded alignment.
      * @return {@link Triplet} storing the alignment score, the aligned first sequence and the aligned second sequence.
      */
-    public static Triplet<Integer, String, String> globalSequenceAlignment(String seq1, String seq2,
-                                                                           HashMap<Character, Integer> scoringMatrixIndexMap,
-                                                                           int[][] scoringMatrix, int gapOpenPenalty,
-                                                                           int gapExtendPenalty,
-                                                                           GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES left_mode,
-                                                                           GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES right_mode) {
+    private static Triplet<Integer, String, String> globalSequenceAlignment(String seq1, String seq2,
+                                                                            HashMap<Character, Integer> scoringMatrixIndexMap,
+                                                                            int[][] scoringMatrix, int gapOpenPenalty,
+                                                                            int gapExtendPenalty,
+                                                                            GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES left_mode,
+                                                                            GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES right_mode,
+                                                                            Integer bandWidth) throws MusialException {
+        if (Objects.nonNull(bandWidth) && Math.abs(seq1.length() - seq2.length()) > bandWidth) {
+            throw new MusialException("Unable to compute banded alignment with with " + bandWidth +
+                    " and sequences of length " + seq1.length() + " and " + seq2.length());
+        }
     /*
     Notes on the alignment matrices:
     - The y-axis will yield seq1.
@@ -445,10 +457,15 @@ public final class Bio {
     - Indels are wrt. seq1; thus insertions are traced back by walking vertically and deletions are traced back by
     walking horizontally in the matrix.
      */
-        int[][] alignmentMatrix = new int[seq1.length() + 1][seq2.length() + 1];
-        int[][] matchScoreMatrix = new int[seq1.length() + 1][seq2.length() + 1];
-        int[][] insertionScoreMatrix = new int[seq1.length() + 1][seq2.length() + 1];
-        int[][] deletionScoreMatrix = new int[seq1.length() + 1][seq2.length() + 1];
+        @SuppressWarnings("DuplicatedCode")
+        double[][] alignmentMatrix = new double[seq1.length() + 1][seq2.length() + 1];
+        Arrays.stream(alignmentMatrix).forEach(row -> Arrays.fill(row, Double.NEGATIVE_INFINITY));
+        double[][] matchScoreMatrix = new double[seq1.length() + 1][seq2.length() + 1];
+        Arrays.stream(matchScoreMatrix).forEach(row -> Arrays.fill(row, Double.NEGATIVE_INFINITY));
+        double[][] insertionScoreMatrix = new double[seq1.length() + 1][seq2.length() + 1];
+        Arrays.stream(insertionScoreMatrix).forEach(row -> Arrays.fill(row, Double.NEGATIVE_INFINITY));
+        double[][] deletionScoreMatrix = new double[seq1.length() + 1][seq2.length() + 1];
+        Arrays.stream(deletionScoreMatrix).forEach(row -> Arrays.fill(row, Double.NEGATIVE_INFINITY));
         char[][] tracebackMatrix = new char[seq1.length() + 1][seq2.length() + 1];
         char[] seq1Array = seq1.toCharArray();
         char[] seq2Array = seq2.toCharArray();
@@ -464,7 +481,7 @@ public final class Bio {
         deletionScoreMatrix[0][0] = 0;
         int gapCost;
         // i -> PREFIX
-        for (int i = 1; i < seq1.length() + 1; i++) {
+        for (int i = 1; i < (Objects.isNull(bandWidth) ? seq1.length() + 1 : bandWidth + 1); i++) {
             gapCost = switch (left_mode) {
                 case FREE -> 0;
                 case PENALIZE -> -gapOpenPenalty - (i - 1) * gapExtendPenalty;
@@ -477,7 +494,7 @@ public final class Bio {
             tracebackMatrix[i][0] = 'I';
         }
         // j -> SUFFIX
-        for (int j = 1; j < seq2.length() + 1; j++) {
+        for (int j = 1; j < (Objects.isNull(bandWidth) ? seq2.length() + 1 : bandWidth + 1); j++) {
             gapCost = switch (right_mode) {
                 case FREE -> 0;
                 case PENALIZE -> -gapOpenPenalty - (j - 1) * gapExtendPenalty;
@@ -491,7 +508,15 @@ public final class Bio {
         }
         double max;
         for (int i = 1; i < seq1.length() + 1; i++) {
-            for (int j = 1; j < seq2.length() + 1; j++) {
+            int jLeftBound = Math.max(
+                    1,
+                    (Objects.isNull(bandWidth) ? 1 : i - bandWidth)
+            );
+            int jRightBound = Math.min(
+                    seq2.length(),
+                    (Objects.isNull(bandWidth) ? seq2.length() : i + bandWidth)
+            );
+            for (int j = jLeftBound; j < jRightBound + 1; j++) {
                 matchScoreMatrix[i][j] =
                         alignmentMatrix[i - 1][j - 1]
                                 + scoringMatrix[scoringMatrixIndexMap.get(seq1Array[i - 1])][scoringMatrixIndexMap
@@ -524,7 +549,7 @@ public final class Bio {
                 }
             }
         }
-        alignmentScore = alignmentMatrix[seq1.length()][seq2.length()];
+        alignmentScore = (int) alignmentMatrix[seq1.length()][seq2.length()];
     /*
     (2) Compute traceback path from global alignment.
     */
@@ -767,13 +792,17 @@ public final class Bio {
             FeatureEntry featureEntry = variantsDictionary.features.get(fId);
             String referenceProteinSequence = variantsDictionary.features.get(fId).translatedNucleotideSequence;
             String sampleProteinSequence = Bio.translateNucSequence(sampleNucleotideSequence, true, true, featureEntry.isSense);
+            int maximalIndelLength = variantsDictionary.getNucleotideVariants(fId, sId, false)
+                    .values().stream()
+                    .map(v -> v.length() - 1).max(Integer::compare).orElse(0);
             Triplet<Integer, String, String> sa = Bio.globalAminoAcidSequenceAlignment(
                     referenceProteinSequence,
                     sampleProteinSequence,
                     4,
                     3,
                     GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID,
-                    GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE
+                    GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE,
+                    maximalIndelLength
             );
             return extractVariantsFromAlignment.apply(sa);
         } else {

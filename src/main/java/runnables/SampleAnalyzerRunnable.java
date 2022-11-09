@@ -5,6 +5,7 @@ import components.Logging;
 import datastructure.FeatureEntry;
 import datastructure.SampleEntry;
 import datastructure.VariantsDictionary;
+import exceptions.MusialException;
 import htsjdk.variant.variantcontext.Allele;
 import htsjdk.variant.variantcontext.VariantContext;
 import org.javatuples.Triplet;
@@ -108,7 +109,6 @@ public final class SampleAnalyzerRunnable implements Runnable {
             }
         } catch (Exception e) {
             Logging.logError("An error occurred during the analysis of sample " + sampleEntry.name + " (file: " + sampleEntry.vcfFile.getAbsolutePath() + "); " + e.getMessage());
-            throw e;
         } finally {
             /* TODO: Handle resolved ambiguous variants. At least log to file.
             if (ambiguousVariantsCount > 0) { ... }
@@ -131,7 +131,7 @@ public final class SampleAnalyzerRunnable implements Runnable {
      */
     private void processVariantCall(int variantPosition, double variantQuality, double variantCoverage,
                                     double variantFrequency, Allele variantAllele, Allele referenceAllele,
-                                    boolean isHetCall, boolean isPrimary) {
+                                    boolean isHetCall, boolean isPrimary) throws MusialException {
         String variantAlleleContent = variantAllele.getBaseString();
         String referenceAlleleContent = referenceAllele.getBaseString();
         boolean isRejected = variantQuality < variantsDictionary.parameters.minQuality ||
@@ -164,7 +164,8 @@ public final class SampleAnalyzerRunnable implements Runnable {
                     referenceAllele.getBaseString(),
                     variantAllele.getBaseString(),
                     Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID,
-                    Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE
+                    Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE,
+                    null
             );
             ArrayList<String> resolvedVariants = Bio.getVariantsOfAlignedSequences(alignedAlleles.getValue1(), alignedAlleles.getValue2());
             for (String resolvedVariant : resolvedVariants) {
