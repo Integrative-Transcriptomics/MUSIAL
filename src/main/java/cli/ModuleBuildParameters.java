@@ -165,10 +165,10 @@ public final class ModuleBuildParameters {
             throw new MusialException(EXCEPTION_PREFIX + " Specified " + Logging.colorParameter("outputFile") + " " + Logging.colorParameter((String) parameters.get("outputFile")) + " already exists.");
         }
         // Parse whether to run whole genome analysis.
-        if (!parameters.containsKey("genomeAnalysis")) {
-            if (parameters.get("genomeAnalysis") == "true") {
+        if (parameters.containsKey("genomeAnalysis")) {
+            if (parameters.get("genomeAnalysis").equals("true")) {
                 this.genomeAnalysis = true;
-            } else if (parameters.get("genomeAnalysis") == "false") {
+            } else if (parameters.get("genomeAnalysis").equals("false")) {
                 this.genomeAnalysis = false;
             } else {
                 throw new MusialException(EXCEPTION_PREFIX + " Unable to assign non-boolean value " + Logging.colorParameter("genomeAnalysis") + " " + Logging.colorParameter((String) parameters.get("genomeAnalysis")) + " as genome analysis mode. Use either `true` or `false`.");
@@ -176,14 +176,12 @@ public final class ModuleBuildParameters {
         }
         // Parse excluded positions
         if (parameters.containsKey("excludedPositions")) {
-            //noinspection rawtypes
-            LinkedTreeMap excludedPositions = (LinkedTreeMap) parameters.get("excludedPositions");
-            for (Object excludedPositionsEntry : excludedPositions.keySet()) {
-                String key = (String) excludedPositionsEntry;
+            //noinspection rawtypes,unchecked
+            LinkedTreeMap<String,ArrayList<Double>> excludedPositions = (LinkedTreeMap) parameters.get("excludedPositions");
+            for (String key : excludedPositions.keySet()) {
                 this.excludedPositions.put(key,new TreeSet<>());
-                //noinspection unchecked
-                for (Object excludedPosition : ((ArrayList<Object>) excludedPositions.get(key))) {
-                    this.excludedPositions.get(key).add((Integer) excludedPosition);
+                for (Double excludedPosition : excludedPositions.get(key)) {
+                    this.excludedPositions.get(key).add(excludedPosition.intValue());
                 }
             }
         }
@@ -233,17 +231,17 @@ public final class ModuleBuildParameters {
             //noinspection rawtypes
             featureEntry = (LinkedTreeMap) features.get(featureKey);
             File featurePdbFile;
-            boolean asCds = false;
+            boolean isCds = false;
             if (featureEntry.containsKey("pdbFile")) {
                 featurePdbFile = new File((String) featureEntry.get("pdbFile"));
                 if (featureEntry.get("pdbFile") != null && !Validation.isFile(featurePdbFile)) {
                     throw new MusialException(EXCEPTION_PREFIX + " Failed to access specified `pdb` file for feature " + Logging.colorParameter((String) featureKey));
                 }
-                asCds = true;
+                isCds = true;
             } else {
                 featurePdbFile = null;
-                if (featureEntry.containsKey("considerCodingSequence")) {
-                    asCds = featureEntry.get("considerCodingSequence") == "true";
+                if (featureEntry.containsKey("isCodingSequence")) {
+                    isCds = featureEntry.get("isCodingSequence").equals("true");
                 }
             }
             //noinspection unchecked
@@ -268,7 +266,7 @@ public final class ModuleBuildParameters {
                     matchKey.replace("MATCH_", ""),
                     (String) featureEntry.get(matchKey),
                     featurePdbFile,
-                    asCds,
+                    isCds,
                     annotations
             );
         }

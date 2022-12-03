@@ -75,7 +75,7 @@ public final class FeatureEntry {
     /**
      * Indicates if the feature represents a coding sequence.
      */
-    public boolean considerCodingSequence;
+    public boolean isCodingSequence;
     /**
      * {@link HashMap} storing all {@link AlleleEntry} instances, i.e. alleles, associated with this feature.
      */
@@ -126,13 +126,13 @@ public final class FeatureEntry {
      *                      is located on.
      * @param entryStart    {@link Integer} The 1-based indexed starting position of the feature on the reference.
      * @param entryEnd      {@link Integer} The 1-based indexed end position of the feature on the reference.
-     * @param asCds         {@link Boolean} whether to consider this feature as coding sequence.
+     * @param isCds         {@link Boolean} whether to consider this feature as coding sequence.
      * @throws MusialException If the specified locus is ambiguous.
      */
-    public FeatureEntry(String entryName, String entryLocation, int entryStart, int entryEnd, boolean asCds) throws MusialException {
+    public FeatureEntry(String entryName, String entryLocation, int entryStart, int entryEnd, boolean isCds) throws MusialException {
         this.name = entryName;
         this.chromosome = entryLocation;
-        this.considerCodingSequence = asCds;
+        this.isCodingSequence = isCds;
         if (entryStart >= 0 && entryEnd > 0 && (entryEnd > entryStart)) {
             // CASE: Feature is on sense strand.
             this.isSense = true;
@@ -232,7 +232,7 @@ public final class FeatureEntry {
      *                         termination codons or contains any gaps when aligned to the amino-acid sequence derived from the .pdb fiel.
      */
     public void imputeProteinInformation() throws IOException, MusialException {
-        if ( considerCodingSequence ) {
+        if (isCodingSequence) {
             this.translatedNucleotideSequence = Bio.translateNucSequence(this.nucleotideSequence, true, true,
                     this.isSense);
         } else {
@@ -246,7 +246,7 @@ public final class FeatureEntry {
         } else {
             pdbStructure = null;
             proteinSequences = new HashMap<>(){{
-                put( "V", translatedNucleotideSequence );
+                put( "$", translatedNucleotideSequence );
             }};
         }
         // TODO: Check if proteinSequences are identical, if more than one is contained in the .pdb model.

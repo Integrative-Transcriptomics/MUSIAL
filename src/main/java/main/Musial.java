@@ -187,10 +187,9 @@ public final class Musial {
 
         // Add feature information.
         Logging.logStatus(Logging.getStartTag() + " Add feature information");
-        Set<String> specifiedFeatures = parameters.features.keySet();
         // Fetch fasta container of feature parent sequence.
         FastaContainer featureContig;
-        for (String featureId : specifiedFeatures) {
+        for (String featureId : parameters.features.keySet()) {
             featureContig = null;
             for (FastaContainer fastaContainer : IO.readFastaToSet(parameters.referenceFASTA)) {
                 String contig = fastaContainer.getHeader().split(" ")[0].trim();
@@ -203,7 +202,7 @@ public final class Musial {
                 throw new MusialException("Failed to match contig " + Logging.colorParameter(parameters.features.get(featureId).chromosome) + " from `fasta` file " + Logging.colorParameter(parameters.referenceFASTA.getAbsolutePath()));
             } else {
                 parameters.features.get(featureId).imputeNucleotideSequence(featureContig);
-                if (parameters.features.get(featureId).considerCodingSequence) {
+                if (parameters.features.get(featureId).isCodingSequence) {
                     parameters.features.get(featureId).imputeProteinInformation();
                 }
                 variantsDictionary.features.put(featureId, parameters.features.get(featureId));
@@ -219,28 +218,25 @@ public final class Musial {
                 variantsDictionary.features.put(contig, new FeatureEntry(
                         contig,
                         contig,
-                        1,
+                        0,
                         fastaContainer.getSequence().length(),
                         false
                 ));
+                variantsDictionary.features.get(contig).imputeNucleotideSequence(fastaContainer);
             }
         }
         Logging.logStatus(Logging.getDoneTag() + " Add feature information");
 
         // Collect information about sample variants.
         Logging.logStatus(Logging.getStartTag() + " Add sample information ");
-        Set<String> sampleIdsUpdate = parameters.samples.keySet();
-        HashSet<String> sampleIdsAll = new HashSet<>();
-        sampleIdsAll.addAll(sampleIdsUpdate);
-        sampleIdsAll.addAll(variantsDictionary.samples.keySet());
         ExecutorService executor = Executors.newFixedThreadPool(Musial.THREADS);
-        for (String sampleId : sampleIdsAll) {
+        for (String sampleId : parameters.samples.keySet()) {
             SampleEntry sampleEntry = parameters.samples.get(sampleId);
             SampleEntry.imputeVCFFileReader(sampleEntry);
             variantsDictionary.samples.put(sampleEntry.name, sampleEntry);
-            for (String featureId : specifiedFeatures) {
+            for (String featureId : variantsDictionary.features.keySet()) {
                 executor.execute(
-                        new SampleAnalyzerRunnable(sampleEntry, parameters.features.get(featureId), variantsDictionary)
+                        new SampleAnalyzerRunnable(sampleEntry, variantsDictionary.features.get(featureId), variantsDictionary)
                 );
             }
         }
@@ -315,7 +311,7 @@ public final class Musial {
         Logging.logStatus(Logging.getStartTag() + " Infer proteoforms");
         ConcurrentSkipListMap<String, Tuple<String, String>> aminoacidVariants;
         List<String> featureIdsWithProteinInformation = variantsDictionary.features.keySet().stream().filter(
-                feKey -> variantsDictionary.features.get(feKey).considerCodingSequence
+                feKey -> variantsDictionary.features.get(feKey).isCodingSequence
         ).collect(Collectors.toList());
         for (String featureId : featureIdsWithProteinInformation) {
             for (String sampleId : variantsDictionary.samples.keySet()) {

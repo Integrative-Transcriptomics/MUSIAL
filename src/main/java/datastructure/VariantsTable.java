@@ -61,7 +61,7 @@ public class VariantsTable {
             );
         }
         if (this.contentMode.equals(ModuleExtractContentModes.AMINOACID)
-                && !this.parentDictionary.features.get(this.featureIdentifier).considerCodingSequence) {
+                && !this.parentDictionary.features.get(this.featureIdentifier).isCodingSequence) {
             throw new MusialException(
                     EXCEPTION_PREFIX
                             + " Non-coding feature "

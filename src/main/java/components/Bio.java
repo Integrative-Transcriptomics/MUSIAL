@@ -783,7 +783,7 @@ public final class Bio {
             }
             return variants;
         };
-        if (variantsDictionary.features.get(fId).considerCodingSequence
+        if (variantsDictionary.features.get(fId).isCodingSequence
                 && !Objects.equals(sampleNucleotideSequence, variantsDictionary.features.get(fId).nucleotideSequence)
                 && sampleNucleotideSequence != null) {
             sampleNucleotideSequence = sampleNucleotideSequence.replace("-", "");

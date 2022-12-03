@@ -423,7 +423,7 @@ public class VariantsDictionary {
                 + "No feature is stored with identifier "
                 + featureId
         );
-        if (coding && !features.get(featureId).considerCodingSequence) throw new MusialException(EXCEPTION_PREFIX
+        if (coding && !features.get(featureId).isCodingSequence) throw new MusialException(EXCEPTION_PREFIX
                 + "The feature stored with identifier "
                 + featureId
                 + " is no coding sequence."
