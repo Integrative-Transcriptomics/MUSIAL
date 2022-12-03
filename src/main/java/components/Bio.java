@@ -7,8 +7,6 @@ import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;
 import org.javatuples.Triplet;
 
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Function;
@@ -785,7 +783,7 @@ public final class Bio {
             }
             return variants;
         };
-        if (variantsDictionary.features.get(fId).isCodingSequence
+        if (variantsDictionary.features.get(fId).considerCodingSequence
                 && !Objects.equals(sampleNucleotideSequence, variantsDictionary.features.get(fId).nucleotideSequence)
                 && sampleNucleotideSequence != null) {
             sampleNucleotideSequence = sampleNucleotideSequence.replace("-", "");

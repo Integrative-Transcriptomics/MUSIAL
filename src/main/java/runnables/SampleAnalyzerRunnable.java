@@ -70,6 +70,9 @@ public final class SampleAnalyzerRunnable implements Runnable {
                     continue;
                 }
                 int variantPosition = variantContext.getStart();
+                if ( variantsDictionary.excludedPositions.get(variantContig).contains(variantPosition) ) {
+                    continue;
+                }
                 double variantQuality = round(variantContext.getPhredScaledQual(), 2);
                 double variantCoverage = variantContext.getAttributeAsDouble("DP", 0.0);
                 double variantFrequency;
@@ -109,10 +112,6 @@ public final class SampleAnalyzerRunnable implements Runnable {
             }
         } catch (Exception e) {
             Logging.logError("An error occurred during the analysis of sample " + sampleEntry.name + " (file: " + sampleEntry.vcfFile.getAbsolutePath() + "); " + e.getMessage());
-        } finally {
-            /* TODO: Handle resolved ambiguous variants. At least log to file.
-            if (ambiguousVariantsCount > 0) { ... }
-             */
         }
     }
 
@@ -134,6 +133,7 @@ public final class SampleAnalyzerRunnable implements Runnable {
                                     boolean isHetCall, boolean isPrimary) throws MusialException {
         String variantAlleleContent = variantAllele.getBaseString();
         String referenceAlleleContent = referenceAllele.getBaseString();
+        //noinspection unused
         boolean isRejected = variantQuality < variantsDictionary.parameters.minQuality ||
                 variantCoverage < variantsDictionary.parameters.minCoverage ||
                 (!isHetCall && variantFrequency < variantsDictionary.parameters.minFrequency) ||

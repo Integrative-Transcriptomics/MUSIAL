@@ -203,10 +203,26 @@ public final class Musial {
                 throw new MusialException("Failed to match contig " + Logging.colorParameter(parameters.features.get(featureId).chromosome) + " from `fasta` file " + Logging.colorParameter(parameters.referenceFASTA.getAbsolutePath()));
             } else {
                 parameters.features.get(featureId).imputeNucleotideSequence(featureContig);
-                if (parameters.features.get(featureId).pdbFile != null) {
+                if (parameters.features.get(featureId).considerCodingSequence) {
                     parameters.features.get(featureId).imputeProteinInformation();
                 }
                 variantsDictionary.features.put(featureId, parameters.features.get(featureId));
+            }
+        }
+        // Assign contigs as features, if genome analysis is specified.
+        for (FastaContainer fastaContainer : IO.readFastaToSet(parameters.referenceFASTA)) {
+            String contig = fastaContainer.getHeader().split(" ")[0].trim();
+            if (parameters.excludedPositions.containsKey(contig)) {
+                variantsDictionary.excludedPositions.put(contig, parameters.excludedPositions.get(contig));
+            }
+            if (parameters.genomeAnalysis) {
+                variantsDictionary.features.put(contig, new FeatureEntry(
+                        contig,
+                        contig,
+                        1,
+                        fastaContainer.getSequence().length(),
+                        false
+                ));
             }
         }
         Logging.logStatus(Logging.getDoneTag() + " Add feature information");
@@ -299,7 +315,7 @@ public final class Musial {
         Logging.logStatus(Logging.getStartTag() + " Infer proteoforms");
         ConcurrentSkipListMap<String, Tuple<String, String>> aminoacidVariants;
         List<String> featureIdsWithProteinInformation = variantsDictionary.features.keySet().stream().filter(
-                feKey -> variantsDictionary.features.get(feKey).isCodingSequence
+                feKey -> variantsDictionary.features.get(feKey).considerCodingSequence
         ).collect(Collectors.toList());
         for (String featureId : featureIdsWithProteinInformation) {
             for (String sampleId : variantsDictionary.samples.keySet()) {

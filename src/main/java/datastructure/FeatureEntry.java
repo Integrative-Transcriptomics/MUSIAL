@@ -75,7 +75,7 @@ public final class FeatureEntry {
     /**
      * Indicates if the feature represents a coding sequence.
      */
-    public boolean isCodingSequence;
+    public boolean considerCodingSequence;
     /**
      * {@link HashMap} storing all {@link AlleleEntry} instances, i.e. alleles, associated with this feature.
      */
@@ -126,12 +126,13 @@ public final class FeatureEntry {
      *                      is located on.
      * @param entryStart    {@link Integer} The 1-based indexed starting position of the feature on the reference.
      * @param entryEnd      {@link Integer} The 1-based indexed end position of the feature on the reference.
+     * @param asCds         {@link Boolean} whether to consider this feature as coding sequence.
      * @throws MusialException If the specified locus is ambiguous.
      */
-    public FeatureEntry(String entryName, String entryLocation, int entryStart, int entryEnd) throws MusialException {
+    public FeatureEntry(String entryName, String entryLocation, int entryStart, int entryEnd, boolean asCds) throws MusialException {
         this.name = entryName;
         this.chromosome = entryLocation;
-        this.isCodingSequence = false;
+        this.considerCodingSequence = asCds;
         if (entryStart >= 0 && entryEnd > 0 && (entryEnd > entryStart)) {
             // CASE: Feature is on sense strand.
             this.isSense = true;
@@ -231,18 +232,27 @@ public final class FeatureEntry {
      *                         termination codons or contains any gaps when aligned to the amino-acid sequence derived from the .pdb fiel.
      */
     public void imputeProteinInformation() throws IOException, MusialException {
-        if (this.pdbFile == null) {
+        if ( considerCodingSequence ) {
+            this.translatedNucleotideSequence = Bio.translateNucSequence(this.nucleotideSequence, true, true,
+                    this.isSense);
+        } else {
             return;
         }
-        this.isCodingSequence = true;
-        Structure pdbStructure = IO.readStructure(this.pdbFile);
-        HashMap<String, String> proteinSequences = IO.getSequencesFromPdbStructure(pdbStructure);
+        Structure pdbStructure;
+        HashMap<String, String> proteinSequences;
+        if (this.pdbFile != null) {
+            pdbStructure = IO.readStructure(this.pdbFile);
+            proteinSequences = IO.getSequencesFromPdbStructure(pdbStructure);
+        } else {
+            pdbStructure = null;
+            proteinSequences = new HashMap<>(){{
+                put( "V", translatedNucleotideSequence );
+            }};
+        }
         // TODO: Check if proteinSequences are identical, if more than one is contained in the .pdb model.
         String chainId;
         String chainSeq;
         char[] alignedChainSequence;
-        this.translatedNucleotideSequence = Bio.translateNucSequence(this.nucleotideSequence, true, true,
-                this.isSense);
         if (this.translatedNucleotideSequence.endsWith(String.valueOf(Bio.TERMINATION_AA1))) {
             if (this.translatedNucleotideSequence.substring(0, this.translatedNucleotideSequence.length() - 1).contains(String.valueOf(Bio.TERMINATION_AA1))) {
                 Logging.logWarning("Feature " + this.name + " contains internal terminations in translated feature nucleotide sequence.");
@@ -283,34 +293,40 @@ public final class FeatureEntry {
                 }
             }
             // Construct Iterator of current chain groups sequence numbers.
-            Chain pdbChain = pdbStructure.getChain(chainId);
-            List<Group> pdbChainAtomGroups = pdbChain.getAtomGroups();
-            Iterator<Group> pdbChainAtomGroupIterator = pdbChainAtomGroups.iterator();
-            List<Group> pdbChainAtomGroupsFixed = new ArrayList<>();
-            char[] paddedChainSeqChars = paddedProteinSequenceBuilder.toString().toCharArray();
-            for (int chainPosition = 1; chainPosition < paddedChainSeqChars.length + 1; chainPosition++) {
-                if (Character.isLowerCase(paddedChainSeqChars[chainPosition - 1])) {
-                    continue;
+            if ( pdbStructure != null ) {
+                Chain pdbChain = pdbStructure.getChain(chainId);
+                List<Group> pdbChainAtomGroups = pdbChain.getAtomGroups();
+                Iterator<Group> pdbChainAtomGroupIterator = pdbChainAtomGroups.iterator();
+                List<Group> pdbChainAtomGroupsFixed = new ArrayList<>();
+                char[] paddedChainSeqChars = paddedProteinSequenceBuilder.toString().toCharArray();
+                for (int chainPosition = 1; chainPosition < paddedChainSeqChars.length + 1; chainPosition++) {
+                    if (Character.isLowerCase(paddedChainSeqChars[chainPosition - 1])) {
+                        continue;
+                    }
+                    if (pdbChainAtomGroupIterator.hasNext()) {
+                        Group nextGroup = pdbChainAtomGroupIterator.next();
+                        nextGroup.getResidueNumber().setSeqNum(chainPosition);
+                        pdbChainAtomGroupsFixed.add(nextGroup);
+                    } else {
+                        break;
+                    }
                 }
-                if (pdbChainAtomGroupIterator.hasNext()) {
-                    Group nextGroup = pdbChainAtomGroupIterator.next();
-                    nextGroup.getResidueNumber().setSeqNum(chainPosition);
-                    pdbChainAtomGroupsFixed.add(nextGroup);
-                } else {
-                    break;
+                pdbChain.setAtomGroups(pdbChainAtomGroupsFixed);
+                divergentSegments = Arrays.stream(
+                        paddedProteinSequenceBuilder.toString().split("(?=\\p{Upper})")
+                ).filter(s -> s.length() > 1).collect(Collectors.toList());
+                if (divergentSegments.size() > 2) {
+                    Logging.logWarning("Feature " + this.name + " disaccords in " + divergentSegments.size() + " segments " +
+                            "with allocated protein " + this.pdbFile.getName() + " chain " + chainId + ": The structure may be inappropriate.");
                 }
+                this.proteinSequences.put(chainId, paddedProteinSequenceBuilder.toString());
+
             }
-            pdbChain.setAtomGroups(pdbChainAtomGroupsFixed);
-            divergentSegments = Arrays.stream(
-                    paddedProteinSequenceBuilder.toString().split("(?=\\p{Upper})")
-            ).filter(s -> s.length() > 1).collect(Collectors.toList());
-            if (divergentSegments.size() > 2) {
-                Logging.logWarning("Feature " + this.name + " disaccords in " + divergentSegments.size() + " segments " +
-                        "with allocated protein " + this.pdbFile.getName() + " chain " + chainId + ": The structure may be inappropriate.");
-            }
-            this.proteinSequences.put(chainId, paddedProteinSequenceBuilder.toString());
+
         }
-        this.structure = String.join(IO.LINE_SEPARATOR, pdbStructure.toPDB());
+        if ( pdbStructure != null ) {
+            this.structure = String.join(IO.LINE_SEPARATOR, pdbStructure.toPDB());
+        }
     }
 
     /**

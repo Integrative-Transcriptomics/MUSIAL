@@ -13,8 +13,7 @@ import org.biojava.nbio.genome.parsers.gff.Location;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 /**
@@ -29,11 +28,11 @@ import java.util.concurrent.ConcurrentSkipListMap;
  */
 public final class ModuleBuildParameters {
     /**
-     * Minimum (read) coverage in order to call a SNV.
+     * Minimum (read) coverage in order to call an SNV.
      */
     public Double minCoverage;
     /**
-     * Minimum allele frequency (with respect to reads) in order to call a SNV.
+     * Minimum allele frequency (with respect to reads) in order to call an SNV.
      */
     public Double minHomFrequency;
     /**
@@ -45,7 +44,7 @@ public final class ModuleBuildParameters {
      */
     public Double maxHetFrequency;
     /**
-     * Minimum quality, i.e. the value given in the QUAL field of .vcf files, in order to call a SNV.
+     * Minimum quality, i.e. the value given in the QUAL field of .vcf files, in order to call an SNV.
      */
     public Double minQuality;
     /**
@@ -65,6 +64,10 @@ public final class ModuleBuildParameters {
      */
     public final ConcurrentSkipListMap<String, FeatureEntry> features = new ConcurrentSkipListMap<>();
     /**
+     * {@link Boolean} whether to analyze the whole reference genome independent of features.
+     */
+    public boolean genomeAnalysis;
+    /**
      * {@link File} object specifying the output file.
      */
     public File outputFile;
@@ -72,6 +75,10 @@ public final class ModuleBuildParameters {
      * {@link FeatureList} object specifying parsed genome features.
      */
     private FeatureList referenceFeatures = null;
+    /**
+     * Optional positions to exclude from the analysis.
+     */
+    public final HashMap<String, TreeSet<Integer>> excludedPositions = new HashMap<>();
     /**
      * Prefix to use for exception messages.
      */
@@ -157,6 +164,29 @@ public final class ModuleBuildParameters {
         if (Validation.isFile(this.outputFile)) {
             throw new MusialException(EXCEPTION_PREFIX + " Specified " + Logging.colorParameter("outputFile") + " " + Logging.colorParameter((String) parameters.get("outputFile")) + " already exists.");
         }
+        // Parse whether to run whole genome analysis.
+        if (!parameters.containsKey("genomeAnalysis")) {
+            if (parameters.get("genomeAnalysis") == "true") {
+                this.genomeAnalysis = true;
+            } else if (parameters.get("genomeAnalysis") == "false") {
+                this.genomeAnalysis = false;
+            } else {
+                throw new MusialException(EXCEPTION_PREFIX + " Unable to assign non-boolean value " + Logging.colorParameter("genomeAnalysis") + " " + Logging.colorParameter((String) parameters.get("genomeAnalysis")) + " as genome analysis mode. Use either `true` or `false`.");
+            }
+        }
+        // Parse excluded positions
+        if (parameters.containsKey("excludedPositions")) {
+            //noinspection rawtypes
+            LinkedTreeMap excludedPositions = (LinkedTreeMap) parameters.get("excludedPositions");
+            for (Object excludedPositionsEntry : excludedPositions.keySet()) {
+                String key = (String) excludedPositionsEntry;
+                this.excludedPositions.put(key,new TreeSet<>());
+                //noinspection unchecked
+                for (Object excludedPosition : ((ArrayList<Object>) excludedPositions.get(key))) {
+                    this.excludedPositions.get(key).add((Integer) excludedPosition);
+                }
+            }
+        }
         // Parse samples
         if (!parameters.containsKey("samples")) {
             throw new MusialException(EXCEPTION_PREFIX + " Missing " + Logging.colorParameter("samples") + "; expected at least one entry.");
@@ -203,13 +233,18 @@ public final class ModuleBuildParameters {
             //noinspection rawtypes
             featureEntry = (LinkedTreeMap) features.get(featureKey);
             File featurePdbFile;
+            boolean asCds = false;
             if (featureEntry.containsKey("pdbFile")) {
                 featurePdbFile = new File((String) featureEntry.get("pdbFile"));
                 if (featureEntry.get("pdbFile") != null && !Validation.isFile(featurePdbFile)) {
                     throw new MusialException(EXCEPTION_PREFIX + " Failed to access specified `pdb` file for feature " + Logging.colorParameter((String) featureKey));
                 }
+                asCds = true;
             } else {
                 featurePdbFile = null;
+                if (featureEntry.containsKey("considerCodingSequence")) {
+                    asCds = featureEntry.get("considerCodingSequence") == "true";
+                }
             }
             //noinspection unchecked
             String matchKey = (String) featureEntry
@@ -233,6 +268,7 @@ public final class ModuleBuildParameters {
                     matchKey.replace("MATCH_", ""),
                     (String) featureEntry.get(matchKey),
                     featurePdbFile,
+                    asCds,
                     annotations
             );
         }
@@ -262,11 +298,12 @@ public final class ModuleBuildParameters {
      * @param name        {@link String}; The internal name to use for the feature.
      * @param matchKey    {@link String}; The key of the attribute in the specified .gff format reference annotation to match the feature from.
      * @param matchValue  {@link String}; The value of the attribute in the specified .gff format reference annotation to match the feature from.
+     * @param asCds       {@link Boolean}; Whether to consider feature as cds, independent of provided structure.
      * @param pdbFile     {@link File}; Optional object pointing to a .pdb format file yielding a protein structure derived for the (gene) feature.
      * @param annotations {@link java.util.HashMap} of {@link String} key/pair values; feature meta information.
      * @throws MusialException If the initialization of the {@link FeatureEntry} fails; If the specified .gff reference annotation or .pdb protein file can not be read; If the specified feature is not found or parsed multiple times from the reference annotation.
      */
-    private void addFeature(String name, String matchKey, String matchValue, File pdbFile, Map<String, String> annotations)
+    private void addFeature(String name, String matchKey, String matchValue, File pdbFile, boolean asCds, Map<String, String> annotations)
             throws MusialException {
         if (this.referenceFeatures == null) {
             try {
@@ -290,7 +327,7 @@ public final class ModuleBuildParameters {
               the `gff` files. This is currently fixed in the FeatureEntry.java class.
            */
             FeatureEntry featureEntry = new FeatureEntry(name, featureParentSequence, featureCoordinates.getBegin(),
-                    featureCoordinates.getEnd());
+                    featureCoordinates.getEnd(), asCds);
             featureEntry.annotations.putAll(annotations);
             this.features.put(name, featureEntry);
         }

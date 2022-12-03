@@ -59,9 +59,13 @@ public class VariantsDictionary {
     @SuppressWarnings("unused")
     public final String date = new SimpleDateFormat("dd/MM/yyyy").format(new Date());
     /**
+     * Specification of positions to exclude from the analysis per reference contig.
+     */
+    public final HashMap<String, TreeSet<Integer>> excludedPositions = new HashMap<>();
+    /**
      * TODO
      */
-    public final static String FIELD_SEPARATOR_1 = "_";
+    public final static String FIELD_SEPARATOR_1 = "!";
     /**
      * TODO
      */
@@ -72,7 +76,7 @@ public class VariantsDictionary {
     public final static String NULL_VALUE = "N/A";
 
     @SuppressWarnings("FieldCanBeLocal")
-    private final String EXCEPTION_PREFIX = "(Variants Dictionary) ";
+    private final static String EXCEPTION_PREFIX = "(Variants Dictionary) ";
 
     /**
      * Constructor of {@link VariantsDictionary}.
@@ -419,7 +423,7 @@ public class VariantsDictionary {
                 + "No feature is stored with identifier "
                 + featureId
         );
-        if (coding && !features.get(featureId).isCodingSequence) throw new MusialException(EXCEPTION_PREFIX
+        if (coding && !features.get(featureId).considerCodingSequence) throw new MusialException(EXCEPTION_PREFIX
                 + "The feature stored with identifier "
                 + featureId
                 + " is no coding sequence."
