@@ -13,7 +13,10 @@ import org.biojava.nbio.genome.parsers.gff.Location;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 /**
@@ -165,21 +168,13 @@ public final class ModuleBuildParameters {
             throw new MusialException(EXCEPTION_PREFIX + " Specified " + Logging.colorParameter("outputFile") + " " + Logging.colorParameter((String) parameters.get("outputFile")) + " already exists.");
         }
         // Parse whether to run whole genome analysis.
-        if (parameters.containsKey("genomeAnalysis")) {
-            if (parameters.get("genomeAnalysis").equals("true")) {
-                this.genomeAnalysis = true;
-            } else if (parameters.get("genomeAnalysis").equals("false")) {
-                this.genomeAnalysis = false;
-            } else {
-                throw new MusialException(EXCEPTION_PREFIX + " Unable to assign non-boolean value " + Logging.colorParameter("genomeAnalysis") + " " + Logging.colorParameter((String) parameters.get("genomeAnalysis")) + " as genome analysis mode. Use either `true` or `false`.");
-            }
-        }
+        this.genomeAnalysis = parameters.containsKey("genomeAnalysis") && (Boolean) parameters.get("genomeAnalysis");
         // Parse excluded positions
         if (parameters.containsKey("excludedPositions")) {
             //noinspection rawtypes,unchecked
-            LinkedTreeMap<String,ArrayList<Double>> excludedPositions = (LinkedTreeMap) parameters.get("excludedPositions");
+            LinkedTreeMap<String, ArrayList<Double>> excludedPositions = (LinkedTreeMap) parameters.get("excludedPositions");
             for (String key : excludedPositions.keySet()) {
-                this.excludedPositions.put(key,new TreeSet<>());
+                this.excludedPositions.put(key, new TreeSet<>());
                 for (Double excludedPosition : excludedPositions.get(key)) {
                     this.excludedPositions.get(key).add(excludedPosition.intValue());
                 }

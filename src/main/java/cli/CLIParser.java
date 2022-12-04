@@ -1,16 +1,19 @@
 package cli;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.github.fge.jackson.JsonLoader;
+import com.github.fge.jsonschema.core.exceptions.ProcessingException;
+import com.github.fge.jsonschema.core.report.ProcessingReport;
+import com.github.fge.jsonschema.main.JsonSchema;
+import com.github.fge.jsonschema.main.JsonSchemaFactory;
 import com.google.gson.Gson;
-import components.IO;
-import components.Logging;
 import exceptions.MusialException;
 import main.Musial;
 import org.apache.commons.cli.*;
+import org.apache.commons.io.IOUtils;
 import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.lang.reflect.Array;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -47,11 +50,11 @@ public class CLIParser {
                 Option.builder("c")
                         .longOpt("configuration")
                         .desc(
-                                "Path to a .json file specifying the run configurations for one or more MUSIAL modules."
-                                        + " Please visit https://github.com/Integrative-Transcriptomics/MUSIAL for a detailed explanation on how to specify MUSIAL configuration files."
-                                        + "\nAvailable modules are:"
-                                        + "\nBUILD: Generate a new variants dictionary .json file from multiple .vcf files wrt. one reference (.fasta + .gff)."
-                                        + "\nEXTRACT: Extract stored nucleotide or aminoacid variants of specified samples and features as a .tsv (tabular overview) or .fasta (sequences) file."
+                                """
+                                        Path to a .json file specifying the run configurations for one or more MUSIAL modules. Please visit https://github.com/Integrative-Transcriptomics/MUSIAL for a detailed explanation on how to specify MUSIAL configuration files.
+                                        Available modules are:
+                                        BUILD: Generate a new variants dictionary .json file from multiple .vcf files wrt. one reference (.fasta + .gff).
+                                        EXTRACT: Extract stored nucleotide or aminoacid variants of specified samples and features as a .tsv (tabular overview) or .fasta (sequences) file."""
                         )
                         .hasArg()
                         .required()
@@ -93,6 +96,21 @@ public class CLIParser {
         // Else, command line interface arguments are parsed.
         try {
             arguments = parser.parse(options, args);
+            // Validate input configuration.
+            try (FileOutputStream schemaOut = new FileOutputStream("./MUSIAL_CONFIGURATION.schema.json")) {
+                final JsonSchemaFactory factory = JsonSchemaFactory.byDefault();
+                IOUtils.copy(Objects.requireNonNull(Musial.class.getResourceAsStream("/MUSIAL_CONFIGURATION.schema.json")), schemaOut);
+                final JsonNode CONFIGURATION_SCHEMA = JsonLoader.fromFile(new File("./MUSIAL_CONFIGURATION.schema.json"));
+                final JsonSchema SCHEMA = factory.getJsonSchema(CONFIGURATION_SCHEMA);
+                final JsonNode good = JsonLoader.fromPath(arguments.getOptionValue("c"));
+                ProcessingReport report = SCHEMA.validate(good);
+                if (!report.isSuccess()) {
+                    throw new MusialException("(Configuration Validation Failed) " + report);
+                }
+            } finally {
+                //noinspection ResultOfMethodCallIgnored
+                new File("./MUSIAL_CONFIGURATION.schema.json").delete();
+            }
             // Parse specified configuration `JSON` object.
             try (
                     BufferedReader bufferedReader =
@@ -114,6 +132,10 @@ public class CLIParser {
             Musial.COMPRESS = arguments.hasOption("k");
         } catch (ParseException e) {
             throw new MusialException("(CLI Argument Parsing Failed) " + e.getMessage());
+        } catch (IOException | ProcessingException e) {
+            throw new MusialException("(Configuration Validation Failed) " + e.getMessage());
+        } finally {
+
         }
     }
 

@@ -1,9 +1,6 @@
 package main;
 
-import cli.CLIColors;
-import cli.CLIParser;
-import cli.ModuleBuildParameters;
-import cli.ModuleExtractParameters;
+import cli.*;
 import com.aayushatharva.brotli4j.Brotli4jLoader;
 import com.aayushatharva.brotli4j.encoder.Encoder;
 import com.google.gson.internal.LinkedTreeMap;
@@ -17,7 +14,10 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -389,7 +389,7 @@ public final class Musial {
                         + " " + Logging.getPurpleTag(String.valueOf(parameters.contentMode))
                         + " " + Logging.getPurpleTag(String.valueOf(parameters.outputMode))
                         + " " + Logging.getPurpleTag("Excl. indels: " + parameters.excludeIndels)
-                        + " " + Logging.getPurpleTag("Incl. non-variant positions: " + parameters.includeNonVariantPositions)
+                        + " " + Logging.getPurpleTag("Incl. non-variant positions: " + parameters.excludeConservedPositions)
                         + " " + Logging.getPurpleTag("Group samples: " + parameters.grouped)
         );
 
@@ -405,13 +405,24 @@ public final class Musial {
         for (String featureIdentifier : parameters.features) {
             switch (parameters.outputMode) {
                 case TABLE -> {
+                    if (parameters.contentMode.equals(ModuleExtractContentModes.AMINOACID)
+                            && !variantsDictionary.features.get(featureIdentifier).isCodingSequence) {
+                        Logging.logWarning(
+                                "Skipping non-coding feature "
+                                        + featureIdentifier
+                                        + " (incompatible with mode "
+                                        + parameters.contentMode
+                                        + ")."
+                        );
+                        continue;
+                    }
                     VariantsTable variantsTable = new VariantsTable(
                             variantsDictionary,
                             parameters.samples,
                             featureIdentifier,
                             parameters.contentMode,
                             parameters.excludeIndels,
-                            parameters.includeNonVariantPositions,
+                            !parameters.excludeConservedPositions,
                             false
                     );
                     StringBuilder outputContentBuilder = new StringBuilder();
@@ -456,13 +467,24 @@ public final class Musial {
                     }
                 }
                 case SEQUENCE_ALIGNED -> {
+                    if (parameters.contentMode.equals(ModuleExtractContentModes.AMINOACID)
+                            && !variantsDictionary.features.get(featureIdentifier).isCodingSequence) {
+                        Logging.logWarning(
+                                "Skipping non-coding feature "
+                                        + featureIdentifier
+                                        + " (incompatible with mode "
+                                        + parameters.contentMode
+                                        + ")."
+                        );
+                        continue;
+                    }
                     VariantsTable variantsTable = new VariantsTable(
                             variantsDictionary,
                             parameters.samples,
                             featureIdentifier,
                             parameters.contentMode,
                             parameters.excludeIndels,
-                            parameters.includeNonVariantPositions,
+                            !parameters.excludeConservedPositions,
                             true
                     );
                     ArrayList<Tuple<String, String>> fastaEntries = new ArrayList<>();

@@ -93,6 +93,7 @@ dependencies {
     implementation 'com.aayushatharva.brotli4j:brotli4j:1.8.0'
     implementation 'com.aayushatharva.brotli4j:native-windows-x86_64:1.8.0'
     implementation 'org.apache.commons:commons-math3:3.6.1'
+    implementation 'com.github.java-json-tools:json-schema-validator:2.2.14'
 }
 
 /*

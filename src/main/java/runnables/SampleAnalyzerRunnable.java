@@ -70,7 +70,8 @@ public final class SampleAnalyzerRunnable implements Runnable {
                     continue;
                 }
                 int variantPosition = variantContext.getStart();
-                if ( variantsDictionary.excludedPositions.get(variantContig).contains(variantPosition) ) {
+                if (variantsDictionary.excludedPositions.containsKey(variantContig)
+                        && variantsDictionary.excludedPositions.get(variantContig).contains(variantPosition)) {
                     continue;
                 }
                 double variantQuality = round(variantContext.getPhredScaledQual(), 2);

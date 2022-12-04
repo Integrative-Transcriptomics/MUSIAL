@@ -414,7 +414,7 @@ public final class FeatureEntry {
             if (dArrVariantPositions.length > 1) {
                 this.proteoforms.get(proteoformName).annotations.put(
                         ProteoformEntry.PROPERTY_NAME_CONGLOMERATION_INDEX,
-                        String.valueOf(Musial.DECIMAL_FORMATTER.format(new KolmogorovSmirnovTest().kolmogorovSmirnovTest(new UniformRealDistribution(1.0, referenceProteinLength), dArrVariantPositions, false)))
+                        String.valueOf(Musial.DECIMAL_FORMATTER.format(new KolmogorovSmirnovTest().kolmogorovSmirnovTest(new UniformRealDistribution(1.0, referenceProteinLength), dArrVariantPositions, false))).replace(",", ".")
                 );
             } else {
                 this.proteoforms.get(proteoformName).annotations.put(

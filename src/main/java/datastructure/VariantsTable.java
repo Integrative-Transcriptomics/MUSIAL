@@ -60,15 +60,6 @@ public class VariantsTable {
                             + " not stored in specified parent dictionary"
             );
         }
-        if (this.contentMode.equals(ModuleExtractContentModes.AMINOACID)
-                && !this.parentDictionary.features.get(this.featureIdentifier).isCodingSequence) {
-            throw new MusialException(
-                    EXCEPTION_PREFIX
-                            + " Non-coding feature "
-                            + this.featureIdentifier
-                            + " incompatible with mode "
-                            + this.contentMode);
-        }
         Logging.logStatus(
                 "Construct variants table ("
                         + this.contentMode

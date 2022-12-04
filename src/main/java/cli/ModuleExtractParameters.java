@@ -40,9 +40,9 @@ public class ModuleExtractParameters {
      */
     public boolean excludeIndels;
     /**
-     * {@link Boolean} whether to include non-variant positions.
+     * {@link Boolean} whether to exclude non-variant positions.
      */
-    public boolean includeNonVariantPositions;
+    public boolean excludeConservedPositions;
     /**
      * {@link ModuleExtractOutputModes} specifying the mode of output files generated. Either "SEQUENCE", "SEQUENCE_ALIGNED" or "TABLE".
      */
@@ -117,10 +117,10 @@ public class ModuleExtractParameters {
         }
 
         // Parse boolean parameter whether to include non-variant positions.
-        if (parameters.containsKey("includeNonVariantPositions")) {
-            this.includeNonVariantPositions = (boolean) parameters.get("includeNonVariantPositions");
+        if (parameters.containsKey("excludeConservedPositions")) {
+            this.excludeConservedPositions = (boolean) parameters.get("excludeConservedPositions");
         } else {
-            this.includeNonVariantPositions = false;
+            this.excludeConservedPositions = false;
         }
 
         // Parse boolean parameter whether to group samples by allele/proteoform.
