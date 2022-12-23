@@ -1,3 +1,7 @@
+## THIS BRANCH IS DEPRECATED | THE CURRENTLY ACTIVE BRANCH IS v2.1
+
+------
+
 # **MUSIAL - MUlti Sample varIant AnaLysis**
 
 `Contact:   simon.hackl@uni-tuebingen.de`
