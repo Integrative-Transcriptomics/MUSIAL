@@ -3,36 +3,48 @@
 `Contact:   simon.hackl@uni-tuebingen.de`
 
 ---
+
 ## **Description**:
-Summarize and filter single nucleotide variant and structural variant information from multiple samples on single genes or genomes based on **.vcf** files.
-The assessed variant information can be allocated to reference protein structures and visualized with the companion tool [MUSIAL IVE](https://github.com/Integrative-Transcriptomics/MUSIAL-IVE).
-![MUSIALIVE with example data](media/pipeline_overview.png)
+
+![MUSIAL Logo](media/logo.png)
+
+MUSIAL computes prokaryotic genome, gene and protein sequence alignments from variant call datasets (using both SNVs and Indels) derived from multiple samples of one species. It allows to assess the variability of a species on the genome, gene, and protein sequence level, e.g., which positions in the species exhibit large or no variability, identify genes with large variability, which samples agree on which proteoforms, etc. The project's architecture is organized in modules (you can find more information below). It provides multiple data export options for FASTA as well as tabular formats.
 
 ---
+
 ## **Dependencies and Building**:
+
 - JDK 15+
 - Gradle 7+
 
-A precompiled **.jar** can be found in __Releases__. This program can be built with gradle (https://gradle.org).
-For that just type `gradle clean build` in the projects root directory.
-The **.jar** file is then contained in the `/releases` directory.
+A precompiled **.jar** can be found at **Releases**. MUSIAL program can be built with gradle (https://gradle.org). For that just type `gradle clean build` in the projects root directory. The **.jar** file is then contained in the `/releases` directory.
 
 ---
+
+## **Access via Web**:
+
+As an alternative to using MUSIAL locally, you can access the software via a webserver at https://tuevis.cs.uni-tuebingen.de/. The source code of the web-plattform is available at https://github.com/Integrative-Transcriptomics/MUSIAL-WEB.
+
+---
+
 ## **Usage**:
 
-The compiled **.jar** can be run from any command line interface. `MUSIAL` implements different modules to execute distinct pipelines.
-The common input for each pipeline is a `JSON` file which serves as a local database of variant information and can be created and maintained with the `updateVDict` module.
-__For more information on how to generate a `VDict JSON` file and its `JSON Scheme` please visit the repository wiki.__
-To run a module type
-    
-    java -jar MUSIAL-v2.1 <MODULE_NAME> <MODULE_PARAMETERS>
-
-
+The compiled **.jar** can be run from any command line terminal. MUSIAL implements distinct modules to run tasks. The common input for each pipeline is a `JSON` file which describes which modules should be executed with which parameters. The exact structure of the MUSIAL configuration files is defined in the [MUSIAL configuration JSON schema](https://github.com/Integrative-Transcriptomics/MUSIAL/blob/v2.1/MUSIAL_CONFIGURATION.schema.json). All modules except the `BUILD` module use a database like local `JSON` file (the output of the `BUILD` module) as input. The structure of this file is defined in the [MUSIAL output JSON schema](hhttps://github.com/Integrative-Transcriptomics/MUSIAL/blob/v2.1/MUSIAL.schema.json).
 
 Currently available modules are:
 
-      - updateVDict : Generate a new or update an existing variants dictionary JSON file.
-        usage: java -jar MUSIAL-v2.1.jar updateVDict
-          -C,--vDictConfig <arg>    Path to .json file yielding the parameter and
-                                    input configuration to build/update a variants
-                                    dictionary.
+```
+MUSIAL v2.1 | License: GPL-3.0 License | Contact: simon.hackl@uni-tuebingen.de
+usage: java -jar MUSIAL-v2.1.jar -c <arg> [-k] [-s]
+command line arguments:
+
+-c,--configuration <arg> Path to a .json file specifying the run configurations for one or more MUSIAL modules. Please visit https://github.com/Integrative-Transcriptomics/MUSIAL for a detailed explanation on how to specify MUSIAL configuration files.
+
+Available modules are:
+BUILD: Generate a new variants dictionary .json file from multiple .vcf files wrt. one reference (.fasta + .gff).
+EXTRACT: Extract stored nucleotide or aminoacid variants of specified samples and features as a .tsv (tabular overview) or .fasta (sequences) file.
+
+-k,--compress If set, any output files will be compressed.
+
+-s,--silent If set, no console output will be generated.
+```
