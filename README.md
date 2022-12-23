@@ -29,7 +29,7 @@ As an alternative to using MUSIAL locally, you can access the software via a web
 
 ## **Usage**:
 
-The compiled **.jar** can be run from any command line terminal. MUSIAL implements distinct modules to run tasks. The common input for each pipeline is a `JSON` file which describes which modules should be executed with which parameters. The exact structure of the MUSIAL configuration files is defined in the [MUSIAL configuration JSON schema](https://github.com/Integrative-Transcriptomics/MUSIAL/blob/v2.1/MUSIAL_CONFIGURATION.schema.json). All modules except the `BUILD` module use a database like local `JSON` file (the output of the `BUILD` module) as input. The structure of this file is defined in the [MUSIAL output JSON schema](hhttps://github.com/Integrative-Transcriptomics/MUSIAL/blob/v2.1/MUSIAL.schema.json).
+The compiled **.jar** can be run from any command line terminal. MUSIAL implements distinct modules to run tasks. The common input for each pipeline is a `JSON` file which describes which modules should be executed with which parameters. The exact structure of the MUSIAL configuration files is defined in the [MUSIAL configuration JSON schema](https://github.com/Integrative-Transcriptomics/MUSIAL/blob/v2.1/MUSIAL_CONFIGURATION.schema.json). All modules except the `BUILD` module use a database like local `JSON` file (the output of the `BUILD` module) as input. The structure of this file is defined in the [MUSIAL output JSON schema](https://github.com/Integrative-Transcriptomics/MUSIAL/blob/v2.1/MUSIAL.schema.json).
 
 Currently available modules are:
 
