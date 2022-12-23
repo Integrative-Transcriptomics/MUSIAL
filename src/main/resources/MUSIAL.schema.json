@@ -1,0 +1,434 @@
+{
+  "$schema": "MUSIAL.schema.json",
+  "title": "MUSIAL",
+  "description": "Storage of genomic features (genes, chromosoems), their nucleotide variants and induced amino acid mutations wrt. a set of samples.",
+  "type": "object",
+  "properties": {
+    "parameters": {
+      "description": "Parameters used to infer nucleotide variants, i.e. all stored variants comply with the parameters in at least one sample.",
+      "type": "object",
+      "properties": {
+        "minCoverage": {
+          "description": "The minimal depth of coverage wrt. reads of a variant to be accepted.",
+          "type": "number",
+          "minimum": 0.0
+        },
+        "minFrequency": {
+          "description": "The minimal frequency wrt. reads supporting a homozygous allele call for a variant to be accepted.",
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "minHetFrequency": {
+          "description": "The minimal frequency wrt. reads supporting a heterozygous allele call for a variant to be accepted.",
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "maxHetFrequency": {
+          "description": "The maximal frequency wrt. reads supporting a heterozygous allele call for a variant to be accepted.",
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "minQuality": {
+          "description": "The minimal call quality for a variant to be accepted.",
+          "type": "number",
+          "minimum": 0.0
+        }
+      },
+      "required": [
+        "minCoverage",
+        "minFrequency",
+        "minHetFrequency",
+        "maxHetFrequency",
+        "minQuality"
+      ]
+    },
+    "features": {
+      "description": "Stores pattern properties associated with a single (coding gene) feature. The key of each feature defines the internal gene name and stores an object.",
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "description": "Information about a single genomic feature stored as `object`.",
+          "type": "object",
+          "properties": {
+            "name": {
+              "description": "The internal feature name; has to be equal to the key at which this object is stored.",
+              "type": "string"
+            },
+            "nucleotideSequence": {
+              "description": "The nucleotide sequence of the feature.",
+              "type": "string",
+              "pattern": "^[ATGCN]+$"
+            },
+            "translatedNucleotideSequence": {
+              "description": "The translated nucleotide sequence of the feature.",
+              "type": "string",
+              "pattern": "^[ARNDCEQGHILKMFPSTWYVX*]+$"
+            },
+            "proteinSequences": {
+              "description": "The actual aminoacid sequences of a (optionally) provided structure. Sequences are stored per chain.",
+              "type": "object",
+              "patternProperties": {
+                "^.+$": {
+                  "description": "The aminoacid sequence of a protein structure chain. Lower case symbols imply that the subsequences were not part of the translated nucleotide sequence.",
+                  "type": "string",
+                  "pattern": "^[ARNDCEQGHILKMFPSTWYVX*arndceqghilkmfpstwyvx]+$"
+                }
+              }
+            },
+            "structure": {
+              "description": "File content of a `pdb` format file of the allocated proteins structure.",
+              "type": "string"
+            },
+            "chromosome": {
+              "description": "The name of the locus this feature is located on.",
+              "type": "string"
+            },
+            "start": {
+              "description": "The 1-based start position of the (coding gene) feature on its locus",
+              "type": "integer",
+              "minimum": 1
+            },
+            "end": {
+              "description": "The 1-based end position of the (gene) feature on its locus",
+              "type": "integer"
+            },
+            "isSense": {
+              "description": "Whether the feature is encoded on the sense or antisense strand.",
+              "type": "boolean"
+            },
+            "isCodingSequence": {
+              "description": "Whether the feature is a coding sequence.",
+              "type": "boolean"
+            },
+            "alleles": {
+              "description": "Grouping of a set of samples into a common allele, i.e., all samples share the same nucleotide variants wrt. this feature.",
+              "type": "object",
+              "patternProperties": {
+                "^.+$": {
+                  "description": "Information about a single allele of the feature.",
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "description": "The internal name of the allele. AL00000000WT reflects the reference proteoform.",
+                      "type": "string",
+                      "pattern": "(^AL[0-9]{11}$)|(^AL00000000WT$)"
+                    },
+                    "annotations": {
+                      "description": "String annotations of the allele.",
+                      "type": "object",
+                      "properties": {
+                        "NO_DEL": {
+                          "description": "The number of recorded deletions of this allele.",
+                          "type": "string",
+                          "pattern": "^[0-9]+$"
+                        },
+                        "VARIANTS": {
+                          "description": "String representation of all variants recorded for this allele.",
+                          "type": "string",
+                          "pattern": "(^$)|(^[ACGTN-]+![0-9]+(\\;[ACGTN-]+![0-9]+)*$)"
+                        },
+                        "FRQ": {
+                          "description": "The frequency of this allele wrt. all samples.",
+                          "type": "string",
+                          "pattern": "^[0-9]+\\.[0-9]{2}$"
+                        },
+                        "NO_SUB": {
+                          "description": "The number of recorded substitutions of this allele.",
+                          "type": "string",
+                          "pattern": "^[0-9]+$"
+                        },
+                        "VAR_POS": {
+                          "description": "The percentage of variable positions of this allele wrt. the reference feature length.",
+                          "type": "string",
+                          "pattern": "^[0-9]+\\.[0-9]{2}$"
+                        },
+                        "NO_INS": {
+                          "description": "The number of recorded insertions of this allele.",
+                          "type": "string",
+                          "pattern": "^[0-9]+$"
+                        }
+                      },
+                      "patternProperties": {
+                        "^.+$": {
+                          "description": "Any additional annotation value.",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "samples": {
+                      "description": "List of all samples that yield this allele.",
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "proteoforms": {
+              "description": "Grouping of a set of samples into a common proteoform, i.e., all samples share the same induced aminoacid variants wrt. this feature.",
+              "type": "object",
+              "patternProperties": {
+                "^.+$": {
+                  "description": "Information about a single proteoform of the feature.",
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "description": "The internal name of the proteoform. PF00000000WT reflects the reference proteoform.",
+                      "type": "string",
+                      "pattern": "(^PF[0-9]{11}$)|(^PF00000000WT$)"
+                    },
+                    "annotations": {
+                      "description": "String annotations of the proteoform.",
+                      "type": "object",
+                      "properties": {
+                        "DIV_TERM_POS": {
+                          "description": "The first novel termination codon or N/A if none is present.",
+                          "type": "string",
+                          "pattern": "(^[0-9]+\\+[0-9]+$)|(^N/A$)"
+                        },
+                        "DIV_TERM_TRC_PRC": {
+                          "description": "The percentage of positions truncated by the first novel termination codon or N/A if none is present.",
+                          "type": "string",
+                          "pattern": "(^[0-9]+\\.[0-9]{2}$)|(^N/A$)"
+                        },
+                        "NO_DEL": {
+                          "description": "The number of recorded deletions of this proteoform.",
+                          "type": "string",
+                          "pattern": "^[0-9]+$"
+                        },
+                        "VARIANTS": {
+                          "description": "String representation of all variants recorded for this proteoform.",
+                          "type": "string",
+                          "pattern": "(^$)|(^[ARNDCEQGHILKMFPSTWYVX*-]{1}![0-9]+(\\+)[0-9]+(\\;[ARNDCEQGHILKMFPSTWYVX*-]{1}![0-9]+(\\+)[0-9]+)*$)"
+                        },
+                        "FRQ": {
+                          "description": "The frequency of this proteoform wrt. all samples.",
+                          "type": "string",
+                          "pattern": "^[0-9]+\\.[0-9]{2}$"
+                        },
+                        "NO_SUB": {
+                          "description": "The number of recorded substitutions of this proteoform.",
+                          "type": "string",
+                          "pattern": "^[0-9]+$"
+                        },
+                        "VAR_POS": {
+                          "description": "The percentage of variable positions of this proteoform wrt. the reference feature length.",
+                          "type": "string",
+                          "pattern": "^[0-9]+\\.[0-9]{2}$"
+                        },
+                        "NO_INS": {
+                          "description": "The number of recorded insertions of this proteoform.",
+                          "type": "string",
+                          "pattern": "^[0-9]+$"
+                        }
+                      },
+                      "patternProperties": {
+                        "^.+$": {
+                          "description": "Any other annotation value.",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "samples": {
+                      "description": "List of all samples that yield this proteoform.",
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "annotations": {
+              "description": "Any additional string annotations of this feature.",
+              "type": "object",
+              "patternProperties": {
+                "^.+$": {
+                  "description": "Any other annotation value.",
+                  "type": "string"
+                }
+              }
+            },
+            "aminoacidVariants": {
+              "description": "Information about aminoacid variants stored in a nested object structure.",
+              "type": "object",
+              "patternProperties": {
+                "^[0-9]+\\+[0-9]+$": {
+                  "description": "The position of the variant on the parent locus.",
+                  "type": "object",
+                  "patternProperties": {
+                    "^[ARNDCEQGHILKMFPSTWYVX*-]+$": {
+                      "description": "The alternate aminoacid symbol of the variant. May include `-` for gaps.",
+                      "type": "object",
+                      "properties": {
+                        "annotations": {
+                          "description": "String annotations of the aminoacid variant.",
+                          "type": "object",
+                          "properties": {
+                            "FRQ": {
+                              "description": "The frequency of this aminoacid variant wrt. all samples.",
+                              "type": "string",
+                              "pattern": "^[0-9]+\\.[0-9]{2}$"
+                            },
+                            "REF_CONT": {
+                              "description": "The reference aminoacid symbol.",
+                              "type": "string",
+                              "pattern": "^[ARNDCEQGHILKMFPSTWYVX*]{1}$"
+                            }
+                          }
+                        },
+                        "occurrence": {
+                          "description": "A list of all proteoforms yielding this variant.",
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": ["annotations", "occurrence"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "required": [
+            "name",
+            "nucleotideSequence",
+            "chromosome",
+            "start",
+            "end",
+            "isSense",
+            "isCodingSequence"
+          ]
+        }
+      }
+    },
+    "samples": {
+      "description": "Information about samples.",
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "description": "Information about a single sample stored as `object`.",
+          "type": "object",
+          "properties": {
+            "name": {
+              "description": "The internal sample name; has to be equal to the key at which this object is stored.",
+              "type": "string"
+            },
+            "annotations": {
+              "description": "Any `string` type key/value pairs yielding meta-information about the sample.",
+              "type": "object",
+              "patternProperties": {
+                "^AL\\![a-zA-Z0-9-_]+$": {
+                  "description": "Assignment of this sample to a feature's allele.",
+                  "type": "string",
+                  "pattern": "(^AL[0-9]{11}$)|(^AL00000000WT$)"
+                },
+                "^PF\\![a-zA-Z0-9-_]+$": {
+                  "description": "Assignment of this sample to a feature's proteoform.",
+                  "type": "string",
+                  "pattern": "(^PF[0-9]{11}$)|(^PF00000000WT$)"
+                }
+              },
+              "additionalProperties": {
+                "description": "Additional meta-information about the sample.",
+                "type": "string"
+              }
+            }
+          },
+          "required": ["name", "annotations"]
+        }
+      }
+    },
+    "software": {
+      "description": "The software with which the variants dictionary was computed.",
+      "type": "string"
+    },
+    "date": {
+      "description": "The date at which the variants dictionary was computed.",
+      "type": "string"
+    },
+    "nucleotideVariants": {
+      "description": "Information about nucleotide variants stored in a nested object structure.",
+      "type": "object",
+      "patternProperties": {
+        "^[0-9]+$": {
+          "description": "The position of the variant.",
+          "type": "object",
+          "patternProperties": {
+            "^[ACGTN-]+$": {
+              "description": "The alternate nucleotide sequence of the variant. May include `-` for gaps and stores the content of the `position` inclusively.",
+              "type": "object",
+              "properties": {
+                "annotations": {
+                  "description": "Any `string` type key/value pairs yielding meta-information about the variant.",
+                  "type": "object",
+                  "properties": {
+                    "LOC": {
+                      "description": "The chromosome/locus this variant is located on.",
+                      "type": "string"
+                    },
+                    "FRQ": {
+                      "description": "The frequency this variant wrt. all samples.",
+                      "type": "string"
+                    },
+                    "REF_CONT": {
+                      "description": "The reference sequence content of this variant.",
+                      "type": "string"
+                    },
+                    "PRIMARY": {
+                      "description": "Whether the variant is primary or not, i.e., it has the highest frequency among all variants at the exact same position within one single sample.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": {
+                    "description": "Additional meta-information about the variant.",
+                    "type": "string"
+                  }
+                },
+                "occurrence": {
+                  "description": "Yields key/value pairs indicating the occurence of this variant in a specific feature's allele.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": ["annotations", "occurrence"]
+            }
+          }
+        }
+      }
+    },
+    "excludedPositions": {
+      "description": "Any positions that were excluded from the analysis.",
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "description": "List of positions that were excluded from the analysis. The pattern property key should match any reference sequence identifier.",
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "parameters",
+    "features",
+    "samples",
+    "software",
+    "date",
+    "chromosome",
+    "variants",
+    "excludedPositions"
+  ]
+}
