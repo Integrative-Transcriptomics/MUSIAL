@@ -3,7 +3,7 @@
   "title": "MUSIAL_CONFIGURATION",
   "description": "JSON schema to validate MUSIAL module configuration",
   "type": "array",
-  "items": [
+  "contains": [
     {
       "description": "JSON configuration for BUILD module",
       "type": "object",
@@ -115,6 +115,10 @@
                   "type": "string",
                   "pattern": "^.+.pdb$"
                 },
+                "isCodingSequence": {
+                  "description": "Whether to consider this feature as coding sequence. This will trigger proteoform analysis, even without a specified `pdbFile`.",
+                  "type": "boolean"
+                },
                 "annotations": {
                   "patternProperties": {
                     "^.^$": {
@@ -168,6 +172,20 @@
         "grouped": {
           "description": "Whether to group samples into alleles/proteoforms.",
           "type": "boolean"
+        },
+        "samples": {
+          "description": "Samples to exclude from the extract process.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "features": {
+          "description": "Features to exclude from the extract process.",
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
         },
         "inputFile": {
           "description": "Path pointing to a file; Content is expected to be output of BUILD module, i.e., a .vdict.json file.",

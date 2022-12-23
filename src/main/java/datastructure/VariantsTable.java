@@ -377,7 +377,7 @@ public class VariantsTable {
         return tableStringBuilder.toString();
     }
 
-    public Tuple<String, String> getFastaEntry(String accessIdentifier) throws MusialException {
+    public Tuple<String, String> getFastaEntry(String accessIdentifier, boolean removeGaps) throws MusialException {
         String entryIdentifier;
         if (this.parentDictionary.samples.containsKey(accessIdentifier)) {
             entryIdentifier = switch (this.contentMode) {
@@ -406,9 +406,9 @@ public class VariantsTable {
                 .append("]");
         HashMap<String, String> annotations = switch (this.contentMode) {
             case NUCLEOTIDE -> this.parentDictionary.features.get(featureIdentifier)
-                    .alleles.get(accessIdentifier).annotations;
+                    .alleles.get(entryIdentifier).annotations;
             case AMINOACID -> this.parentDictionary.features.get(featureIdentifier)
-                    .proteoforms.get(accessIdentifier).annotations;
+                    .proteoforms.get(entryIdentifier).annotations;
         };
         for (Map.Entry<String, String> annotation : annotations.entrySet()) {
             //noinspection ConstantConditions
@@ -427,6 +427,7 @@ public class VariantsTable {
         for (HashMap<String, String> value : variantsTable.values()) {
             sequenceStringBuilder.append(value.get(entryIdentifier));
         }
-        return new Tuple<>(headerStringBuilder.toString(), sequenceStringBuilder.toString());
+        String sequenceString = sequenceStringBuilder.toString();
+        return new Tuple<>(headerStringBuilder.toString(), removeGaps ? sequenceString.replace("-", "") : sequenceString);
     }
 }

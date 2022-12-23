@@ -113,6 +113,7 @@ public final class SampleAnalyzerRunnable implements Runnable {
             }
         } catch (Exception e) {
             Logging.logError("An error occurred during the analysis of sample " + sampleEntry.name + " (file: " + sampleEntry.vcfFile.getAbsolutePath() + "); " + e.getMessage());
+            e.printStackTrace();
         }
     }
 

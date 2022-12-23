@@ -217,7 +217,7 @@ public final class ModuleBuildParameters {
         }
         //noinspection rawtypes
         LinkedTreeMap features = (LinkedTreeMap) parameters.get("features");
-        if (features.keySet().size() == 0) {
+        if (features.keySet().size() == 0 && !this.genomeAnalysis) {
             throw new MusialException(EXCEPTION_PREFIX + " Missing " + Logging.colorParameter("features") + "; expected at least one entry.");
         }
         //noinspection rawtypes
@@ -236,7 +236,7 @@ public final class ModuleBuildParameters {
             } else {
                 featurePdbFile = null;
                 if (featureEntry.containsKey("isCodingSequence")) {
-                    isCds = featureEntry.get("isCodingSequence").equals("true");
+                    isCds = ((Boolean) featureEntry.get("isCodingSequence"));
                 }
             }
             //noinspection unchecked

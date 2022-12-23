@@ -391,7 +391,7 @@ public final class Bio {
                 {-1, 1, -1, -1, -1},
                 {-1, -1, 1, -1, -1},
                 {-1, -1, -1, 1, -1},
-                {-1, -1, -1, -1, 1},
+                {-1, -1, -1, -1, -1},
         };
         return globalSequenceAlignment(nucSeq1, nucSeq2, simpleNucleotideScoringMatrixIndexMap,
                 simpleNucleotideScoringMatrix,
@@ -444,9 +444,11 @@ public final class Bio {
                                                                             GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES left_mode,
                                                                             GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES right_mode,
                                                                             Integer bandWidth) throws MusialException {
-        if (Objects.nonNull(bandWidth) && Math.abs(seq1.length() - seq2.length()) > bandWidth) {
-            throw new MusialException("Unable to compute banded alignment with with " + bandWidth +
-                    " and sequences of length " + seq1.length() + " and " + seq2.length());
+        int sequencesLengthDifference = Math.abs(seq1.length() - seq2.length());
+        if (Objects.nonNull(bandWidth) && sequencesLengthDifference > bandWidth) {
+            Logging.logWarning("Unable to compute banded alignment with bandwidth of " + bandWidth +
+                    " and sequences of length " + seq1.length() + " and " + seq2.length() + ": Increasing bandwidth to " + sequencesLengthDifference);
+            bandWidth = sequencesLengthDifference;
         }
     /*
     Notes on the alignment matrices:
@@ -792,17 +794,21 @@ public final class Bio {
             String sampleProteinSequence = Bio.translateNucSequence(sampleNucleotideSequence, true, true, featureEntry.isSense);
             int maximalIndelLength = variantsDictionary.getNucleotideVariants(fId, sId, false)
                     .values().stream()
-                    .map(v -> v.length() - 1).max(Integer::compare).orElse(0);
-            Triplet<Integer, String, String> sa = Bio.globalAminoAcidSequenceAlignment(
-                    referenceProteinSequence,
-                    sampleProteinSequence,
-                    4,
-                    3,
-                    GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID,
-                    GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE,
-                    maximalIndelLength
-            );
-            return extractVariantsFromAlignment.apply(sa);
+                    .map(v -> ((int) (Math.ceil( v.length() / 3.0 )))).max(Integer::compare).orElse(0);
+            try {
+                Triplet<Integer, String, String> sa = Bio.globalAminoAcidSequenceAlignment(
+                        referenceProteinSequence,
+                        sampleProteinSequence,
+                        4,
+                        3,
+                        GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID,
+                        GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE,
+                        maximalIndelLength
+                );
+                return extractVariantsFromAlignment.apply(sa);
+            } catch (MusialException e) {
+                throw new MusialException( "Failed to infer aminoacid variants of feature " + featureEntry.name + ": " + e.getMessage() );
+            }
         } else {
             return new ConcurrentSkipListMap<>();
         }

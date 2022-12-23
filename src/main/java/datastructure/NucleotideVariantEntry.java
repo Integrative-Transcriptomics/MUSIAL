@@ -1,5 +1,7 @@
 package datastructure;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 
@@ -23,8 +25,23 @@ public class NucleotideVariantEntry {
     public final ConcurrentSkipListSet<String> occurrence = new ConcurrentSkipListSet<>();
     public final static String PROPERTY_NAME_PRIMARY = "PRIMARY";
     public final static String PROPERTY_NAME_REFERENCE_CONTENT = "REF_CONT";
-    public final static String PROPERTY_NAME_SNP_EFF_IMPACT = "SNP_EFF_IMPACT";
-    public final static String PROPERTY_NAME_SNP_EFF_TYPE = "SNP_EFF_TYPE";
+
+    public final static String PROPERTY_PREFIX_SNP_EF = "SNPEFF_";
+    public final static ArrayList<String> PROPERTY_LIST_SNP_EFF = new ArrayList<>(Arrays.asList(
+            "Effect",
+            "Impact",
+            "GeneName",
+            "GeneID",
+            "FeatureType",
+            "FeatureID",
+            "Biotype",
+            "Rank/Total",
+            "HGVS.c",
+            "HGVS.p",
+            "cDNA_position/cDNA_len",
+            "CDS_position/CDS_len",
+            "Protein_position/Protein_len"
+    ));
     public final static String PROPERTY_NAME_FREQUENCY = "FRQ";
     public final static String PROPERTY_NAME_LOCATION = "LOC";
 

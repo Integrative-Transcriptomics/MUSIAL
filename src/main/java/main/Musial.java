@@ -278,14 +278,15 @@ public final class Musial {
                 } else {
                     annotationFields = splitAnnotation[7].replace("ANN=", "").split("\\|");
                 }
-                variantsDictionary.nucleotideVariants.get(Integer.valueOf(position)).get(altContent.toString()).annotations.put(
-                        NucleotideVariantEntry.PROPERTY_NAME_SNP_EFF_TYPE,
-                        annotationFields[1]
-                );
-                variantsDictionary.nucleotideVariants.get(Integer.valueOf(position)).get(altContent.toString()).annotations.put(
-                        NucleotideVariantEntry.PROPERTY_NAME_SNP_EFF_IMPACT,
-                        annotationFields[2]
-                );
+                for (int i = 1; i < annotationFields.length; i++) {
+                    if ( i >= 12 ) {
+                        break;
+                    }
+                    variantsDictionary.nucleotideVariants.get(Integer.valueOf(position)).get(altContent.toString()).annotations.put(
+                            NucleotideVariantEntry.PROPERTY_PREFIX_SNP_EF + NucleotideVariantEntry.PROPERTY_LIST_SNP_EFF.get(i - 1),
+                            annotationFields[i]
+                    );
+                }
                 altContent.setLength(0);
             }
         } finally {
@@ -397,9 +398,23 @@ public final class Musial {
         VariantsDictionary variantsDictionary = VariantsDictionaryFactory.load(parameters.inputFile);
         if (parameters.samples.size() == 0) {
             parameters.samples = new ArrayList<>(variantsDictionary.samples.keySet());
+        } else {
+            for (String sampleIdentifier : parameters.samples) {
+                if (!variantsDictionary.samples.containsKey(sampleIdentifier)) {
+                    parameters.samples.remove(sampleIdentifier);
+                    Logging.logWarning("Removed sample " + sampleIdentifier + " from analysis: No data is stored under the key.");
+                }
+            }
         }
         if (parameters.features.size() == 0) {
             parameters.features = new ArrayList<>(variantsDictionary.features.keySet());
+        } else {
+            for (String featureIdentifer : parameters.features) {
+                if (!variantsDictionary.features.containsKey(featureIdentifer)) {
+                    parameters.features.remove(featureIdentifer);
+                    Logging.logWarning("Removed sample " + featureIdentifer + " from analysis: No data is stored under the key.");
+                }
+            }
         }
         // Process each feature.
         for (String featureIdentifier : parameters.features) {
@@ -501,11 +516,58 @@ public final class Musial {
                             }
                         }
                         for (String accessor : accessors) {
-                            fastaEntries.add(variantsTable.getFastaEntry(accessor));
+                            fastaEntries.add(variantsTable.getFastaEntry(accessor, false));
                         }
                     } else {
                         for (String sample : parameters.samples) {
-                            fastaEntries.add(variantsTable.getFastaEntry(sample));
+                            fastaEntries.add(variantsTable.getFastaEntry(sample, false));
+                        }
+                    }
+                    IO.writeFasta(
+                            new File(parameters.outputDirectory + "/" + featureIdentifier + ".fasta"),
+                            fastaEntries
+                    );
+                }
+                case SEQUENCE -> {
+                    if (parameters.contentMode.equals(ModuleExtractContentModes.AMINOACID)
+                            && !variantsDictionary.features.get(featureIdentifier).isCodingSequence) {
+                        Logging.logWarning(
+                                "Skipping non-coding feature "
+                                        + featureIdentifier
+                                        + " (incompatible with mode "
+                                        + parameters.contentMode
+                                        + ")."
+                        );
+                        continue;
+                    }
+                    VariantsTable variantsTable = new VariantsTable(
+                            variantsDictionary,
+                            parameters.samples,
+                            featureIdentifier,
+                            parameters.contentMode,
+                            parameters.excludeIndels,
+                            !parameters.excludeConservedPositions,
+                            true
+                    );
+                    ArrayList<Tuple<String, String>> fastaEntries = new ArrayList<>();
+                    if (parameters.grouped) {
+                        HashSet<String> accessors = new HashSet<>();
+                        for (String sample : parameters.samples) {
+                            switch (parameters.contentMode) {
+                                case AMINOACID -> accessors.add(
+                                        variantsDictionary.samples.get(sample).annotations.get("PF" + FIELD_SEPARATOR_1 + featureIdentifier)
+                                );
+                                case NUCLEOTIDE -> accessors.add(
+                                        variantsDictionary.samples.get(sample).annotations.get("AL" + FIELD_SEPARATOR_1 + featureIdentifier)
+                                );
+                            }
+                        }
+                        for (String accessor : accessors) {
+                            fastaEntries.add(variantsTable.getFastaEntry(accessor, true));
+                        }
+                    } else {
+                        for (String sample : parameters.samples) {
+                            fastaEntries.add(variantsTable.getFastaEntry(sample, true));
                         }
                     }
                     IO.writeFasta(

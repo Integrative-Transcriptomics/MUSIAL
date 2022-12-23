@@ -188,8 +188,7 @@ public final class IO {
         // Initialize results list.
         HashMap<String, String> pdbChainsSequences = new HashMap<>();
         // Parse nucleotide information from chains.
-        int modelNr = 0;
-        List<Chain> chains = structure.getChains(modelNr);
+        List<Chain> chains = structure.getChains();
         for (Chain chain : chains) {
             // Skip chains representing membrane.
             if (chain.getName().equals("x")) {
