@@ -310,6 +310,10 @@
         }
       }
     },
+    "samplesDir": {
+      "description": "Path to a directory from which sample files should be parsed.",
+      "type": "string"
+    },
     "samples": {
       "description": "Information about samples.",
       "type": "object",

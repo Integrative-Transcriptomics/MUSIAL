@@ -1,6 +1,7 @@
 package datastructure;
 
 import components.Logging;
+import exceptions.MusialException;
 import htsjdk.tribble.index.IndexFactory;
 import htsjdk.tribble.index.tabix.TabixIndex;
 import htsjdk.variant.vcf.VCFCodec;
@@ -61,22 +62,26 @@ public final class SampleEntry {
      * @param sampleEntry The {@link SampleEntry} for which
      * @throws IOException If the initialization of the file reader or the validation/generation of the index file fails.
      */
-    public static void imputeVCFFileReader(SampleEntry sampleEntry) throws IOException {
-        // Check for the existence of a `.tbi.gz` index file of the input `.vcf` file.
-        if (!new File(sampleEntry.vcfFile.getAbsolutePath() + ".tbi").exists()) {
-            // If none is present, an index is created and written to the same directory as the input `.vcf` file.
-            TabixIndex tabixIndex = IndexFactory.createTabixIndex(
+    public static void imputeVCFFileReader(SampleEntry sampleEntry) throws MusialException {
+        try {
+            // Check for the existence of a `.tbi.gz` index file of the input `.vcf` file.
+            if (!new File(sampleEntry.vcfFile.getAbsolutePath() + ".tbi").exists()) {
+                // If none is present, an index is created and written to the same directory as the input `.vcf` file.
+                TabixIndex tabixIndex = IndexFactory.createTabixIndex(
+                        sampleEntry.vcfFile,
+                        new VCFCodec(),
+                        null
+                );
+                tabixIndex.write(Path.of(sampleEntry.vcfFile.getAbsolutePath() + ".tbi"));
+            }
+            // VCFFileReader can now be initialized.
+            sampleEntry.vcfFileReader = new VCFFileReader(
                     sampleEntry.vcfFile,
-                    new VCFCodec(),
-                    null
+                    new File(sampleEntry.vcfFile.getAbsolutePath() + ".tbi")
             );
-            tabixIndex.write(Path.of(sampleEntry.vcfFile.getAbsolutePath() + ".tbi"));
+        } catch (Exception e) {
+            throw new MusialException("Failed to initialize .vcf file reader for sample " + sampleEntry.name + "; " + e.getMessage());
         }
-        // VCFFileReader can now be initialized.
-        sampleEntry.vcfFileReader = new VCFFileReader(
-                sampleEntry.vcfFile,
-                new File(sampleEntry.vcfFile.getAbsolutePath() + ".tbi")
-        );
     }
 
     /**

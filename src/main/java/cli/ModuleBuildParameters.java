@@ -7,17 +7,20 @@ import components.Validation;
 import datastructure.FeatureEntry;
 import datastructure.SampleEntry;
 import exceptions.MusialException;
+import org.apache.commons.io.FilenameUtils;
 import org.biojava.nbio.genome.parsers.gff.FeatureI;
 import org.biojava.nbio.genome.parsers.gff.FeatureList;
 import org.biojava.nbio.genome.parsers.gff.Location;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.TreeSet;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Parses command line interface arguments for the `MUSIAL BUILD` module.
@@ -181,35 +184,64 @@ public final class ModuleBuildParameters {
             }
         }
         // Parse samples
-        if (!parameters.containsKey("samples")) {
-            throw new MusialException(EXCEPTION_PREFIX + " Missing " + Logging.colorParameter("samples") + "; expected at least one entry.");
-        }
-        //noinspection rawtypes
-        LinkedTreeMap samples = (LinkedTreeMap) parameters.get("samples");
-        if (samples.keySet().size() == 0) {
-            throw new MusialException(EXCEPTION_PREFIX + " Missing " + Logging.colorParameter("samples") + "; expected at least one entry.");
-        }
-        //noinspection rawtypes
+        @SuppressWarnings("rawtypes")
         LinkedTreeMap sampleEntry;
-        for (Object sampleKey : samples.keySet()) {
-            //noinspection rawtypes
-            sampleEntry = (LinkedTreeMap) samples.get(sampleKey);
-            File sampleVcfFile = new File((String) sampleEntry.get("vcfFile"));
-            if (sampleEntry.get("vcfFile") != null && !Validation.isFile(sampleVcfFile)) {
-                throw new MusialException(EXCEPTION_PREFIX + " Failed to access specified `vcf` file for sample " + Logging.colorParameter((String) sampleKey));
+        // Check if any samples can be parsed from a passed samplesDir key in the configuration.
+        if (parameters.containsKey("samplesDir")) {
+            HashSet<String> samplesFromDirectory;
+            try (Stream<Path> stream = Files.list(Paths.get((String) parameters.get("samplesDir")))) {
+                samplesFromDirectory = (HashSet<String>) stream
+                        .filter(file -> !Files.isDirectory(file))
+                        .map(Path::getFileName)
+                        .map(Path::toString)
+                        .collect(Collectors.toSet());
+            } catch (IOException e) {
+                throw new MusialException(EXCEPTION_PREFIX + " Unable to access path specified at " + Logging.colorParameter("samplesDir") + ".");
             }
-            Map<String, String> annotations;
-            if (sampleEntry.containsKey("annotations")) {
-                //noinspection unchecked
-                annotations = (Map<String, String>) sampleEntry.get("annotations");
-            } else {
-                annotations = new HashMap<>();
+            for (String sampleFileFromDirectory : samplesFromDirectory) {
+                if ( sampleFileFromDirectory.endsWith(".vcf") ) {
+                    //noinspection rawtypes
+                    sampleEntry = new LinkedTreeMap();
+                    String sampleName = FilenameUtils.removeExtension(sampleFileFromDirectory);
+                    File sampleVcfFile = new File(parameters.get("samplesDir") + sampleFileFromDirectory);
+                    if (sampleEntry.get("vcfFile") != null && !Validation.isFile(sampleVcfFile)) {
+                        throw new MusialException(EXCEPTION_PREFIX + " Failed to access specified `vcf` file for sample " + Logging.colorParameter(sampleFileFromDirectory));
+                    }
+                    addSample(
+                            sampleName,
+                            sampleVcfFile,
+                            new HashMap<>()
+                    );
+                }
             }
-            addSample(
-                    (String) sampleKey,
-                    sampleVcfFile,
-                    annotations
-            );
+        }
+        // Check if any samples can be parsed explicitly from the samples key in the configuration.
+        if (parameters.containsKey("samples")) {
+            @SuppressWarnings("rawtypes")
+            LinkedTreeMap samples = (LinkedTreeMap) parameters.get("samples");
+            for (Object sampleKey : samples.keySet()) {
+                //noinspection rawtypes
+                sampleEntry = (LinkedTreeMap) samples.get(sampleKey);
+                File sampleVcfFile = new File((String) sampleEntry.get("vcfFile"));
+                if (sampleEntry.get("vcfFile") != null && !Validation.isFile(sampleVcfFile)) {
+                    throw new MusialException(EXCEPTION_PREFIX + " Failed to access specified `vcf` file for sample " + Logging.colorParameter((String) sampleKey));
+                }
+                Map<String, String> annotations;
+                if (sampleEntry.containsKey("annotations")) {
+                    //noinspection unchecked
+                    annotations = (Map<String, String>) sampleEntry.get("annotations");
+                } else {
+                    annotations = new HashMap<>();
+                }
+                addSample(
+                        (String) sampleKey,
+                        sampleVcfFile,
+                        annotations
+                );
+            }
+        }
+        if ((!parameters.containsKey("samples") && !parameters.containsKey("samplesDir")) || this.samples.keySet().size() == 0) {
+            throw new MusialException(EXCEPTION_PREFIX + " Missing " + Logging.colorParameter("samples") + " or " + Logging.colorParameter("samplesDir") + " parameter or failed to parse any samples; expected at least one entry.");
         }
         // Parse features
         if (!parameters.containsKey("features")) {
