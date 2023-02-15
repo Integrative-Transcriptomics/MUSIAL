@@ -74,7 +74,7 @@
         "outputFile": {
           "description": "Path pointing to a file; Content will be used as output file path.",
           "type": "string",
-          "pattern": "^.+.vdict.json$"
+          "pattern": "^.+.json$"
         },
         "samples": {
           "description": "Object specifying the set of samples to analyze.",
@@ -195,13 +195,13 @@
           "description": "Features to exclude from the extract process.",
           "type": "array",
           "items": {
-            "type": "number"
+            "type": "string"
           }
         },
         "inputFile": {
-          "description": "Path pointing to a file; Content is expected to be output of BUILD module, i.e., a .vdict.json file.",
+          "description": "Path pointing to a file; Content is expected to be output of BUILD module, i.e., a .json file.",
           "type": "string",
-          "pattern": "^.+.vdict.json$"
+          "pattern": "^.+.json$"
         },
         "outputDirectory": {
           "description": "Path pointing to a directory; Generated content will be stored at.",
