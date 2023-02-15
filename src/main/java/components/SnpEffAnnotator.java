@@ -10,10 +10,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 /**
  * Runs a local installation of SnpEff via command line.
@@ -87,7 +85,7 @@ public final class SnpEffAnnotator {
 
         // 4. Generate database with reference genome information.
         String[] createSNPEffDatabase = {"java", "-jar", "snpEff.jar", "build", "-gff3", "-v", "reference"};
-        CL.runCommand(createSNPEffDatabase, targetDir + "/" + "snpEffDatabase.log", "",
+        CL.runCommand(createSNPEffDatabase, targetDir + "/" + "snpEffDatabase.error", targetDir + "/" + "snpEffDatabase.log",
                 targetDir.getAbsolutePath());
 
         // 5. Run snpEff annotation on each input .vcf file (multi-threaded).
