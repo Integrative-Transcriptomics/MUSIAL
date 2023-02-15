@@ -7,6 +7,8 @@ import exceptions.MusialException;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Parses command line interface arguments for the `MUSIAL EXTRACT*` modules.
@@ -43,6 +45,11 @@ public class ModuleExtractParameters {
      * {@link Boolean} whether to exclude non-variant positions.
      */
     public boolean excludeConservedPositions;
+    /**
+     * {@link HashMap} mapping variants annotation values (see {@link datastructure.NucleotideVariantEntry} and {@link datastructure.AminoacidVariantEntry})
+     * to a list of possible values of this annotation. Only variants with the specified values in their resp. annotation fields will be considered.
+     */
+    public HashMap<String, ArrayList<String>> keepOnlyVariantsWith;
     /**
      * {@link ModuleExtractOutputModes} specifying the mode of output files generated. Either "SEQUENCE", "SEQUENCE_ALIGNED" or "TABLE".
      */
@@ -128,6 +135,20 @@ public class ModuleExtractParameters {
             this.grouped = (boolean) parameters.get("grouped");
         } else {
             this.grouped = false;
+        }
+
+        // Parse filters for variants.
+        this.keepOnlyVariantsWith = new HashMap<>();
+        if (parameters.containsKey("filterVariantsBy")) {
+            //noinspection unchecked,rawtypes
+            LinkedTreeMap<Object, Object> variantsFilters = ((LinkedTreeMap) parameters.get("filterVariantsBy"));
+            for (Map.Entry<Object, Object> variantsFilter : variantsFilters.entrySet()) {
+                //noinspection unchecked
+                keepOnlyVariantsWith.put(
+                        (String) variantsFilter.getKey(),
+                        (ArrayList<String>) variantsFilter.getValue()
+                );
+            }
         }
 
         // Parse string parameter of content mode.

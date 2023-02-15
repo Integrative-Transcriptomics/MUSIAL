@@ -29,7 +29,7 @@ public class ProteoformEntry {
     /**
      * {@link String} identifier used to store the wild type proteoform.
      */
-    public final static String PROPERTY_NAME_REFERENCE_ID = "PF00000000WT";
+    public final static String PROPERTY_NAME_REFERENCE_ID = "PF_REFERENCE";
     public final static String PROPERTY_NAME_VARIANTS = "VARIANTS";
     public final static String PROPERTY_NAME_DIVERGING_TERMINATION_POSITION = "DIV_TERM_POS";
     public final static String PROPERTY_NAME_DIVERGING_TERMINATION_TRUNCATED_PERCENTAGE = "DIV_TERM_TRC_PRC";

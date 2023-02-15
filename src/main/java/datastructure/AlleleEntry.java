@@ -27,7 +27,7 @@ public class AlleleEntry {
      */
     public final TreeSet<String> samples = new TreeSet<>();
 
-    public final static String PROPERTY_NAME_REFERENCE_ID = "AL00000000WT";
+    public final static String PROPERTY_NAME_REFERENCE_ID = "AL_REFERENCE";
 
     public final static String PROPERTY_NAME_VARIANTS = "VARIANTS";
     public final static String PROPERTY_NAME_VARIABLE_POSITIONS = "VAR_POS";

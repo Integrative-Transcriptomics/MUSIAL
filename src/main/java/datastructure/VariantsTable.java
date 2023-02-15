@@ -36,6 +36,8 @@ public class VariantsTable {
 
     public final boolean includeNonVariantPositions;
 
+    public HashMap<String, ArrayList<String>> keepOnlyVariantsWith;
+
     public final boolean redundantReferenceContent;
 
     @SuppressWarnings("FieldCanBeLocal")
@@ -43,13 +45,14 @@ public class VariantsTable {
 
     public VariantsTable(VariantsDictionary parentDictionary, ArrayList<String> sampleIdentifiers,
                          String featureIdentifier, ModuleExtractContentModes contentMode, boolean excludeIndels,
-                         boolean includeNonVariantPositions, boolean redundantReferenceContent) throws MusialException {
+                         boolean includeNonVariantPositions, HashMap<String, ArrayList<String>> keepOnlyVariantsWith, boolean redundantReferenceContent) throws MusialException {
         this.parentDictionary = parentDictionary;
         this.sampleIdentifiers = this.parentDictionary.removeInvalidSampleIds(sampleIdentifiers);
         this.featureIdentifier = featureIdentifier;
         this.contentMode = contentMode;
         this.excludeIndels = excludeIndels;
         this.includeNonVariantPositions = includeNonVariantPositions;
+        this.keepOnlyVariantsWith = keepOnlyVariantsWith;
         this.redundantReferenceContent = redundantReferenceContent;
         // Check validity of specified input and construction mode.
         if (!this.parentDictionary.features.containsKey(this.featureIdentifier)) {
@@ -97,6 +100,22 @@ public class VariantsTable {
             if (!processedAlleles.contains(sampleAlleleIdentifier)) {
                 perAlleleVariants = this.parentDictionary
                         .getNucleotideVariants(this.featureIdentifier, sampleIdentifier, false);
+                // Filter variants based on specified annotation values (if any).
+                HashSet<Integer> positionsToRemove = new HashSet<>();
+                for (Map.Entry<Integer, String> alleleVariantEntry : perAlleleVariants.entrySet()) {
+                    HashMap<String, String> alleleVariantAnnotations = parentDictionary.nucleotideVariants.get(alleleVariantEntry.getKey()).get(alleleVariantEntry.getValue()).annotations;
+                    // If any variant annotation value was not specified by the user, remove the variant.
+                    //noinspection DuplicatedCode
+                    for (Map.Entry<String, String> alleleVariantAnnotationEntry : alleleVariantAnnotations.entrySet()) {
+                        if (keepOnlyVariantsWith.containsKey(alleleVariantAnnotationEntry.getKey())) {
+                            if (!keepOnlyVariantsWith.get(alleleVariantAnnotationEntry.getKey()).contains(alleleVariantAnnotationEntry.getValue())) {
+                                positionsToRemove.add(alleleVariantEntry.getKey());
+                                break;
+                            }
+                        }
+                    }
+                }
+                positionsToRemove.forEach(perAlleleVariants::remove);
                 for (Map.Entry<Integer, String> variantEntry : perAlleleVariants.entrySet()) {
                     variantStart = variantEntry.getKey();
                     variantContents = variantEntry.getValue().toCharArray();
@@ -139,23 +158,6 @@ public class VariantsTable {
                 processedAlleles.add(sampleAlleleIdentifier);
             }
         }
-        // Impute reference content for variant positions per allele.
-        for (String processedVariantPosition : this.variantsTable.keySet()) {
-            for (String processedAllele : processedAlleles) {
-                if (!this.variantsTable
-                        .get(processedVariantPosition)
-                        .containsKey(processedAllele)) {
-                    this.variantsTable
-                            .get(processedVariantPosition)
-                            .put(
-                                    processedAllele,
-                                    redundantReferenceContent ?
-                                            this.variantsTable.get(processedVariantPosition).get(AlleleEntry.PROPERTY_NAME_REFERENCE_ID)
-                                            : "."
-                            );
-                }
-            }
-        }
         // Impute reference content for non-variant positions per allele.
         if (this.includeNonVariantPositions) {
             char[] referenceSequenceChars = this.parentDictionary
@@ -175,15 +177,6 @@ public class VariantsTable {
                     this.variantsTable
                             .get(position)
                             .put(AlleleEntry.PROPERTY_NAME_REFERENCE_ID, referenceContent);
-                }
-                for (String processedAllele : processedAlleles) {
-                    if (!variantsTable
-                            .get(position)
-                            .containsKey(processedAllele)) {
-                        this.variantsTable
-                                .get(position)
-                                .put(processedAllele, redundantReferenceContent ? referenceContent : ".");
-                    }
                 }
             }
         }
@@ -208,6 +201,22 @@ public class VariantsTable {
             if (!processedProteoforms.contains(sampleProteoformIdentifier)) {
                 perProteoformVariants = this.parentDictionary
                         .getAminoacidVariants(this.featureIdentifier, sampleIdentifier);
+                // Filter variants based on specified annotation values (if any).
+                HashSet<String> positionsToRemove = new HashSet<>();
+                for (Map.Entry<String, String> proteoformVariantEntry : perProteoformVariants.entrySet()) {
+                    HashMap<String, String> proteoformVariantAnnotations = parentDictionary.features.get(featureIdentifier).aminoacidVariants.get(proteoformVariantEntry.getKey()).get(proteoformVariantEntry.getValue()).annotations;
+                    // If any variant annotation value was not specified by the user, remove the variant.
+                    //noinspection DuplicatedCode
+                    for (Map.Entry<String, String> proteoformVariantAnnotationsEntry : proteoformVariantAnnotations.entrySet()) {
+                        if (keepOnlyVariantsWith.containsKey(proteoformVariantAnnotationsEntry.getKey())) {
+                            if (!keepOnlyVariantsWith.get(proteoformVariantAnnotationsEntry.getKey()).contains(proteoformVariantAnnotationsEntry.getValue())) {
+                                positionsToRemove.add(proteoformVariantEntry.getKey());
+                                break;
+                            }
+                        }
+                    }
+                }
+                positionsToRemove.forEach(perProteoformVariants::remove);
                 for (Map.Entry<String, String> variantEntry : perProteoformVariants.entrySet()) {
                     variantPosition = variantEntry.getKey();
                     variantContent = variantEntry.getValue();
@@ -237,23 +246,6 @@ public class VariantsTable {
                 processedProteoforms.add(sampleProteoformIdentifier);
             }
         }
-        // Impute reference content for variant positions per allele.
-        for (String processedVariantPosition : this.variantsTable.keySet()) {
-            for (String processedProteoform : processedProteoforms) {
-                if (!this.variantsTable
-                        .get(processedVariantPosition)
-                        .containsKey(processedProteoform)) {
-                    this.variantsTable
-                            .get(processedVariantPosition)
-                            .put(
-                                    processedProteoform,
-                                    redundantReferenceContent ?
-                                            this.variantsTable.get(processedVariantPosition).get(ProteoformEntry.PROPERTY_NAME_REFERENCE_ID)
-                                            : "."
-                            );
-                }
-            }
-        }
         // Impute reference content for non-variant positions per allele.
         if (this.includeNonVariantPositions) {
             char[] referenceSequenceChars = this.parentDictionary
@@ -272,15 +264,6 @@ public class VariantsTable {
                     this.variantsTable
                             .get(position)
                             .put(ProteoformEntry.PROPERTY_NAME_REFERENCE_ID, referenceContent);
-                }
-                for (String processedProteoform : processedProteoforms) {
-                    if (!variantsTable
-                            .get(position)
-                            .containsKey(processedProteoform)) {
-                        this.variantsTable
-                                .get(position)
-                                .put(processedProteoform, redundantReferenceContent ? referenceContent : ".");
-                    }
                 }
             }
         }
@@ -331,7 +314,7 @@ public class VariantsTable {
                 );
                 for (String groupIdentifier : groupIdentifiers) {
                     fields.add(
-                            this.variantsTable.get(storedPosition).get(groupIdentifier)
+                            this.variantsTable.get(storedPosition).getOrDefault(groupIdentifier, ".")
                     );
                 }
                 tableStringBuilder
@@ -356,18 +339,22 @@ public class VariantsTable {
                         )
                 );
                 for (String sampleIdentifier : this.sampleIdentifiers) {
-                    fields.add(
-                            this.variantsTable.get(storedPosition).get(
-                                    switch (this.contentMode) {
-                                        case NUCLEOTIDE -> this.parentDictionary
-                                                .samples.get(sampleIdentifier)
-                                                .annotations.get("AL" + FIELD_SEPARATOR_1 + this.featureIdentifier);
-                                        case AMINOACID -> this.parentDictionary
-                                                .samples.get(sampleIdentifier)
-                                                .annotations.get("PF" + FIELD_SEPARATOR_1 + this.featureIdentifier);
-                                    }
-                            )
-                    );
+                    if (this.variantsTable.get(storedPosition).containsKey(sampleIdentifier)) {
+                        fields.add(
+                                this.variantsTable.get(storedPosition).get(
+                                        switch (this.contentMode) {
+                                            case NUCLEOTIDE -> this.parentDictionary
+                                                    .samples.get(sampleIdentifier)
+                                                    .annotations.get("AL" + FIELD_SEPARATOR_1 + this.featureIdentifier);
+                                            case AMINOACID -> this.parentDictionary
+                                                    .samples.get(sampleIdentifier)
+                                                    .annotations.get("PF" + FIELD_SEPARATOR_1 + this.featureIdentifier);
+                                        }
+                                )
+                        );
+                    } else {
+                        fields.add(".");
+                    }
                 }
                 tableStringBuilder
                         .append(String.join("\t", fields))
@@ -378,6 +365,9 @@ public class VariantsTable {
     }
 
     public Tuple<String, String> getFastaEntry(String accessIdentifier, boolean removeGaps) throws MusialException {
+        boolean accessIsReference = (accessIdentifier.equals(AlleleEntry.PROPERTY_NAME_REFERENCE_ID) || accessIdentifier.equals(ProteoformEntry.PROPERTY_NAME_REFERENCE_ID));
+        boolean referenceIsStored = (this.contentMode.equals(ModuleExtractContentModes.NUCLEOTIDE) && this.parentDictionary.features.get(this.featureIdentifier).alleles.containsKey(AlleleEntry.PROPERTY_NAME_REFERENCE_ID))
+                || (this.contentMode.equals(ModuleExtractContentModes.AMINOACID) && this.parentDictionary.features.get(this.featureIdentifier).proteoforms.containsKey(ProteoformEntry.PROPERTY_NAME_REFERENCE_ID));
         String entryIdentifier;
         if (this.parentDictionary.samples.containsKey(accessIdentifier)) {
             entryIdentifier = switch (this.contentMode) {
@@ -390,12 +380,14 @@ public class VariantsTable {
                 (this.contentMode.equals(ModuleExtractContentModes.NUCLEOTIDE) && this.parentDictionary.features.get(this.featureIdentifier).alleles.containsKey(accessIdentifier))
                         || (this.contentMode.equals(ModuleExtractContentModes.AMINOACID) && this.parentDictionary.features.get(this.featureIdentifier).proteoforms.containsKey(accessIdentifier))) {
             entryIdentifier = accessIdentifier;
-        } else {
+        } else if (!accessIsReference) {
             throw new MusialException(
                     EXCEPTION_PREFIX
                             + " Unable to obtain .fasta entry for accessor "
                             + accessIdentifier
             );
+        } else {
+            entryIdentifier = accessIdentifier;
         }
         StringBuilder headerStringBuilder = new StringBuilder();
         headerStringBuilder
@@ -404,12 +396,31 @@ public class VariantsTable {
                 .append(" [FEATURE=")
                 .append(this.featureIdentifier)
                 .append("]");
-        HashMap<String, String> annotations = switch (this.contentMode) {
-            case NUCLEOTIDE -> this.parentDictionary.features.get(featureIdentifier)
-                    .alleles.get(entryIdentifier).annotations;
-            case AMINOACID -> this.parentDictionary.features.get(featureIdentifier)
-                    .proteoforms.get(entryIdentifier).annotations;
-        };
+        HashMap<String, String> annotations;
+        if (accessIsReference && !referenceIsStored) {
+            annotations = new HashMap<>() {{
+                put(AlleleEntry.PROPERTY_NAME_FREQUENCY, "0.00");
+            }};
+        } else if (accessIsReference) {
+            annotations = new HashMap<>() {{
+                put(
+                        AlleleEntry.PROPERTY_NAME_FREQUENCY,
+                        switch (contentMode) {
+                            case NUCLEOTIDE -> parentDictionary.features.get(featureIdentifier)
+                                    .alleles.get(AlleleEntry.PROPERTY_NAME_REFERENCE_ID).annotations.get(AlleleEntry.PROPERTY_NAME_FREQUENCY);
+                            case AMINOACID -> parentDictionary.features.get(featureIdentifier)
+                                    .proteoforms.get(ProteoformEntry.PROPERTY_NAME_REFERENCE_ID).annotations.get(ProteoformEntry.PROPERTY_NAME_FREQUENCY);
+                        }
+                );
+            }};
+        } else {
+            annotations = switch (this.contentMode) {
+                case NUCLEOTIDE -> this.parentDictionary.features.get(featureIdentifier)
+                        .alleles.get(entryIdentifier).annotations;
+                case AMINOACID -> this.parentDictionary.features.get(featureIdentifier)
+                        .proteoforms.get(entryIdentifier).annotations;
+            };
+        }
         for (Map.Entry<String, String> annotation : annotations.entrySet()) {
             //noinspection ConstantConditions
             if (annotation.getKey().equals(AlleleEntry.PROPERTY_NAME_VARIANTS)
@@ -425,7 +436,14 @@ public class VariantsTable {
         }
         StringBuilder sequenceStringBuilder = new StringBuilder();
         for (HashMap<String, String> value : variantsTable.values()) {
-            sequenceStringBuilder.append(value.get(entryIdentifier));
+            if (value.containsKey(entryIdentifier)) {
+                sequenceStringBuilder.append(value.get(entryIdentifier));
+            } else {
+                sequenceStringBuilder.append(value.get(switch (this.contentMode) {
+                    case NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
+                    case AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
+                }));
+            }
         }
         String sequenceString = sequenceStringBuilder.toString();
         return new Tuple<>(headerStringBuilder.toString(), removeGaps ? sequenceString.replace("-", "") : sequenceString);

@@ -438,6 +438,7 @@ public final class Musial {
                             parameters.contentMode,
                             parameters.excludeIndels,
                             !parameters.excludeConservedPositions,
+                            parameters.keepOnlyVariantsWith,
                             false
                     );
                     StringBuilder outputContentBuilder = new StringBuilder();
@@ -500,6 +501,7 @@ public final class Musial {
                             parameters.contentMode,
                             parameters.excludeIndels,
                             !parameters.excludeConservedPositions,
+                            parameters.keepOnlyVariantsWith,
                             true
                     );
                     ArrayList<Tuple<String, String>> fastaEntries = new ArrayList<>();
@@ -522,6 +524,14 @@ public final class Musial {
                         for (String sample : parameters.samples) {
                             fastaEntries.add(variantsTable.getFastaEntry(sample, false));
                         }
+                    }
+                    switch (parameters.contentMode) {
+                        case AMINOACID -> fastaEntries.add(
+                                variantsTable.getFastaEntry(ProteoformEntry.PROPERTY_NAME_REFERENCE_ID, false)
+                        );
+                        case NUCLEOTIDE -> fastaEntries.add(
+                                variantsTable.getFastaEntry(AlleleEntry.PROPERTY_NAME_REFERENCE_ID, false)
+                        );
                     }
                     IO.writeFasta(
                             new File(parameters.outputDirectory + "/" + featureIdentifier + ".fasta"),
@@ -547,6 +557,7 @@ public final class Musial {
                             parameters.contentMode,
                             parameters.excludeIndels,
                             !parameters.excludeConservedPositions,
+                            parameters.keepOnlyVariantsWith,
                             true
                     );
                     ArrayList<Tuple<String, String>> fastaEntries = new ArrayList<>();
