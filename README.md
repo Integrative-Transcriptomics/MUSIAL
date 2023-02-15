@@ -29,7 +29,7 @@ As an alternative to using MUSIAL locally, you can access the software via a web
 
 ## **Usage**:
 
-The compiled **.jar** can be run from any command line terminal. MUSIAL implements distinct modules to run tasks. The common input for each pipeline is a `JSON` file which describes which modules should be executed with which parameters. The exact structure of the MUSIAL configuration files is defined in the [MUSIAL configuration JSON schema](https://github.com/Integrative-Transcriptomics/MUSIAL/blob/v2.1/MUSIAL_CONFIGURATION.schema.json). All modules except the `BUILD` module use a database like local `JSON` file (the output of the `BUILD` module) as input. The structure of this file is defined in the [MUSIAL output JSON schema](https://github.com/Integrative-Transcriptomics/MUSIAL/blob/v2.1/MUSIAL_BUILD_OUTPUT.schema.json). Prettified versions of the schemas can be accessed from the `./musial_*_schema_pretty/` directories in this repository.
+The compiled **.jar** can be run from any command line terminal. MUSIAL implements distinct modules to run tasks. The common input for each pipeline is a `JSON` file which describes which modules should be executed with which parameters. The exact structure of the MUSIAL configuration files is defined in the [MUSIAL configuration JSON schema](https://github.com/Integrative-Transcriptomics/MUSIAL/blob/v2.1/musial_configuration_schema/MUSIAL_CONFIGURATION.schema.json). All modules except the `BUILD` module use a database like local `JSON` file (the output of the `BUILD` module) as input. The structure of this file is defined in the [MUSIAL output JSON schema](https://github.com/Integrative-Transcriptomics/MUSIAL/blob/v2.1/musial_build_output_schema/MUSIAL_BUILD_OUTPUT.schema.json). Prettified versions of the schemas can be accessed from the respective directories in the repository.
 
 Currently available modules are:
 
@@ -48,3 +48,5 @@ EXTRACT: Extract stored nucleotide or aminoacid variants of specified samples an
 
 -s,--silent If set, no console output will be generated.
 ```
+
+We have added a (zip compressed) example dataset based on _M. tuberculosis_ samples you can run MUSIAL with at the examples directory. The origin and output as well as the configuration specification of the example dataset are described inside the respective README file.
