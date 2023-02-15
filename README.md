@@ -6,7 +6,7 @@
 
 ## **Description**:
 
-![MUSIAL Logo](media/logo.png)
+![MUSIAL Logo](media/logo_inverse.png)
 
 MUSIAL computes prokaryotic genome, gene and protein sequence alignments from variant call datasets (using both SNVs and Indels) derived from multiple samples of one species. It allows to assess the variability of a species on the genome, gene, and protein sequence level, e.g., which positions in the species exhibit large or no variability, identify genes with large variability, which samples agree on which proteoforms, etc. The project's architecture is organized in modules (you can find more information below). It provides multiple data export options for FASTA as well as tabular formats.
 

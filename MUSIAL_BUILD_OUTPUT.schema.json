@@ -1,11 +1,11 @@
 {
-  "$schema": "MUSIAL.schema.json",
-  "title": "MUSIAL",
+  "$schema": "MUSIAL_BUILD_OUTPUT.schema.json",
+  "title": "MUSIAL BUILD OUTPUT",
   "description": "Storage of genomic features (genes, chromosoems), their nucleotide variants and induced amino acid mutations wrt. a set of samples.",
   "type": "object",
   "properties": {
     "parameters": {
-      "description": "Parameters used to infer nucleotide variants, i.e. all stored variants comply with the parameters in at least one sample.",
+      "description": "Parameters used to infer nucleotide variants, i.e., all stored variants comply with the parameters in at least one samples variant call format file.",
       "type": "object",
       "properties": {
         "minCoverage": {
@@ -32,7 +32,7 @@
           "maximum": 1.0
         },
         "minQuality": {
-          "description": "The minimal call quality for a variant to be accepted.",
+          "description": "The minimal call quality (QUAL field in the input variant call files) for a variant to be accepted.",
           "type": "number",
           "minimum": 0.0
         }
@@ -54,21 +54,21 @@
           "type": "object",
           "properties": {
             "name": {
-              "description": "The internal feature name; has to be equal to the key at which this object is stored.",
+              "description": "The internal feature name; is expected to be equal to the key under which this object is stored.",
               "type": "string"
             },
             "nucleotideSequence": {
-              "description": "The nucleotide sequence of the feature.",
+              "description": "The nucleotide sequence of the feature. The symbol N is allowed to represent any nucleotide.",
               "type": "string",
               "pattern": "^[ATGCN]+$"
             },
             "translatedNucleotideSequence": {
-              "description": "The translated nucleotide sequence of the feature.",
+              "description": "The translated nucleotide sequence of the feature. The symbol X is allowed to represent any aminoacid and * is allowed to represent a translated termination codon.",
               "type": "string",
               "pattern": "^[ARNDCEQGHILKMFPSTWYVX*]+$"
             },
             "proteinSequences": {
-              "description": "The actual aminoacid sequences of a (optionally) provided structure. Sequences are stored per chain.",
+              "description": "The actual aminoacid sequences of a (optionally) provided protein structure. Sequences are stored per chain.",
               "type": "object",
               "patternProperties": {
                 "^.+$": {
@@ -93,7 +93,8 @@
             },
             "end": {
               "description": "The 1-based end position of the (gene) feature on its locus",
-              "type": "integer"
+              "type": "integer",
+              "minimum": 1
             },
             "isSense": {
               "description": "Whether the feature is encoded on the sense or antisense strand.",
@@ -112,9 +113,9 @@
                   "type": "object",
                   "properties": {
                     "name": {
-                      "description": "The internal name of the allele. AL00000000WT reflects the reference proteoform.",
+                      "description": "The internal name of the allele. AL_REFERENCE reflects the reference allele (no variants).",
                       "type": "string",
-                      "pattern": "(^AL[0-9]{11}$)|(^AL00000000WT$)"
+                      "pattern": "(^AL[0-9]{11}$)|(^AL_REFERENCE$)"
                     },
                     "annotations": {
                       "description": "String annotations of the allele.",
@@ -159,7 +160,7 @@
                       }
                     },
                     "samples": {
-                      "description": "List of all samples that yield this allele.",
+                      "description": "List of all samples that give rise to this allele.",
                       "type": "array",
                       "items": {
                         "type": "string"
@@ -178,9 +179,9 @@
                   "type": "object",
                   "properties": {
                     "name": {
-                      "description": "The internal name of the proteoform. PF00000000WT reflects the reference proteoform.",
+                      "description": "The internal name of the proteoform. PF_REFERENCE reflects the reference proteoform (no variants).",
                       "type": "string",
-                      "pattern": "(^PF[0-9]{11}$)|(^PF00000000WT$)"
+                      "pattern": "(^PF[0-9]{11}$)|(^PF_REFERENCE$)"
                     },
                     "annotations": {
                       "description": "String annotations of the proteoform.",
@@ -412,7 +413,7 @@
       "type": "object",
       "patternProperties": {
         "^.+$": {
-          "description": "List of positions that were excluded from the analysis. The pattern property key should match any reference sequence identifier.",
+          "description": "List of positions that were excluded from the analysis. The pattern property key should match any reference sequence, i.e., feature identifier.",
           "type": "array",
           "items": {
             "type": "number"
@@ -427,8 +428,7 @@
     "samples",
     "software",
     "date",
-    "chromosome",
-    "variants",
+    "nucleotideVariants",
     "excludedPositions"
   ]
 }
