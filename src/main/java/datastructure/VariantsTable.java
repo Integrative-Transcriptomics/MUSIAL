@@ -327,6 +327,7 @@ public class VariantsTable {
             tableStringBuilder
                     .append(String.join("\t", fields))
                     .append("\n");
+            String sampleGroupIdentifier;
             for (String storedPosition : this.variantsTable.keySet()) {
                 fields.clear();
                 fields.add(storedPosition);
@@ -339,9 +340,20 @@ public class VariantsTable {
                         )
                 );
                 for (String sampleIdentifier : this.sampleIdentifiers) {
-                    if (this.variantsTable.get(storedPosition).containsKey(sampleIdentifier)) {
+                    sampleGroupIdentifier = switch (this.contentMode) {
+                        case NUCLEOTIDE -> this.parentDictionary
+                                .samples.get(sampleIdentifier)
+                                .annotations.get("AL" + FIELD_SEPARATOR_1 + this.featureIdentifier);
+                        case AMINOACID -> this.parentDictionary
+                                .samples.get(sampleIdentifier)
+                                .annotations.get("PF" + FIELD_SEPARATOR_1 + this.featureIdentifier);
+                    };
+                    if (!Objects.equals(sampleGroupIdentifier, switch (this.contentMode) {
+                        case NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
+                        case AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
+                    })) {
                         fields.add(
-                                this.variantsTable.get(storedPosition).get(
+                                this.variantsTable.get(storedPosition).getOrDefault(
                                         switch (this.contentMode) {
                                             case NUCLEOTIDE -> this.parentDictionary
                                                     .samples.get(sampleIdentifier)
@@ -349,7 +361,8 @@ public class VariantsTable {
                                             case AMINOACID -> this.parentDictionary
                                                     .samples.get(sampleIdentifier)
                                                     .annotations.get("PF" + FIELD_SEPARATOR_1 + this.featureIdentifier);
-                                        }
+                                        },
+                                        "."
                                 )
                         );
                     } else {
