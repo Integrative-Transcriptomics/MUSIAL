@@ -3,7 +3,7 @@
   "title": "MUSIAL CONFIGURATION",
   "description": "JSON schema to validate and document MUSIAL module configuration.",
   "type": "array",
-  "items": [
+  "contains": [
     {
       "description": "JSON configuration for BUILD module",
       "type": "object",
