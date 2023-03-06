@@ -128,9 +128,13 @@ public class VariantsTable {
                         continue;
                     }
                     if (isInsertion) {
-                        referenceContents = variantContents;
-                        for (int i = 1; i < referenceContents.length; i++) {
-                            referenceContents[i] = Bio.DELETION_AA1;
+                        referenceContents = new char[variantContents.length];
+                        for (int i = 0; i < variantContents.length; i++) {
+                            if (i == 0) {
+                                referenceContents[i] = variantContents[i];
+                            } else {
+                                referenceContents[i] = Bio.DELETION_AA1;
+                            }
                         }
                     }
                     for (int i = 0; i < variantContents.length; i++) {
