@@ -2,10 +2,13 @@ package datastructure;
 
 import cli.ModuleExtractContentModes;
 import components.Bio;
-import components.Logging;
 import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.Writer;
 import java.util.*;
 
 import static datastructure.VariantsDictionary.FIELD_SEPARATOR_1;
@@ -63,15 +66,6 @@ public class VariantsTable {
                             + " not stored in specified parent dictionary"
             );
         }
-        Logging.logStatus(
-                "Construct variants table ("
-                        + this.contentMode
-                        + ") of feature "
-                        + featureIdentifier
-                        + " and "
-                        + sampleIdentifiers.size()
-                        + " samples"
-        );
         switch (contentMode) {
             case NUCLEOTIDE -> constructNucleotideTable();
             case AMINOACID -> constructAminoacidTable();
@@ -273,112 +267,121 @@ public class VariantsTable {
         }
     }
 
-    public String toString(boolean grouped) {
-        StringBuilder tableStringBuilder = new StringBuilder();
-        ArrayList<String> fields = new ArrayList<>();
-        fields.add("Position");
-        if (grouped) {
-            HashSet<String> groupIdentifiers = new HashSet<>();
-            this.sampleIdentifiers.forEach(sId -> groupIdentifiers.add(
-                    switch (this.contentMode) {
-                        case NUCLEOTIDE -> this.parentDictionary
-                                .samples.get(sId)
-                                .annotations.get("AL" + FIELD_SEPARATOR_1 + this.featureIdentifier);
-                        case AMINOACID -> this.parentDictionary
-                                .samples.get(sId)
-                                .annotations.get("PF" + FIELD_SEPARATOR_1 + this.featureIdentifier);
-                    }
-            ));
-            groupIdentifiers.remove(
-                    switch (this.contentMode) {
-                        case NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
-                        case AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
-                    }
-            );
-            fields.add(
-                    switch (this.contentMode) {
-                        case NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
-                        case AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
-                    }
-            );
-            fields.addAll(groupIdentifiers);
-            tableStringBuilder
-                    .append(String.join("\t", fields))
-                    .append("\n");
-            for (String storedPosition : this.variantsTable.keySet()) {
-                fields.clear();
-                fields.add(storedPosition);
-                fields.add(
-                        this.variantsTable.get(storedPosition).get(
-                                switch (this.contentMode) {
-                                    case NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
-                                    case AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
-                                }
-                        )
+    public void writeTableToFile(String fileName, boolean grouped) throws IOException {
+        try (Writer outputWriter = new BufferedWriter(new FileWriter(fileName))) {
+            StringBuilder tableStringBuilder = new StringBuilder();
+            ArrayList<String> fields = new ArrayList<>();
+            fields.add("Position");
+            if (grouped) {
+                HashSet<String> groupIdentifiers = new HashSet<>();
+                this.sampleIdentifiers.forEach(sId -> groupIdentifiers.add(
+                        switch (this.contentMode) {
+                            case NUCLEOTIDE -> this.parentDictionary
+                                    .samples.get(sId)
+                                    .annotations.get("AL" + FIELD_SEPARATOR_1 + this.featureIdentifier);
+                            case AMINOACID -> this.parentDictionary
+                                    .samples.get(sId)
+                                    .annotations.get("PF" + FIELD_SEPARATOR_1 + this.featureIdentifier);
+                        }
+                ));
+                groupIdentifiers.remove(
+                        switch (this.contentMode) {
+                            case NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
+                            case AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
+                        }
                 );
-                for (String groupIdentifier : groupIdentifiers) {
+                fields.add(
+                        switch (this.contentMode) {
+                            case NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
+                            case AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
+                        }
+                );
+                fields.addAll(groupIdentifiers);
+                tableStringBuilder
+                        .append(String.join("\t", fields))
+                        .append("\n");
+                outputWriter.write(tableStringBuilder.toString());
+                tableStringBuilder.setLength(0);
+                for (String storedPosition : this.variantsTable.keySet()) {
+                    fields.clear();
+                    fields.add(storedPosition);
                     fields.add(
-                            this.variantsTable.get(storedPosition).getOrDefault(groupIdentifier, ".")
+                            this.variantsTable.get(storedPosition).get(
+                                    switch (this.contentMode) {
+                                        case NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
+                                        case AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
+                                    }
+                            )
                     );
-                }
-                tableStringBuilder
-                        .append(String.join("\t", fields))
-                        .append("\n");
-            }
-        } else {
-            fields.add("Reference");
-            fields.addAll(this.sampleIdentifiers);
-            tableStringBuilder
-                    .append(String.join("\t", fields))
-                    .append("\n");
-            String sampleGroupIdentifier;
-            for (String storedPosition : this.variantsTable.keySet()) {
-                fields.clear();
-                fields.add(storedPosition);
-                fields.add(
-                        this.variantsTable.get(storedPosition).get(
-                                switch (this.contentMode) {
-                                    case NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
-                                    case AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
-                                }
-                        )
-                );
-                for (String sampleIdentifier : this.sampleIdentifiers) {
-                    sampleGroupIdentifier = switch (this.contentMode) {
-                        case NUCLEOTIDE -> this.parentDictionary
-                                .samples.get(sampleIdentifier)
-                                .annotations.get("AL" + FIELD_SEPARATOR_1 + this.featureIdentifier);
-                        case AMINOACID -> this.parentDictionary
-                                .samples.get(sampleIdentifier)
-                                .annotations.get("PF" + FIELD_SEPARATOR_1 + this.featureIdentifier);
-                    };
-                    if (!Objects.equals(sampleGroupIdentifier, switch (this.contentMode) {
-                        case NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
-                        case AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
-                    })) {
+                    for (String groupIdentifier : groupIdentifiers) {
                         fields.add(
-                                this.variantsTable.get(storedPosition).getOrDefault(
-                                        switch (this.contentMode) {
-                                            case NUCLEOTIDE -> this.parentDictionary
-                                                    .samples.get(sampleIdentifier)
-                                                    .annotations.get("AL" + FIELD_SEPARATOR_1 + this.featureIdentifier);
-                                            case AMINOACID -> this.parentDictionary
-                                                    .samples.get(sampleIdentifier)
-                                                    .annotations.get("PF" + FIELD_SEPARATOR_1 + this.featureIdentifier);
-                                        },
-                                        "."
-                                )
+                                this.variantsTable.get(storedPosition).getOrDefault(groupIdentifier, ".")
                         );
-                    } else {
-                        fields.add(".");
                     }
+                    tableStringBuilder
+                            .append(String.join("\t", fields))
+                            .append("\n");
+                    outputWriter.write(tableStringBuilder.toString());
+                    tableStringBuilder.setLength(0);
                 }
+            } else {
+                fields.add("Reference");
+                fields.addAll(this.sampleIdentifiers);
                 tableStringBuilder
                         .append(String.join("\t", fields))
                         .append("\n");
+                outputWriter.write(tableStringBuilder.toString());
+                tableStringBuilder.setLength(0);
+                String sampleGroupIdentifier;
+                for (String storedPosition : this.variantsTable.keySet()) {
+                    fields.clear();
+                    fields.add(storedPosition);
+                    fields.add(
+                            this.variantsTable.get(storedPosition).get(
+                                    switch (this.contentMode) {
+                                        case NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
+                                        case AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
+                                    }
+                            )
+                    );
+                    for (String sampleIdentifier : this.sampleIdentifiers) {
+                        sampleGroupIdentifier = switch (this.contentMode) {
+                            case NUCLEOTIDE -> this.parentDictionary
+                                    .samples.get(sampleIdentifier)
+                                    .annotations.get("AL" + FIELD_SEPARATOR_1 + this.featureIdentifier);
+                            case AMINOACID -> this.parentDictionary
+                                    .samples.get(sampleIdentifier)
+                                    .annotations.get("PF" + FIELD_SEPARATOR_1 + this.featureIdentifier);
+                        };
+                        if (!Objects.equals(sampleGroupIdentifier, switch (this.contentMode) {
+                            case NUCLEOTIDE -> AlleleEntry.PROPERTY_NAME_REFERENCE_ID;
+                            case AMINOACID -> ProteoformEntry.PROPERTY_NAME_REFERENCE_ID;
+                        })) {
+                            fields.add(
+                                    this.variantsTable.get(storedPosition).getOrDefault(
+                                            switch (this.contentMode) {
+                                                case NUCLEOTIDE -> this.parentDictionary
+                                                        .samples.get(sampleIdentifier)
+                                                        .annotations.get("AL" + FIELD_SEPARATOR_1 + this.featureIdentifier);
+                                                case AMINOACID -> this.parentDictionary
+                                                        .samples.get(sampleIdentifier)
+                                                        .annotations.get("PF" + FIELD_SEPARATOR_1 + this.featureIdentifier);
+                                            },
+                                            "."
+                                    )
+                            );
+                        } else {
+                            fields.add(".");
+                        }
+                    }
+                    tableStringBuilder
+                            .append(String.join("\t", fields))
+                            .append("\n");
+                    outputWriter.write(tableStringBuilder.toString());
+                    tableStringBuilder.setLength(0);
+                }
             }
         }
-        return tableStringBuilder.toString();
     }
 
     public Tuple<String, String> getFastaEntry(String accessIdentifier, boolean removeGaps) throws MusialException {

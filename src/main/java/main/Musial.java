@@ -1,8 +1,6 @@
 package main;
 
 import cli.*;
-import com.aayushatharva.brotli4j.Brotli4jLoader;
-import com.aayushatharva.brotli4j.encoder.Encoder;
 import com.google.gson.internal.LinkedTreeMap;
 import components.*;
 import datastructure.*;
@@ -11,8 +9,6 @@ import htsjdk.samtools.util.Tuple;
 import runnables.SampleAnalyzerRunnable;
 
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -225,7 +221,7 @@ public final class Musial {
                 variantsDictionary.features.get(contig).imputeNucleotideSequence(fastaContainer);
             }
         }
-        Logging.logStatus(Logging.getDoneTag() + " Add feature information");
+        Logging.logStatus(Logging.getDoneTag());
 
         // Collect information about sample variants.
         Logging.logStatus(Logging.getStartTag() + " Add sample information ");
@@ -243,7 +239,7 @@ public final class Musial {
         executor.shutdown();
         //noinspection ResultOfMethodCallIgnored
         executor.awaitTermination(30, TimeUnit.MINUTES);
-        Logging.logStatus(Logging.getDoneTag() + " Add sample information");
+        Logging.logStatus(Logging.getDoneTag());
 
         // Run SnpEff annotation for variants.
         Logging.logStatus(Logging.getStartTag() + " Annotate variants with SnpEff");
@@ -279,7 +275,7 @@ public final class Musial {
                     annotationFields = splitAnnotation[7].replace("ANN=", "").split("\\|");
                 }
                 for (int i = 1; i < annotationFields.length; i++) {
-                    if ( i >= 12 ) {
+                    if (i >= 12) {
                         break;
                     }
                     variantsDictionary.nucleotideVariants.get(Integer.valueOf(position)).get(altContent.toString()).annotations.put(
@@ -292,7 +288,7 @@ public final class Musial {
         } finally {
             IO.deleteDirectory(tmpDirectory);
         }
-        Logging.logStatus(Logging.getDoneTag() + " Annotate variants with SnpEff");
+        Logging.logStatus(Logging.getDoneTag());
 
         // Infer feature alleles from collected variant information.
         Logging.logStatus(Logging.getStartTag() + " Infer alleles");
@@ -306,7 +302,7 @@ public final class Musial {
                 );
             }
         }
-        Logging.logStatus(Logging.getDoneTag() + " Infer alleles");
+        Logging.logStatus(Logging.getDoneTag());
 
         // Infer coding feature variant/proteoform information; For all coding features.
         Logging.logStatus(Logging.getStartTag() + " Infer proteoforms");
@@ -326,7 +322,7 @@ public final class Musial {
                 );
             }
         }
-        Logging.logStatus(Logging.getDoneTag() + " Infer proteoforms");
+        Logging.logStatus(Logging.getDoneTag());
 
         // Infer variant frequencies.
         Logging.logStatus(Logging.getStartTag() + " Compute statistics");
@@ -362,7 +358,7 @@ public final class Musial {
                 }
             }
         }
-        Logging.logStatus(Logging.getDoneTag() + " Compute statistics");
+        Logging.logStatus(Logging.getDoneTag());
 
         // Write updated database to file.
         Logging.logStatus(Logging.getStartTag() + " Dump to file");
@@ -372,7 +368,7 @@ public final class Musial {
             IO.generateFile(vDictOutfile);
         }
         variantsDictionary.dump(vDictOutfile);
-        Logging.logStatus(Logging.getDoneTag() + " Dump to file");
+        Logging.logStatus(Logging.getDoneTag());
     }
 
     /**
@@ -431,6 +427,16 @@ public final class Musial {
                         );
                         continue;
                     }
+                    Logging.logStatus(
+                            Logging.getStartTag() +
+                                    " Construct variants table ("
+                                    + parameters.contentMode
+                                    + ") of feature "
+                                    + featureIdentifier
+                                    + " and "
+                                    + parameters.samples.size()
+                                    + " samples"
+                    );
                     VariantsTable variantsTable = new VariantsTable(
                             variantsDictionary,
                             parameters.samples,
@@ -441,46 +447,13 @@ public final class Musial {
                             parameters.keepOnlyVariantsWith,
                             false
                     );
-                    StringBuilder outputContentBuilder = new StringBuilder();
-                    // Prepare comment lines.
-                    outputContentBuilder
-                            .append("#")
-                            .append(NAME)
-                            .append(VERSION)
-                            .append(";")
-                            .append(Logging.getTimestampDayTime())
-                            .append(";")
-                            .append("NUC_VARIANTS_TABLE")
-                            .append(IO.LINE_SEPARATOR);
-                    outputContentBuilder
-                            .append("#")
-                            .append("FEATURE=")
-                            .append(featureIdentifier)
-                            .append(";START=")
-                            .append(variantsDictionary.features.get(featureIdentifier).start)
-                            .append(";END=")
-                            .append(variantsDictionary.features.get(featureIdentifier).end)
-                            .append(";CHR=")
-                            .append(variantsDictionary.features.get(featureIdentifier).chromosome)
-                            .append(";SENSE=")
-                            .append(variantsDictionary.features.get(featureIdentifier).isSense)
-                            .append(IO.LINE_SEPARATOR);
-                    // Add table content string.
-                    outputContentBuilder.append(variantsTable.toString(parameters.grouped));
-                    // FIXME: Compress full output directory and use better file name.
+                    Logging.logStatus(Logging.getDoneTag());
+                    Logging.logStatus(Logging.getStartTag() + " Write table output");
+                    variantsTable.writeTableToFile(parameters.outputDirectory + "/" + featureIdentifier + ".tsv", parameters.grouped);
                     if (Musial.COMPRESS) {
-                        // Write compressed (brotli) output.
-                        Brotli4jLoader.ensureAvailability();
-                        byte[] compressed = Encoder.compress(outputContentBuilder.toString().getBytes());
-                        Files.write(Paths.get(parameters.outputDirectory + "/" + featureIdentifier + ".tsv.br"), compressed);
-                    } else {
-                        // Write plain output.
-                        Writer outputWriter = new BufferedWriter(
-                                new FileWriter(parameters.outputDirectory + "/" + featureIdentifier + ".tsv")
-                        );
-                        outputWriter.write(outputContentBuilder.toString());
-                        outputWriter.close();
+                        IO.compressFile(new File(parameters.outputDirectory + "/" + featureIdentifier + ".tsv"));
                     }
+                    Logging.logStatus(Logging.getDoneTag());
                 }
                 case SEQUENCE_ALIGNED -> {
                     if (parameters.contentMode.equals(ModuleExtractContentModes.AMINOACID)
@@ -494,6 +467,16 @@ public final class Musial {
                         );
                         continue;
                     }
+                    Logging.logStatus(
+                            Logging.getStartTag() +
+                                    " Construct variants table ("
+                                    + parameters.contentMode
+                                    + ") of feature "
+                                    + featureIdentifier
+                                    + " and "
+                                    + parameters.samples.size()
+                                    + " samples"
+                    );
                     VariantsTable variantsTable = new VariantsTable(
                             variantsDictionary,
                             parameters.samples,
@@ -504,6 +487,9 @@ public final class Musial {
                             parameters.keepOnlyVariantsWith,
                             true
                     );
+                    Logging.logStatus(Logging.getDoneTag());
+                    // Generate fasta entries.
+                    Logging.logStatus(Logging.getStartTag() + " Write fasta output");
                     ArrayList<Tuple<String, String>> fastaEntries = new ArrayList<>();
                     if (parameters.grouped) {
                         HashSet<String> accessors = new HashSet<>();
@@ -537,6 +523,10 @@ public final class Musial {
                             new File(parameters.outputDirectory + "/" + featureIdentifier + ".fasta"),
                             fastaEntries
                     );
+                    if (Musial.COMPRESS) {
+                        IO.compressFile(new File(parameters.outputDirectory + "/" + featureIdentifier + ".fasta"));
+                    }
+                    Logging.logStatus(Logging.getDoneTag());
                 }
                 case SEQUENCE -> {
                     if (parameters.contentMode.equals(ModuleExtractContentModes.AMINOACID)
@@ -550,6 +540,16 @@ public final class Musial {
                         );
                         continue;
                     }
+                    Logging.logStatus(
+                            Logging.getStartTag() +
+                                    " Construct variants table ("
+                                    + parameters.contentMode
+                                    + ") of feature "
+                                    + featureIdentifier
+                                    + " and "
+                                    + parameters.samples.size()
+                                    + " samples"
+                    );
                     VariantsTable variantsTable = new VariantsTable(
                             variantsDictionary,
                             parameters.samples,
@@ -560,6 +560,9 @@ public final class Musial {
                             parameters.keepOnlyVariantsWith,
                             true
                     );
+                    Logging.logStatus(Logging.getDoneTag());
+                    // Generate fasta entries.
+                    Logging.logStatus(Logging.getStartTag() + " Write fasta output");
                     ArrayList<Tuple<String, String>> fastaEntries = new ArrayList<>();
                     if (parameters.grouped) {
                         HashSet<String> accessors = new HashSet<>();
@@ -585,6 +588,10 @@ public final class Musial {
                             new File(parameters.outputDirectory + "/" + featureIdentifier + ".fasta"),
                             fastaEntries
                     );
+                    if (Musial.COMPRESS) {
+                        IO.compressFile(new File(parameters.outputDirectory + "/" + featureIdentifier + ".fasta"));
+                    }
+                    Logging.logStatus(Logging.getDoneTag());
                 }
             }
         }

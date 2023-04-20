@@ -1,5 +1,7 @@
 package components;
 
+import com.aayushatharva.brotli4j.Brotli4jLoader;
+import com.aayushatharva.brotli4j.encoder.Encoder;
 import com.google.common.base.Splitter;
 import com.google.gson.Gson;
 import datastructure.FastaContainer;
@@ -18,6 +20,7 @@ import org.biojava.nbio.structure.io.PDBFileReader;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
 
@@ -262,6 +265,25 @@ public final class IO {
             }
         } catch (IOException e) {
             Logging.logWarning("Failed to write content to file " + outputFile.getAbsolutePath());
+        }
+    }
+
+    /**
+     * Compress a target file using brotli.
+     *
+     * @param target {@link File} target to compress.
+     */
+    public static void compressFile(File target) {
+        try {
+            String content = Files.readString(target.toPath());
+            // Write compressed (brotli) output.
+            Brotli4jLoader.ensureAvailability();
+            byte[] compressed = Encoder.compress(content.toString().getBytes());
+            Files.write(Paths.get(target.getAbsolutePath() + ".br"), compressed);
+            //noinspection ResultOfMethodCallIgnored
+            target.delete();
+        } catch (IOException e) {
+            Logging.logWarning("Failed to compress file " + target.getAbsolutePath());
         }
     }
 
