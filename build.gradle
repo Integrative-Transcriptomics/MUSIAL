@@ -1,16 +1,16 @@
 /*
 Set meta-information for the project build.
 */
-version 'v2.1'
+version 'v2.2'
 group 'de.tue.it'
 
-println "Project: $project" 
-println "Name: $name" 
-println "Project directory: $projectDir" 
-println "Build directory: $buildDir" 
-println "Version: $version" 
-println "Group: $project.group" 
-println "AntBuilder: $ant" 
+println "Project: $project"
+println "Name: $name"
+println "Project directory: $projectDir"
+println "Build directory: $buildDir"
+println "Version: $version"
+println "Group: $project.group"
+println "AntBuilder: $ant"
 
 /*
 The `buildscript` block defines properties (repositories, plugins, ...)
@@ -18,21 +18,19 @@ used within the Gradle build process.
 */
 buildscript {
     repositories {
-        mavenCentral( )
+        mavenCentral()
     }
 }
 
 /*
 Import plugins used during the build process.
 */
-import org.apache.tools.ant.filters.*
-
 /*
 To prevent duplicate access to output directories a dependency-hierarchy is
 established on different tasks.
 */
 tasks.whenTaskAdded { task ->
-    if ( task.name == 'jar' || task.name == 'processResources' ) {
+    if (task.name == 'jar' || task.name == 'processResources') {
         task.dependsOn unpackSnpEff
     }
 }
@@ -40,17 +38,17 @@ tasks.whenTaskAdded { task ->
 /*
 This task unzips SnpEff.
 */
-task unpackSnpEff( type: Copy ) {
-    from zipTree( 'src/main/resources/SnpEff.zip' )
+task unpackSnpEff(type: Copy) {
+    from zipTree('src/main/resources/snpEff.zip')
     into 'src/main/resources/'
 }
 
 /*
 After building, the Jar is copied into the `releases` directory.
 */
-task copyJarToReleases( type: Copy ) {
-	mkdir 'releases'
-	def jarName = "build/libs/" + rootProject.name + "-" + version + ".jar"
+task copyJarToReleases(type: Copy) {
+    mkdir 'releases'
+    def jarName = "build/libs/" + rootProject.name + "-" + version + ".jar"
     from jarName
     into "releases"
 }
@@ -63,6 +61,9 @@ repositories {
     maven {
         url "https://bio.informatik.uni-jena.de/repository/libs-release-oss/"
     }
+    maven {
+        url "https://artifactory.cronapp.io/public-release/"
+    }
 }
 
 /*
@@ -74,38 +75,39 @@ apply plugin: 'java'
 All project dependencies are defined in the following block.
 */
 dependencies {
-	implementation 'commons-cli:commons-cli:1.5.0'
-	implementation 'commons-io:commons-io:2.11.0'
-	implementation 'com.github.samtools:htsjdk:3.0.0'
-	implementation 'com.google.guava:guava:31.1-jre'
-	implementation 'args4j:args4j:2.33'
-    implementation 'org.apache.logging.log4j:log4j-core:2.17.2'
-    implementation 'org.apache.logging.log4j:log4j-api:2.17.2'
-    implementation 'org.biojava:biojava-core:5+'
-    implementation 'org.biojava:biojava-genome:5+'
-    implementation 'org.biojava:biojava-structure:5+'
-    implementation 'me.tongfei:progressbar:0.9.4'
-    implementation 'com.googlecode.json-simple:json-simple:1.1.1'
+    implementation 'commons-cli:commons-cli:1.5.0'
+    implementation 'commons-io:commons-io:2.11.0'
+    implementation 'com.github.samtools:htsjdk:3.0.4'
+    implementation 'com.google.guava:guava:31.1-jre'
+    implementation 'args4j:args4j:2.33'
+    implementation 'org.apache.logging.log4j:log4j-core:2.20.0'
+    implementation 'org.apache.logging.log4j:log4j-api:2.20.0'
+    implementation 'org.biojava:biojava-core:5.4.0'
+    implementation 'org.biojava:biojava-genome:5.4.0'
+    implementation 'org.biojava:biojava-structure:5.4.0'
+    implementation 'com.github.cliftonlabs:json-simple:4.0.1'
     implementation 'org.javatuples:javatuples:1.2'
-    implementation 'com.google.code.gson:gson:2.9.0'
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'com.google.code.gson:gson-extras:2.8.5'
     implementation 'net.sourceforge:javaml:0.1.7'
-    implementation 'org.apache.commons:commons-text:1.9'
-    implementation 'com.aayushatharva.brotli4j:brotli4j:1.8.0'
-    implementation 'com.aayushatharva.brotli4j:native-windows-x86_64:1.8.0'
+    implementation 'org.apache.commons:commons-text:1.10.0'
+    implementation 'com.aayushatharva.brotli4j:brotli4j:1.12.0'
+    implementation 'com.aayushatharva.brotli4j:native-windows-x86_64:1.12.0'
+    implementation 'com.aayushatharva.brotli4j:native-linux-x86_64:1.12.0'
     implementation 'org.apache.commons:commons-math3:3.6.1'
     implementation 'com.github.java-json-tools:json-schema-validator:2.2.14'
 }
 
 /*
 In order to build a final FatJar, all entries from configurations.implementation (the above defined
-dependencies) are copied into configurations.includeJars to prevent an internal Gradle error.
+dependencies) are copied into configurations.includeJars.
 */
 configurations {
-    includeJars.extendsFrom implementation
+    includeJars.extendsFrom implementationjava
 }
 
-sourceCompatibility = JavaVersion.VERSION_15
-targetCompatibility = JavaVersion.VERSION_15
+sourceCompatibility = JavaVersion.VERSION_17
+targetCompatibility = JavaVersion.VERSION_17
 
 /*
 Defines the source directories for the tasks executed by the `java` plugin.
@@ -127,11 +129,11 @@ Copies the title and version of the project into resources files.
 processResources {
     duplicatesStrategy 'exclude' // If duplicated files exist, they are excluded.
     exclude('*.zip')
-    filesMatching('version.properties'){
-    	expand projectVersion: version
+    filesMatching('version.properties') {
+        expand projectVersion: version
     }
-    filesMatching('title.properties'){
-    	expand projectTitle: rootProject.name
+    filesMatching('title.properties') {
+        expand projectTitle: rootProject.name
     }
 }
 
@@ -140,10 +142,11 @@ jar {
     manifest {
         attributes("Implementation-Title": rootProject.name,
                 "Implementation-Version": archiveVersion,
-                "main-Class": "main.Musial")
+                "Main-Class": "main.Musial")
     }
     doFirst {
-        from { configurations.includeJars.collect { it.isDirectory() ? it : zipTree(it) } } // Collects all Jars from dependencies and builds a FatJar.
+        from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+        // Collects all Jars from dependencies and builds a FatJar.
     }
 }
 
@@ -151,7 +154,7 @@ jar {
 Defines steps executed by calling `gradle clean`.
 */
 clean.doFirst {
-	delete "${rootDir}/releases/"
+    delete "${rootDir}/releases/"
     delete "${rootDir}/build/"
     delete "${rootDir}/src/main/resources/snpEff"
 }
@@ -159,4 +162,4 @@ clean.doFirst {
 /*
 After building the FatJar, it is copied to the releases directory.
 */
-build.finalizedBy( copyJarToReleases )
+build.finalizedBy(copyJarToReleases)

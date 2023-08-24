@@ -1,0 +1,131 @@
+{
+  "$schema": "musial_build_configuration.schema.json",
+  "title": "MUSIAL build configuration",
+  "description": "JSON schema to validate and document the MUSIAL build task configuration.",
+  "type": "object",
+  "properties": {
+    "minimalCoverage": {
+      "description": "The minimal depth of coverage wrt. reads of a variant to be accepted. Extracted from the DP attribute of input .vcf files.",
+      "type": "number",
+      "minimum": 0.0
+    },
+    "minimalHomozygousFrequency": {
+      "description": "The minimal frequency wrt. reads supporting a homozygous allele call for a variant to be accepted. Extracted from the AF attribute of input .vcf files.",
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "minimalHeterozygousFrequency": {
+      "description": "The minimal frequency wrt. reads supporting a heterozygous allele call for a variant to be accepted. Extracted from the AF attribute of input .vcf files.",
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "maximalHeterozygousFrequency": {
+      "description": "The maximal frequency wrt. reads supporting a heterozygous allele call for a variant to be accepted. Extracted from the AF attribute of input .vcf files.",
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "minimalQuality": {
+      "description": "The minimal call quality for a variant to be accepted. Extracted from the QUALITY attribute of input .vcf files.",
+      "type": "number",
+      "minimum": 0.0
+    },
+    "excludedPositions": {
+      "description": "Positions that shall be excluded from the analysis.",
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "referenceSequenceFile": {
+      "description": "Path to a .fasta file; Content will be used as reference genome.",
+      "type": "string",
+      "pattern": "^.+.fasta$"
+    },
+    "referenceFeaturesFile": {
+      "description": "Path to a .gff or .gff3 file; Content will be used as reference genome feature annotation.",
+      "type": "string",
+      "pattern": "^.+.gff|.+.gff3$"
+    },
+    "output": {
+      "description": "Path pointing to a file; Content will be used as output file path.",
+      "type": "string",
+      "pattern": "^.+.json$"
+    },
+    "samples": {
+      "description": "Object specifying the set of samples to analyze.",
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "description": "Object representing one single sample to analyze. The property key will be used as the internal sample name.",
+          "type": "object",
+          "properties": {
+            "vcfFile": {
+              "description": ".vcf file matching the format described in http://samtools.github.io/hts-specs/VCFv4.3.pdf.",
+              "type": "string",
+              "pattern": "^.+.vcf$"
+            },
+            "annotations": {
+              "patternProperties": {
+                "^.^$": {
+                  "description": "Any string key/value pairs that will be included as meta-information for the sample in the output file.",
+                  "type": "string",
+                  "pattern": "^.+$"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "samplesDirectory": {
+      "description": "Path to a directory. All .vcf files contained in the directory will be treated as samples (without annotation).",
+      "type": "string"
+    },
+    "features": {
+      "description": "Object specifying the set of features to match from the provided `referenceGFF` that shall be analyzed.",
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "description": "Object representing one feature to analyze. The property key will be used as the internal feature name.",
+          "type": "object",
+          "properties": {
+            "pdbFile": {
+              "description": "Path pointing to a .pdb format (https://www.wwpdb.org/documentation/file-format-content/format33/v3.3.html) file. If specified the structure contained within the file will be used as protein product of this feature and triggers proteoform analysis.",
+              "type": "string",
+              "pattern": "^.+.pdb$"
+            },
+            "coding": {
+              "description": "Whether to consider this feature as coding sequence. This will trigger proteoform analysis, even without a specified `pdbFile`.",
+              "type": "boolean"
+            },
+            "annotations": {
+              "patternProperties": {
+                "^.^$": {
+                  "description": "Any string key/value pairs that will be included as meta-information for the feature in the output file.",
+                  "type": "string",
+                  "pattern": "^.+$"
+                }
+              }
+            }
+          },
+          "patternProperties": {
+            "^match_.^$": {
+              "description": "String key (key has to be match_X, with X being the attribute name in the .gff file)/value pairs that will be used to match feature information from specified .gff.",
+              "type": "string",
+              "pattern": "^.+$"
+            }
+          },
+          "minProperties": 1
+        }
+      }
+    }
+  }
+}
