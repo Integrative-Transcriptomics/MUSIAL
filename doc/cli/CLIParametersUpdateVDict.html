@@ -90,7 +90,7 @@ implements <a href="CLIParameters.html" title="interface in cli">CLIParameters</
 <div class="block">Parses command line interface arguments for the `MUSIAL updateVDict` module.
  <p>
  Used to parse and validate passed command line options or print help information to the user. Parsed arguments are
- stored to be accessible for other components of the tool.</div>
+ stored to be accessible for other utility of the tool.</div>
 <dl class="notes">
 <dt>Since:</dt>
 <dd>2.0</dd>
@@ -135,7 +135,7 @@ implements <a href="CLIParameters.html" title="interface in cli">CLIParameters</
 <td class="col-first"><code>java.lang.Double</code></td>
 <th class="col-second" scope="row"><code><span class="member-name-link"><a href="#maxHetFrequency">maxHetFrequency</a></span></code></th>
 <td class="col-last">
-<div class="block">Maximum allele frequency (with respect to reads) in order to call heterozygous SNVs.</div>
+<div class="block">Maximum form frequency (with respect to reads) in order to call heterozygous SNVs.</div>
 </td>
 </tr>
 <tr class="row-color">
@@ -149,14 +149,14 @@ implements <a href="CLIParameters.html" title="interface in cli">CLIParameters</
 <td class="col-first"><code>java.lang.Double</code></td>
 <th class="col-second" scope="row"><code><span class="member-name-link"><a href="#minHetFrequency">minHetFrequency</a></span></code></th>
 <td class="col-last">
-<div class="block">Minimum allele frequency (with respect to reads) in order to call heterozygous SNVs.</div>
+<div class="block">Minimum form frequency (with respect to reads) in order to call heterozygous SNVs.</div>
 </td>
 </tr>
 <tr class="row-color">
 <td class="col-first"><code>java.lang.Double</code></td>
 <th class="col-second" scope="row"><code><span class="member-name-link"><a href="#minHomFrequency">minHomFrequency</a></span></code></th>
 <td class="col-last">
-<div class="block">Minimum allele frequency (with respect to reads) in order to call a SNV.</div>
+<div class="block">Minimum form frequency (with respect to reads) in order to call a SNV.</div>
 </td>
 </tr>
 <tr class="alt-color">
@@ -311,21 +311,21 @@ org.apache.commons.cli.HelpFormatter&nbsp;helpFormatter)</code></th>
 <section class="detail" id="minHomFrequency">
 <h3>minHomFrequency</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">java.lang.Double</span>&nbsp;<span class="member-name">minHomFrequency</span></div>
-<div class="block">Minimum allele frequency (with respect to reads) in order to call a SNV.</div>
+<div class="block">Minimum form frequency (with respect to reads) in order to call a SNV.</div>
 </section>
 </li>
 <li>
 <section class="detail" id="minHetFrequency">
 <h3>minHetFrequency</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">java.lang.Double</span>&nbsp;<span class="member-name">minHetFrequency</span></div>
-<div class="block">Minimum allele frequency (with respect to reads) in order to call heterozygous SNVs.</div>
+<div class="block">Minimum form frequency (with respect to reads) in order to call heterozygous SNVs.</div>
 </section>
 </li>
 <li>
 <section class="detail" id="maxHetFrequency">
 <h3>maxHetFrequency</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">java.lang.Double</span>&nbsp;<span class="member-name">maxHetFrequency</span></div>
-<div class="block">Maximum allele frequency (with respect to reads) in order to call heterozygous SNVs.</div>
+<div class="block">Maximum form frequency (with respect to reads) in order to call heterozygous SNVs.</div>
 </section>
 </li>
 <li>
@@ -400,7 +400,7 @@ org.apache.commons.cli.HelpFormatter&nbsp;helpFormatter)</code></th>
 <div class="block">Constructor of the <a href="CLIParametersUpdateVDict.html" title="class in cli"><code>CLIParametersUpdateVDict</code></a> class.
  <p>
  Used to parse and validate command line interface input. Parsed arguments are stored - and accessible by other
- components - via class properties.</div>
+ utility - via class properties.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>args</code> - <code>String</code> <code>Array</code> containing the command line arguments.</dd>

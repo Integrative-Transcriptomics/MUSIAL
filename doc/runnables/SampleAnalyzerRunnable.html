@@ -76,7 +76,7 @@ loadScripts(document, 'script');</script>
 <h1 title="Class SampleAnalyzerRunnable" class="title">Class SampleAnalyzerRunnable</h1>
 </div>
 <div class="inheritance" title="Inheritance Tree">java.lang.Object
-<div class="inheritance">runnables.SampleAnalyzerRunnable</div>
+<div class="inheritance">runnables.SampleAnalyzer</div>
 </div>
 <section class="description">
 <dl class="notes">
@@ -118,7 +118,7 @@ implements java.lang.Runnable</pre>
 <tbody>
 <tr class="alt-color">
 <td class="col-first"><code>private <a href="../datastructure/FeatureEntry.html" title="class in datastructure">FeatureEntry</a></code></td>
-<th class="col-second" scope="row"><code><span class="member-name-link"><a href="#featureEntry">featureEntry</a></span></code></th>
+<th class="col-second" scope="row"><code><span class="member-name-link"><a href="#feature">feature</a></span></code></th>
 <td class="col-last">
 <div class="block">The <a href="../datastructure/FeatureEntry.html" title="class in datastructure"><code>FeatureEntry</code></a> to be analyzed.</div>
 </td>
@@ -132,14 +132,14 @@ implements java.lang.Runnable</pre>
 </tr>
 <tr class="alt-color">
 <td class="col-first"><code>private <a href="../datastructure/SampleEntry.html" title="class in datastructure">SampleEntry</a></code></td>
-<th class="col-second" scope="row"><code><span class="member-name-link"><a href="#sampleEntry">sampleEntry</a></span></code></th>
+<th class="col-second" scope="row"><code><span class="member-name-link"><a href="#sample">sample</a></span></code></th>
 <td class="col-last">
 <div class="block">The <a href="../datastructure/SampleEntry.html" title="class in datastructure"><code>SampleEntry</code></a> to be analyzed.</div>
 </td>
 </tr>
 <tr class="row-color">
 <td class="col-first"><code>private <a href="../datastructure/VariantsDictionary.html" title="class in datastructure">VariantsDictionary</a></code></td>
-<th class="col-second" scope="row"><code><span class="member-name-link"><a href="#variantsDictionary">variantsDictionary</a></span></code></th>
+<th class="col-second" scope="row"><code><span class="member-name-link"><a href="#musialStorage">musialStorage</a></span></code></th>
 <td class="col-last">
 <div class="block">The <a href="../datastructure/VariantsDictionary.html" title="class in datastructure"><code>VariantsDictionary</code></a> instance the sample and feature originate from.</div>
 </td>
@@ -164,9 +164,9 @@ implements java.lang.Runnable</pre>
 </thead>
 <tbody>
 <tr class="alt-color">
-<th class="col-constructor-name" scope="row"><code><span class="member-name-link"><a href="#%3Cinit%3E(datastructure.SampleEntry,datastructure.FeatureEntry,datastructure.VariantsDictionary,me.tongfei.progressbar.ProgressBar)">SampleAnalyzerRunnable</a></span>&#8203;(<a href="../datastructure/SampleEntry.html" title="class in datastructure">SampleEntry</a>&nbsp;sampleEntry,
-<a href="../datastructure/FeatureEntry.html" title="class in datastructure">FeatureEntry</a>&nbsp;featureEntry,
-<a href="../datastructure/VariantsDictionary.html" title="class in datastructure">VariantsDictionary</a>&nbsp;variantsDictionary,
+<th class="col-constructor-name" scope="row"><code><span class="member-name-link"><a href="#%3Cinit%3E(datastructure.Sample,datastructure.Feature,datastructure.MusialStorage,me.tongfei.progressbar.ProgressBar)">SampleAnalyzerRunnable</a></span>&#8203;(<a href="../datastructure/SampleEntry.html" title="class in datastructure">SampleEntry</a>&nbsp;sample,
+<a href="../datastructure/FeatureEntry.html" title="class in datastructure">FeatureEntry</a>&nbsp;feature,
+<a href="../datastructure/VariantsDictionary.html" title="class in datastructure">VariantsDictionary</a>&nbsp;musialStorage,
 me.tongfei.progressbar.ProgressBar&nbsp;pb)</code></th>
 <td class="col-last">
 <div class="block">Constructor of the <a href="SampleAnalyzerRunnable.html" title="class in runnables"><code>SampleAnalyzerRunnable</code></a> class.</div>
@@ -233,23 +233,23 @@ boolean&nbsp;isPrimary)</code></th>
 <h2>Field Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="sampleEntry">
-<h3>sampleEntry</h3>
-<div class="member-signature"><span class="modifiers">private final</span>&nbsp;<span class="return-type"><a href="../datastructure/SampleEntry.html" title="class in datastructure">SampleEntry</a></span>&nbsp;<span class="member-name">sampleEntry</span></div>
+<section class="detail" id="sample">
+<h3>sample</h3>
+<div class="member-signature"><span class="modifiers">private final</span>&nbsp;<span class="return-type"><a href="../datastructure/SampleEntry.html" title="class in datastructure">SampleEntry</a></span>&nbsp;<span class="member-name">sample</span></div>
 <div class="block">The <a href="../datastructure/SampleEntry.html" title="class in datastructure"><code>SampleEntry</code></a> to be analyzed.</div>
 </section>
 </li>
 <li>
-<section class="detail" id="featureEntry">
-<h3>featureEntry</h3>
-<div class="member-signature"><span class="modifiers">private final</span>&nbsp;<span class="return-type"><a href="../datastructure/FeatureEntry.html" title="class in datastructure">FeatureEntry</a></span>&nbsp;<span class="member-name">featureEntry</span></div>
+<section class="detail" id="feature">
+<h3>feature</h3>
+<div class="member-signature"><span class="modifiers">private final</span>&nbsp;<span class="return-type"><a href="../datastructure/FeatureEntry.html" title="class in datastructure">FeatureEntry</a></span>&nbsp;<span class="member-name">feature</span></div>
 <div class="block">The <a href="../datastructure/FeatureEntry.html" title="class in datastructure"><code>FeatureEntry</code></a> to be analyzed.</div>
 </section>
 </li>
 <li>
-<section class="detail" id="variantsDictionary">
-<h3>variantsDictionary</h3>
-<div class="member-signature"><span class="modifiers">private final</span>&nbsp;<span class="return-type"><a href="../datastructure/VariantsDictionary.html" title="class in datastructure">VariantsDictionary</a></span>&nbsp;<span class="member-name">variantsDictionary</span></div>
+<section class="detail" id="musialStorage">
+<h3>musialStorage</h3>
+<div class="member-signature"><span class="modifiers">private final</span>&nbsp;<span class="return-type"><a href="../datastructure/VariantsDictionary.html" title="class in datastructure">VariantsDictionary</a></span>&nbsp;<span class="member-name">musialStorage</span></div>
 <div class="block">The <a href="../datastructure/VariantsDictionary.html" title="class in datastructure"><code>VariantsDictionary</code></a> instance the sample and feature originate from.</div>
 </section>
 </li>
@@ -269,18 +269,18 @@ boolean&nbsp;isPrimary)</code></th>
 <h2>Constructor Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="&lt;init&gt;(datastructure.SampleEntry,datastructure.FeatureEntry,datastructure.VariantsDictionary,me.tongfei.progressbar.ProgressBar)">
+<section class="detail" id="&lt;init&gt;(datastructure.Sample,datastructure.Feature,datastructure.MusialStorage,me.tongfei.progressbar.ProgressBar)">
 <h3>SampleAnalyzerRunnable</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="member-name">SampleAnalyzerRunnable</span>&#8203;(<span class="parameters"><a href="../datastructure/SampleEntry.html" title="class in datastructure">SampleEntry</a>&nbsp;sampleEntry,
-<a href="../datastructure/FeatureEntry.html" title="class in datastructure">FeatureEntry</a>&nbsp;featureEntry,
-<a href="../datastructure/VariantsDictionary.html" title="class in datastructure">VariantsDictionary</a>&nbsp;variantsDictionary,
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="member-name">SampleAnalyzerRunnable</span>&#8203;(<span class="parameters"><a href="../datastructure/SampleEntry.html" title="class in datastructure">SampleEntry</a>&nbsp;sample,
+<a href="../datastructure/FeatureEntry.html" title="class in datastructure">FeatureEntry</a>&nbsp;feature,
+<a href="../datastructure/VariantsDictionary.html" title="class in datastructure">VariantsDictionary</a>&nbsp;musialStorage,
 me.tongfei.progressbar.ProgressBar&nbsp;pb)</span></div>
 <div class="block">Constructor of the <a href="SampleAnalyzerRunnable.html" title="class in runnables"><code>SampleAnalyzerRunnable</code></a> class.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
-<dd><code>sampleEntry</code> - The <a href="../datastructure/SampleEntry.html" title="class in datastructure"><code>SampleEntry</code></a> to be analyzed.</dd>
-<dd><code>featureEntry</code> - The <a href="../datastructure/FeatureEntry.html" title="class in datastructure"><code>FeatureEntry</code></a> to be analyzed.</dd>
-<dd><code>variantsDictionary</code> - The <a href="../datastructure/VariantsDictionary.html" title="class in datastructure"><code>VariantsDictionary</code></a> instance the sample and feature originate from.</dd>
+<dd><code>sample</code> - The <a href="../datastructure/SampleEntry.html" title="class in datastructure"><code>SampleEntry</code></a> to be analyzed.</dd>
+<dd><code>feature</code> - The <a href="../datastructure/FeatureEntry.html" title="class in datastructure"><code>FeatureEntry</code></a> to be analyzed.</dd>
+<dd><code>musialStorage</code> - The <a href="../datastructure/VariantsDictionary.html" title="class in datastructure"><code>VariantsDictionary</code></a> instance the sample and feature originate from.</dd>
 <dd><code>pb</code> - Instance of <code>ProgressBar</code> used to indicate progress of sample analysis.</dd>
 </dl>
 </section>
@@ -322,11 +322,11 @@ boolean&nbsp;isPrimary)</span></div>
 <dd><code>variantQuality</code> - <code>Double</code> the quality of the variant.</dd>
 <dd><code>variantCoverage</code> - <code>Double</code> the coverage of the variant.</dd>
 <dd><code>variantFrequency</code> - <code>Double</code> the frequency of the variant.</dd>
-<dd><code>variantAllele</code> - <code>Allele</code> the alternative allele information.</dd>
-<dd><code>referenceAllele</code> - <code>Allele</code> the reference allele information.</dd>
+<dd><code>variantAllele</code> - <code>Allele</code> the alternative form information.</dd>
+<dd><code>referenceAllele</code> - <code>Allele</code> the reference form information.</dd>
 <dd><code>isHetCall</code> - <code>Boolean</code> to indicate if the variant originates from a het. call; necessary to
                          apply the correct filter method.</dd>
-<dd><code>isPrimary</code> - <code>Boolean</code> to indicate if the variant originates from the most frequent allele.</dd>
+<dd><code>isPrimary</code> - <code>Boolean</code> to indicate if the variant originates from the most frequent form.</dd>
 </dl>
 </section>
 </li>

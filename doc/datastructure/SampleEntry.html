@@ -76,7 +76,7 @@ loadScripts(document, 'script');</script>
 <h1 title="Class SampleEntry" class="title">Class SampleEntry</h1>
 </div>
 <div class="inheritance" title="Inheritance Tree">java.lang.Object
-<div class="inheritance">datastructure.SampleEntry</div>
+<div class="inheritance">datastructure.Sample</div>
 </div>
 <section class="description">
 <hr>
@@ -190,7 +190,7 @@ java.lang.String&nbsp;name)</code></th>
 <tbody>
 <tr class="alt-color" id="i0">
 <td class="col-first"><code>static void</code></td>
-<th class="col-second" scope="row"><code><span class="member-name-link"><a href="#imputeVCFFileReader(datastructure.SampleEntry)">imputeVCFFileReader</a></span>&#8203;(<a href="SampleEntry.html" title="class in datastructure">SampleEntry</a>&nbsp;sampleEntry)</code></th>
+<th class="col-second" scope="row"><code><span class="member-name-link"><a href="#imputeVCFFileReader(datastructure.Sample)">imputeVCFFileReader</a></span>&#8203;(<a href="SampleEntry.html" title="class in datastructure">SampleEntry</a>&nbsp;sample)</code></th>
 <td class="col-last">
 <div class="block">Initializes a <code>VCFFileReader</code> instance pointing to the .vcf file of the specified <a href="SampleEntry.html" title="class in datastructure"><code>SampleEntry</code></a>.</div>
 </td>
@@ -271,16 +271,16 @@ java.lang.String&nbsp;name)</span></div>
 <h2>Method Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="imputeVCFFileReader(datastructure.SampleEntry)">
+<section class="detail" id="imputeVCFFileReader(datastructure.Sample)">
 <h3>imputeVCFFileReader</h3>
-<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="member-name">imputeVCFFileReader</span>&#8203;(<span class="parameters"><a href="SampleEntry.html" title="class in datastructure">SampleEntry</a>&nbsp;sampleEntry)</span>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="member-name">imputeVCFFileReader</span>&#8203;(<span class="parameters"><a href="SampleEntry.html" title="class in datastructure">SampleEntry</a>&nbsp;sample)</span>
                                 throws <span class="exceptions">java.io.IOException</span></div>
 <div class="block">Initializes a <code>VCFFileReader</code> instance pointing to the .vcf file of the specified <a href="SampleEntry.html" title="class in datastructure"><code>SampleEntry</code></a>.
  <p>
  Validates that a Tabix index of the .vcf file is present and generates one if not.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
-<dd><code>sampleEntry</code> - The <a href="SampleEntry.html" title="class in datastructure"><code>SampleEntry</code></a> for which</dd>
+<dd><code>sample</code> - The <a href="SampleEntry.html" title="class in datastructure"><code>SampleEntry</code></a> for which</dd>
 <dt>Throws:</dt>
 <dd><code>java.io.IOException</code> - If the initialization of the file reader or the validation/generation of the index file fails.</dd>
 </dl>

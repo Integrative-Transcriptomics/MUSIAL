@@ -76,7 +76,7 @@ loadScripts(document, 'script');</script>
 <h1 title="Class FeatureEntry" class="title">Class FeatureEntry</h1>
 </div>
 <div class="inheritance" title="Inheritance Tree">java.lang.Object
-<div class="inheritance">datastructure.FeatureEntry</div>
+<div class="inheritance">datastructure.Feature</div>
 </div>
 <section class="description">
 <hr>
@@ -230,14 +230,14 @@ int&nbsp;entryEnd)</code></th>
 <tbody>
 <tr class="alt-color" id="i0">
 <td class="col-first"><code>static void</code></td>
-<th class="col-second" scope="row"><code><span class="member-name-link"><a href="#imputeProtein(datastructure.FeatureEntry)">imputeProtein</a></span>&#8203;(<a href="FeatureEntry.html" title="class in datastructure">FeatureEntry</a>&nbsp;featureEntry)</code></th>
+<th class="col-second" scope="row"><code><span class="member-name-link"><a href="#imputeProtein(datastructure.Feature)">imputeProtein</a></span>&#8203;(<a href="FeatureEntry.html" title="class in datastructure">FeatureEntry</a>&nbsp;feature)</code></th>
 <td class="col-last">
 <div class="block">Method to add the protein wild-type information to any <a href="FeatureEntry.html" title="class in datastructure"><code>FeatureEntry</code></a>.</div>
 </td>
 </tr>
 <tr class="row-color" id="i1">
 <td class="col-first"><code>static void</code></td>
-<th class="col-second" scope="row"><code><span class="member-name-link"><a href="#imputeSequence(datastructure.FeatureEntry,datastructure.FastaContainer)">imputeSequence</a></span>&#8203;(<a href="FeatureEntry.html" title="class in datastructure">FeatureEntry</a>&nbsp;featureEntry,
+<th class="col-second" scope="row"><code><span class="member-name-link"><a href="#imputeSequence(datastructure.Feature,datastructure.FastaContainer)">imputeSequence</a></span>&#8203;(<a href="FeatureEntry.html" title="class in datastructure">FeatureEntry</a>&nbsp;feature,
 <a href="FastaContainer.html" title="class in datastructure">FastaContainer</a>&nbsp;referenceSequence)</code></th>
 <td class="col-last">
 <div class="block">Method to add the nucleotide sequence to any <a href="FeatureEntry.html" title="class in datastructure"><code>FeatureEntry</code></a>.</div>
@@ -364,23 +364,23 @@ int&nbsp;entryEnd)</span>
 <h2>Method Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="imputeSequence(datastructure.FeatureEntry,datastructure.FastaContainer)">
+<section class="detail" id="imputeSequence(datastructure.Feature,datastructure.FastaContainer)">
 <h3>imputeSequence</h3>
-<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="member-name">imputeSequence</span>&#8203;(<span class="parameters"><a href="FeatureEntry.html" title="class in datastructure">FeatureEntry</a>&nbsp;featureEntry,
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="member-name">imputeSequence</span>&#8203;(<span class="parameters"><a href="FeatureEntry.html" title="class in datastructure">FeatureEntry</a>&nbsp;feature,
 <a href="FastaContainer.html" title="class in datastructure">FastaContainer</a>&nbsp;referenceSequence)</span></div>
 <div class="block">Method to add the nucleotide sequence to any <a href="FeatureEntry.html" title="class in datastructure"><code>FeatureEntry</code></a>.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
-<dd><code>featureEntry</code> - The <a href="FeatureEntry.html" title="class in datastructure"><code>FeatureEntry</code></a> to which nucleotide sequence information shall be added.</dd>
+<dd><code>feature</code> - The <a href="FeatureEntry.html" title="class in datastructure"><code>FeatureEntry</code></a> to which nucleotide sequence information shall be added.</dd>
 <dd><code>referenceSequence</code> - <a href="FastaContainer.html" title="class in datastructure"><code>FastaContainer</code></a> representation of the parent/reference sequence, i.e. reference
                           genome or genome assembly.</dd>
 </dl>
 </section>
 </li>
 <li>
-<section class="detail" id="imputeProtein(datastructure.FeatureEntry)">
+<section class="detail" id="imputeProtein(datastructure.Feature)">
 <h3>imputeProtein</h3>
-<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="member-name">imputeProtein</span>&#8203;(<span class="parameters"><a href="FeatureEntry.html" title="class in datastructure">FeatureEntry</a>&nbsp;featureEntry)</span>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="member-name">imputeProtein</span>&#8203;(<span class="parameters"><a href="FeatureEntry.html" title="class in datastructure">FeatureEntry</a>&nbsp;feature)</span>
                           throws <span class="exceptions">java.io.IOException,
 <a href="../exceptions/MusialBioException.html" title="class in exceptions">MusialBioException</a></span></div>
 <div class="block">Method to add the protein wild-type information to any <a href="FeatureEntry.html" title="class in datastructure"><code>FeatureEntry</code></a>.
@@ -397,7 +397,7 @@ int&nbsp;entryEnd)</span>
  alignment the first residue number in the internal .pdb is set to be 10.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
-<dd><code>featureEntry</code> - The <a href="FeatureEntry.html" title="class in datastructure"><code>FeatureEntry</code></a> to which protein information shall be added.</dd>
+<dd><code>feature</code> - The <a href="FeatureEntry.html" title="class in datastructure"><code>FeatureEntry</code></a> to which protein information shall be added.</dd>
 <dt>Throws:</dt>
 <dd><code>java.io.IOException</code> - If the .pdb file pointed to by the <a href="#pdbFile"><code>pdbFile</code></a> can not be parsed.</dd>
 <dd><code><a href="../exceptions/MusialBioException.html" title="class in exceptions">MusialBioException</a></code> - If either the translated <a href="#nucleotideSequence"><code>nucleotideSequence</code></a> yields internal

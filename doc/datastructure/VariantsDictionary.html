@@ -76,7 +76,7 @@ loadScripts(document, 'script');</script>
 <h1 title="Class VariantsDictionary" class="title">Class VariantsDictionary</h1>
 </div>
 <div class="inheritance" title="Inheritance Tree">java.lang.Object
-<div class="inheritance">datastructure.VariantsDictionary</div>
+<div class="inheritance">datastructure.MusialStorage</div>
 </div>
 <section class="description">
 <hr>
@@ -374,7 +374,7 @@ java.lang.String&nbsp;sId)</code></th>
  TODO: Move to separate class with other attribute names.</div>
 <dl class="notes">
 <dt>See Also:</dt>
-<dd><a href="../constant-values.html#datastructure.VariantsDictionary.WILD_TYPE_SAMPLE_ID">Constant Field Values</a></dd>
+<dd><a href="../constant-values.html#datastructure.MusialStorage.WILD_TYPE_SAMPLE_ID">Constant Field Values</a></dd>
 </dl>
 </section>
 </li>
@@ -385,7 +385,7 @@ java.lang.String&nbsp;sId)</code></th>
 <div class="block">Static property to use as suffix for the 'VSWAB' annotation key in <a href="FeatureEntry.html" title="class in datastructure"><code>FeatureEntry</code></a>s and <a href="SampleEntry.html" title="class in datastructure"><code>SampleEntry</code></a>s.</div>
 <dl class="notes">
 <dt>See Also:</dt>
-<dd><a href="../constant-values.html#datastructure.VariantsDictionary.ATTRIBUTE_VARIANT_SWAB_NAME">Constant Field Values</a></dd>
+<dd><a href="../constant-values.html#datastructure.MusialStorage.ATTRIBUTE_VARIANT_SWAB_NAME">Constant Field Values</a></dd>
 </dl>
 </section>
 </li>
@@ -417,9 +417,9 @@ java.lang.String&nbsp;chromosome)</span></div>
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>minCoverage</code> - <code>Double</code>; Minimal read coverage to use for variant filtering.</dd>
-<dd><code>minFrequency</code> - <code>Double</code>; Minimal allele frequency to use for hom. variant filtering.</dd>
-<dd><code>minHet</code> - <code>Double</code>; Minimal allele frequency to use for het. variant filtering.</dd>
-<dd><code>maxHet</code> - <code>Double</code>; Maximal allele frequency to use for het. variant filtering.</dd>
+<dd><code>minFrequency</code> - <code>Double</code>; Minimal form frequency to use for hom. variant filtering.</dd>
+<dd><code>minHet</code> - <code>Double</code>; Minimal form frequency to use for het. variant filtering.</dd>
+<dd><code>maxHet</code> - <code>Double</code>; Maximal form frequency to use for het. variant filtering.</dd>
 <dd><code>minQuality</code> - <code>Double</code>; Minimal Phred scaled genotyping call quality to use for variant filtering.</dd>
 <dd><code>chromosome</code> - <code>String</code>; Name of the chromosome on which maintained <a href="FeatureEntry.html" title="class in datastructure"><code>FeatureEntry</code></a>s are located;
                      Has to reflect the value in the used input .vcf, .fasta and .gff files.</dd>
