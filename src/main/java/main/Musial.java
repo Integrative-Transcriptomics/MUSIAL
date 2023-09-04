@@ -427,8 +427,8 @@ public final class Musial {
             put("start", new ArrayList<>(featuresToView.size()));
             put("end", new ArrayList<>(featuresToView.size()));
             put("strand", new ArrayList<>(featuresToView.size()));
-            put("count.alleles", new ArrayList<>(featuresToView.size()));
-            put("count.proteoforms", new ArrayList<>(featuresToView.size()));
+            put("number_of_alleles", new ArrayList<>(featuresToView.size()));
+            put("number_of_proteoforms", new ArrayList<>(featuresToView.size()));
         }};
         Feature feature;
         int featureIndex = 0;
@@ -441,16 +441,16 @@ public final class Musial {
             outputMap.get("start").add(String.valueOf(feature.start));
             outputMap.get("end").add(String.valueOf(feature.end));
             outputMap.get("strand").add(feature.isSense ? "+" : "-");
-            outputMap.get("count.alleles").add(String.valueOf(feature.getAlleleCount()));
-            outputMap.get("count.proteoforms").add(feature.isCoding() ? String.valueOf(((FeatureCoding) feature).getProteoformCount()) : "null");
+            outputMap.get("number_of_alleles").add(String.valueOf(feature.getAlleleCount()));
+            outputMap.get("number_of_proteoforms").add(feature.isCoding() ? String.valueOf(((FeatureCoding) feature).getProteoformCount()) : "null");
             HashSet<String> featureAnnotationKeys = new HashSet<>() {{
                 add("name");
                 add("chromosome");
                 add("start");
                 add("end");
                 add("strand");
-                add("count.alleles");
-                add("count.proteoforms");
+                add("number_of_alleles");
+                add("number_of_proteoforms");
             }};
             for (Map.Entry<String, String> annotation : feature.getAnnotations()) {
                 String annotationKey = annotation.getKey();
@@ -491,9 +491,9 @@ public final class Musial {
         Iterator<String> sampleNameIterator = musialStorage.getSampleNameIterator();
         LinkedHashMap<String, ArrayList<String>> outputMap = new LinkedHashMap<>() {{
             put("name", new ArrayList<>(samplesToView.size()));
-            put("count.substitutions", new ArrayList<>(samplesToView.size()));
-            put("count.insertions", new ArrayList<>(samplesToView.size()));
-            put("count.deletions", new ArrayList<>(samplesToView.size()));
+            put(MusialConstants.NUMBER_SUBSTITUTIONS, new ArrayList<>(samplesToView.size()));
+            put(MusialConstants.NUMBER_INSERTIONS, new ArrayList<>(samplesToView.size()));
+            put(MusialConstants.NUMBER_DELETIONS, new ArrayList<>(samplesToView.size()));
         }};
         Sample sample;
         int sampleIndex = 0;
@@ -502,21 +502,14 @@ public final class Musial {
             if (!(samplesToView.contains(sample.name)))
                 continue;
             outputMap.get("name").add(sample.name);
-            outputMap.get("count.substitutions").add(String.valueOf(sample.getAnnotation(MusialConstants.NUMBER_SUBSTITUTIONS)));
-            outputMap.get("count.insertions").add(String.valueOf(sample.getAnnotation(MusialConstants.NUMBER_INSERTIONS)));
-            outputMap.get("count.deletions").add(String.valueOf(sample.getAnnotation(MusialConstants.NUMBER_DELETIONS)));
+            // outputMap.get("count.substitutions").add(String.valueOf(sample.getAnnotation(MusialConstants.NUMBER_SUBSTITUTIONS)));
+            // outputMap.get("count.insertions").add(String.valueOf(sample.getAnnotation(MusialConstants.NUMBER_INSERTIONS)));
+            // outputMap.get("count.deletions").add(String.valueOf(sample.getAnnotation(MusialConstants.NUMBER_DELETIONS)));
             HashSet<String> sampleAnnotationKeys = new HashSet<>() {{
                 add("name");
-                add("count.substitutions");
-                add("count.insertions");
-                add("count.deletions");
             }};
             for (Map.Entry<String, String> annotation : sample.getAnnotations()) {
                 String annotationKey = annotation.getKey();
-                if (annotationKey.startsWith(MusialConstants.SAMPLE_ANNOTATION_PROTEOFORM_PREFIX) || annotationKey.startsWith(MusialConstants.SAMPLE_ANNOTATION_ALLELE_PREFIX))
-                    annotationKey = annotationKey.replace("_", ".");
-                if (annotationKey.startsWith("number_of_"))
-                    annotationKey = annotationKey.replace("number_of_", "count.");
                 transferAnnotation(outputMap, sampleIndex, sampleAnnotationKeys, annotationKey, annotation.getValue());
             }
             for (String globalAnnotationKey : outputMap.keySet()) {
@@ -577,8 +570,8 @@ public final class Musial {
         LinkedHashMap<String, ArrayList<String>> outputMap = new LinkedHashMap<>() {{
             put("position", new ArrayList<>(variantsCount));
             put("type", new ArrayList<>(variantsCount));
-            put("content.reference", new ArrayList<>(variantsCount));
-            put("content.alternate", new ArrayList<>(variantsCount));
+            put("reference_content", new ArrayList<>(variantsCount));
+            put("alternate_content", new ArrayList<>(variantsCount));
             put("frequency", new ArrayList<>(variantsCount));
             put("feature", new ArrayList<>(variantsCount));
             put("occurrence", new ArrayList<>(variantsCount));
@@ -617,8 +610,8 @@ public final class Musial {
                     HashSet<String> variantAnnotationKeys = new HashSet<>() {{
                         add("position");
                         add("type");
-                        add("content.reference");
-                        add("content.alternate");
+                        add("reference_content");
+                        add("alternate_content");
                         add("frequency");
                         add("feature");
                         add("occurrence");
@@ -631,12 +624,12 @@ public final class Musial {
                         type = "insertion";
                     }
                     transferAnnotation(outputMap, variantIndex, variantAnnotationKeys, "type", type);
-                    transferAnnotation(outputMap, variantIndex, variantAnnotationKeys, "content.alternate", variant.getKey());
+                    transferAnnotation(outputMap, variantIndex, variantAnnotationKeys, "alternate_content", variant.getKey());
                     transferAnnotation(outputMap, variantIndex, variantAnnotationKeys, "feature", feature.name);
                     for (String variantPropertyKey : variantAnnotation.getPropertyKeys()) {
                         variantPropertyValue = variantAnnotation.getProperty(variantPropertyKey);
                         if (variantPropertyKey.equals(MusialConstants.REFERENCE_CONTENT)) {
-                            transferAnnotation(outputMap, variantIndex, variantAnnotationKeys, "content.reference", variantPropertyValue);
+                            transferAnnotation(outputMap, variantIndex, variantAnnotationKeys, "reference_content", variantPropertyValue);
                         } else if (variantPropertyKey.equals(MusialConstants.FREQUENCY)) {
                             transferAnnotation(outputMap, variantIndex, variantAnnotationKeys, "frequency", variantPropertyValue);
                         } else if (variantPropertyKey.startsWith(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX)) {
@@ -661,7 +654,6 @@ public final class Musial {
                     variantIndex += 1;
                 }
             }
-            variantIndex += 1;
         }
         // Construct and output string content from collected information
         outputView(outputMap, outputMap.get("position").size(), parameters.hasOption("o") ? parameters.getOptionValue("o") : null);
