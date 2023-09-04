@@ -869,9 +869,15 @@ public final class Musial {
         Function<String, LinkedHashSet<String>> getFormOccurrence = s -> {
             LinkedHashSet<String> occurrence = new LinkedHashSet<>();
             if (contentMode.equals("nucleotide")) {
+                if ( !feature.hasAllele(s) )
+                    return occurrence;
                 occurrence.addAll(feature.getAllele(s).getOccurrence());
             } else {
+                if ( !((FeatureCoding) feature).hasProteoform(s) )
+                    return occurrence;
                 for (String alleleName : ((FeatureCoding) feature).getProteoform(s).getOccurrence()) {
+                    if ( !feature.hasAllele(alleleName) )
+                        continue;
                     occurrence.addAll(feature.getAllele(alleleName).getOccurrence());
                 }
             }
