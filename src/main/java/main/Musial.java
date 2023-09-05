@@ -29,6 +29,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -1066,19 +1067,18 @@ public final class Musial {
                 return Integer.compare(x1, x2);
             }
         });
+        Supplier<String> getAmbiguousSymbol = ( ) -> switch (contentMode) {
+            case "nucleotide" -> Bio.ANY_NUC;
+            case "aminoacid" -> String.valueOf(Bio.ANY_AA1);
+            default -> ".";
+        };
         Feature feature = musialStorage.getFeature(featureName);
         NavigableSet<Integer> variantPositions = new TreeSet<>();
         ConcurrentSkipListMap<String, VariantAnnotation> variants = new ConcurrentSkipListMap<>();
         VariantAnnotation variantAnnotation;
         char[] variantChars;
+        char[] referenceChars;
         String[] perSampleVariantProperties;
-        String rejectedSymbol = ".";
-        if (!rejectedAsReference) {
-            switch (contentMode) {
-                case "nucleotide" -> rejectedSymbol = Bio.ANY_NUC;
-                case "aminoacid" -> rejectedSymbol = String.valueOf(Bio.ANY_AA1);
-            }
-        }
         boolean rejected;
         TriConsumer<String, String, String> insertToVariantsTable = (position, sampleName, content) -> {
             if (!variantsTable.containsKey(position)) {
@@ -1112,6 +1112,7 @@ public final class Musial {
                 variantOccurrence = false;
                 variantChars = variant.getKey().toCharArray();
                 variantAnnotation = variant.getValue();
+                referenceChars = variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT).toCharArray();
                 String type = "substitution";
                 if (variant.getKey().contains(String.valueOf(Bio.DELETION_AA1))) {
                     type = "deletion";
@@ -1129,7 +1130,7 @@ public final class Musial {
                         switch (type) {
                             case "substitution":
                                 if (rejected) {
-                                    insertToVariantsTable.accept(variantPosition + ".0", sampleName, rejectedSymbol);
+                                    insertToVariantsTable.accept(variantPosition + ".0", sampleName, rejectedAsReference ? String.valueOf(referenceChars[0]) : getAmbiguousSymbol.get());
                                 } else {
                                     insertToVariantsTable.accept(variantPosition + ".0", sampleName, variant.getKey());
                                 }
@@ -1137,7 +1138,7 @@ public final class Musial {
                             case "deletion":
                                 for (int i = 0; i < variantChars.length; i++) {
                                     if (rejected) {
-                                        insertToVariantsTable.accept((variantPosition + i + 1) + ".0", sampleName, rejectedSymbol);
+                                        insertToVariantsTable.accept((variantPosition + i + 1) + ".0", sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousSymbol.get());
                                     } else {
                                         insertToVariantsTable.accept((variantPosition + i + 1) + ".0", sampleName, String.valueOf(variantChars[i]));
                                     }
@@ -1146,7 +1147,7 @@ public final class Musial {
                             case "insertion":
                                 for (int i = 0; i < variantChars.length; i++) {
                                     if (rejected) {
-                                        insertToVariantsTable.accept((variantPosition) + "." + (i + 1), sampleName, rejectedSymbol);
+                                        insertToVariantsTable.accept((variantPosition) + "." + (i + 1), sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousSymbol.get());
                                     } else {
                                         insertToVariantsTable.accept((variantPosition) + "." + (i + 1), sampleName, String.valueOf(variantChars[i]));
                                     }
@@ -1156,19 +1157,18 @@ public final class Musial {
                     }
                 }
                 if (variantOccurrence) { // If this specific variant occurs in the sample set, add reference content to table.
-                    variantChars = variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT).toCharArray();
                     switch (type) {
                         case "substitution":
-                            insertToVariantsTable.accept(variantPosition + ".0", MusialConstants.REFERENCE_ID, String.valueOf(variantChars[0]));
+                            insertToVariantsTable.accept(variantPosition + ".0", MusialConstants.REFERENCE_ID, String.valueOf(referenceChars[0]));
                             break;
                         case "deletion":
-                            for (int i = 0; i < variantChars.length; i++) {
-                                insertToVariantsTable.accept((variantPosition + i + 1) + ".0", MusialConstants.REFERENCE_ID, String.valueOf(variantChars[i]));
+                            for (int i = 0; i < referenceChars.length; i++) {
+                                insertToVariantsTable.accept((variantPosition + i + 1) + ".0", MusialConstants.REFERENCE_ID, String.valueOf(referenceChars[i]));
                             }
                             break;
                         case "insertion":
-                            for (int i = 0; i < variantChars.length; i++) {
-                                insertToVariantsTable.accept((variantPosition) + "." + (i + 1), MusialConstants.REFERENCE_ID, String.valueOf(variantChars[i]));
+                            for (int i = 0; i < referenceChars.length; i++) {
+                                insertToVariantsTable.accept((variantPosition) + "." + (i + 1), MusialConstants.REFERENCE_ID, String.valueOf(referenceChars[i]));
                             }
                             break;
                     }
