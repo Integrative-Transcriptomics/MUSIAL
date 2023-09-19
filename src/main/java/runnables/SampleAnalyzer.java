@@ -119,10 +119,11 @@ public final class SampleAnalyzer implements Runnable {
                         Allele variantAllele;
                         if (alternateAlleles.size() != 0) {
                             // The allelic frequencies are extracted to order the alleles with respect to decreasing frequency.
-                            List<Double> allelesFrequencies = variantContext.getAttributeAsDoubleList("AF", 0.0);
+                            // Frequencies are computed as AD / DP, not AF! For the computation it is important that only a single sample is present!
+                            int[] AD = variantContext.getGenotype(0).getAD();
                             TreeMap<Double, Allele> sortedAlternateAlleles = new TreeMap<>(Collections.reverseOrder());
                             for (int i = 0; i < alternateAlleles.size(); i++) {
-                                sortedAlternateAlleles.put(round(allelesFrequencies.get(i), 2), alternateAlleles.get(i));
+                                sortedAlternateAlleles.put(round(AD[i+1] / variantCoverage, 2), alternateAlleles.get(i));
                             }
                             int rank = 1;
                             for (Map.Entry<Double, Allele> entry : sortedAlternateAlleles.entrySet()) {
