@@ -28,8 +28,8 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -336,24 +336,22 @@ public final class Musial {
                             MusialConstants.FREQUENCY,
                             DECIMAL_FORMATTER.format((noOccurrences / noSamples) * 100)
                     );
-                    if (!form.hasAnnotation(MusialConstants.PROTEOFORM_DIFFERENTIAL_SEQUENCE)) {
-                        for (Map.Entry<Integer, String> variantEntry : featureCoding.getAminoacidVariants(formName).entrySet()) {
-                            variantLength = variantEntry.getValue().length();
-                            if (variantEntry.getValue().contains("-")) {
-                                noDeletions += variantLength;
-                            } else if (featureCoding.getAminoacidVariantAnnotation(variantEntry.getKey(), variantEntry.getValue()).getProperty(MusialConstants.REFERENCE_CONTENT).contains("-")) {
-                                noInsertions += variantLength;
-                            } else {
-                                noSubstitutions += variantLength;
-                            }
+                    for (Map.Entry<Integer, String> variantEntry : featureCoding.getAminoacidVariants(formName).entrySet()) {
+                        variantLength = variantEntry.getValue().length();
+                        if (variantEntry.getValue().contains("-")) {
+                            noDeletions += variantLength;
+                        } else if (featureCoding.getAminoacidVariantAnnotation(variantEntry.getKey(), variantEntry.getValue()).getProperty(MusialConstants.REFERENCE_CONTENT).contains("-")) {
+                            noInsertions += variantLength;
+                        } else {
+                            noSubstitutions += variantLength;
                         }
-                        form.addAnnotation(MusialConstants.NUMBER_SUBSTITUTIONS, String.valueOf(noSubstitutions));
-                        form.addAnnotation(MusialConstants.NUMBER_INSERTIONS, String.valueOf(noInsertions));
-                        form.addAnnotation(MusialConstants.NUMBER_DELETIONS, String.valueOf(noDeletions));
-                        form.addAnnotation(MusialConstants.VARIABLE_POSITIONS, DECIMAL_FORMATTER.format(
-                                ((noSubstitutions + noInsertions + noDeletions) / featureCoding.getCodingSequence().length()) * 100L
-                        ));
                     }
+                    form.addAnnotation(MusialConstants.NUMBER_SUBSTITUTIONS, String.valueOf(noSubstitutions));
+                    form.addAnnotation(MusialConstants.NUMBER_INSERTIONS, String.valueOf(noInsertions));
+                    form.addAnnotation(MusialConstants.NUMBER_DELETIONS, String.valueOf(noDeletions));
+                    form.addAnnotation(MusialConstants.VARIABLE_POSITIONS, DECIMAL_FORMATTER.format(
+                            ((noSubstitutions + noInsertions + noDeletions) / ((float) featureCoding.getCodingSequence().length())) * 100
+                    ));
                 }
                 // Variant level statistics.
                 for (Integer variantPosition : featureCoding.getAminoacidVariantPositions()) {
@@ -749,7 +747,8 @@ public final class Musial {
                 representativeSampleNames,
                 contentMode,
                 rejectedAsReference,
-                conservedSites
+                conservedSites,
+                false
         );
         System.gc();
         // Build output.
@@ -870,14 +869,14 @@ public final class Musial {
         Function<String, LinkedHashSet<String>> getFormOccurrence = s -> {
             LinkedHashSet<String> occurrence = new LinkedHashSet<>();
             if (contentMode.equals("nucleotide")) {
-                if ( !feature.hasAllele(s) )
+                if (!feature.hasAllele(s))
                     return occurrence;
                 occurrence.addAll(feature.getAllele(s).getOccurrence());
             } else {
-                if ( !((FeatureCoding) feature).hasProteoform(s) )
+                if (!((FeatureCoding) feature).hasProteoform(s))
                     return occurrence;
                 for (String alleleName : ((FeatureCoding) feature).getProteoform(s).getOccurrence()) {
-                    if ( !feature.hasAllele(alleleName) )
+                    if (!feature.hasAllele(alleleName))
                         continue;
                     occurrence.addAll(feature.getAllele(alleleName).getOccurrence());
                 }
@@ -939,7 +938,8 @@ public final class Musial {
                 representativeSampleNames,
                 contentMode,
                 rejectedAsReference,
-                conservedSites
+                conservedSites,
+                true
         );
         System.gc();
 
@@ -1051,9 +1051,10 @@ public final class Musial {
      * @param contentMode         Either `aminoacid` or `nucleotide`; Specifies the variants to query.
      * @param rejectedAsReference If rejected variants should be added as reference or ambiguous base symbol.
      * @param conservedSites      If non-variant sites should be considered.
+     * @param primaryOnly         If only primary variants are to be stored.
      * @return Two-layer map structure.
      */
-    private static TreeMap<String, LinkedHashMap<String, String>> constructVariantsTable(MusialStorage musialStorage, String featureName, HashSet<String> sampleNames, String contentMode, boolean rejectedAsReference, boolean conservedSites) {
+    private static TreeMap<String, LinkedHashMap<String, String>> constructVariantsTable(MusialStorage musialStorage, String featureName, HashSet<String> sampleNames, String contentMode, boolean rejectedAsReference, boolean conservedSites, boolean primaryOnly) {
         TreeMap<String, LinkedHashMap<String, String>> variantsTable = new TreeMap<>((p1, p2) -> {
             String[] f1 = p1.split("\\.");
             String[] f2 = p2.split("\\.");
@@ -1067,10 +1068,12 @@ public final class Musial {
                 return Integer.compare(x1, x2);
             }
         });
-        Supplier<String> getAmbiguousSymbol = ( ) -> switch (contentMode) {
-            case "nucleotide" -> Bio.ANY_NUC;
-            case "aminoacid" -> String.valueOf(Bio.ANY_AA1);
-            default -> ".";
+        BiFunction<Map.Entry<String, VariantAnnotation>, String, String> getAmbiguousSymbol = (variant, sampleName) -> {
+            String[] sampleSpecificAnnotation = variant.getValue().getProperty(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX + sampleName).split(":");
+            String frequency = sampleSpecificAnnotation[2];
+            String quality = sampleSpecificAnnotation[3];
+            String coverage = sampleSpecificAnnotation[4];
+            return Bio.ANY_NUC + "/" + variant.getKey() + "," + frequency + "," + quality + "," + coverage;
         };
         Feature feature = musialStorage.getFeature(featureName);
         NavigableSet<Integer> variantPositions = new TreeSet<>();
@@ -1081,10 +1084,17 @@ public final class Musial {
         String[] perSampleVariantProperties;
         boolean rejected;
         TriConsumer<String, String, String> insertToVariantsTable = (position, sampleName, content) -> {
-            if (!variantsTable.containsKey(position)) {
+            if (!variantsTable.containsKey(position))
                 variantsTable.put(position, new LinkedHashMap<>(sampleNames.size()));
+            if (primaryOnly) {
+                if (!variantsTable.get(position).containsKey(sampleName))
+                    variantsTable.get(position).put(sampleName, content);
+            } else {
+                if (!variantsTable.get(position).containsKey(sampleName))
+                    variantsTable.get(position).put(sampleName, content);
+                else if (!Objects.equals(sampleName, MusialConstants.REFERENCE_ID))
+                    variantsTable.get(position).put(sampleName, variantsTable.get(position).get(sampleName) + "/" + content.substring(1));
             }
-            variantsTable.get(position).put(sampleName, content);
         };
         switch (contentMode) {
             case "nucleotide" -> variantPositions.addAll(feature.getNucleotideVariantPositions());
@@ -1130,7 +1140,7 @@ public final class Musial {
                         switch (type) {
                             case "substitution":
                                 if (rejected) {
-                                    insertToVariantsTable.accept(variantPosition + ".0", sampleName, rejectedAsReference ? String.valueOf(referenceChars[0]) : getAmbiguousSymbol.get());
+                                    insertToVariantsTable.accept(variantPosition + ".0", sampleName, rejectedAsReference ? String.valueOf(referenceChars[0]) : getAmbiguousSymbol.apply(variant, sampleName));
                                 } else {
                                     insertToVariantsTable.accept(variantPosition + ".0", sampleName, variant.getKey());
                                 }
@@ -1138,7 +1148,7 @@ public final class Musial {
                             case "deletion":
                                 for (int i = 0; i < variantChars.length; i++) {
                                     if (rejected) {
-                                        insertToVariantsTable.accept((variantPosition + i + 1) + ".0", sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousSymbol.get());
+                                        insertToVariantsTable.accept((variantPosition + i + 1) + ".0", sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousSymbol.apply(variant, sampleName));
                                     } else {
                                         insertToVariantsTable.accept((variantPosition + i + 1) + ".0", sampleName, String.valueOf(variantChars[i]));
                                     }
@@ -1147,7 +1157,7 @@ public final class Musial {
                             case "insertion":
                                 for (int i = 0; i < variantChars.length; i++) {
                                     if (rejected) {
-                                        insertToVariantsTable.accept((variantPosition) + "." + (i + 1), sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousSymbol.get());
+                                        insertToVariantsTable.accept((variantPosition) + "." + (i + 1), sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousSymbol.apply(variant, sampleName));
                                     } else {
                                         insertToVariantsTable.accept((variantPosition) + "." + (i + 1), sampleName, String.valueOf(variantChars[i]));
                                     }

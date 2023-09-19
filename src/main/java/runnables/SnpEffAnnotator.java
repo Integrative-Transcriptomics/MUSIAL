@@ -174,9 +174,10 @@ public final class SnpEffAnnotator {
                 position = annotationFields[1];
                 refContent = annotationFields[3];
                 altContent = new StringBuilder(annotationFields[4]);
-                if (refContent.length() > altContent.length()) {
+                if (refContent.length() > altContent.length())
                     altContent.append(String.valueOf(Bio.DELETION_AA1).repeat(refContent.length() - altContent.length()));
-                }
+                if (altContent.toString().contains("-") || altContent.length() > 1)
+                    altContent.deleteCharAt(0);
                 if (annotationFields[7].equals(".")) {
                     continue;
                 } else {

@@ -51,6 +51,12 @@ public class MusialStorage {
     public transient IndexedFastaSequenceFile reference;
 
     /**
+     * The length of the reference genome.
+     */
+    @SuppressWarnings("FieldCanBeLocal")
+    private final int referenceLength;
+
+    /**
      * Constructor of {@link MusialStorage}.
      *
      * @param minimalCoverage              {@link Double}; Minimal read coverage to use for variant filtering.
@@ -62,6 +68,7 @@ public class MusialStorage {
     public MusialStorage(IndexedFastaSequenceFile reference, Double minimalCoverage, Double minimalFrequency, Double minimalHeterozygousFrequency, Double maximalHeterozygousFrequency, Double minimalQuality) {
         this.parameters = new MusialStorageParameters(minimalCoverage, minimalFrequency, minimalHeterozygousFrequency, maximalHeterozygousFrequency, minimalQuality);
         this.reference = reference;
+        this.referenceLength = reference.nextSequence().length();
     }
 
     /**
@@ -212,12 +219,16 @@ public class MusialStorage {
                 for (Map.Entry<String, VariantAnnotation> variantEntry : feature.getNucleotideVariants(variantPosition).entrySet()) {
                     String variantContent = variantEntry.getKey();
                     VariantAnnotation variantAnnotation = variantEntry.getValue();
+                    boolean isIndel = (variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT).contains("-") || variantContent.contains("-"));
+                    String prefix = "";
+                    if ( isIndel )
+                        prefix = reference.getSubsequenceAt(feature.chromosome, variantPosition, variantPosition).getBaseString();
                     vcfContent
                             .append(feature.chromosome).append("\t")
                             .append(variantPosition).append("\t")
                             .append(".\t")
-                            .append(variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT)).append("\t")
-                            .append(variantContent.replace("-", "")).append("\t")
+                            .append(prefix + variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT).replace("-", "")).append("\t")
+                            .append(prefix + variantContent.replace("-", "")).append("\t")
                             .append("1000\t")
                             .append(".\t")
                             .append("\t").append(IO.LINE_SEPARATOR);
