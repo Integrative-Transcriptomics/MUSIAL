@@ -78,12 +78,12 @@ public class Feature {
         if (start >= 0 && end > 0 && (end > start)) {
             // CASE: Feature is on sense strand.
             this.isSense = true;
-            this.start = start + 1; // TODO: +1 is an artifact from bug in GFFParser class.
+            this.start = start + 1; // +1 is an artifact from bug in GFFParser class.
             this.end = end;
         } else if (start < 0 && end <= 0 && (end < start)) {
             // CASE: Feature is on anti-sense strand.
             this.isSense = false;
-            this.start = -start + 1; // TODO: +1 is an artifact from bug in GFFParser class.
+            this.start = -start + 1; // +1 is an artifact from bug in GFFParser class.
             this.end = -end;
         } else {
             throw new MusialException(
