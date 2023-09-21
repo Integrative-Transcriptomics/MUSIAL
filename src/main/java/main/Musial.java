@@ -11,6 +11,7 @@ import htsjdk.samtools.SAMException;
 import htsjdk.samtools.reference.FastaSequenceIndexCreator;
 import htsjdk.samtools.reference.IndexedFastaSequenceFile;
 import org.apache.commons.cli.CommandLine;
+import org.apache.commons.lang3.function.TriFunction;
 import org.apache.logging.log4j.util.TriConsumer;
 import runnables.AlleleAnalyzer;
 import runnables.SampleAnalyzer;
@@ -1068,12 +1069,12 @@ public final class Musial {
                 return Integer.compare(x1, x2);
             }
         });
-        BiFunction<Map.Entry<String, VariantAnnotation>, String, String> getAmbiguousContent = (variant, sampleName) -> {
+        TriFunction<Map.Entry<String, VariantAnnotation>, Integer, String, String> getAmbiguousContent = (variant, position, sampleName) -> {
             String[] sampleSpecificAnnotation = variant.getValue().getProperty(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX + sampleName).split(":");
             String frequency = sampleSpecificAnnotation[2];
             String quality = sampleSpecificAnnotation[3];
             String coverage = sampleSpecificAnnotation[4];
-            return Bio.ANY_NUC + ":" + variant.getKey() + "," + frequency + "," + quality + "," + coverage;
+            return Bio.ANY_NUC + ":" + variant.getKey().charAt(position) + "," + frequency + "," + quality + "," + coverage;
         };
         BiFunction<VariantAnnotation, String, Boolean> isPrimary = (variant, sampleName) -> {
             String[] sampleSpecificAnnotation = variant.getProperty(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX + sampleName).split(":");
@@ -1141,7 +1142,7 @@ public final class Musial {
                         switch (type) {
                             case "substitution":
                                 if (rejected) {
-                                    insertToVariantsTable.accept(variantPosition + ".0", sampleName, rejectedAsReference ? String.valueOf(referenceChars[0]) : getAmbiguousContent.apply(variant, sampleName));
+                                    insertToVariantsTable.accept(variantPosition + ".0", sampleName, rejectedAsReference ? String.valueOf(referenceChars[0]) : getAmbiguousContent.apply(variant, 0, sampleName));
                                 } else {
                                     insertToVariantsTable.accept(variantPosition + ".0", sampleName, variant.getKey());
                                 }
@@ -1149,7 +1150,7 @@ public final class Musial {
                             case "deletion":
                                 for (int i = 0; i < variantChars.length; i++) {
                                     if (rejected) {
-                                        insertToVariantsTable.accept((variantPosition + i + 1) + ".0", sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousContent.apply(variant, sampleName));
+                                        insertToVariantsTable.accept((variantPosition + i + 1) + ".0", sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousContent.apply(variant, i, sampleName));
                                     } else {
                                         insertToVariantsTable.accept((variantPosition + i + 1) + ".0", sampleName, String.valueOf(variantChars[i]));
                                     }
@@ -1158,7 +1159,7 @@ public final class Musial {
                             case "insertion":
                                 for (int i = 0; i < variantChars.length; i++) {
                                     if (rejected) {
-                                        insertToVariantsTable.accept((variantPosition) + "." + (i + 1), sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousContent.apply(variant, sampleName));
+                                        insertToVariantsTable.accept((variantPosition) + "." + (i + 1), sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousContent.apply(variant, i, sampleName));
                                     } else {
                                         insertToVariantsTable.accept((variantPosition) + "." + (i + 1), sampleName, String.valueOf(variantChars[i]));
                                     }
