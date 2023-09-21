@@ -2,6 +2,7 @@ package runnables;
 
 import datastructure.*;
 import htsjdk.variant.variantcontext.Allele;
+import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.VariantContext;
 import main.MusialConstants;
 import org.javatuples.Triplet;
@@ -119,11 +120,21 @@ public final class SampleAnalyzer implements Runnable {
                         Allele variantAllele;
                         if (alternateAlleles.size() != 0) {
                             // The allelic frequencies are extracted to order the alleles with respect to decreasing frequency.
-                            // Frequencies are computed as AD / DP, not AF! For the computation it is important that only a single sample is present!
-                            int[] AD = variantContext.getGenotype(0).getAD();
+                            // Frequencies are computed as AD / DP, not AF!
+                            // Note: If multiple samples are present, the allelic depth will be summed. I.e., one biol. sample per file.
+                            ArrayList<int[]> ADsPerGenotype = new ArrayList<>();
+                            for (Genotype genotype : variantContext.getGenotypes()) {
+                                int[] genotypeADs = genotype.getAD();
+                                if (genotypeADs != null)
+                                    ADsPerGenotype.add(genotypeADs);
+                            }
                             TreeMap<Double, Allele> sortedAlternateAlleles = new TreeMap<>(Collections.reverseOrder());
+                            int ADSum = 0;
                             for (int i = 0; i < alternateAlleles.size(); i++) {
-                                sortedAlternateAlleles.put(round(AD[i+1] / variantCoverage, 2), alternateAlleles.get(i));
+                                for (int[] ADs : ADsPerGenotype) {
+                                    ADSum += ADs[i + 1];
+                                }
+                                sortedAlternateAlleles.put(round(ADSum / variantCoverage, 2), alternateAlleles.get(i));
                             }
                             int rank = 1;
                             for (Map.Entry<Double, Allele> entry : sortedAlternateAlleles.entrySet()) {

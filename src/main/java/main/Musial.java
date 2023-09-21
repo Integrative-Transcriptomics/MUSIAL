@@ -961,7 +961,7 @@ public final class Musial {
                         //noinspection ConstantConditions
                         variantContent = String.valueOf(referenceSequenceChars[Integer.parseInt(position.split("\\.")[0]) - (contentMode.equals("nucleotide") ? feature.start : 1)]);
                     } else {
-                        variantContent = variantContents.getOrDefault(representativeName, variantContents.get(MusialConstants.REFERENCE_ID));
+                        variantContent = variantContents.getOrDefault(representativeName, variantContents.get(MusialConstants.REFERENCE_ID)).split(":")[0];
                     }
                     sequenceBuilder.append(variantContent);
                 } while (positionsIterator.hasNext());
@@ -1051,7 +1051,7 @@ public final class Musial {
      * @param contentMode         Either `aminoacid` or `nucleotide`; Specifies the variants to query.
      * @param rejectedAsReference If rejected variants should be added as reference or ambiguous base symbol.
      * @param conservedSites      If non-variant sites should be considered.
-     * @param primaryOnly         If only primary variants are to be stored.
+     * @param primaryOnly         If only the primary variant (of rank one, the one with the highest read frequency) should be considered.
      * @return Two-layer map structure.
      */
     private static TreeMap<String, LinkedHashMap<String, String>> constructVariantsTable(MusialStorage musialStorage, String featureName, HashSet<String> sampleNames, String contentMode, boolean rejectedAsReference, boolean conservedSites, boolean primaryOnly) {
@@ -1068,12 +1068,16 @@ public final class Musial {
                 return Integer.compare(x1, x2);
             }
         });
-        BiFunction<Map.Entry<String, VariantAnnotation>, String, String> getAmbiguousSymbol = (variant, sampleName) -> {
+        BiFunction<Map.Entry<String, VariantAnnotation>, String, String> getAmbiguousContent = (variant, sampleName) -> {
             String[] sampleSpecificAnnotation = variant.getValue().getProperty(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX + sampleName).split(":");
             String frequency = sampleSpecificAnnotation[2];
             String quality = sampleSpecificAnnotation[3];
             String coverage = sampleSpecificAnnotation[4];
-            return Bio.ANY_NUC + "/" + variant.getKey() + "," + frequency + "," + quality + "," + coverage;
+            return Bio.ANY_NUC + ":" + variant.getKey() + "," + frequency + "," + quality + "," + coverage;
+        };
+        BiFunction<VariantAnnotation, String, Boolean> isPrimary = (variant, sampleName) -> {
+            String[] sampleSpecificAnnotation = variant.getProperty(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX + sampleName).split(":");
+            return sampleSpecificAnnotation[0].startsWith("1/");
         };
         Feature feature = musialStorage.getFeature(featureName);
         NavigableSet<Integer> variantPositions = new TreeSet<>();
@@ -1086,15 +1090,10 @@ public final class Musial {
         TriConsumer<String, String, String> insertToVariantsTable = (position, sampleName, content) -> {
             if (!variantsTable.containsKey(position))
                 variantsTable.put(position, new LinkedHashMap<>(sampleNames.size()));
-            if (primaryOnly) {
-                if (!variantsTable.get(position).containsKey(sampleName))
-                    variantsTable.get(position).put(sampleName, content);
-            } else {
-                if (!variantsTable.get(position).containsKey(sampleName))
-                    variantsTable.get(position).put(sampleName, content);
-                else if (!Objects.equals(sampleName, MusialConstants.REFERENCE_ID))
-                    variantsTable.get(position).put(sampleName, variantsTable.get(position).get(sampleName) + "/" + content.substring(1));
-            }
+            if (!variantsTable.get(position).containsKey(sampleName))
+                variantsTable.get(position).put(sampleName, content);
+            else if (!Objects.equals(sampleName, MusialConstants.REFERENCE_ID))
+                variantsTable.get(position).put(sampleName, variantsTable.get(position).get(sampleName) + "/" + content);
         };
         switch (contentMode) {
             case "nucleotide" -> variantPositions.addAll(feature.getNucleotideVariantPositions());
@@ -1131,6 +1130,8 @@ public final class Musial {
                 }
                 for (String sampleName : sampleNames) {
                     if (variantAnnotation.hasProperty(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX + sampleName)) {
+                        if (primaryOnly && !isPrimary.apply(variantAnnotation, sampleName))
+                            continue;
                         if (!anyVariantOccurrence)
                             anyVariantOccurrence = true;
                         if (!variantOccurrence)
@@ -1140,7 +1141,7 @@ public final class Musial {
                         switch (type) {
                             case "substitution":
                                 if (rejected) {
-                                    insertToVariantsTable.accept(variantPosition + ".0", sampleName, rejectedAsReference ? String.valueOf(referenceChars[0]) : getAmbiguousSymbol.apply(variant, sampleName));
+                                    insertToVariantsTable.accept(variantPosition + ".0", sampleName, rejectedAsReference ? String.valueOf(referenceChars[0]) : getAmbiguousContent.apply(variant, sampleName));
                                 } else {
                                     insertToVariantsTable.accept(variantPosition + ".0", sampleName, variant.getKey());
                                 }
@@ -1148,7 +1149,7 @@ public final class Musial {
                             case "deletion":
                                 for (int i = 0; i < variantChars.length; i++) {
                                     if (rejected) {
-                                        insertToVariantsTable.accept((variantPosition + i + 1) + ".0", sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousSymbol.apply(variant, sampleName));
+                                        insertToVariantsTable.accept((variantPosition + i + 1) + ".0", sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousContent.apply(variant, sampleName));
                                     } else {
                                         insertToVariantsTable.accept((variantPosition + i + 1) + ".0", sampleName, String.valueOf(variantChars[i]));
                                     }
@@ -1157,7 +1158,7 @@ public final class Musial {
                             case "insertion":
                                 for (int i = 0; i < variantChars.length; i++) {
                                     if (rejected) {
-                                        insertToVariantsTable.accept((variantPosition) + "." + (i + 1), sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousSymbol.apply(variant, sampleName));
+                                        insertToVariantsTable.accept((variantPosition) + "." + (i + 1), sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousContent.apply(variant, sampleName));
                                     } else {
                                         insertToVariantsTable.accept((variantPosition) + "." + (i + 1), sampleName, String.valueOf(variantChars[i]));
                                     }
