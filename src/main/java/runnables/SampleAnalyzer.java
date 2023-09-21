@@ -172,7 +172,7 @@ public final class SampleAnalyzer implements Runnable {
         boolean heterozygous = maximalRank != 1;
         boolean rejected = variantQuality < musialStorage.parameters.minimalQuality ||
                 variantCoverage < musialStorage.parameters.minimalCoverage ||
-                (heterozygous && variantFrequency < musialStorage.parameters.minimalHomozygousFrequency) ||
+                (!heterozygous && variantFrequency < musialStorage.parameters.minimalHomozygousFrequency) ||
                 (heterozygous && (variantFrequency < musialStorage.parameters.minimalHeterozygousFrequency ||
                         variantFrequency > musialStorage.parameters.maximalHeterozygousFrequency));
         if (variantAlleleContent.length() == referenceAlleleContent.length() &&
