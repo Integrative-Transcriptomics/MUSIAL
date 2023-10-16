@@ -621,6 +621,7 @@ public final class Bio {
         int variantStart = 1;
         int referencePosition = 1;
         int alignmentLength = targetSequence.length();
+        int referenceLength = targetSequence.replace("-", "").length();
         boolean isSubstitution = false;
         boolean isInDel = false;
         for (int i = 0; i < alignmentLength; i++) {
@@ -638,13 +639,13 @@ public final class Bio {
                 referencePosition += 1;
             } else if (targetContent == Bio.GAP) {
                 // CASE: Insertion (in variant).
-                if (isSubstitution) {
+                /*if (isSubstitution) {
                     variants.add(variantStart + MusialConstants.FIELD_SEPARATOR_1 + variantBuilder + MusialConstants.FIELD_SEPARATOR_1 + referenceBuilder);
                     variantBuilder.setLength(0);
                     referenceBuilder.setLength(0);
-                }
-                if (!isInDel) {
-                    variantStart = referencePosition;
+                }*/
+                if (!isInDel && !isSubstitution) {
+                    variantStart = Math.min(referenceLength, referencePosition);
                     referenceBuilder.append(targetSequenceArray[i - 1]);
                     variantBuilder.append(querySequenceArray[i - 1]);
                 }
@@ -654,13 +655,13 @@ public final class Bio {
                 isInDel = true;
             } else if (queryContent == Bio.GAP) {
                 // CASE: Deletion (in variant).
-                if (isSubstitution) {
+                /*if (isSubstitution) {
                     variants.add(variantStart + MusialConstants.FIELD_SEPARATOR_1 + variantBuilder + MusialConstants.FIELD_SEPARATOR_1 + referenceBuilder);
                     variantBuilder.setLength(0);
                     referenceBuilder.setLength(0);
-                }
-                if (!isInDel) {
-                    variantStart = referencePosition;
+                }*/
+                if (!isInDel && !isSubstitution) {
+                    variantStart = Math.min(referenceLength, referencePosition);
                     referenceBuilder.append(targetSequenceArray[i - 1]);
                     variantBuilder.append(querySequenceArray[i - 1]);
                 }
@@ -676,7 +677,7 @@ public final class Bio {
                     variantBuilder.setLength(0);
                     referenceBuilder.setLength(0);
                 }
-                variantStart = referencePosition;
+                variantStart = Math.min(referenceLength, referencePosition);
                 variantBuilder.append(queryContent);
                 referenceBuilder.append(targetContent);
                 isSubstitution = true;
