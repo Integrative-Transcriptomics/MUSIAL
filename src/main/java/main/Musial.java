@@ -1120,11 +1120,8 @@ public final class Musial {
                 variantAnnotation = variant.getValue();
                 referenceChars = variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT).toCharArray();
                 String type = "substitution";
-                if (variant.getKey().contains(String.valueOf(Bio.DELETION_AA1))) {
-                    type = "deletion";
-                } else if (variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT).contains(String.valueOf(Bio.DELETION_AA1))) {
-                    type = "insertion";
-                }
+                if (variant.getKey().contains(String.valueOf(Bio.DELETION_AA1)) || variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT).contains(String.valueOf(Bio.DELETION_AA1)))
+                    type = "insertion_deletion";
                 for (String sampleName : sampleNames) {
                     if (variantAnnotation.hasProperty(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX + sampleName)) {
                         if (primaryOnly && (!isPrimary.apply(variantAnnotation, sampleName) && Objects.equals(contentMode, "nucleotide")))
@@ -1143,21 +1140,18 @@ public final class Musial {
                                     insertToVariantsTable.accept(variantPosition + ".0", sampleName, variant.getKey());
                                 }
                                 break;
-                            case "deletion":
-                                for (int i = 0; i < variantChars.length; i++) {
-                                    if (rejected) {
-                                        insertToVariantsTable.accept((variantPosition + i + 1) + ".0", sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousContent.apply(variant, i, sampleName));
+                            case "insertion_deletion":
+                                for (int i = 1; i < variantChars.length; i++) {
+                                    if (variantChars[i] == Bio.DELETION_AA1) {
+                                        if (rejected)
+                                            insertToVariantsTable.accept((variantPosition + i) + ".0", sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousContent.apply(variant, i, sampleName));
+                                        else
+                                            insertToVariantsTable.accept((variantPosition + i) + ".0", sampleName, String.valueOf(variantChars[i]));
                                     } else {
-                                        insertToVariantsTable.accept((variantPosition + i + 1) + ".0", sampleName, String.valueOf(variantChars[i]));
-                                    }
-                                }
-                                break;
-                            case "insertion":
-                                for (int i = 0; i < variantChars.length; i++) {
-                                    if (rejected) {
-                                        insertToVariantsTable.accept((variantPosition) + "." + (i + 1), sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousContent.apply(variant, i, sampleName));
-                                    } else {
-                                        insertToVariantsTable.accept((variantPosition) + "." + (i + 1), sampleName, String.valueOf(variantChars[i]));
+                                        if (rejected)
+                                            insertToVariantsTable.accept((variantPosition) + "." + (i), sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousContent.apply(variant, i, sampleName));
+                                        else
+                                            insertToVariantsTable.accept((variantPosition) + "." + (i), sampleName, String.valueOf(variantChars[i]));
                                     }
                                 }
                                 break;
@@ -1169,20 +1163,18 @@ public final class Musial {
                         case "substitution":
                             insertToVariantsTable.accept(variantPosition + ".0", MusialConstants.REFERENCE_ID, String.valueOf(referenceChars[0]));
                             break;
-                        case "deletion":
-                            for (int i = 0; i < referenceChars.length; i++) {
-                                insertToVariantsTable.accept((variantPosition + i + 1) + ".0", MusialConstants.REFERENCE_ID, String.valueOf(referenceChars[i]));
-                            }
-                            break;
-                        case "insertion":
-                            for (int i = 0; i < referenceChars.length; i++) {
-                                insertToVariantsTable.accept((variantPosition) + "." + (i + 1), MusialConstants.REFERENCE_ID, String.valueOf(referenceChars[i]));
+                        case "insertion_deletion":
+                            for (int i = 1; i < referenceChars.length; i++) {
+                                if (variantChars[i] == Bio.DELETION_AA1) {
+                                    insertToVariantsTable.accept((variantPosition + i) + ".0", MusialConstants.REFERENCE_ID, String.valueOf(referenceChars[i]));
+                                } else {
+                                    insertToVariantsTable.accept((variantPosition) + "." + (i), MusialConstants.REFERENCE_ID, String.valueOf(referenceChars[i]));
+                                }
                             }
                             break;
                     }
                 }
             }
-
             if (!anyVariantOccurrence && conservedSites) // If no variant is contained in the sample set, add null content.
                 variantsTable.put(variantPosition + ".0", null);
         }
