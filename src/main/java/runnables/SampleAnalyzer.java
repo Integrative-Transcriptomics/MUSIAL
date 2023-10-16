@@ -107,51 +107,38 @@ public final class SampleAnalyzer implements Runnable {
                     double variantQuality = round(variantContext.getPhredScaledQual(), 2);
                     double variantCoverage = variantContext.getAttributeAsDouble("DP", 0.0);
                     double variantFrequency;
-                    // Check if the position is a no call position; true if a quality value of -10.0 is returned.
-                    boolean isNoCall = variantQuality == -10.0;
-                    if (isNoCall) {
-                        // CASE: The variant context is a no call.
-                        // TODO: Possibly extend implementation if no-call information is provided.
-                        //noinspection UnnecessaryContinue
-                        continue;
-                    } else {
-                        Allele referenceAllele = variantContext.getReference();
-                        List<Allele> alternateAlleles = variantContext.getAlternateAlleles();
-                        Allele variantAllele;
-                        if (alternateAlleles.size() != 0) {
-                            // The allelic frequencies are extracted to order the alleles with respect to decreasing frequency.
-                            // Frequencies are computed as AD / DP, not AF!
-                            // Note: If multiple samples are present, the allelic depth will be summed. I.e., one biol. sample per file.
-                            ArrayList<int[]> ADsPerGenotype = new ArrayList<>();
-                            for (Genotype genotype : variantContext.getGenotypes()) {
-                                int[] genotypeADs = genotype.getAD();
-                                if (genotypeADs != null)
-                                    ADsPerGenotype.add(genotypeADs);
+                    Allele referenceAllele = variantContext.getReference();
+                    List<Allele> alternateAlleles = variantContext.getAlternateAlleles();
+                    Allele variantAllele;
+                    if (alternateAlleles.size() != 0) {
+                        // The allelic frequencies are extracted to order the alleles with respect to decreasing frequency.
+                        // Frequencies are computed as AD / DP, not AF!
+                        // Note: If multiple samples are present, the allelic depth will be summed. I.e., one biol. sample per file.
+                        ArrayList<int[]> ADsPerGenotype = new ArrayList<>();
+                        for (Genotype genotype : variantContext.getGenotypes()) {
+                            int[] genotypeADs = genotype.getAD();
+                            if (genotypeADs != null)
+                                ADsPerGenotype.add(genotypeADs);
+                        }
+                        TreeMap<Double, Allele> sortedAlternateAlleles = new TreeMap<>(Collections.reverseOrder());
+                        int ADSum = 0;
+                        for (int i = 0; i < alternateAlleles.size(); i++) {
+                            for (int[] ADs : ADsPerGenotype) {
+                                ADSum += ADs[i + 1];
                             }
-                            TreeMap<Double, Allele> sortedAlternateAlleles = new TreeMap<>(Collections.reverseOrder());
-                            int ADSum = 0;
-                            for (int i = 0; i < alternateAlleles.size(); i++) {
-                                for (int[] ADs : ADsPerGenotype) {
-                                    ADSum += ADs[i + 1];
-                                }
-                                sortedAlternateAlleles.put(round(ADSum / variantCoverage, 2), alternateAlleles.get(i));
-                            }
-                            int rank = 1;
-                            for (Map.Entry<Double, Allele> entry : sortedAlternateAlleles.entrySet()) {
-                                variantFrequency = entry.getKey();
-                                variantAllele = entry.getValue();
-                                processVariantCall(variantPosition, variantQuality, variantCoverage, variantFrequency, variantAllele,
-                                        referenceAllele, rank, alternateAlleles.size());
-                                rank += 1;
-                            }
-                        } else {
-                            // CASE: The variant context is a reference call.
-                            // TODO: Possibly extend implementation if reference-call information is provided.
-                            //noinspection UnnecessaryContinue
-                            continue;
+                            sortedAlternateAlleles.put(round(ADSum / variantCoverage, 2), alternateAlleles.get(i));
+                        }
+                        int rank = 1;
+                        for (Map.Entry<Double, Allele> entry : sortedAlternateAlleles.entrySet()) {
+                            variantFrequency = entry.getKey();
+                            variantAllele = entry.getValue();
+                            processVariantCall(variantPosition, variantQuality, variantCoverage, variantFrequency, variantAllele,
+                                    referenceAllele, rank, alternateAlleles.size());
+                            rank += 1;
                         }
                     }
                 }
+
                 transferVariantCalls();
             } catch (Exception e) {
                 Logger.logError("An error occurred during the analysis of sample " + sample.name + " (file: " + sample.vcfFile.getAbsolutePath() + ") and feature " + featureName + "; " + e.getMessage());
@@ -191,13 +178,12 @@ public final class SampleAnalyzer implements Runnable {
         } else if (variantAlleleContent.length() > referenceAlleleContent.length() &&
                 referenceAlleleContent.length() == 1) {
             // CASE: Insertion.
-            variantAlleleContent = variantAlleleContent.substring(1);
             addVariantCall(variantPosition,
                     rank,
                     maximalRank,
                     rejected,
                     variantAlleleContent,
-                    "-".repeat(variantAlleleContent.length()),
+                    referenceAlleleContent + "-".repeat(variantAlleleContent.length() - 1),
                     variantFrequency,
                     variantQuality,
                     variantCoverage
@@ -205,12 +191,11 @@ public final class SampleAnalyzer implements Runnable {
         } else if (variantAlleleContent.length() < referenceAlleleContent.length() &&
                 variantAlleleContent.length() == 1) {
             // CASE: Deletion
-            referenceAlleleContent = referenceAlleleContent.substring(1);
             addVariantCall(variantPosition,
                     rank,
                     maximalRank,
                     rejected,
-                    "-".repeat(referenceAlleleContent.length()),
+                    variantAlleleContent + "-".repeat(referenceAlleleContent.length() - 1),
                     referenceAlleleContent,
                     variantFrequency,
                     variantQuality,
