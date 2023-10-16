@@ -644,6 +644,8 @@ public final class Bio {
                 }
                 if (!isInDel) {
                     variantStart = referencePosition;
+                    referenceBuilder.append(targetSequenceArray[i - 1]);
+                    variantBuilder.append(querySequenceArray[i - 1]);
                 }
                 referenceBuilder.append(Bio.DELETION_AA1);
                 variantBuilder.append(queryContent);
@@ -658,6 +660,8 @@ public final class Bio {
                 }
                 if (!isInDel) {
                     variantStart = referencePosition;
+                    referenceBuilder.append(targetSequenceArray[i - 1]);
+                    variantBuilder.append(querySequenceArray[i - 1]);
                 }
                 referenceBuilder.append(targetContent);
                 variantBuilder.append(Bio.DELETION_AA1);
