@@ -73,16 +73,22 @@ public class AlleleAnalyzer implements Runnable {
                     referenceContent = featureCoding.getNucleotideVariantAnnotation(variantPosition, variantContent).getProperty(MusialConstants.REFERENCE_CONTENT);
                     boolean isDeletion = variantContent.contains(String.valueOf(Bio.DELETION_AA1));
                     boolean isInsertion = referenceContent.contains(String.valueOf(Bio.DELETION_AA1));
-                    if (isDeletion) {
+                    boolean isInDel = (isDeletion && isInsertion);
+                    if (isInDel) {
+                        // Case; Insert InDel.
+                        // Compare with deletion and insertion case; Replaces deleted reference content with put. inserted alt. content.
+                        long deletions = variantContent.chars().filter(c -> c == '-').count();
+                        sequenceBuilder.replace(relativeVariantPosition, (int) (relativeVariantPosition + deletions + 1), variantContent.replace("-", ""));
+                    } else if (isDeletion) {
                         // Case; Replace deletion.
-                        // Replace substitutes substring at [ start, end ), i.e., we need to shift by one to account for exclusive deletion position.
-                        sequenceBuilder.replace(relativeVariantPosition + 1, relativeVariantPosition + 1 + variantContent.length(), variantContent.replace("-", ""));
+                        // Replace substitutes substring at [ start, end ).
+                        sequenceBuilder.replace(relativeVariantPosition, relativeVariantPosition + variantContent.length(), variantContent.replace("-", ""));
                     } else if (isInsertion) {
                         // Case; Insert insertion.
-                        // Insert adds substring starting at offset, i.e., we need to shift by one to account for exclusive insertion position.
-                        sequenceBuilder.insert(relativeVariantPosition + 1, variantContent);
+                        // Insert adds substring starting at offset, i.e., we need to shift by one to account for excluded conserved position.
+                        sequenceBuilder.insert(relativeVariantPosition + 1, variantContent.substring(1));
                     } else {
-                        // Case; Replace substitution.
+                        // Case; Replace substitution; shift end by one for fixed subst. length of one.
                         sequenceBuilder.replace(relativeVariantPosition, relativeVariantPosition + 1, variantContent);
                     }
                     maximalIndelLength = Math.max(maximalIndelLength, variantContent.length());
@@ -93,7 +99,7 @@ public class AlleleAnalyzer implements Runnable {
                 Triplet<Integer, String, String> sequenceAlignment = Bio.globalAminoAcidSequenceAlignment(
                         featureCoding.getCodingSequence(),
                         alleleAminoacidSequence,
-                        8, 11,
+                        alleleAminoacidSequence.length() * 8, 11,
                         Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID,
                         Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE,
                         maximalIndelLength
