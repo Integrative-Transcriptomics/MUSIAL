@@ -243,7 +243,7 @@ public final class Musial {
         System.gc();
 
         // Compute statistics for annotation.
-        Logger.logStatus("Annotate statistics");
+        Logger.logStatus("Gather statistics");
         float noSamples = musialStorage.getNumberOfSamples();
         float featureSequenceLength;
         long noOccurrences;
@@ -259,21 +259,18 @@ public final class Musial {
             noSubstitutions = 0;
             noInsertions = 0;
             noDeletions = 0;
-            int variantLength;
             for (Integer variantPosition : feature.getNucleotideVariantPositions()) {
                 for (Map.Entry<String, VariantAnnotation> variantEntry : feature.getNucleotideVariants(variantPosition).entrySet()) {
                     noOccurrences = variantEntry.getValue().getPropertyKeys().stream().filter(s -> s.contains(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX)).count();
-                    variantLength = variantEntry.getKey().length();
                     variantEntry.getValue().addProperty(
                             MusialConstants.FREQUENCY,
                             DECIMAL_FORMATTER.format((noOccurrences / noSamples) * 100)
                     );
-                    if (variantEntry.getKey().contains("-")) {
-                        noDeletions += variantLength;
-                    } else if (variantEntry.getValue().getProperty(MusialConstants.REFERENCE_CONTENT).contains("-")) {
-                        noInsertions += variantLength;
+                    if (variantEntry.getKey().contains("-") || variantEntry.getValue().getProperty(MusialConstants.REFERENCE_CONTENT).contains("-")) {
+                        noDeletions += variantEntry.getKey().chars().filter(c -> c == '-').count();
+                        noInsertions += variantEntry.getKey().length() - 1 - variantEntry.getKey().chars().filter(c -> c == '-').count();
                     } else {
-                        noSubstitutions += variantLength;
+                        noSubstitutions += variantEntry.getKey().length();
                     }
                 }
             }
@@ -299,13 +296,11 @@ public final class Musial {
                 );
                 try {
                     for (Map.Entry<Integer, String> variantEntry : feature.getNucleotideVariants(formName).entrySet()) {
-                        variantLength = variantEntry.getValue().length();
-                        if (variantEntry.getValue().contains("-")) {
-                            noDeletions += variantLength;
-                        } else if (feature.getNucleotideVariantAnnotation(variantEntry.getKey(), variantEntry.getValue()).getProperty(MusialConstants.REFERENCE_CONTENT).contains("-")) {
-                            noInsertions += variantLength;
+                        if (variantEntry.getValue().contains("-") || feature.getNucleotideVariantAnnotation(variantEntry.getKey(), variantEntry.getValue()).getProperty(MusialConstants.REFERENCE_CONTENT).contains("-")) {
+                            noDeletions += variantEntry.getValue().chars().filter(c -> c == '-').count();
+                            noInsertions += variantEntry.getValue().length() - 1 - variantEntry.getValue().chars().filter(c -> c == '-').count();
                         } else {
-                            noSubstitutions += variantLength;
+                            noSubstitutions += variantEntry.getValue().length();
                         }
                     }
                 } catch (NullPointerException e) {
@@ -338,13 +333,11 @@ public final class Musial {
                             DECIMAL_FORMATTER.format((noOccurrences / noSamples) * 100)
                     );
                     for (Map.Entry<Integer, String> variantEntry : featureCoding.getAminoacidVariants(formName).entrySet()) {
-                        variantLength = variantEntry.getValue().length();
-                        if (variantEntry.getValue().contains("-")) {
-                            noDeletions += variantLength;
-                        } else if (featureCoding.getAminoacidVariantAnnotation(variantEntry.getKey(), variantEntry.getValue()).getProperty(MusialConstants.REFERENCE_CONTENT).contains("-")) {
-                            noInsertions += variantLength;
+                        if (variantEntry.getValue().contains("-") || featureCoding.getAminoacidVariantAnnotation(variantEntry.getKey(), variantEntry.getValue()).getProperty(MusialConstants.REFERENCE_CONTENT).contains("-")) {
+                            noDeletions += variantEntry.getValue().chars().filter(c -> c == '-').count();
+                            noInsertions += variantEntry.getValue().length() - 1 - variantEntry.getValue().chars().filter(c -> c == '-').count();
                         } else {
-                            noSubstitutions += variantLength;
+                            noSubstitutions += variantEntry.getValue().length();
                         }
                     }
                     form.addAnnotation(MusialConstants.NUMBER_SUBSTITUTIONS, String.valueOf(noSubstitutions));
@@ -1131,7 +1124,7 @@ public final class Musial {
                 }
                 for (String sampleName : sampleNames) {
                     if (variantAnnotation.hasProperty(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX + sampleName)) {
-                        if (primaryOnly && !isPrimary.apply(variantAnnotation, sampleName))
+                        if (primaryOnly && (!isPrimary.apply(variantAnnotation, sampleName) && Objects.equals(contentMode, "nucleotide")))
                             continue;
                         if (!anyVariantOccurrence)
                             anyVariantOccurrence = true;
