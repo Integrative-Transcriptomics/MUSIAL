@@ -639,11 +639,6 @@ public final class Bio {
                 referencePosition += 1;
             } else if (targetContent == Bio.GAP) {
                 // CASE: Insertion (in variant).
-                /*if (isSubstitution) {
-                    variants.add(variantStart + MusialConstants.FIELD_SEPARATOR_1 + variantBuilder + MusialConstants.FIELD_SEPARATOR_1 + referenceBuilder);
-                    variantBuilder.setLength(0);
-                    referenceBuilder.setLength(0);
-                }*/
                 if (!isInDel && !isSubstitution) {
                     variantStart = Math.min(referenceLength, referencePosition);
                     referenceBuilder.append(targetSequenceArray[i - 1]);
@@ -655,11 +650,6 @@ public final class Bio {
                 isInDel = true;
             } else if (queryContent == Bio.GAP) {
                 // CASE: Deletion (in variant).
-                /*if (isSubstitution) {
-                    variants.add(variantStart + MusialConstants.FIELD_SEPARATOR_1 + variantBuilder + MusialConstants.FIELD_SEPARATOR_1 + referenceBuilder);
-                    variantBuilder.setLength(0);
-                    referenceBuilder.setLength(0);
-                }*/
                 if (!isInDel && !isSubstitution) {
                     variantStart = Math.min(referenceLength, referencePosition);
                     referenceBuilder.append(targetSequenceArray[i - 1]);
