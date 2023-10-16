@@ -608,6 +608,7 @@ public final class Bio {
      * @param querySequence  {@link String} representation of the query sequence (i.e. the one with variants).
      * @return {@link ArrayList} containing derived variants, c.f. method description for format details.
      */
+    @SuppressWarnings("DuplicatedCode")
     public static ArrayList<String> getVariantsOfAlignedSequences(String targetSequence,
                                                                   String querySequence) {
         ArrayList<String> variants = new ArrayList<>();
