@@ -621,56 +621,52 @@ public final class Bio {
         int referencePosition = 1;
         int alignmentLength = targetSequence.length();
         boolean isSubstitution = false;
-        boolean isInsertion = false;
-        boolean isDeletion = false;
+        boolean isInDel = false;
         for (int i = 0; i < alignmentLength; i++) {
             targetContent = targetSequenceArray[i];
             queryContent = querySequenceArray[i];
             if (targetContent == queryContent) {
                 // CASE: Match.
-                if (isSubstitution || isInsertion || isDeletion) {
+                if (isSubstitution || isInDel) {
                     variants.add(variantStart + MusialConstants.FIELD_SEPARATOR_1 + variantBuilder + MusialConstants.FIELD_SEPARATOR_1 + referenceBuilder);
                     variantBuilder.setLength(0);
                     referenceBuilder.setLength(0);
                 }
                 isSubstitution = false;
-                isInsertion = false;
-                isDeletion = false;
+                isInDel = false;
                 referencePosition += 1;
             } else if (targetContent == Bio.GAP) {
                 // CASE: Insertion (in variant).
-                if (isSubstitution || isDeletion) {
+                if (isSubstitution) {
                     variants.add(variantStart + MusialConstants.FIELD_SEPARATOR_1 + variantBuilder + MusialConstants.FIELD_SEPARATOR_1 + referenceBuilder);
                     variantBuilder.setLength(0);
                     referenceBuilder.setLength(0);
                 }
-                if (!isInsertion) {
-                    variantStart = referencePosition - 1;
+                if (!isInDel) {
+                    variantStart = referencePosition;
                 }
                 referenceBuilder.append(Bio.DELETION_AA1);
                 variantBuilder.append(queryContent);
                 isSubstitution = false;
-                isInsertion = true;
-                isDeletion = false;
+                isInDel = true;
             } else if (queryContent == Bio.GAP) {
                 // CASE: Deletion (in variant).
-                if (isSubstitution || isInsertion) {
+                if (isSubstitution) {
                     variants.add(variantStart + MusialConstants.FIELD_SEPARATOR_1 + variantBuilder + MusialConstants.FIELD_SEPARATOR_1 + referenceBuilder);
                     variantBuilder.setLength(0);
                     referenceBuilder.setLength(0);
                 }
-                if (!isDeletion) {
-                    variantStart = referencePosition - 1;
+                if (!isInDel) {
+                    variantStart = referencePosition;
                 }
                 referenceBuilder.append(targetContent);
                 variantBuilder.append(Bio.DELETION_AA1);
                 isSubstitution = false;
-                isInsertion = false;
-                isDeletion = true;
+                isInDel = true;
                 referencePosition += 1;
             } else {
                 // CASE: Mismatch/Substitution.
-                if (isDeletion || isInsertion || isSubstitution) {
+                if (isInDel || isSubstitution) {
                     variants.add(variantStart + MusialConstants.FIELD_SEPARATOR_1 + variantBuilder + MusialConstants.FIELD_SEPARATOR_1 + referenceBuilder);
                     variantBuilder.setLength(0);
                     referenceBuilder.setLength(0);
@@ -679,12 +675,11 @@ public final class Bio {
                 variantBuilder.append(queryContent);
                 referenceBuilder.append(targetContent);
                 isSubstitution = true;
-                isInsertion = false;
-                isDeletion = false;
+                isInDel = false;
                 referencePosition += 1;
             }
         }
-        if (isSubstitution || isInsertion || isDeletion) {
+        if (isSubstitution || isInDel) {
             variants.add(variantStart + MusialConstants.FIELD_SEPARATOR_1 + variantBuilder + MusialConstants.FIELD_SEPARATOR_1 + referenceBuilder);
             variantBuilder.setLength(0);
             referenceBuilder.setLength(0);
