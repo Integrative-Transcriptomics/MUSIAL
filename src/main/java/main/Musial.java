@@ -611,10 +611,13 @@ public final class Musial {
                     }};
                     transferAnnotation(outputMap, variantIndex, variantAnnotationKeys, "position", String.valueOf(variantPosition));
                     String type = "substitution";
-                    if (variant.getKey().contains(String.valueOf(Bio.DELETION_AA1))) {
+                    if (variant.getKey().contains(String.valueOf(Bio.DELETION_AA1)))
                         type = "deletion";
-                    } else if (variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT).contains(String.valueOf(Bio.DELETION_AA1))) {
-                        type = "insertion";
+                    if (variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT).contains(String.valueOf(Bio.DELETION_AA1))) {
+                        if (type.equals("deletion"))
+                            type = "insertion_deletion";
+                        else
+                            type = "insertion";
                     }
                     transferAnnotation(outputMap, variantIndex, variantAnnotationKeys, "type", type);
                     transferAnnotation(outputMap, variantIndex, variantAnnotationKeys, "alternate_content", variant.getKey());
