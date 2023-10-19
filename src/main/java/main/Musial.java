@@ -251,6 +251,8 @@ public final class Musial {
         int noSubstitutions;
         int noInsertions;
         int noDeletions;
+        VariantAnnotation variantAnnotation;
+        String propertyValue;
         while (featureNameIterator.hasNext()) {
             // Feature level statistics.
             featureName = featureNameIterator.next();
@@ -261,9 +263,21 @@ public final class Musial {
             noDeletions = 0;
             for (Integer variantPosition : feature.getNucleotideVariantPositions()) {
                 for (Map.Entry<String, VariantAnnotation> variantEntry : feature.getNucleotideVariants(variantPosition).entrySet()) {
-                    noOccurrences = variantEntry.getValue().getPropertyKeys().stream().filter(s -> s.contains(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX)).count();
+                    variantAnnotation = variantEntry.getValue();
+                    noOccurrences = variantAnnotation.getPropertyKeys().stream().filter(s -> s.contains(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX)).count();
                     variantEntry.getValue().addProperty(
                             MusialConstants.FREQUENCY,
+                            DECIMAL_FORMATTER.format((noOccurrences / noSamples) * 100)
+                    );
+
+                    for (String propertyKey : variantAnnotation.getPropertyKeys()) {
+                        if (propertyKey.startsWith(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX)) {
+                            propertyValue = variantAnnotation.getProperty(propertyKey);
+                            if (propertyValue.split(MusialConstants.FIELD_SEPARATOR_1)[1].equals("true")) noOccurrences -= 1;
+                        }
+                    }
+                    variantEntry.getValue().addProperty(
+                            MusialConstants.FREQUENCY_PASS,
                             DECIMAL_FORMATTER.format((noOccurrences / noSamples) * 100)
                     );
                     if (variantEntry.getKey().contains("-") || variantEntry.getValue().getProperty(MusialConstants.REFERENCE_CONTENT).contains("-")) {
@@ -350,7 +364,8 @@ public final class Musial {
                 // Variant level statistics.
                 for (Integer variantPosition : featureCoding.getAminoacidVariantPositions()) {
                     for (Map.Entry<String, VariantAnnotation> variantEntry : featureCoding.getAminoacidVariants(variantPosition).entrySet()) {
-                        noOccurrences = variantEntry.getValue().getPropertyKeys().stream().filter(s -> s.contains(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX)).count();
+                        variantAnnotation = variantEntry.getValue();
+                        noOccurrences = variantAnnotation.getPropertyKeys().stream().filter(s -> s.contains(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX)).count();
                         variantEntry.getValue().addProperty(
                                 MusialConstants.FREQUENCY,
                                 DECIMAL_FORMATTER.format((noOccurrences / noSamples) * 100)

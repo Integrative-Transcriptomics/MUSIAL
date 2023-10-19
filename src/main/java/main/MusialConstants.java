@@ -23,6 +23,8 @@ public class MusialConstants {
 
     public final static String FREQUENCY = "frequency";
 
+    public final static String FREQUENCY_PASS = "frequency_pass";
+
     public final static String REFERENCE_CONTENT = "reference_content";
 
     public final static String SNP_EFF_PROPERTY_PREFIX = "snpeff_";
