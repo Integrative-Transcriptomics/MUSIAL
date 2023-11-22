@@ -144,7 +144,7 @@ public class AlleleAnalyzer implements Runnable {
                     if (variantFingerprint.length() != 0) {
                         variantFingerprint.setLength(variantFingerprint.length() - 1);
                     }
-                    proteoformName = String.valueOf(variantFingerprint.toString().hashCode());
+                    proteoformName = constructProteoformName( variantFingerprint.toString(), hasNovelStop );
                     Form proteoform = new Form(proteoformName);
                     proteoform.addAnnotation(MusialConstants.VARIANTS, Compression.brotliEncodeString(variantFingerprint.toString()));
                     if (hasNovelStop)
@@ -162,6 +162,37 @@ public class AlleleAnalyzer implements Runnable {
         } catch (Exception e) {
             Logger.logError("An error occurred during the analysis of allele " + allele.name + " of feature " + featureCoding.name + "; " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    /**
+     * Generates a {@link String} representing the name of a proteoform.
+     *
+     * @return Proteoform name.
+     */
+    @SuppressWarnings("DuplicatedCode")
+    private String constructProteoformName(String variantFingerprint, boolean disrupted) {
+        int variantFingerprintCode = variantFingerprint.hashCode();
+        if ( musialStorage.formNameCodes.containsKey( variantFingerprintCode ) ) {
+            return musialStorage.formNameCodes.get( variantFingerprintCode );
+        } else {
+            int s = 0;
+            int i = 0;
+            int d = 0;
+            for (String variant : variantFingerprint.split(MusialConstants.FIELD_SEPARATOR_2)) {
+                String[] variantInformation = variant.split(MusialConstants.FIELD_SEPARATOR_1);
+                String alt = variantInformation[1];
+                if (alt.contains("-")) {
+                    d += 1;
+                } else if (alt.length() > 1) {
+                    i += 1;
+                } else {
+                    s += 1;
+                }
+            }
+            String proteoformName = ( featureCoding.getProteoformCount() + 1 ) + ( disrupted ? ".x" : ".c" ) + ".S" + s + ".I" + i + ".D" + d;
+            musialStorage.formNameCodes.put( variantFingerprintCode, proteoformName );
+            return proteoformName;
         }
     }
 

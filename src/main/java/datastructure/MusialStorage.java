@@ -51,6 +51,11 @@ public class MusialStorage {
     public transient IndexedFastaSequenceFile reference;
 
     /**
+     * Stores already seen variants to avoid redundant form names.
+     */
+    public transient HashMap<Integer, String> formNameCodes = new HashMap<>();
+
+    /**
      * The length of the reference genome.
      */
     @SuppressWarnings("FieldCanBeLocal")
@@ -226,9 +231,7 @@ public class MusialStorage {
                     vcfContent
                             .append(feature.chromosome).append("\t")
                             .append(variantPosition).append("\t")
-                            .append(".\t")
-                            .append(prefix + variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT).replace("-", "")).append("\t")
-                            .append(prefix + variantContent.replace("-", "")).append("\t")
+                            .append(".\t").append(prefix).append(variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT).replace("-", "")).append("\t").append(prefix).append(variantContent.replace("-", "")).append("\t")
                             .append("1000\t")
                             .append(".\t")
                             .append("\t").append(IO.LINE_SEPARATOR);

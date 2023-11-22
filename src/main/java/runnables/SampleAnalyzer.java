@@ -270,7 +270,7 @@ public final class SampleAnalyzer implements Runnable {
         if (this.variantFingerprint.length() == 0) {
             alleleName = MusialConstants.REFERENCE_ID;
         } else {
-            alleleName = String.valueOf(this.variantFingerprint.toString().hashCode());
+            alleleName = constructAlleleName( );
         }
         Form allele = new Form(alleleName);
         // Add default allele annotations.
@@ -305,5 +305,37 @@ public final class SampleAnalyzer implements Runnable {
                 variantCall[6] + MusialConstants.FIELD_SEPARATOR_1 +
                 variantCall[7]
         );
+    }
+
+    /**
+     * Generates a {@link String} representing the name of an allele.
+     *
+     * @return Allele name.
+     */
+    @SuppressWarnings("DuplicatedCode")
+    private String constructAlleleName( ) {
+        String variantFingerprint = this.variantFingerprint.toString();
+        int variantFingerprintCode = variantFingerprint.hashCode();
+        if ( musialStorage.formNameCodes.containsKey( variantFingerprintCode ) ) {
+            return musialStorage.formNameCodes.get( variantFingerprintCode );
+        } else {
+            int s = 0;
+            int i = 0;
+            int d = 0;
+            for (String variant : variantFingerprint.split(MusialConstants.FIELD_SEPARATOR_2)) {
+                String[] variantInformation = variant.split(MusialConstants.FIELD_SEPARATOR_1);
+                String alt = variantInformation[1];
+                if (alt.contains("-")) {
+                    d += 1;
+                } else if (alt.length() > 1) {
+                    i += 1;
+                } else {
+                    s += 1;
+                }
+            }
+            String alleleName = ( feature.getAlleleCount() + 1 ) + ".S" + s + ".I" + i + ".D" + d;
+            musialStorage.formNameCodes.put( variantFingerprintCode, alleleName );
+            return alleleName;
+        }
     }
 }
