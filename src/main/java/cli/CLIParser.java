@@ -317,12 +317,6 @@ public class CLIParser {
                         .build()
         );
         options.addOption(
-                Option.builder("x")
-                        .longOpt("rejected")
-                        .desc("Whether to write rejected variants as reference content (Default: Rejected as ambiguous base). This option is only relevant for `content=nucleotide`.")
-                        .build()
-        );
-        options.addOption(
                 Option.builder("g")
                         .longOpt("group")
                         .desc("Whether to merge samples by alleles and proteoforms (Default: No merging).")

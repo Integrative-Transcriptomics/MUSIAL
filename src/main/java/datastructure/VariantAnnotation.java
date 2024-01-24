@@ -1,7 +1,9 @@
 package datastructure;
 
+import main.Musial;
 import main.MusialConstants;
 
+import java.util.ArrayList;
 import java.util.NavigableSet;
 import java.util.concurrent.ConcurrentSkipListMap;
 
@@ -90,5 +92,18 @@ public class VariantAnnotation {
         return this.properties.containsKey(key);
     }
 
+    /**
+     * Returns a list of sample names in which this variant occurs.
+     *
+     * @return {@link ArrayList} of sample names that yield this variant.
+     */
+    public ArrayList<String> getSamples() {
+        ArrayList<String> sampleNames = new ArrayList<>();
+        for (String propertyKey : this.getPropertyKeys()) {
+            if ( propertyKey.startsWith(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX) )
+                sampleNames.add( propertyKey.replace( MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX, "" ) );
+        }
+        return sampleNames;
+    }
 
 }

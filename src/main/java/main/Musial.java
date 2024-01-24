@@ -671,6 +671,37 @@ public final class Musial {
     }
 
     /**
+     * Internal method to output view_x tasks of MUSIAL.
+     *
+     * @param content    The content for which a tsv format string is to be built.
+     * @param entryIndex The number of entries to iterate over.
+     * @param output     {@link String} representing a file path to write the output to; If set to null, output will be printed to console.
+     * @throws MusialException If I/O operation fails in case of a provided output file.
+     */
+    private static void outputView(LinkedHashMap<String, ArrayList<String>> content, int entryIndex, String output) throws MusialException {
+        Logger.logStatus("Write output to " + (output == null ? "stdout" : output));
+        // Build string content from collected information.
+        StringBuilder outputBuilder = new StringBuilder(entryIndex);
+        ArrayList<String> perEntryAnnotation;
+        outputBuilder.append(String.join("\t", content.keySet())).append("\n");
+        for (int i = 0; i < entryIndex; i++) {
+            perEntryAnnotation = new ArrayList<>();
+            for (ArrayList<String> annotationValues : content.values()) {
+                perEntryAnnotation.add(annotationValues.get(i));
+            }
+            outputBuilder.append(String.join("\t", perEntryAnnotation)).append("\n");
+        }
+
+        // Write output to file or console.
+        if (output != null) {
+            IO.writeFile(new File(output), outputBuilder.toString());
+            Logger.logStatus("Done writing output to file `" + new File(output).getAbsolutePath() + "`");
+        } else {
+            System.out.println(outputBuilder);
+        }
+    }
+
+    /**
      * Exports a variant table in tsv format wrt. a single feature.
      *
      * @param parameters {@link CommandLine} instance yielding parameter specification for the MUSIAL export_table task.
@@ -684,7 +715,6 @@ public final class Musial {
         // Store content mode, grouping and rejected output options.
         String contentMode = parameters.hasOption("c") ? parameters.getOptionValue("c") : "nucleotide";
         boolean group = parameters.hasOption("g");
-        boolean rejectedAsReference = parameters.hasOption("x");
         boolean conservedSites = parameters.hasOption("k");
 
         // Check if specified feature exists and supports the chosen content mode.
@@ -748,8 +778,14 @@ public final class Musial {
             sampleNames = (HashSet<String>) Arrays.stream(parameters.getOptionValues("s")).collect(Collectors.toSet());
         }
         HashSet<String> representativeSampleNames = new HashSet<>();
-        for (String sampleName : sampleNames) {
-            representativeSampleNames.add(sampleNameToRepresentativeName.apply(sampleName));
+        if (group) {
+            for (String sampleName : sampleNames) {
+                if (sampleNameToFormName.apply(sampleName).equals(MusialConstants.REFERENCE_ID))
+                    continue;
+                representativeSampleNames.add(sampleNameToRepresentativeName.apply(sampleName));
+            }
+        } else {
+            representativeSampleNames = sampleNames;
         }
 
         // Generate variants table for feature.
@@ -758,7 +794,7 @@ public final class Musial {
                 feature.name,
                 representativeSampleNames,
                 contentMode,
-                rejectedAsReference,
+                group,
                 conservedSites,
                 false
         );
@@ -773,14 +809,9 @@ public final class Musial {
                 }
                 outputWriter.newLine();
             } else {
-                outputWriter.write("\nPosition\tReference");
+                outputWriter.write("Position\tReference");
                 for (String representativeName : representativeSampleNames) {
-                    outputWriter.write(
-                            "\t" + String.join(
-                                    "\t",
-                                    getFormOccurrence.apply(sampleNameToFormName.apply(representativeName)).stream().filter(sampleNames::contains).collect(Collectors.toSet())
-                            )
-                    );
+                    outputWriter.write("\t" + representativeName);
                 }
                 outputWriter.newLine();
             }
@@ -806,26 +837,13 @@ public final class Musial {
                 }
                 // Variant content.
                 variantContents = contentIterator.next();
-                if (group) {
-                    for (String representativeName : representativeSampleNames) {
-                        if (variantContents == null) {
-                            variantContent = ".";
-                        } else {
-                            variantContent = variantContents.getOrDefault(representativeName, ".");
-                        }
-                        outputWriter.write(variantContent + "\t");
+                for (String representativeName : representativeSampleNames) {
+                    if (variantContents == null) {
+                        variantContent = ".";
+                    } else {
+                        variantContent = variantContents.getOrDefault(representativeName, ".");
                     }
-                } else {
-                    for (String representativeName : representativeSampleNames) {
-                        if (variantContents == null) {
-                            variantContent = ".";
-                        } else {
-                            variantContent = variantContents.getOrDefault(representativeName, ".");
-                        }
-                        for (String ignored : getFormOccurrence.apply(sampleNameToFormName.apply(representativeName)).stream().filter(sampleNames::contains).collect(Collectors.toSet())) {
-                            outputWriter.write(variantContent + "\t");
-                        }
-                    }
+                    outputWriter.write(variantContent + "\t");
                 }
                 outputWriter.newLine();
                 outputWriter.flush();
@@ -936,12 +954,16 @@ public final class Musial {
             sampleNames = (HashSet<String>) Arrays.stream(parameters.getOptionValues("s")).collect(Collectors.toSet());
         }
         HashSet<String> representativeSampleNames = new HashSet<>();
-        representativeSampleNames.add(MusialConstants.REFERENCE_ID);
-        for (String sampleName : sampleNames) {
-            if (sampleNameToFormName.apply(sampleName).equals(MusialConstants.REFERENCE_ID))
-                continue;
-            representativeSampleNames.add(sampleNameToRepresentativeName.apply(sampleName));
+        if (group) {
+            for (String sampleName : sampleNames) {
+                if (sampleNameToFormName.apply(sampleName).equals(MusialConstants.REFERENCE_ID))
+                    continue;
+                representativeSampleNames.add(sampleNameToRepresentativeName.apply(sampleName));
+            }
+        } else {
+            representativeSampleNames = sampleNames;
         }
+        representativeSampleNames.add(MusialConstants.REFERENCE_ID);
 
         // Generate variants table for feature.
         TreeMap<String, LinkedHashMap<String, String>> variantsTable = constructVariantsTable(
@@ -949,7 +971,7 @@ public final class Musial {
                 feature.name,
                 representativeSampleNames,
                 contentMode,
-                rejectedAsReference,
+                group,
                 conservedSites,
                 true
         );
@@ -964,68 +986,29 @@ public final class Musial {
                 LinkedHashMap<String, String> variantContents;
                 StringBuilder sequenceBuilder = new StringBuilder((feature.end - feature.start) + 1);
                 String representativeName = representativeSampleIterator.next();
-                String variantContent;
+                String variantContent = null;
                 String position;
                 do {
                     position = positionsIterator.next();
                     variantContents = contentIterator.next();
-                    if (variantContents == null) {
+                    if (variantContents != null) {
+                        variantContent = variantContents.getOrDefault(representativeName, variantContents.get(MusialConstants.REFERENCE_ID)).split(":")[0];
+                    }
+                    if (variantContents == null || (Objects.equals(variantContent, Bio.ANY_NUC) && rejectedAsReference)) {
                         //noinspection ConstantConditions
                         variantContent = String.valueOf(referenceSequenceChars[Integer.parseInt(position.split("\\.")[0]) - (contentMode.equals("nucleotide") ? feature.start : 1)]);
-                    } else {
-                        variantContent = variantContents.getOrDefault(representativeName, variantContents.get(MusialConstants.REFERENCE_ID)).split(":")[0];
                     }
                     sequenceBuilder.append(variantContent);
                 } while (positionsIterator.hasNext());
                 if (group) {
                     writeSequence.accept(outputWriter, sequenceBuilder.toString(), sampleNameToFormName.apply(representativeName));
                 } else {
-                    if (representativeName.equals(MusialConstants.REFERENCE_ID)) {
-                        writeSequence.accept(outputWriter, sequenceBuilder.toString(), representativeName);
-                        for (String sampleName : getFormOccurrence.apply(MusialConstants.REFERENCE_ID).stream().filter(sampleNames::contains).collect(Collectors.toSet())) {
-                            writeSequence.accept(outputWriter, sequenceBuilder.toString(), sampleName);
-                        }
-                    } else {
-                        for (String sampleName : getFormOccurrence.apply(sampleNameToFormName.apply(representativeName)).stream().filter(sampleNames::contains).collect(Collectors.toSet())) {
-                            writeSequence.accept(outputWriter, sequenceBuilder.toString(), sampleName);
-                        }
-                    }
+                    writeSequence.accept(outputWriter, sequenceBuilder.toString(), representativeName);
                 }
                 outputWriter.flush();
             } while (representativeSampleIterator.hasNext());
         }
         Logger.logStatus("Done writing sequences to file `" + new File(parameters.getOptionValue("O")).getAbsolutePath() + "`");
-    }
-
-    /**
-     * Internal method to output view_x tasks of MUSIAL.
-     *
-     * @param content    The content for which a tsv format string is to be built.
-     * @param entryIndex The number of entries to iterate over.
-     * @param output     {@link String} representing a file path to write the output to; If set to null, output will be printed to console.
-     * @throws MusialException If I/O operation fails in case of a provided output file.
-     */
-    private static void outputView(LinkedHashMap<String, ArrayList<String>> content, int entryIndex, String output) throws MusialException {
-        Logger.logStatus("Write output to " + (output == null ? "stdout" : output));
-        // Build string content from collected information.
-        StringBuilder outputBuilder = new StringBuilder(entryIndex);
-        ArrayList<String> perEntryAnnotation;
-        outputBuilder.append(String.join("\t", content.keySet())).append("\n");
-        for (int i = 0; i < entryIndex; i++) {
-            perEntryAnnotation = new ArrayList<>();
-            for (ArrayList<String> annotationValues : content.values()) {
-                perEntryAnnotation.add(annotationValues.get(i));
-            }
-            outputBuilder.append(String.join("\t", perEntryAnnotation)).append("\n");
-        }
-
-        // Write output to file or console.
-        if (output != null) {
-            IO.writeFile(new File(output), outputBuilder.toString());
-            Logger.logStatus("Done writing output to file `" + new File(output).getAbsolutePath() + "`");
-        } else {
-            System.out.println(outputBuilder);
-        }
     }
 
     /**
@@ -1057,16 +1040,16 @@ public final class Musial {
      * <br>
      * The second layer stores sample names mapping to variant contents.
      *
-     * @param musialStorage       {@link MusialStorage} to build from.
-     * @param featureName         Name of the feature to build the table of; Should be accepted for {@link MusialStorage#getFeature(String)}.
-     * @param sampleNames         Set of sample names to restrict the construction to; Should be accepted for {@link MusialStorage#getSample(String)}.
-     * @param contentMode         Either `aminoacid` or `nucleotide`; Specifies the variants to query.
-     * @param rejectedAsReference If rejected variants should be added as reference or ambiguous base symbol.
-     * @param conservedSites      If non-variant sites should be considered.
-     * @param primaryOnly         If only the primary variant (of rank one, the one with the highest read frequency) should be considered.
+     * @param musialStorage  {@link MusialStorage} to build from.
+     * @param featureName    Name of the feature to build the table of; Should be accepted for {@link MusialStorage#getFeature(String)}.
+     * @param sampleNames    Set of sample names to restrict the construction to; Should be accepted for {@link MusialStorage#getSample(String)}.
+     * @param contentMode    Either `aminoacid` or `nucleotide`; Specifies the variants to query.
+     * @param groupSamples   If samples should be grouped by forms.
+     * @param conservedSites If non-variant sites should be considered.
+     * @param primaryOnly    If only the primary variant (of rank one, the one with the highest read frequency) should be considered.
      * @return Two-layer map structure.
      */
-    private static TreeMap<String, LinkedHashMap<String, String>> constructVariantsTable(MusialStorage musialStorage, String featureName, HashSet<String> sampleNames, String contentMode, boolean rejectedAsReference, boolean conservedSites, boolean primaryOnly) {
+    private static TreeMap<String, LinkedHashMap<String, String>> constructVariantsTable(MusialStorage musialStorage, String featureName, HashSet<String> sampleNames, String contentMode, boolean groupSamples, boolean conservedSites, boolean primaryOnly) {
         TreeMap<String, LinkedHashMap<String, String>> variantsTable = new TreeMap<>((p1, p2) -> {
             String[] f1 = p1.split("\\.");
             String[] f2 = p2.split("\\.");
@@ -1127,53 +1110,56 @@ public final class Musial {
                 variantsTable.put(variantPosition + ".0", null);
                 continue;
             }
-            boolean anyVariantOccurrence = false; // Flag, if any variant at this position occurs in the sample set.
-            boolean variantOccurrence; // Flag, if specific variant at this position occurs in the sample set.
+            boolean anyVariantAtPosition = false; // Flag, if any variant at this position occurs in the sample set.
+            boolean variantInSamples; // Flag, if specific variant at this position occurs in the sample set.
             for (Map.Entry<String, VariantAnnotation> variant : variants.entrySet()) {
-                variantOccurrence = false;
+                variantInSamples = false;
                 variantChars = variant.getKey().toCharArray();
                 variantAnnotation = variant.getValue();
                 referenceChars = variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT).toCharArray();
                 String type = "substitution";
                 if (variant.getKey().contains(String.valueOf(Bio.DELETION_AA1)) || variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT).contains(String.valueOf(Bio.DELETION_AA1)))
                     type = "insertion_deletion";
-                for (String sampleName : sampleNames) {
-                    if (variantAnnotation.hasProperty(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX + sampleName)) {
-                        if (primaryOnly && (!isPrimary.apply(variantAnnotation, sampleName) && Objects.equals(contentMode, "nucleotide")))
-                            continue;
-                        if (!anyVariantOccurrence)
-                            anyVariantOccurrence = true;
-                        if (!variantOccurrence)
-                            variantOccurrence = true;
-                        perSampleVariantProperties = variantAnnotation.getProperty(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX + sampleName).split(":");
-                        rejected = contentMode.equals("nucleotide") && Objects.equals(perSampleVariantProperties[1], "true");
-                        switch (type) {
-                            case "substitution":
-                                if (rejected) {
-                                    insertToVariantsTable.accept(variantPosition + ".0", sampleName, rejectedAsReference ? String.valueOf(referenceChars[0]) : getAmbiguousContent.apply(variant, 0, sampleName));
+                for (String sampleName : variantAnnotation.getSamples()) {
+                    if (!sampleNames.contains(sampleName)) {
+                        continue;
+                    }
+                    if (primaryOnly && (!isPrimary.apply(variantAnnotation, sampleName) && Objects.equals(contentMode, "nucleotide"))) {
+                        continue;
+                    }
+                    perSampleVariantProperties = variantAnnotation.getProperty(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX + sampleName).split(":");
+                    rejected = contentMode.equals("nucleotide") && Objects.equals(perSampleVariantProperties[1], "true");
+                    if (rejected && groupSamples) {
+                        continue;
+                    }
+                    anyVariantAtPosition = true;
+                    variantInSamples = true;
+                    switch (type) {
+                        case "substitution":
+                            if (rejected) {
+                                insertToVariantsTable.accept(variantPosition + ".0", sampleName, getAmbiguousContent.apply(variant, 0, sampleName));
+                            } else {
+                                insertToVariantsTable.accept(variantPosition + ".0", sampleName, variant.getKey());
+                            }
+                            break;
+                        case "insertion_deletion":
+                            for (int i = 1; i < variantChars.length; i++) {
+                                if (variantChars[i] == Bio.DELETION_AA1) {
+                                    if (rejected)
+                                        insertToVariantsTable.accept((variantPosition + i) + ".0", sampleName, getAmbiguousContent.apply(variant, i, sampleName));
+                                    else
+                                        insertToVariantsTable.accept((variantPosition + i) + ".0", sampleName, String.valueOf(variantChars[i]));
                                 } else {
-                                    insertToVariantsTable.accept(variantPosition + ".0", sampleName, variant.getKey());
+                                    if (rejected)
+                                        insertToVariantsTable.accept((variantPosition) + "." + (i), sampleName, getAmbiguousContent.apply(variant, i, sampleName));
+                                    else
+                                        insertToVariantsTable.accept((variantPosition) + "." + (i), sampleName, String.valueOf(variantChars[i]));
                                 }
-                                break;
-                            case "insertion_deletion":
-                                for (int i = 1; i < variantChars.length; i++) {
-                                    if (variantChars[i] == Bio.DELETION_AA1) {
-                                        if (rejected)
-                                            insertToVariantsTable.accept((variantPosition + i) + ".0", sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousContent.apply(variant, i, sampleName));
-                                        else
-                                            insertToVariantsTable.accept((variantPosition + i) + ".0", sampleName, String.valueOf(variantChars[i]));
-                                    } else {
-                                        if (rejected)
-                                            insertToVariantsTable.accept((variantPosition) + "." + (i), sampleName, rejectedAsReference ? String.valueOf(referenceChars[i]) : getAmbiguousContent.apply(variant, i, sampleName));
-                                        else
-                                            insertToVariantsTable.accept((variantPosition) + "." + (i), sampleName, String.valueOf(variantChars[i]));
-                                    }
-                                }
-                                break;
-                        }
+                            }
+                            break;
                     }
                 }
-                if (variantOccurrence) { // If this specific variant occurs in the sample set, add reference content to table.
+                if (variantInSamples) { // If this specific variant occurs in the sample set, add reference content to table.
                     switch (type) {
                         case "substitution":
                             insertToVariantsTable.accept(variantPosition + ".0", MusialConstants.REFERENCE_ID, String.valueOf(referenceChars[0]));
@@ -1190,7 +1176,7 @@ public final class Musial {
                     }
                 }
             }
-            if (!anyVariantOccurrence && conservedSites) // If no variant is contained in the sample set, add null content.
+            if (!anyVariantAtPosition && conservedSites) // If no variant is contained in the sample set, add null content in case of conserved site output.
                 variantsTable.put(variantPosition + ".0", null);
         }
         return variantsTable;
