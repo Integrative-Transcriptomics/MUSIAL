@@ -3,11 +3,11 @@ package utility;
 import java.io.File;
 
 /**
- * This class comprises static methods used for calling command line commands.
+ * Implements static methods to run command line commands.
  *
  * @author Alexander Seitz
  * @author Simon Hackl
- * @version 2.2
+ * @version 2.3
  * @since 2.0
  */
 public class CL {

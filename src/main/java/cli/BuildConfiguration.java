@@ -15,9 +15,9 @@ import org.biojava.nbio.genome.parsers.gff.FeatureI;
 import org.biojava.nbio.genome.parsers.gff.FeatureList;
 import org.biojava.nbio.genome.parsers.gff.GFF3Reader;
 import org.biojava.nbio.genome.parsers.gff.Location;
-import utility.Bio;
 import utility.IO;
 import utility.Logger;
+import utility.SequenceOperations;
 import utility.Validation;
 
 import java.io.File;
@@ -26,38 +26,42 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Parse parameters for the `build` task from a {@link HashMap}.
+ * Parse parameters for `build` task.
  *
  * @author Simon Hackl
- * @version 2.2
+ * @version 2.3
  * @since 2.1
  */
 public final class BuildConfiguration {
     /**
-     * Minimum (read) coverage in order to call an SNV.
+     * {@link HashMap} of {@link String}/{@link Sample} pairs.
+     */
+    public final HashMap<String, Sample> samples = new HashMap<>();
+    /**
+     * {@link HashMap} of {@link String}/{@link Feature} pairs.
+     */
+    public final HashMap<String, Feature> features = new HashMap<>();
+    /**
+     * Optional positions to exclude from the analysis.
+     */
+    public final HashMap<String, TreeSet<Integer>> excludedPositions = new HashMap<>();
+    /**
+     * Prefix to use for exception messages.
+     */
+    @SuppressWarnings("FieldCanBeLocal")
+    private final String EXCEPTION_PREFIX = "(Task `build` Argument Validation)";
+    /**
+     * Minimum (read) coverage in order to accept an allele.
      */
     public Double minimalCoverage;
     /**
-     * Minimum allele frequency (with respect to reads) in order to call an SNV.
+     * Minimum allele frequency (with respect to reads) in order to accept an allele.
      */
-    public Double minimalHomozygousFrequency;
-    /**
-     * Minimum allele frequency (with respect to reads) in order to call heterozygous SNVs.
-     */
-    public Double minimalHeterozygousFrequency;
-    /**
-     * Maximum allele frequency (with respect to reads) in order to call heterozygous SNVs.
-     */
-    public Double maximalHeterozygousFrequency;
-    /**
-     * Minimum quality, i.e. the value given in the QUAL field of .vcf files, in order to call an SNV.
-     */
-    public Double minimalQuality;
+    public Double minimalFrequency;
     /**
      * {@link File} object pointing to the reference genome sequence file.
      */
@@ -75,32 +79,15 @@ public final class BuildConfiguration {
      */
     public FeatureList referenceFeatures;
     /**
-     * {@link ConcurrentSkipListMap} of {@link String}/{@link Sample} pairs.
-     */
-    public final ConcurrentSkipListMap<String, Sample> samples = new ConcurrentSkipListMap<>();
-    /**
-     * {@link ConcurrentSkipListMap} of {@link String}/{@link Feature} pairs.
-     */
-    public final ConcurrentSkipListMap<String, Feature> features = new ConcurrentSkipListMap<>();
-    /**
      * {@link File} object specifying the output directory.
      */
     public File output;
-    /**
-     * Optional positions to exclude from the analysis.
-     */
-    public final HashMap<String, TreeSet<Integer>> excludedPositions = new HashMap<>();
-    /**
-     * Prefix to use for exception messages.
-     */
-    @SuppressWarnings("FieldCanBeLocal")
-    private final String EXCEPTION_PREFIX = "(Task `build` Argument Validation)";
 
     /**
      * Constructor of the {@link BuildConfiguration} class.
      * <p>
      * Used to parse and validate command line interface input. Parsed arguments are stored - and accessible by other
-     * components - via class properties.
+     * components - as class properties.
      *
      * @param parameters {@link LinkedTreeMap} containing parameter information.
      * @throws MusialException If IO file validation fails; If CLI parameter validation fails.
@@ -115,36 +102,12 @@ public final class BuildConfiguration {
             throw new MusialException(EXCEPTION_PREFIX + " Invalid or missing parameter `minimalCoverage`; expected positive float.");
         }
 
-        // Parse minimalHomozygousFrequency
-        if (parameters.containsKey("minimalHomozygousFrequency")
-                && Validation.isPercentage(String.valueOf(parameters.get("minimalHomozygousFrequency")))) {
-            this.minimalHomozygousFrequency = (Double) parameters.get("minimalHomozygousFrequency");
+        // Parse minimalFrequency
+        if (parameters.containsKey("minimalFrequency")
+                && Validation.isPercentage(String.valueOf(parameters.get("minimalFrequency")))) {
+            this.minimalFrequency = (Double) parameters.get("minimalFrequency");
         } else {
-            throw new MusialException(EXCEPTION_PREFIX + " Invalid or missing parameter `minimalHomozygousFrequency`; expected float between 0.0 and 1.0.");
-        }
-
-        // Parse minimalHeterozygousFrequency
-        if (parameters.containsKey("minimalHeterozygousFrequency")
-                && Validation.isPercentage(String.valueOf(parameters.get("minimalHeterozygousFrequency")))) {
-            this.minimalHeterozygousFrequency = (Double) parameters.get("minimalHeterozygousFrequency");
-        } else {
-            throw new MusialException(EXCEPTION_PREFIX + " Invalid or missing parameter `minimalHeterozygousFrequency`; expected float between 0.0 and 1.0.");
-        }
-
-        // Parse maximalHeterozygousFrequency
-        if (parameters.containsKey("maximalHeterozygousFrequency")
-                && Validation.isPercentage(String.valueOf(parameters.get("maximalHeterozygousFrequency")))) {
-            this.maximalHeterozygousFrequency = (Double) parameters.get("maximalHeterozygousFrequency");
-        } else {
-            throw new MusialException(EXCEPTION_PREFIX + " Invalid or missing parameter `maximalHeterozygousFrequency`; expected float between 0.0 and 1.0.");
-        }
-
-        // Parse minimalQuality
-        if (parameters.containsKey("minimalQuality")
-                && Validation.isPositiveDouble(String.valueOf(parameters.get("minimalQuality")))) {
-            this.minimalQuality = (Double) parameters.get("minimalQuality");
-        } else {
-            throw new MusialException(EXCEPTION_PREFIX + " Invalid or missing parameter `minimalQuality`; expected positive float.");
+            throw new MusialException(EXCEPTION_PREFIX + " Invalid or missing parameter `minimalFrequency`; expected float between 0.0 and 1.0.");
         }
 
         // Parse reference sequence (.fasta)
@@ -176,7 +139,6 @@ public final class BuildConfiguration {
             try {
                 System.setOut(Musial.EMPTY_STREAM);
                 this.referenceFeatures = GFF3Reader.read(referenceFeaturesFile.getCanonicalPath());
-
             } catch (IOException e) {
                 throw new MusialException(EXCEPTION_PREFIX + " Failed to parse reference features from file '" + referenceFeaturesFile.getAbsolutePath() + "'; " + e.getMessage());
             } finally {
@@ -209,6 +171,45 @@ public final class BuildConfiguration {
                     this.excludedPositions.get(key).add(excludedPosition.intValue());
                 }
             }
+        }
+
+        // Parse features
+        Logger.logStatus("Parse feature information");
+        if (!parameters.containsKey("features")) {
+            throw new MusialException(EXCEPTION_PREFIX + " Missing parameter `features`; expected at least one feature entry.");
+        }
+        //noinspection rawtypes
+        LinkedTreeMap features = (LinkedTreeMap) parameters.get("features");
+        //noinspection rawtypes
+        LinkedTreeMap featureEntry;
+        for (Object featureKey : features.keySet()) {
+            //noinspection rawtypes
+            featureEntry = (LinkedTreeMap) features.get(featureKey);
+            boolean cds = (featureEntry.containsKey("coding") && ((Boolean) featureEntry.get("coding")));
+            //noinspection unchecked
+            String matchKey = (String) featureEntry
+                    .keySet()
+                    .stream()
+                    .filter(key -> key.toString().startsWith("match_"))
+                    .findFirst()
+                    .orElse(null);
+            if (matchKey == null || featureEntry.get(matchKey) == null) {
+                throw new MusialException(EXCEPTION_PREFIX + " Failed to find .gff attribute key/value pair to match feature " + featureKey);
+            }
+            Map<String, String> annotations;
+            if (featureEntry.containsKey("annotations")) {
+                //noinspection unchecked
+                annotations = (Map<String, String>) featureEntry.get("annotations");
+            } else {
+                annotations = new HashMap<>();
+            }
+            addFeature(
+                    (String) featureKey,
+                    matchKey.replace("match_", ""),
+                    (String) featureEntry.get(matchKey),
+                    cds,
+                    annotations
+            );
         }
 
         // Parse sample information
@@ -268,59 +269,6 @@ public final class BuildConfiguration {
         if ((!parameters.containsKey("samples") && !parameters.containsKey("samplesDirectory")) || this.samples.keySet().size() == 0) {
             throw new MusialException(EXCEPTION_PREFIX + " Expected at least one sample entry being parsed from `samples` and/or `samplesDirectory` parameter");
         }
-
-        // Parse features
-        Logger.logStatus("Parse feature information");
-        if (!parameters.containsKey("features")) {
-            throw new MusialException(EXCEPTION_PREFIX + " Missing parameter `features`; expected at least one feature entry.");
-        }
-        //noinspection rawtypes
-        LinkedTreeMap features = (LinkedTreeMap) parameters.get("features");
-        //noinspection rawtypes
-        LinkedTreeMap featureEntry;
-        for (Object featureKey : features.keySet()) {
-            //noinspection rawtypes
-            featureEntry = (LinkedTreeMap) features.get(featureKey);
-            File optionalPdbFile;
-            boolean cds = false;
-            if (featureEntry.containsKey("pdbFile")) {
-                optionalPdbFile = new File((String) featureEntry.get("pdbFile"));
-                if (featureEntry.get("pdbFile") != null && !Validation.isFile(optionalPdbFile)) {
-                    throw new MusialException(EXCEPTION_PREFIX + " Failed to access specified .pdb file for feature " + featureKey);
-                }
-                cds = true;
-            } else {
-                optionalPdbFile = null;
-                if (featureEntry.containsKey("coding") && ((Boolean) featureEntry.get("coding"))) {
-                    cds = ((Boolean) featureEntry.get("coding"));
-                }
-            }
-            //noinspection unchecked
-            String matchKey = (String) featureEntry
-                    .keySet()
-                    .stream()
-                    .filter(key -> key.toString().startsWith("match_"))
-                    .findFirst()
-                    .orElse(null);
-            if (matchKey == null || featureEntry.get(matchKey) == null) {
-                throw new MusialException(EXCEPTION_PREFIX + " Failed to find .gff attribute key/value pair to match feature " + featureKey);
-            }
-            Map<String, String> annotations;
-            if (featureEntry.containsKey("annotations")) {
-                //noinspection unchecked
-                annotations = (Map<String, String>) featureEntry.get("annotations");
-            } else {
-                annotations = new HashMap<>();
-            }
-            addFeature(
-                    (String) featureKey,
-                    matchKey.replace("match_", ""),
-                    (String) featureEntry.get(matchKey),
-                    optionalPdbFile,
-                    cds,
-                    annotations
-            );
-        }
     }
 
     /**
@@ -333,9 +281,9 @@ public final class BuildConfiguration {
      */
     private void addSample(String name, File vcfFile, Map<String, String> annotations) throws MusialException {
         if (vcfFile.isFile()) {
-            Sample sample = new Sample(vcfFile, name);
+            Sample sample = new Sample(vcfFile, name, this.features.size());
             for (Map.Entry<String, String> annotation : annotations.entrySet()) {
-                sample.addAnnotation(annotation.getKey(), annotation.getValue());
+                sample.addInfo(annotation.getKey(), annotation.getValue());
             }
             this.samples.put(name, sample);
         } else {
@@ -349,49 +297,52 @@ public final class BuildConfiguration {
      * @param name        {@link String}; The internal name to use for the feature.
      * @param matchKey    {@link String}; The key of the attribute in the specified .gff format reference annotation to match the feature from.
      * @param matchValue  {@link String}; The value of the attribute in the specified .gff format reference annotation to match the feature from.
-     * @param asCds       {@link Boolean}; Whether to consider feature as cds, independent of provided structure.
-     * @param pdbFile     {@link File}; Optional object pointing to a .pdb format file yielding a protein structure derived for the (gene) feature.
+     * @param coding      {@link Boolean}; Whether to consider feature as cds, independent of provided structure.
      * @param annotations {@link java.util.HashMap} of {@link String} key/pair values; feature meta information.
      * @throws MusialException If the initialization of the {@link Feature} fails; If the specified .gff reference annotation or .pdb protein file can not be read; If the specified feature is not found or parsed multiple times from the reference annotation.
      */
-    private void addFeature(String name, String matchKey, String matchValue, File pdbFile, boolean asCds, Map<String, String> annotations)
+    private void addFeature(String name, String matchKey, String matchValue, boolean coding, Map<String, String> annotations)
             throws MusialException {
         FeatureList matchedFeatures = this.referenceFeatures.selectByAttribute(matchKey, matchValue);
         if (matchedFeatures.size() == 0) {
             throw new MusialException(EXCEPTION_PREFIX + " Failed to match feature " + name + " with attribute key/value pair " +
                     matchKey + "=" + matchValue);
-        } else if (matchedFeatures.size() > 1) {
-            throw new MusialException(EXCEPTION_PREFIX + " Feature " + name + " was matched multiple times ");
         } else {
+            if (matchedFeatures.size() > 1) {
+                boolean isInvalid = false;
+                int locationStart = matchedFeatures.get(0).location().bioStart();
+                int locationEnd = matchedFeatures.get(0).location().bioEnd();
+                for (int i = 1; i < matchedFeatures.size(); i++) {
+                    if ((matchedFeatures.get(i).location().bioStart() != locationStart) || (matchedFeatures.get(i).location().bioEnd() != locationEnd)) {
+                        isInvalid = true;
+                    }
+                }
+                if (isInvalid) {
+                    throw new MusialException(EXCEPTION_PREFIX + " Feature " + name + " was matched multiple times with different locations.");
+                }
+            }
             FeatureI matchedFeature = matchedFeatures.get(0);
-            Location featureCoordinates = matchedFeature.location();
+            Location featureLocation = matchedFeature.location();
             String featureChromosome = matchedFeature.seqname();
             /* FIXME: Starting positions are shifted by minus one, i.e. the returned values do not match with the ones of
                       the `gff` files. This is currently fixed in the Feature.java class.
             */
             Feature feature;
-            if (asCds || pdbFile != null) {
-                feature = new FeatureCoding(name, featureChromosome, featureCoordinates.getBegin(), featureCoordinates.getEnd(), "coding");
-                if (pdbFile != null) {
-                    try {
-                        ((FeatureCoding) feature).setStructure(pdbFile);
-                    } catch (IOException e) {
-                        throw new MusialException(EXCEPTION_PREFIX + " Failed to parse structure from file " + pdbFile.getAbsolutePath() + " for feature " + feature.name);
-                    }
-                }
+            if (coding) {
+                feature = new FeatureCoding(name, featureChromosome, featureLocation.getBegin(), featureLocation.getEnd(), "coding");
                 ((FeatureCoding) feature).setCodingSequence(
-                        Bio.translateNucSequence(
-                                referenceSequence.getSubsequenceAt(feature.chromosome, feature.start, feature.end).getBaseString(),
+                        SequenceOperations.translateNucSequence(
+                                referenceSequence.getSubsequenceAt(feature.contig, feature.start, feature.end).getBaseString(),
                                 true,
                                 true,
                                 feature.isSense
                         )
                 );
             } else {
-                feature = new Feature(name, featureChromosome, featureCoordinates.getBegin(), featureCoordinates.getEnd(), "non_coding");
+                feature = new Feature(name, featureChromosome, featureLocation.getBegin(), featureLocation.getEnd(), "non_coding");
             }
             for (Map.Entry<String, String> annotation : annotations.entrySet()) {
-                feature.addAnnotation(annotation.getKey(), annotation.getValue());
+                feature.addInfo(annotation.getKey(), annotation.getValue());
             }
             this.features.put(name, feature);
         }

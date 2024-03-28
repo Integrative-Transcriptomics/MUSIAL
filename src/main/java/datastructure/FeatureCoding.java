@@ -1,41 +1,21 @@
 package datastructure;
 
 import exceptions.MusialException;
-import main.Musial;
-import main.MusialConstants;
-import org.apache.commons.io.IOUtils;
-import org.biojava.nbio.structure.Structure;
-import org.biojava.nbio.structure.io.PDBFileReader;
-import utility.Bio;
-import utility.Compression;
+import main.Constants;
+import utility.SequenceOperations;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.NavigableSet;
-import java.util.TreeMap;
-import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.*;
 
 /**
  * Extension of the {@link Feature} class to represent coding features.
  *
  * @author Simon Hackl
- * @version 2.2
+ * @version 2.3
  * @since 2.2
  */
 @SuppressWarnings("unused")
 public class FeatureCoding extends Feature {
 
-    /**
-     * The translated reference DNA sequence of the entry.
-     */
-    private String codingSequence = null;
-    /**
-     * The protein's structure in .pdb format, if this feature is a coding sequence.
-     */
-    private String structure = null;
     /**
      * {@link LinkedHashMap} storing all {@link Form} instances, i.e. proteoforms, associated with this feature.
      */
@@ -47,8 +27,12 @@ public class FeatureCoding extends Feature {
      * Stored positions have to be formatted as X+Y; X is the position on the reference, Y is the possibly
      * inserted position.
      */
-    private final ConcurrentSkipListMap<Integer, ConcurrentSkipListMap<String, VariantAnnotation>> aminoacidVariants =
-            new ConcurrentSkipListMap<>(Integer::compare);
+    private final TreeMap<Integer, LinkedHashMap<String, VariantInformation>> aminoacidVariants =
+            new TreeMap<>(Integer::compare);
+    /**
+     * The translated reference DNA sequence of the entry.
+     */
+    private String codingSequence = null;
 
     /**
      * Constructor of {@link FeatureCoding}.
@@ -67,6 +51,13 @@ public class FeatureCoding extends Feature {
     }
 
     /**
+     * @return {@link FeatureCoding#codingSequence}
+     */
+    public String getCodingSequence() {
+        return this.codingSequence;
+    }
+
+    /**
      * Sets the specified string as the coding sequence of this instance.
      * <br>
      * If the sequence is of nucleotide content, the sequence is translated.
@@ -78,44 +69,10 @@ public class FeatureCoding extends Feature {
         if (sequence.matches("[ARNDCEQGHILKMFPSTWYVX*]+")) {
             this.codingSequence = sequence;
         } else if (sequence.matches("[ACGTN]")) {
-            this.codingSequence = Bio.translateNucSequence(sequence, true, true, this.isSense);
+            this.codingSequence = SequenceOperations.translateNucSequence(sequence, true, true, this.isSense);
         } else {
             throw new MusialException("Specified sequence " + sequence.substring(0, Math.max(sequence.length(), 10)) + "... could not be identified as nucleotide or aminoacid sequence.");
         }
-    }
-
-    /**
-     * @return {@link FeatureCoding#codingSequence}
-     */
-    public String getCodingSequence() {
-        return this.codingSequence;
-    }
-
-    /**
-     * Sets the protein structure from a pdb format file.
-     * <br>
-     * The structure is stored as brotli compressed string.
-     *
-     * @param pdbFile The file object to parse the structure from.
-     * @throws IOException If reading of the pdb file or compression of the string content fails.
-     */
-    public void setStructure(File pdbFile) throws IOException {
-        try {
-            System.setOut(Musial.EMPTY_STREAM);
-            Structure pdbStructure = new PDBFileReader().getStructure(pdbFile);
-            this.structure = Compression.brotliEncodeString(pdbStructure.toPDB());
-        } finally {
-            System.setOut(Musial.ORIGINAL_OUT_STREAM);
-        }
-    }
-
-    /**
-     * @return {@link Structure} re-built from the encoded {@link FeatureCoding#structure}.
-     * @throws IOException If building of the structure or decompression fails.
-     */
-    public Structure getStructure() throws IOException {
-        String pdbString = Compression.brotliDecodeString(this.structure);
-        return new PDBFileReader().getStructure(IOUtils.toInputStream(pdbString, StandardCharsets.UTF_8));
     }
 
     /**
@@ -154,7 +111,12 @@ public class FeatureCoding extends Feature {
      * @return Number of proteoforms.
      */
     public int getProteoformCount() {
-        return this.proteoforms.size();
+        int c = 0;
+        for (String s : this.proteoforms.keySet()) {
+            if (!Objects.equals(s, Constants.REFERENCE_FORM_NAME))
+                c += 1;
+        }
+        return c;
     }
 
     /**
@@ -178,25 +140,35 @@ public class FeatureCoding extends Feature {
      * Adds an aminoacid variant to this {@link FeatureCoding#aminoacidVariants}.
      *
      * @param position The position of the variant.
-     * @param content  The alternative content of the variant.
+     * @param alt      The alternative content of the variant.
+     * @param ref      The reference content of the variant.
      */
-    public void addAminoacidVariant(int position, String content) {
-        if (!this.aminoacidVariants.containsKey(position)) {
-            this.aminoacidVariants.put(position, new ConcurrentSkipListMap<>());
+    public void addAminoacidVariant(int position, String alt, String ref) {
+        this.aminoacidVariants.putIfAbsent(position, new LinkedHashMap<>());
+        this.aminoacidVariants.get(position).putIfAbsent(alt, new VariantInformation(ref));
+        // Determine variant type.
+        StringBuilder typeBuilder = new StringBuilder();
+        if (alt.contains(Constants.DELETION_OR_GAP_STRING))
+            typeBuilder.append(Constants.TYPE_AMBIGUOUS_PREFIX);
+        if (alt.length() == 1)
+            typeBuilder.append(Constants.TYPE_SUBSTITUTION);
+        else {
+            if (ref.contains(Constants.DELETION_OR_GAP_STRING))
+                typeBuilder.append(Constants.TYPE_INSERTION);
+            else
+                typeBuilder.append(Constants.TYPE_DELETION);
         }
-        if (!this.aminoacidVariants.get(position).containsKey(content)) {
-            this.aminoacidVariants.get(position).put(content, new VariantAnnotation());
-        }
+        this.aminoacidVariants.get(position).get(alt).addInfo(Constants.TYPE, typeBuilder.toString());
     }
 
     /**
-     * Returns the {@link VariantAnnotation} stored at this instances {@link FeatureCoding#aminoacidVariants} at position and content.
+     * Returns the {@link VariantInformation} stored at this instances {@link FeatureCoding#aminoacidVariants} at position and content.
      *
      * @param position The position of the variant annotation to access.
      * @param content  The alternative content of the variant annotation to access.
-     * @return {@link VariantAnnotation} object.
+     * @return {@link VariantInformation} object.
      */
-    public VariantAnnotation getAminoacidVariantAnnotation(int position, String content) {
+    public VariantInformation getAminoacidVariant(int position, String content) {
         if (this.aminoacidVariants.containsKey(position)) {
             return this.aminoacidVariants.get(position).get(content);
         } else {
@@ -205,35 +177,13 @@ public class FeatureCoding extends Feature {
     }
 
     /**
-     * Returns all {@link VariantAnnotation}s stored at this instances {@link FeatureCoding#aminoacidVariants} at position.
+     * Returns all {@link VariantInformation}s stored at this instances {@link FeatureCoding#aminoacidVariants} at position.
      *
      * @param position The position of the variant annotations to access.
-     * @return A map of alternative contents to {@link VariantAnnotation}s.
+     * @return A map of alternative contents to {@link VariantInformation}s.
      */
-    public ConcurrentSkipListMap<String, VariantAnnotation> getAminoacidVariants(int position) {
+    public LinkedHashMap<String, VariantInformation> getAminoacidVariantsAt(int position) {
         return this.aminoacidVariants.getOrDefault(position, null);
-    }
-
-    /**
-     * Returns a map representation of all variants of a single proteoform of this {@link FeatureCoding}.
-     *
-     * @param proteoformName The name of the proteoform.
-     * @return Map of variable positions to alternative base contents.
-     * @throws IOException If decoding of the internal variant representation fails.
-     */
-    public TreeMap<Integer, String> getAminoacidVariants(String proteoformName) throws IOException {
-        TreeMap<Integer, String> aminoacidVariants = new TreeMap<>();
-        if (this.proteoforms.get(proteoformName).hasAnnotation(MusialConstants.PROTEOFORM_DIFFERENTIAL_SEQUENCE)) {
-            return null; // FIXME
-        }
-        if (!proteoformName.equals(MusialConstants.REFERENCE_ID)) {
-            String[] variantFields;
-            for (String variant : Compression.brotliDecodeString(this.proteoforms.get(proteoformName).getAnnotation(MusialConstants.VARIANTS)).split(MusialConstants.FIELD_SEPARATOR_2)) {
-                variantFields = variant.split(MusialConstants.FIELD_SEPARATOR_1);
-                aminoacidVariants.put(Integer.valueOf(variantFields[0]), variantFields[1]);
-            }
-        }
-        return aminoacidVariants;
     }
 
     /**
@@ -242,7 +192,6 @@ public class FeatureCoding extends Feature {
      * @return A navigable sorted map of positions at which a variant occurs in any proteoform of this {@link FeatureCoding}.
      */
     public NavigableSet<Integer> getAminoacidVariantPositions() {
-        return this.aminoacidVariants.keySet();
+        return this.aminoacidVariants.navigableKeySet();
     }
-
 }

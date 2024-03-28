@@ -11,7 +11,7 @@ import java.util.Date;
  * Comprises static methods used for CL logging.
  *
  * @author Simon Hackl
- * @version 2.2
+ * @version 2.3
  * @since 2.0
  */
 public final class Logger {

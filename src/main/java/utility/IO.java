@@ -2,7 +2,6 @@ package utility;
 
 import com.aayushatharva.brotli4j.Brotli4jLoader;
 import com.aayushatharva.brotli4j.encoder.Encoder;
-import com.google.common.base.Splitter;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.typeadapters.RuntimeTypeAdapterFactory;
@@ -10,20 +9,13 @@ import datastructure.Feature;
 import datastructure.FeatureCoding;
 import datastructure.MusialStorage;
 import exceptions.MusialException;
-import htsjdk.samtools.util.Tuple;
-import main.Musial;
 import org.apache.commons.io.FileUtils;
-import org.biojava.nbio.structure.Chain;
-import org.biojava.nbio.structure.Structure;
-import org.biojava.nbio.structure.io.PDBFileReader;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Scanner;
 import java.util.function.Function;
 
@@ -31,7 +23,7 @@ import java.util.function.Function;
  * This class comprises static methods used for reading and writing files.
  *
  * @author Simon Hackl
- * @version 2.2
+ * @version 2.3
  * @since 2.0
  */
 @SuppressWarnings("unused")
@@ -69,7 +61,7 @@ public final class IO {
      * @return {@link MusialStorage} instance.
      * @throws IOException If any error occurs while parsing the variants dictionary JSON file.
      */
-    public static MusialStorage loadMusialDump(File dumpFile) throws IOException {
+    public static MusialStorage loadMusialDump(File dumpFile) throws IOException, MusialException {
         Function<BufferedReader, MusialStorage> loadDumpFromBufferedReader = reader -> {
             RuntimeTypeAdapterFactory<Feature> adapterFactory =
                     RuntimeTypeAdapterFactory
@@ -87,7 +79,7 @@ public final class IO {
             ) {
                 return loadDumpFromBufferedReader.apply(bufferedReader);
             }
-        } else {
+        } else if (dumpFile.getAbsolutePath().endsWith(".json")) {
             // Case: Dump file is not compressed.
             try (
                     BufferedReader bufferedReader = new BufferedReader(
@@ -96,6 +88,8 @@ public final class IO {
             ) {
                 return loadDumpFromBufferedReader.apply(bufferedReader);
             }
+        } else {
+            throw new MusialException("Unable to load MUSIAL storage from file " + dumpFile.getAbsolutePath() + " (unknown file extension).");
         }
     }
 
@@ -139,89 +133,6 @@ public final class IO {
     }
 
     /**
-     * Copies the file pointed to with file to the file pointed to with target.
-     *
-     * @param file   {@link File} object, the source file.
-     * @param target {@link File} object, the target file.
-     * @throws MusialException If the copy procedure fails.
-     */
-    @SuppressWarnings("unused")
-    public static void copyFile(File file, File target) throws MusialException {
-        try {
-            Files.copy(file.getAbsoluteFile().toPath(), target.getAbsoluteFile().toPath());
-        } catch (IOException e) {
-            throw new MusialException(
-                    "(I/O) Failed to copy file " + file.getAbsolutePath() + " to target " + target.getAbsolutePath());
-        }
-    }
-
-    /**
-     * Returns the chains sequences from a {@link Structure} instance parsed from a .pdb file.
-     *
-     * @param structure {@link Structure} instance to extract the chains sequences from.
-     * @return {@link HashMap} storing the .pdb files amino-acid sequences per chain.
-     */
-    public static HashMap<String, String> getSequencesFromPdbStructure(Structure structure) {
-        // Initialize results list.
-        HashMap<String, String> pdbChainsSequences = new HashMap<>();
-        // Parse nucleotide information from chains.
-        List<Chain> chains = structure.getChains();
-        for (Chain chain : chains) {
-            // Skip chains representing membrane.
-            if (chain.getName().equals("x")) {
-                continue;
-            }
-            pdbChainsSequences.put(chain.getName(), chain.getAtomSequence());
-        }
-        return pdbChainsSequences;
-    }
-
-    /**
-     * Parses a {@link Structure} instance from a {@link File} pointing to a pdb file.
-     *
-     * @param pdbFile {@link File} instance pointing to a pdb file.
-     * @return {@link Structure} object parsed from specified pdb file.
-     * @throws IOException If any error occurs while parsing the pdb file.
-     */
-    public static Structure readStructure(File pdbFile) throws IOException {
-        try {
-            System.setErr(Musial.EMPTY_STREAM);
-            Structure pdbStructure = new PDBFileReader().getStructure(pdbFile);
-            System.setErr(Musial.ORIGINAL_ERR_STREAM);
-            return pdbStructure;
-        } finally {
-            System.setErr(Musial.ORIGINAL_ERR_STREAM);
-        }
-    }
-
-    /**
-     * // TODO: Fix comment.
-     * Writes a fasta format file to the specified output file from a {@link HashMap} instance mapping sequences to
-     * lists of identifiers (used to construct the fasta entry headers).
-     * <p>
-     * Each key of the passed map will be used to build one fasta entry. The header of the respective entry is
-     * constructed by joining all {@link String}s of the value accessible via the (sequence) key with the `|` delimiter.
-     *
-     * @param outputFile {@link File} object pointing to the output fasta file.
-     * @param sequences  {@link HashMap} mapping sequences to {@link ArrayList} of strings.
-     */
-    public static void writeFasta(File outputFile, ArrayList<Tuple<String, String>> sequences) {
-        try {
-            FileWriter writer = new FileWriter(outputFile);
-            for (Tuple<String, String> sequence : sequences) {
-                writer.write(sequence.a + "\n");
-                for (String l : Splitter.fixedLength(80).split(sequence.b)) {
-                    writer.write(l + IO.LINE_SEPARATOR);
-                }
-                writer.flush();
-            }
-            writer.close();
-        } catch (IOException e) {
-            Logger.logWarning("Failed to write `FASTA` format file to " + outputFile.getAbsolutePath());
-        }
-    }
-
-    /**
      * Function to write a generic file with any line content.
      *
      * @param outputFile  {@link File} object pointing to the output file.
@@ -241,7 +152,7 @@ public final class IO {
     }
 
     /**
-     * Compress a target file using brotli.
+     * DEPRECATED Compress a target file using brotli.
      *
      * @param target {@link File} target to compress.
      */

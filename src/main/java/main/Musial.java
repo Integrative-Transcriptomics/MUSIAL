@@ -11,27 +11,19 @@ import htsjdk.samtools.SAMException;
 import htsjdk.samtools.reference.FastaSequenceIndexCreator;
 import htsjdk.samtools.reference.IndexedFastaSequenceFile;
 import org.apache.commons.cli.CommandLine;
-import org.apache.commons.lang3.function.TriFunction;
+import org.apache.commons.compress.utils.Lists;
+import org.apache.commons.lang3.SerializationUtils;
 import org.apache.logging.log4j.util.TriConsumer;
-import runnables.AlleleAnalyzer;
-import runnables.SampleAnalyzer;
-import runnables.SnpEffAnnotator;
-import utility.Bio;
-import utility.IO;
-import utility.Logger;
-import utility.MusialStorageFactory;
+import utility.*;
 
 import java.io.*;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.*;
-import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Main class of MUSIAL (MUlti Sample varIant AnaLysis), a tool to calculate SNV, gene, and whole genome alignments,
@@ -39,12 +31,31 @@ import java.util.stream.Collectors;
  *
  * @author Alexander Seitz
  * @author Simon Hackl
- * @version 2.2
+ * @version 2.3
  * @since 1.0
  */
 @SuppressWarnings("DuplicatedCode")
 public final class Musial {
 
+    /**
+     * Original system output stream.
+     */
+    public static final PrintStream ORIGINAL_OUT_STREAM = System.out;
+    /**
+     * Alternative output stream to ignore logging.
+     */
+    public static final PrintStream EMPTY_STREAM = new PrintStream(new OutputStream() {
+        public void write(int b) {
+        }
+    });
+    /**
+     * Project wide formatter to convert decimal numbers to strings.
+     */
+    public static final DecimalFormat DECIMAL_FORMATTER = new DecimalFormat("#.####", DecimalFormatSymbols.getInstance(Locale.US));
+    /**
+     * Whether to compress output. This can not be set by the user and is for debugging purposes only.
+     */
+    private static final boolean COMPRESS = true;
     /**
      * {@link String} representing the name of the software; parsed from `/src/main/resources/info.properties`.
      */
@@ -65,33 +76,6 @@ public final class Musial {
      * Specifies the task to execute.
      */
     public static String TASK = null;
-    /**
-     * Original system output stream.
-     */
-    public static final PrintStream ORIGINAL_OUT_STREAM = System.out;
-    /**
-     * Original system error stream.
-     */
-    public static final PrintStream ORIGINAL_ERR_STREAM = System.err;
-    /**
-     * Alternative output stream to ignore logging.
-     */
-    public static final PrintStream EMPTY_STREAM = new PrintStream(new OutputStream() {
-        public void write(int b) {
-        }
-    });
-    /**
-     * The number of threads to use.
-     */
-    public static int THREADS = 1;
-    /**
-     * Whether to compress output.
-     */
-    private static boolean COMPRESS = false;
-    /**
-     * Project wide formatter to convert decimal numbers to strings.
-     */
-    public static final DecimalFormat DECIMAL_FORMATTER = new DecimalFormat("#.####", DecimalFormatSymbols.getInstance(Locale.US));
     /**
      * Program wide accessor to command line interface parser.
      */
@@ -123,26 +107,24 @@ public final class Musial {
             } else {
                 TASK = args[0];
                 CLI_PARSER = new CLIParser(args);
-                if (Musial.TASK.equalsIgnoreCase(MusialTasks.BUILD.name())) {
+                if (Musial.TASK.equalsIgnoreCase(Tasks.BUILD.name())) {
                     // Logger logger = LoggerFactory.getLogger(GFF3Reader.class);
                     Logger.logStatus("Execute task `build`");
-                    if (CLI_PARSER.arguments.hasOption("t")) THREADS = Integer.parseInt(CLI_PARSER.arguments.getOptionValue("t"));
-                    COMPRESS = CLI_PARSER.arguments.hasOption("k");
                     BuildConfiguration buildConfiguration = new BuildConfiguration(CLI_PARSER.buildConfiguration);
                     build(buildConfiguration);
-                } else if (Musial.TASK.equalsIgnoreCase(MusialTasks.VIEW_FEATURES.name())) {
+                } else if (Musial.TASK.equalsIgnoreCase(Tasks.VIEW_FEATURES.name())) {
                     Logger.logStatus("Execute task `view_features`");
                     viewFeatures(CLI_PARSER.arguments);
-                } else if (Musial.TASK.equalsIgnoreCase(MusialTasks.VIEW_SAMPLES.name())) {
+                } else if (Musial.TASK.equalsIgnoreCase(Tasks.VIEW_SAMPLES.name())) {
                     Logger.logStatus("Execute task `view_samples`");
                     viewSamples(CLI_PARSER.arguments);
-                } else if (Musial.TASK.equalsIgnoreCase(MusialTasks.VIEW_VARIANTS.name())) {
+                } else if (Musial.TASK.equalsIgnoreCase(Tasks.VIEW_VARIANTS.name())) {
                     Logger.logStatus("Execute task `view_variants`");
                     viewVariants(CLI_PARSER.arguments);
-                } else if (Musial.TASK.equalsIgnoreCase(MusialTasks.EXPORT_TABLE.name())) {
+                } else if (Musial.TASK.equalsIgnoreCase(Tasks.EXPORT_TABLE.name())) {
                     Logger.logStatus("Execute task `export_table`");
                     exportTable(CLI_PARSER.arguments);
-                } else if (Musial.TASK.equalsIgnoreCase(MusialTasks.EXPORT_SEQUENCE.name())) {
+                } else if (Musial.TASK.equalsIgnoreCase(Tasks.EXPORT_SEQUENCE.name())) {
                     Logger.logStatus("Execute task `export_sequence`");
                     exportSequence(CLI_PARSER.arguments);
                 } else {
@@ -155,7 +137,7 @@ public final class Musial {
             System.exit(-1);
         } finally {
             END_TIME = System.currentTimeMillis();
-            // Logger.logStatus("Total execution time: " + ((END_TIME - START_TIME) / 1000));
+            Logger.logStatus("Execution time: " + ((END_TIME - START_TIME) / 1000));
         }
     }
 
@@ -180,37 +162,30 @@ public final class Musial {
      * Generates a new or updates an existing MUSIAL storage JSON file based on the specifications parsed from a build configuration JSON file.
      *
      * @param parameters {@link BuildConfiguration} instance yielding parameter specification for the MUSIAL build task.
-     * @throws InterruptedException Thrown if any {@link Runnable} implementing class instance is interrupted by the user.
-     * @throws IOException          Thrown if any input or output file is missing or unable to being generated (caused by any native Java method).
-     * @throws MusialException      If any method fails wrt. biological context, i.e. parsing of unknown symbols; If any method fails wrt. internal logic, i.e. assignment of proteins to genomes; If any input or output file is missing or unable to being generated.
+     * @throws IOException     Thrown if any input or output file is missing or unable to being generated (caused by any native Java method).
+     * @throws MusialException If any method fails wrt. biological context, i.e. parsing of unknown symbols; If any method fails wrt. internal logic, i.e. assignment of proteins to genomes; If any input or output file is missing or unable to being generated.
      */
-    private static void build(BuildConfiguration parameters) throws InterruptedException, MusialException, IOException {
+    private static void build(BuildConfiguration parameters) throws MusialException, IOException {
         // Build new feature variants object.
         MusialStorage musialStorage = MusialStorageFactory.build(parameters);
-
-        // Add feature information.
-        for (Feature feature : parameters.features.values()) {
-            musialStorage.addFeature(feature);
-        }
+        Iterator<String> iterator;
 
         // Collect information about sample variants.
         Logger.logStatus("Process variant calls");
-        ExecutorService executor = Executors.newFixedThreadPool(Musial.THREADS);
-        for (Sample sample : parameters.samples.values()) {
+        iterator = musialStorage.getSampleNameIterator();
+        Sample sample;
+        do {
+            sample = musialStorage.getSample(iterator.next());
             sample.imputeVcfFileReader();
-            musialStorage.addSample(sample);
-            executor.execute(new SampleAnalyzer(sample, musialStorage.getFeatureNameIterator(), musialStorage));
-        }
-        executor.shutdown();
-        //noinspection ResultOfMethodCallIgnored
-        executor.awaitTermination(30, TimeUnit.MINUTES);
+            SampleAnalyzer.run(sample, musialStorage.getFeatureNameIterator(), musialStorage);
+        } while (iterator.hasNext());
         System.gc();
 
         // Run SnpEff annotation of variants.
-        Logger.logStatus("Annotate variant calls with SnpEff");
+        Logger.logStatus("Annotate variants with SnpEff");
         SnpEffAnnotator snpEffAnnotator = new SnpEffAnnotator(
-                new File("./temp/"),
-                new File("./temp/variants.vcf"),
+                new File("./tmp/"),
+                new File("./tmp/variants.vcf"),
                 parameters.referenceSequenceFile,
                 parameters.referenceFeaturesFile,
                 musialStorage
@@ -218,318 +193,25 @@ public final class Musial {
         snpEffAnnotator.run();
         System.gc();
 
-
         // Infer coding feature variant/proteoform information; For all coding features.
         Logger.logStatus("Infer proteoforms");
-        Iterator<String> featureNameIterator = musialStorage.getFeatureNameIterator();
-        String featureName;
+        iterator = musialStorage.getFeatureNameIterator();
         Feature feature;
         FeatureCoding featureCoding;
-        while (featureNameIterator.hasNext()) {
-            featureName = featureNameIterator.next();
-            feature = musialStorage.getFeature(featureName);
+        do {
+            feature = musialStorage.getFeature(iterator.next());
             if (feature instanceof FeatureCoding) {
                 featureCoding = (FeatureCoding) feature;
-                executor = Executors.newFixedThreadPool(Musial.THREADS);
-                Iterator<String> alleleNameIterator = featureCoding.getAlleleNameIterator();
-                while (alleleNameIterator.hasNext()) {
-                    executor.execute(new AlleleAnalyzer(featureCoding, featureCoding.getAllele(alleleNameIterator.next()), musialStorage));
-                }
-                executor.shutdown();
-                //noinspection ResultOfMethodCallIgnored
-                executor.awaitTermination(30, TimeUnit.MINUTES);
+                AlleleAnalyzer.run(featureCoding, musialStorage);
             }
-        }
+        } while (iterator.hasNext());
         System.gc();
 
-        // Compute statistics for annotation.
-        Logger.logStatus("Gather statistics");
-        float noSamples = musialStorage.getNumberOfSamples();
-        float featureSequenceLength;
-        long noOccurrences;
-        featureNameIterator = musialStorage.getFeatureNameIterator();
-        int noSubstitutions;
-        int noInsertions;
-        int noDeletions;
-        VariantAnnotation variantAnnotation;
-        String propertyValue;
-        while (featureNameIterator.hasNext()) {
-            // Feature level statistics.
-            featureName = featureNameIterator.next();
-            feature = musialStorage.getFeature(featureName);
-            featureSequenceLength = Math.abs((feature.end - feature.start) + 1);
-            noSubstitutions = 0;
-            noInsertions = 0;
-            noDeletions = 0;
-            for (Integer variantPosition : feature.getNucleotideVariantPositions()) {
-                for (Map.Entry<String, VariantAnnotation> variantEntry : feature.getNucleotideVariants(variantPosition).entrySet()) {
-                    variantAnnotation = variantEntry.getValue();
-                    noOccurrences = variantAnnotation.getPropertyKeys().stream().filter(s -> s.contains(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX)).count();
-                    variantEntry.getValue().addProperty(
-                            MusialConstants.FREQUENCY,
-                            DECIMAL_FORMATTER.format((noOccurrences / noSamples) * 100)
-                    );
-
-                    for (String propertyKey : variantAnnotation.getPropertyKeys()) {
-                        if (propertyKey.startsWith(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX)) {
-                            propertyValue = variantAnnotation.getProperty(propertyKey);
-                            if (propertyValue.split(MusialConstants.FIELD_SEPARATOR_1)[1].equals("true")) noOccurrences -= 1;
-                        }
-                    }
-                    variantEntry.getValue().addProperty(
-                            MusialConstants.FREQUENCY_PASS,
-                            DECIMAL_FORMATTER.format((noOccurrences / noSamples) * 100)
-                    );
-                    if (variantEntry.getKey().contains("-") || variantEntry.getValue().getProperty(MusialConstants.REFERENCE_CONTENT).contains("-")) {
-                        noDeletions += variantEntry.getKey().chars().filter(c -> c == '-').count();
-                        noInsertions += variantEntry.getKey().length() - 1 - variantEntry.getKey().chars().filter(c -> c == '-').count();
-                    } else {
-                        noSubstitutions += variantEntry.getKey().length();
-                    }
-                }
-            }
-            feature.addAnnotation(MusialConstants.NUMBER_SUBSTITUTIONS, String.valueOf(noSubstitutions));
-            feature.addAnnotation(MusialConstants.NUMBER_INSERTIONS, String.valueOf(noInsertions));
-            feature.addAnnotation(MusialConstants.NUMBER_DELETIONS, String.valueOf(noDeletions));
-            feature.addAnnotation(MusialConstants.VARIABLE_POSITIONS, DECIMAL_FORMATTER.format(
-                    ((noSubstitutions + noInsertions + noDeletions) / featureSequenceLength) * 100
-            ));
-            Iterator<String> formNameIterator = feature.getAlleleNameIterator();
-            String formName;
-            Form form;
-            while (formNameIterator.hasNext()) {
-                // Allele level statistics.
-                formName = formNameIterator.next();
-                form = feature.getAllele(formName);
-                noSubstitutions = 0;
-                noInsertions = 0;
-                noDeletions = 0;
-                form.addAnnotation(
-                        MusialConstants.FREQUENCY,
-                        DECIMAL_FORMATTER.format((form.getOccurrence().size() / noSamples) * 100)
-                );
-                try {
-                    for (Map.Entry<Integer, String> variantEntry : feature.getNucleotideVariants(formName).entrySet()) {
-                        if (variantEntry.getValue().contains("-") || feature.getNucleotideVariantAnnotation(variantEntry.getKey(), variantEntry.getValue()).getProperty(MusialConstants.REFERENCE_CONTENT).contains("-")) {
-                            noDeletions += variantEntry.getValue().chars().filter(c -> c == '-').count();
-                            noInsertions += variantEntry.getValue().length() - 1 - variantEntry.getValue().chars().filter(c -> c == '-').count();
-                        } else {
-                            noSubstitutions += variantEntry.getValue().length();
-                        }
-                    }
-                } catch (NullPointerException e) {
-                    e.printStackTrace();
-                    System.exit(1);
-                }
-                form.addAnnotation(MusialConstants.NUMBER_SUBSTITUTIONS, String.valueOf(noSubstitutions));
-                form.addAnnotation(MusialConstants.NUMBER_INSERTIONS, String.valueOf(noInsertions));
-                form.addAnnotation(MusialConstants.NUMBER_DELETIONS, String.valueOf(noDeletions));
-                form.addAnnotation(MusialConstants.VARIABLE_POSITIONS, DECIMAL_FORMATTER.format(
-                        ((noSubstitutions + noInsertions + noDeletions) / featureSequenceLength) * 100
-                ));
-            }
-            if (feature.isCoding()) {
-                featureCoding = (FeatureCoding) feature;
-                formNameIterator = featureCoding.getProteoformNameIterator();
-                while (formNameIterator.hasNext()) {
-                    // Proteoform level statistics.
-                    formName = formNameIterator.next();
-                    form = featureCoding.getProteoform(formName);
-                    noOccurrences = 0;
-                    noSubstitutions = 0;
-                    noInsertions = 0;
-                    noDeletions = 0;
-                    for (String alleleName : form.getOccurrence()) {
-                        noOccurrences += featureCoding.getAllele(alleleName).getOccurrence().size();
-                    }
-                    form.addAnnotation(
-                            MusialConstants.FREQUENCY,
-                            DECIMAL_FORMATTER.format((noOccurrences / noSamples) * 100)
-                    );
-                    for (Map.Entry<Integer, String> variantEntry : featureCoding.getAminoacidVariants(formName).entrySet()) {
-                        if (variantEntry.getValue().contains("-") || featureCoding.getAminoacidVariantAnnotation(variantEntry.getKey(), variantEntry.getValue()).getProperty(MusialConstants.REFERENCE_CONTENT).contains("-")) {
-                            noDeletions += variantEntry.getValue().chars().filter(c -> c == '-').count();
-                            noInsertions += variantEntry.getValue().length() - 1 - variantEntry.getValue().chars().filter(c -> c == '-').count();
-                        } else {
-                            noSubstitutions += variantEntry.getValue().length();
-                        }
-                    }
-                    form.addAnnotation(MusialConstants.NUMBER_SUBSTITUTIONS, String.valueOf(noSubstitutions));
-                    form.addAnnotation(MusialConstants.NUMBER_INSERTIONS, String.valueOf(noInsertions));
-                    form.addAnnotation(MusialConstants.NUMBER_DELETIONS, String.valueOf(noDeletions));
-                    form.addAnnotation(MusialConstants.VARIABLE_POSITIONS, DECIMAL_FORMATTER.format(
-                            ((noSubstitutions + noInsertions + noDeletions) / ((float) featureCoding.getCodingSequence().length())) * 100
-                    ));
-                }
-                // Variant level statistics.
-                for (Integer variantPosition : featureCoding.getAminoacidVariantPositions()) {
-                    for (Map.Entry<String, VariantAnnotation> variantEntry : featureCoding.getAminoacidVariants(variantPosition).entrySet()) {
-                        variantAnnotation = variantEntry.getValue();
-                        noOccurrences = variantAnnotation.getPropertyKeys().stream().filter(s -> s.contains(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX)).count();
-                        variantEntry.getValue().addProperty(
-                                MusialConstants.FREQUENCY,
-                                DECIMAL_FORMATTER.format((noOccurrences / noSamples) * 100)
-                        );
-                    }
-                }
-            }
-        }
-
-        // Sample level statistics.
-        Iterator<String> sampleNameIterator = musialStorage.getSampleNameIterator();
-        Sample sample;
-        while (sampleNameIterator.hasNext()) {
-            sample = musialStorage.getSample(sampleNameIterator.next());
-            noSubstitutions = 0;
-            noInsertions = 0;
-            noDeletions = 0;
-            featureNameIterator = musialStorage.getFeatureNameIterator();
-            String alleleName;
-            while (featureNameIterator.hasNext()) {
-                feature = musialStorage.getFeature(featureNameIterator.next());
-                alleleName = sample.getAnnotation(MusialConstants.SAMPLE_ANNOTATION_ALLELE_PREFIX + feature.name);
-                noSubstitutions += Integer.parseInt(feature.getAllele(alleleName).getAnnotation(MusialConstants.NUMBER_SUBSTITUTIONS));
-                noInsertions += Integer.parseInt(feature.getAllele(alleleName).getAnnotation(MusialConstants.NUMBER_INSERTIONS));
-                noDeletions += Integer.parseInt(feature.getAllele(alleleName).getAnnotation(MusialConstants.NUMBER_DELETIONS));
-            }
-            sample.addAnnotation(MusialConstants.NUMBER_SUBSTITUTIONS, String.valueOf(noSubstitutions));
-            sample.addAnnotation(MusialConstants.NUMBER_INSERTIONS, String.valueOf(noInsertions));
-            sample.addAnnotation(MusialConstants.NUMBER_DELETIONS, String.valueOf(noDeletions));
-        }
-        System.gc();
+        // Update info statistics.
+        updateStatistics(musialStorage);
 
         // Write updated storage to file.
-        Logger.logStatus("Dump to file `" + parameters.output.getAbsolutePath() + "`");
-        String outputPath = parameters.output.getAbsolutePath();
-        File outputFile = new File(outputPath);
-        if (!outputFile.exists()) {
-            IO.generateFile(outputFile);
-        }
-        musialStorage.dump(outputFile, COMPRESS);
-    }
-
-    /**
-     * Views all features of an existing MUSIAL storage as tsv formatted table.
-     *
-     * @param parameters {@link CommandLine} instance yielding parameter specification for the MUSIAL view_features task.
-     * @throws IOException     If reading of the input MUSIAL storage fails.
-     * @throws MusialException If printing the output fails.
-     */
-    private static void viewFeatures(CommandLine parameters) throws IOException, MusialException {
-        // Parse feature variants object.
-        MusialStorage musialStorage = MusialStorageFactory.load(new File(parameters.getOptionValue("I")));
-
-        // Remove all features that should not be viewed.
-        HashSet<String> featuresToView;
-        if (parameters.getOptionValues("f") == null) {
-            featuresToView = new HashSet<>(Sets.newHashSet(musialStorage.getFeatureNameIterator()));
-        } else {
-            featuresToView = (HashSet<String>) Arrays.stream(parameters.getOptionValues("f")).collect(Collectors.toSet());
-        }
-
-        // Collect feature information.
-        Iterator<String> featureNameIterator = musialStorage.getFeatureNameIterator();
-        LinkedHashMap<String, ArrayList<String>> outputMap = new LinkedHashMap<>() {{
-            put("name", new ArrayList<>(featuresToView.size()));
-            put("chromosome", new ArrayList<>(featuresToView.size()));
-            put("start", new ArrayList<>(featuresToView.size()));
-            put("end", new ArrayList<>(featuresToView.size()));
-            put("strand", new ArrayList<>(featuresToView.size()));
-            put("number_of_alleles", new ArrayList<>(featuresToView.size()));
-            put("number_of_proteoforms", new ArrayList<>(featuresToView.size()));
-        }};
-        Feature feature;
-        int featureIndex = 0;
-        while (featureNameIterator.hasNext()) {
-            feature = musialStorage.getFeature(featureNameIterator.next());
-            if (!featuresToView.contains(feature.name))
-                continue;
-            outputMap.get("name").add(feature.name);
-            outputMap.get("chromosome").add(feature.chromosome);
-            outputMap.get("start").add(String.valueOf(feature.start));
-            outputMap.get("end").add(String.valueOf(feature.end));
-            outputMap.get("strand").add(feature.isSense ? "+" : "-");
-            outputMap.get("number_of_alleles").add(String.valueOf(feature.getAlleleCount()));
-            outputMap.get("number_of_proteoforms").add(feature.isCoding() ? String.valueOf(((FeatureCoding) feature).getProteoformCount()) : "null");
-            HashSet<String> featureAnnotationKeys = new HashSet<>() {{
-                add("name");
-                add("chromosome");
-                add("start");
-                add("end");
-                add("strand");
-                add("number_of_alleles");
-                add("number_of_proteoforms");
-            }};
-            for (Map.Entry<String, String> annotation : feature.getAnnotations()) {
-                String annotationKey = annotation.getKey();
-                transferAnnotation(outputMap, featureIndex, featureAnnotationKeys, annotationKey, annotation.getValue());
-            }
-            for (String globalAnnotationKey : outputMap.keySet()) {
-                if (!featureAnnotationKeys.contains(globalAnnotationKey)) {
-                    outputMap.get(globalAnnotationKey).add("null");
-                }
-            }
-            featureIndex += 1;
-        }
-
-        // Construct and output string content from collected information
-        outputView(outputMap, featureIndex, parameters.hasOption("o") ? parameters.getOptionValue("o") : null);
-    }
-
-    /**
-     * Views all samples of an existing MUSIAL storage as tsv formatted table.
-     *
-     * @param parameters {@link CommandLine} instance yielding parameter specification for the MUSIAL view_samples task.
-     * @throws IOException     If reading of the input MUSIAL storage fails.
-     * @throws MusialException If printing the output fails.
-     */
-    private static void viewSamples(CommandLine parameters) throws IOException, MusialException {
-        // Parse feature variants object.
-        MusialStorage musialStorage = MusialStorageFactory.load(new File(parameters.getOptionValue("I")));
-
-        // Remove all samples that should not be viewed.
-        HashSet<String> samplesToView;
-        if (parameters.getOptionValues("s") == null) {
-            samplesToView = new HashSet<>(Sets.newHashSet(musialStorage.getSampleNameIterator()));
-        } else {
-            samplesToView = (HashSet<String>) Arrays.stream(parameters.getOptionValues("s")).collect(Collectors.toSet());
-        }
-
-        // Collect sample information.
-        Iterator<String> sampleNameIterator = musialStorage.getSampleNameIterator();
-        LinkedHashMap<String, ArrayList<String>> outputMap = new LinkedHashMap<>() {{
-            put("name", new ArrayList<>(samplesToView.size()));
-            put(MusialConstants.NUMBER_SUBSTITUTIONS, new ArrayList<>(samplesToView.size()));
-            put(MusialConstants.NUMBER_INSERTIONS, new ArrayList<>(samplesToView.size()));
-            put(MusialConstants.NUMBER_DELETIONS, new ArrayList<>(samplesToView.size()));
-        }};
-        Sample sample;
-        int sampleIndex = 0;
-        while (sampleNameIterator.hasNext()) {
-            sample = musialStorage.getSample(sampleNameIterator.next());
-            if (!(samplesToView.contains(sample.name)))
-                continue;
-            outputMap.get("name").add(sample.name);
-            // outputMap.get("count.substitutions").add(String.valueOf(sample.getAnnotation(MusialConstants.NUMBER_SUBSTITUTIONS)));
-            // outputMap.get("count.insertions").add(String.valueOf(sample.getAnnotation(MusialConstants.NUMBER_INSERTIONS)));
-            // outputMap.get("count.deletions").add(String.valueOf(sample.getAnnotation(MusialConstants.NUMBER_DELETIONS)));
-            HashSet<String> sampleAnnotationKeys = new HashSet<>() {{
-                add("name");
-            }};
-            for (Map.Entry<String, String> annotation : sample.getAnnotations()) {
-                String annotationKey = annotation.getKey();
-                transferAnnotation(outputMap, sampleIndex, sampleAnnotationKeys, annotationKey, annotation.getValue());
-            }
-            for (String globalAnnotationKey : outputMap.keySet()) {
-                if (!sampleAnnotationKeys.contains(globalAnnotationKey)) {
-                    outputMap.get(globalAnnotationKey).add("null");
-                }
-            }
-            sampleIndex += 1;
-        }
-
-        // Construct and output string content from collected information
-        outputView(outputMap, sampleIndex, parameters.hasOption("o") ? parameters.getOptionValue("o") : null);
+        musialStorage.dump(parameters.output.getAbsolutePath(), COMPRESS);
     }
 
     /**
@@ -540,156 +222,635 @@ public final class Musial {
      * @throws MusialException If printing the output fails.
      */
     private static void viewVariants(CommandLine parameters) throws IOException, MusialException {
-        // Parse feature variants object.
+        // Load MUSIAL storage and parameters.
         MusialStorage musialStorage = MusialStorageFactory.load(new File(parameters.getOptionValue("I")));
+        Feature feature;
+        VariantInformation variantInformation;
+        String value;
+        String variantContent;
+        String contentType = parameters.hasOption("c") ? parameters.getOptionValue("c") : Constants.CONTENT_MODE_NUCLEOTIDE;
+        int variantsCount;
+        int rowCount = 0;
+        HashSet<String> featureNames;
+        HashSet<String> sampleNames;
+        HashSet<String> naNames;
+        //noinspection MismatchedQueryAndUpdateOfCollection
+        LinkedHashSet<String> defaultKeys;
+        Iterator<String> featureNameIterator;
+        NavigableSet<Integer> variantPositions;
+        LinkedHashMap<String, VariantInformation> variants;
+        LinkedHashMap<String, ArrayList<String>> outputContainer;
 
-        // Remove all features that should not be viewed.
-        HashSet<String> featuresToView;
+        // Parse features to view.
         if (parameters.getOptionValues("f") == null) {
-            featuresToView = new HashSet<>(Sets.newHashSet(musialStorage.getFeatureNameIterator()));
+            featureNames = new HashSet<>(Sets.newHashSet(musialStorage.getFeatureNameIterator()));
         } else {
-            featuresToView = (HashSet<String>) Arrays.stream(parameters.getOptionValues("f")).collect(Collectors.toSet());
+            featureNames = (HashSet<String>) Arrays.stream(parameters.getOptionValues("f")).collect(Collectors.toSet());
         }
+        naNames = new HashSet<>();
+        for (String featureName : featureNames) {
+            if (!musialStorage.hasFeature(featureName)) {
+                naNames.add(featureName);
+                Logger.logWarning("Feature with name " + featureName + " is not stored in specified input.");
+            }
+            if (contentType.equals(Constants.CONTENT_MODE_AMINOACID) && !musialStorage.getFeature(featureName).isCoding())
+                naNames.add(featureName);
+        }
+        featureNames.removeAll(naNames);
 
-        // Collect all samples that should be viewed.
-        HashSet<String> samplesToView;
+        // Parse samples to view.
         if (parameters.getOptionValues("s") == null) {
-            samplesToView = new HashSet<>(Sets.newHashSet(musialStorage.getSampleNameIterator()));
+            sampleNames = new HashSet<>(Sets.newHashSet(musialStorage.getSampleNameIterator()));
         } else {
-            samplesToView = (HashSet<String>) Arrays.stream(parameters.getOptionValues("s")).collect(Collectors.toSet());
+            sampleNames = (HashSet<String>) Arrays.stream(parameters.getOptionValues("s")).collect(Collectors.toSet());
         }
+        naNames = new HashSet<>();
+        for (String sampleName : sampleNames) {
+            if (!musialStorage.hasSample(sampleName)) {
+                naNames.add(sampleName);
+                Logger.logWarning("Sample with name " + sampleName + " is not stored in specified input.");
+            }
+        }
+        sampleNames.removeAll(naNames);
 
         // Iterate over features to collect variants.
-        Iterator<String> featureNameIterator = musialStorage.getFeatureNameIterator();
-        Feature feature;
-        VariantAnnotation variantAnnotation;
-        String contentMode = parameters.hasOption("c") ? parameters.getOptionValue("c") : "nucleotide";
-        String variantPropertyValue;
-        int variantsCount = featuresToView
+        featureNameIterator = featureNames.iterator();
+        variantsCount = featureNames
                 .stream()
                 .map(featureName -> {
-                    if (contentMode.equals("nucleotide")) {
+                    if (contentType.equals(Constants.CONTENT_MODE_NUCLEOTIDE))
                         return musialStorage.getFeature(featureName).getNucleotideVariantPositions().size();
-                    } else {
+                    else
                         return ((FeatureCoding) musialStorage.getFeature(featureName)).getAminoacidVariantPositions().size();
-                    }
                 })
                 .reduce(0, Integer::sum);
-        LinkedHashMap<String, ArrayList<String>> outputMap = new LinkedHashMap<>() {{
-            put("position", new ArrayList<>(variantsCount));
-            put("type", new ArrayList<>(variantsCount));
-            put("reference_content", new ArrayList<>(variantsCount));
-            put("alternate_content", new ArrayList<>(variantsCount));
-            put("frequency", new ArrayList<>(variantsCount));
-            put("feature", new ArrayList<>(variantsCount));
-            put("occurrence", new ArrayList<>(variantsCount));
+        defaultKeys = new LinkedHashSet<>() {{
+            add("position");
+            add("reference_content");
+            add("alternate_content");
+            add("feature");
+            add("occurrence");
         }};
-        int variantIndex = 0;
+        outputContainer = new LinkedHashMap<>(defaultKeys.size());
+        for (String defaultKey : defaultKeys)
+            outputContainer.put(defaultKey, new ArrayList<>(variantsCount));
         while (featureNameIterator.hasNext()) {
             feature = musialStorage.getFeature(featureNameIterator.next());
-            if (!(featuresToView.contains(feature.name)))
+            variants = new LinkedHashMap<>(variantsCount);
+            if (contentType.equals(Constants.CONTENT_MODE_AMINOACID) && !feature.isCoding()) {
+                Logger.logWarning("Cannot view aminoacid variants for non coding feature " + feature.name + ".");
                 continue;
-            NavigableSet<Integer> variantPositions = new TreeSet<>();
-            ConcurrentSkipListMap<String, VariantAnnotation> variants = new ConcurrentSkipListMap<>();
-            if (contentMode.equals("aminoacid") && !(feature instanceof FeatureCoding))
-                continue;
-            switch (contentMode) {
-                case "nucleotide" -> variantPositions = feature.getNucleotideVariantPositions();
-                case "aminoacid" -> variantPositions = ((FeatureCoding) feature).getAminoacidVariantPositions();
             }
+            variantPositions = Constants.CONTENT_MODE_AMINOACID.equals(contentType) ? ((FeatureCoding) feature).getAminoacidVariantPositions() : feature.getNucleotideVariantPositions();
             for (Integer variantPosition : variantPositions) {
-                switch (contentMode) {
-                    case "nucleotide" -> variants = feature.getNucleotideVariants(variantPosition);
-                    case "aminoacid" -> variants = ((FeatureCoding) feature).getAminoacidVariants(variantPosition);
+                switch (contentType) {
+                    case Constants.CONTENT_MODE_NUCLEOTIDE -> variants = feature.getNucleotideVariantsAt(variantPosition);
+                    case Constants.CONTENT_MODE_AMINOACID -> variants = ((FeatureCoding) feature).getAminoacidVariantsAt(variantPosition);
                 }
-                for (Map.Entry<String, VariantAnnotation> variant : variants.entrySet()) {
+                for (Map.Entry<String, VariantInformation> variant : variants.entrySet()) {
                     // Check if variant has to be skipped wrt. samples.
-                    variantAnnotation = variant.getValue();
-                    boolean skip = false;
-                    for (String sampleToView : samplesToView) {
-                        if (variantAnnotation.hasProperty(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX + sampleToView)) {
-                            skip = true;
-                            break;
-                        }
-                    }
-                    if (!skip)
+                    variantContent = variant.getKey();
+                    variantInformation = variant.getValue();
+                    if (sampleNames.stream().noneMatch(variantInformation::hasOccurrence))
                         continue;
-                    ArrayList<String> occurrence = new ArrayList<>();
-                    HashSet<String> variantAnnotationKeys = new HashSet<>() {{
-                        add("position");
-                        add("type");
-                        add("reference_content");
-                        add("alternate_content");
-                        add("frequency");
-                        add("feature");
-                        add("occurrence");
-                    }};
-                    transferAnnotation(outputMap, variantIndex, variantAnnotationKeys, "position", String.valueOf(variantPosition));
-                    String type = "substitution";
-                    if (variant.getKey().contains(String.valueOf(Bio.DELETION_AA1)))
-                        type = "deletion";
-                    if (variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT).contains(String.valueOf(Bio.DELETION_AA1))) {
-                        if (type.equals("deletion"))
-                            type = "insertion_deletion";
-                        else
-                            type = "insertion";
+                    transferContent(outputContainer, "position", String.valueOf(variantPosition), rowCount);
+                    transferContent(outputContainer, "reference_content", variantInformation.referenceContent, rowCount);
+                    transferContent(outputContainer, "alternate_content", variantContent, rowCount);
+                    transferContent(outputContainer, "feature", feature.name, rowCount);
+                    transferContent(outputContainer, "occurrence", String.join(",", variantInformation.getOccurrenceSet()), rowCount);
+                    for (String key : variantInformation.getInfoKeys()) {
+                        value = variantInformation.getInfo(key);
+                        transferContent(outputContainer, key, value, rowCount);
                     }
-                    transferAnnotation(outputMap, variantIndex, variantAnnotationKeys, "type", type);
-                    transferAnnotation(outputMap, variantIndex, variantAnnotationKeys, "alternate_content", variant.getKey());
-                    transferAnnotation(outputMap, variantIndex, variantAnnotationKeys, "feature", feature.name);
-                    for (String variantPropertyKey : variantAnnotation.getPropertyKeys()) {
-                        variantPropertyValue = variantAnnotation.getProperty(variantPropertyKey);
-                        if (variantPropertyKey.equals(MusialConstants.REFERENCE_CONTENT)) {
-                            transferAnnotation(outputMap, variantIndex, variantAnnotationKeys, "reference_content", variantPropertyValue);
-                        } else if (variantPropertyKey.equals(MusialConstants.FREQUENCY)) {
-                            transferAnnotation(outputMap, variantIndex, variantAnnotationKeys, "frequency", variantPropertyValue);
-                        } else if (variantPropertyKey.startsWith(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX)) {
-                            switch (contentMode) {
-                                case "nucleotide" ->
-                                        occurrence.add(variantPropertyKey.replace(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX, "") + ":" + variantPropertyValue);
-                                case "aminoacid" ->
-                                        occurrence.add(variantPropertyKey.replace(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX, ""));
-                            }
-                        } else {
-                            if (variantPropertyKey.startsWith(MusialConstants.SNP_EFF_PROPERTY_PREFIX))
-                                variantPropertyKey = variantPropertyKey.replace(MusialConstants.SNP_EFF_PROPERTY_PREFIX, "SnpEff.");
-                            transferAnnotation(outputMap, variantIndex, variantAnnotationKeys, variantPropertyKey, variantPropertyValue);
+                    for (String key : outputContainer.keySet()) {
+                        if (!defaultKeys.contains(key) && !variantInformation.hasInfoKey(key)) {
+                            outputContainer.get(key).add("null");
                         }
                     }
-                    transferAnnotation(outputMap, variantIndex, variantAnnotationKeys, "occurrence", String.join(",", occurrence));
-                    for (String globalAnnotationKey : outputMap.keySet()) {
-                        if (!variantAnnotationKeys.contains(globalAnnotationKey)) {
-                            outputMap.get(globalAnnotationKey).add("null");
-                        }
-                    }
-                    variantIndex += 1;
+                    rowCount += 1;
                 }
             }
         }
         // Construct and output string content from collected information
-        outputView(outputMap, outputMap.get("position").size(), parameters.hasOption("o") ? parameters.getOptionValue("o") : null);
+        outputView(outputContainer, rowCount, parameters.hasOption("o") ? parameters.getOptionValue("o") : null);
+    }
+
+    /**
+     * Views all samples of an existing MUSIAL storage as tsv formatted table.
+     *
+     * @param parameters {@link CommandLine} instance yielding parameter specification for the MUSIAL view_samples task.
+     * @throws IOException     If reading of the input MUSIAL storage fails.
+     * @throws MusialException If printing the output fails.
+     */
+    private static void viewSamples(CommandLine parameters) throws IOException, MusialException {
+        MusialStorage musialStorage = MusialStorageFactory.load(new File(parameters.getOptionValue("I")));
+        Sample sample;
+        String featureName;
+        String key;
+        String value;
+        int samplesCount;
+        int rowCount = 0;
+        HashSet<String> sampleNames;
+        HashSet<String> naNames;
+        //noinspection MismatchedQueryAndUpdateOfCollection
+        LinkedHashSet<String> defaultKeys;
+        Iterator<String> sampleNameIterator;
+        Iterator<String> featureNameIterator;
+        LinkedHashMap<String, ArrayList<String>> outputContainer;
+
+        // Parse samples to view.
+        if (parameters.getOptionValues("s") == null) {
+            sampleNames = new HashSet<>(Sets.newHashSet(musialStorage.getSampleNameIterator()));
+        } else {
+            sampleNames = (HashSet<String>) Arrays.stream(parameters.getOptionValues("s")).collect(Collectors.toSet());
+        }
+        naNames = new HashSet<>();
+        for (String sampleName : sampleNames) {
+            if (!musialStorage.hasSample(sampleName)) {
+                naNames.add(sampleName);
+                Logger.logWarning("Sample with name " + sampleName + " is not stored in specified input.");
+            }
+        }
+        sampleNames.removeAll(naNames);
+        samplesCount = sampleNames.size();
+
+        // Collect sample information.
+        sampleNameIterator = sampleNames.iterator();
+
+        defaultKeys = new LinkedHashSet<>() {{
+            add("name");
+            add(Constants.NUMBER_OF_SUBSTITUTIONS);
+            add(Constants.NUMBER_OF_INSERTIONS);
+            add(Constants.NUMBER_OF_DELETIONS);
+            add(Constants.NUMBER_OF_AMBIGUOUS);
+        }};
+        outputContainer = new LinkedHashMap<>(defaultKeys.size());
+        for (String defaultKey : defaultKeys)
+            outputContainer.put(defaultKey, new ArrayList<>(samplesCount));
+        while (sampleNameIterator.hasNext()) {
+            sample = musialStorage.getSample(sampleNameIterator.next());
+            outputContainer.get("name").add(sample.name);
+            featureNameIterator = musialStorage.getFeatureNameIterator();
+            do {
+                featureName = featureNameIterator.next();
+                transferContent(outputContainer, "allele_" + featureName, Objects.isNull(sample.getAllele(featureName)) ? "null" : sample.getAllele(featureName), rowCount);
+                transferContent(outputContainer, "proteoform_" + featureName, Objects.isNull(sample.getProteoform(featureName)) ? "null" : sample.getProteoform(featureName), rowCount);
+            } while (featureNameIterator.hasNext());
+            for (Map.Entry<String, String> info : sample.getInfoSet()) {
+                key = info.getKey();
+                value = info.getValue();
+                transferContent(outputContainer, key, value, rowCount);
+            }
+            for (String k : outputContainer.keySet()) {
+                if (!defaultKeys.contains(k) && !sample.hasInfoKey(k) && !k.startsWith("allele_") && !k.startsWith("proteoform_")) {
+                    outputContainer.get(k).add("null");
+                }
+            }
+            rowCount += 1;
+        }
+
+        // Construct and output string content from collected information
+        outputView(outputContainer, rowCount, parameters.hasOption("o") ? parameters.getOptionValue("o") : null);
+    }
+
+    /**
+     * Views all features of an existing MUSIAL storage as tsv formatted table.
+     *
+     * @param parameters {@link CommandLine} instance yielding parameter specification for the MUSIAL view_features task.
+     * @throws IOException     If reading of the input MUSIAL storage fails.
+     * @throws MusialException If printing the output fails.
+     */
+    private static void viewFeatures(CommandLine parameters) throws IOException, MusialException {
+        MusialStorage musialStorage = MusialStorageFactory.load(new File(parameters.getOptionValue("I")));
+        Feature feature;
+        String key;
+        String value;
+        int featuresCount;
+        int rowCount = 0;
+        HashSet<String> featureNames;
+        HashSet<String> naNames;
+        //noinspection MismatchedQueryAndUpdateOfCollection
+        LinkedHashSet<String> defaultKeys;
+        Iterator<String> featureNameIterator;
+        LinkedHashMap<String, ArrayList<String>> outputContainer;
+
+        // Parse features to view.
+        if (parameters.getOptionValues("f") == null) {
+            featureNames = new HashSet<>(Sets.newHashSet(musialStorage.getFeatureNameIterator()));
+        } else {
+            featureNames = (HashSet<String>) Arrays.stream(parameters.getOptionValues("f")).collect(Collectors.toSet());
+        }
+        naNames = new HashSet<>();
+        for (String featureName : featureNames) {
+            if (!musialStorage.hasFeature(featureName)) {
+                naNames.add(featureName);
+                Logger.logWarning("Feature with name " + featureName + " is not stored in specified input.");
+            }
+        }
+        featureNames.removeAll(naNames);
+        featuresCount = featureNames.size();
+
+        // Collect feature information.
+        featureNameIterator = featureNames.iterator();
+        defaultKeys = new LinkedHashSet<>() {{
+            add("name");
+            add("location");
+            add("start");
+            add("end");
+            add("strand");
+            add("number_of_alleles");
+            add("number_of_proteoforms");
+        }};
+        outputContainer = new LinkedHashMap<>(defaultKeys.size());
+        for (String defaultKey : defaultKeys)
+            outputContainer.put(defaultKey, new ArrayList<>(featuresCount));
+        while (featureNameIterator.hasNext()) {
+            feature = musialStorage.getFeature(featureNameIterator.next());
+            outputContainer.get("name").add(feature.name);
+            outputContainer.get("location").add(feature.contig);
+            outputContainer.get("start").add(String.valueOf(feature.start));
+            outputContainer.get("end").add(String.valueOf(feature.end));
+            outputContainer.get("strand").add(feature.isSense ? "+" : "-");
+            outputContainer.get("number_of_alleles").add(String.valueOf(feature.getAlleleCount()));
+            outputContainer.get("number_of_proteoforms").add(feature.isCoding() ? String.valueOf(((FeatureCoding) feature).getProteoformCount()) : "null");
+            for (Map.Entry<String, String> info : feature.getInfoSet()) {
+                key = info.getKey();
+                value = info.getValue();
+                transferContent(outputContainer, key, value, rowCount);
+            }
+            for (String k : outputContainer.keySet()) {
+                if (!defaultKeys.contains(k) && !feature.hasInfoKey(k)) {
+                    outputContainer.get(k).add("null");
+                }
+            }
+            rowCount += 1;
+        }
+
+        // Construct and output string content from collected information
+        outputView(outputContainer, rowCount, parameters.hasOption("o") ? parameters.getOptionValue("o") : null);
+    }
+
+    /**
+     * Exports a variant table in tsv format wrt. a single feature.
+     *
+     * @param parameters {@link CommandLine} instance yielding parameter specification for the MUSIAL export_table task.
+     * @throws IOException     If reading of the input MUSIAL storage fails.
+     * @throws MusialException If any computation fails.
+     */
+    private static void exportTable(CommandLine parameters) throws IOException, MusialException {
+        // Load MUSIAL storage.
+        MusialStorage musialStorage = MusialStorageFactory.load(new File(parameters.getOptionValue("I")));
+        // Store content mode.
+        String contentMode = parameters.hasOption("c") ? parameters.getOptionValue("c") : Constants.CONTENT_MODE_NUCLEOTIDE;
+        // Check if specified feature exists and supports the chosen content mode.
+        Feature feature = musialStorage.getFeature(parameters.getOptionValue("F"));
+        if (feature == null) {
+            throw new MusialException("The specified feature " + parameters.getOptionValue("F") + " is not stored in the provided MUSIAL storage file; Available features are " + String.join(", ", ImmutableList.copyOf(musialStorage.getFeatureNameIterator())));
+        }
+        if (contentMode.equals(Constants.CONTENT_MODE_AMINOACID) && !(feature.isCoding())) {
+            throw new MusialException("The specified feature " + parameters.getOptionValue("F") + " is no coding feature, but `aminoacid` content was specified.");
+        }
+        // Parse samples to view.
+        ArrayList<String> sampleNames;
+        if (parameters.getOptionValues("s") == null) {
+            sampleNames = Lists.newArrayList(musialStorage.getSampleNameIterator());
+        } else {
+            sampleNames = Lists.newArrayList(Arrays.stream(parameters.getOptionValues("s")).iterator());
+        }
+        HashSet<String> naNames = new HashSet<>();
+        for (String sampleName : sampleNames) {
+            if (!musialStorage.hasSample(sampleName)) {
+                naNames.add(sampleName);
+                Logger.logWarning("Sample with name " + sampleName + " is not stored in specified input.");
+            }
+        }
+        sampleNames.removeAll(naNames);
+        int noSamples = sampleNames.size();
+        Map<String, Integer> sampleNameIndex = IntStream.range(0, noSamples).boxed().collect(Collectors.toMap(sampleNames::get, Function.identity()));
+        // Build output.
+        try (BufferedWriter outputWriter = new BufferedWriter(new FileWriter(parameters.getOptionValue("O")), 16384)) {
+            StringBuilder line = new StringBuilder();
+            StringBuilder sampleVariantContentBuilder = new StringBuilder();
+            String[] sampleContents;
+            char ref;
+            Runnable writeLine = () -> {
+                try {
+                    outputWriter.write(line.toString());
+                    outputWriter.newLine();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                line.setLength(0);
+            }; // Internal helper function to dump current line content to file.
+            // Write header.
+            line.append("Position").append("\t").append("Reference").append("\t").append(String.join("\t", sampleNames));
+            writeLine.run();
+            NavigableSet<Integer> variantPositions = contentMode.equals(Constants.CONTENT_MODE_AMINOACID) ? ((FeatureCoding) feature).getAminoacidVariantPositions() : feature.getNucleotideVariantPositions();
+            Set<Map.Entry<String, VariantInformation>> variants;
+            for (Integer position : variantPositions) {
+                variants = (contentMode.equals(Constants.CONTENT_MODE_AMINOACID) ? ((FeatureCoding) feature).getAminoacidVariantsAt(position) : feature.getNucleotideVariantsAt(position)).entrySet();
+                sampleContents = new String[noSamples];
+                //noinspection OptionalGetWithoutIsPresent
+                ref = variants.stream().findFirst().get().getValue().referenceContent.charAt(0);
+                line.append(position).append("\t").append(ref).append("\t");
+                for (String sampleName : sampleNames) {
+                    if (contentMode.equals(Constants.CONTENT_MODE_NUCLEOTIDE))
+                        sampleContents[sampleNameIndex.get(sampleName)] = musialStorage.getSample(sampleName).getCallVariantsStringAt(feature.name, position);
+                    else {
+                        sampleVariantContentBuilder.setLength(0);
+                        for (Map.Entry<String, VariantInformation> variant : variants) {
+                            if (variant.getValue().hasOccurrence(sampleName)) {
+                                if (variant.getValue().getInfo(Constants.TYPE).contains(Constants.TYPE_SUBSTITUTION)) {
+                                    if (!sampleVariantContentBuilder.isEmpty())
+                                        sampleVariantContentBuilder.replace(0, 1, variant.getKey());
+                                    else
+                                        sampleVariantContentBuilder.append(variant.getKey());
+                                } else if (variant.getValue().getInfo(Constants.TYPE).contains(Constants.TYPE_INSERTION)) {
+                                    if (!sampleVariantContentBuilder.isEmpty())
+                                        sampleVariantContentBuilder.insert(1, variant.getKey().substring(1));
+                                    else
+                                        sampleVariantContentBuilder.append(variant.getKey());
+                                } else if (variant.getValue().getInfo(Constants.TYPE).contains(Constants.TYPE_DELETION)) {
+                                    if (!sampleVariantContentBuilder.isEmpty())
+                                        sampleVariantContentBuilder.append(variant.getKey().substring(1));
+                                    else
+                                        sampleVariantContentBuilder.append(variant.getKey());
+                                } else {
+                                    Logger.logWarning("Unable to process variant " + position + " " + variant.getKey() + " of type " + variant.getValue().getInfo(Constants.TYPE) + ".");
+                                }
+                            }
+                        }
+                        if (sampleVariantContentBuilder.isEmpty())
+                            sampleVariantContentBuilder.append(Constants.CALL_INFO_NO_VARIANT);
+                        sampleContents[sampleNameIndex.get(sampleName)] = sampleVariantContentBuilder.toString();
+                    }
+                }
+                line.append(String.join("\t", sampleContents));
+                writeLine.run();
+            }
+            outputWriter.flush();
+        }
+        Logger.logStatus("Done writing output to file `" + new File(parameters.getOptionValue("O")).getAbsolutePath() + "`");
+    }
+
+    /**
+     * Exports sequences in fasta format wrt. a single feature.
+     *
+     * @param parameters {@link CommandLine} instance yielding parameter specification for the MUSIAL export_sequence task.
+     * @throws IOException     If reading of the input MUSIAL storage fails.
+     * @throws MusialException If any computation fails.
+     */
+    private static void exportSequence(CommandLine parameters) throws IOException, MusialException {
+        // Load MUSIAL storage.
+        MusialStorage musialStorage = MusialStorageFactory.load(new File(parameters.getOptionValue("I")));
+        HashSet<String> naNames;
+        // Store parameters.
+        String contentMode = parameters.hasOption("c") ? parameters.getOptionValue("c") : Constants.CONTENT_MODE_NUCLEOTIDE;
+        boolean merge = parameters.hasOption("m");
+        boolean conserved = parameters.hasOption("k");
+        boolean aligned = parameters.hasOption("a");
+        // Check if specified feature exists and supports the chosen content mode.
+        Feature feature = musialStorage.getFeature(parameters.getOptionValue("F"));
+        if (feature == null)
+            throw new MusialException("The specified feature " + parameters.getOptionValue("F") + " is not stored in the provided MUSIAL storage file; Available features are " + String.join(", ", ImmutableList.copyOf(musialStorage.getFeatureNameIterator())));
+        if (contentMode.equals(Constants.CONTENT_MODE_AMINOACID) && !(feature.isCoding()))
+            throw new MusialException("The specified feature " + parameters.getOptionValue("F") + " is no coding feature, but `aminoacid` content mode was specified.");
+        // Parse samples to view.
+        ArrayList<String> sampleNames;
+        HashSet<String> sampleNamesSet;
+        if (parameters.getOptionValues("s") == null)
+            sampleNames = Lists.newArrayList(musialStorage.getSampleNameIterator());
+        else
+            sampleNames = Lists.newArrayList(Arrays.stream(parameters.getOptionValues("s")).iterator());
+        naNames = new HashSet<>();
+        for (String sampleName : sampleNames) {
+            if (!musialStorage.hasSample(sampleName)) {
+                naNames.add(sampleName);
+                Logger.logWarning("Sample with name " + sampleName + " is not stored in specified input.");
+            }
+        }
+        sampleNames.removeAll(naNames);
+        sampleNamesSet = new HashSet<>(sampleNames);
+        Function<VariantInformation, Boolean> variantOccurs = (variantInformation -> variantInformation.getOccurrenceSet().stream().anyMatch(sampleNamesSet::contains));
+
+        // Construct reference table.
+        LinkedHashMap<Integer, String> referenceTable;
+        if (conserved) {
+            String[] perPositionReferenceContent;
+            NavigableSet<Integer> variantPositions;
+            Function<Integer, Collection<VariantInformation>> getVariantInformation;
+            if (contentMode.equals(Constants.CONTENT_MODE_NUCLEOTIDE) && parameters.hasOption("r")) {
+                File referenceSequenceFile = new File(parameters.getOptionValue("r"));
+                IndexedFastaSequenceFile referenceSequence;
+                try {
+                    FastaSequenceIndexCreator.create(referenceSequenceFile.toPath(), false);
+                } catch (SAMException e) {
+                    // Exception is raised if file already exists. This can be ignored.
+                }
+                referenceSequence = new IndexedFastaSequenceFile(referenceSequenceFile.toPath());
+                musialStorage.setReference(referenceSequence);
+                perPositionReferenceContent = musialStorage.getReferenceSequenceOfFeature(feature.name).split("");
+                referenceTable = new LinkedHashMap<>(perPositionReferenceContent.length, 10);
+                variantPositions = feature.getNucleotideVariantPositions();
+                getVariantInformation = (position) -> feature.getNucleotideVariantsAt(position).values();
+            } else if (contentMode.equals(Constants.CONTENT_MODE_AMINOACID)) {
+                FeatureCoding featureCoding = (FeatureCoding) feature;
+                perPositionReferenceContent = featureCoding.getCodingSequence().split("");
+                referenceTable = new LinkedHashMap<>(perPositionReferenceContent.length, 10);
+                variantPositions = featureCoding.getAminoacidVariantPositions();
+                getVariantInformation = (position) -> featureCoding.getAminoacidVariantsAt(position).values();
+            } else {
+                throw new MusialException("Failed to export sequences with parameters --content=" + contentMode + " and --reference=" + parameters.getOptionValue("r") + ".");
+            }
+            for (int i = 0; i < perPositionReferenceContent.length; i++)
+                if (contentMode.equals(Constants.CONTENT_MODE_NUCLEOTIDE))
+                    referenceTable.put(feature.start + i, perPositionReferenceContent[i]);
+                else
+                    referenceTable.put(1 + i, perPositionReferenceContent[i]);
+            for (Integer position : variantPositions)
+                for (VariantInformation variantInformation : getVariantInformation.apply(position))
+                    // Replaces reference content with maximal insertion length wrt. samples to use.
+                    if (variantInformation.getInfo(Constants.TYPE).contains(Constants.TYPE_INSERTION) && variantOccurs.apply(variantInformation))
+                        if (variantInformation.referenceContent.length() > referenceTable.getOrDefault(position, "").length())
+                            referenceTable.put(position, variantInformation.referenceContent);
+        } else {
+            NavigableSet<Integer> variantPositions;
+            Function<Integer, Collection<Map.Entry<String, VariantInformation>>> getVariantEntries;
+            String alt;
+            VariantInformation variantInformation;
+            char[] chars;
+            if (contentMode.equals(Constants.CONTENT_MODE_NUCLEOTIDE)) {
+                variantPositions = feature.getNucleotideVariantPositions();
+                referenceTable = new LinkedHashMap<>(variantPositions.size(), 10);
+                getVariantEntries = (position) -> feature.getNucleotideVariantsAt(position).entrySet();
+            } else if (contentMode.equals(Constants.CONTENT_MODE_AMINOACID)) {
+                FeatureCoding featureCoding = (FeatureCoding) feature;
+                variantPositions = featureCoding.getAminoacidVariantPositions();
+                referenceTable = new LinkedHashMap<>(variantPositions.size(), 10);
+                getVariantEntries = (position) -> featureCoding.getAminoacidVariantsAt(position).entrySet();
+            } else {
+                throw new MusialException("Failed to export sequences with parameter --content=" + contentMode + ".");
+            }
+            for (Integer position : variantPositions) {
+                for (Map.Entry<String, VariantInformation> entry : getVariantEntries.apply(position)) {
+                    alt = entry.getKey();
+                    variantInformation = entry.getValue();
+                    if (variantOccurs.apply(variantInformation)) {
+                        if (variantInformation.getInfo(Constants.TYPE).contains(Constants.TYPE_INSERTION)) {
+                            if (variantInformation.referenceContent.length() > referenceTable.getOrDefault(position, "").length())
+                                referenceTable.put(position, variantInformation.referenceContent);
+                        } else if (variantInformation.getInfo(Constants.TYPE).contains(Constants.TYPE_DELETION)) {
+                            // Insert position wise reference content of deletion that occurs in any sample.
+                            chars = variantInformation.referenceContent.toCharArray();
+                            for (int i = 0; i < chars.length; i++)
+                                referenceTable.putIfAbsent(position + i, String.valueOf(chars[i]));
+                        } else if (variantInformation.getInfo(Constants.TYPE).contains(Constants.TYPE_SUBSTITUTION)) {
+                            // Insert reference content of substitution that occurs in any sample.
+                            referenceTable.putIfAbsent(position, variantInformation.referenceContent);
+                        } else {
+                            Logger.logWarning("Unable to process variant " + position + " " + alt + " of type " + variantInformation.getInfo(Constants.TYPE) + ".");
+                        }
+                    }
+                }
+            }
+        }
+
+        // Build output.
+        try (BufferedWriter outputWriter = new BufferedWriter(new FileWriter(parameters.getOptionValue("O")), 16384)) {
+            TriConsumer<String, String, Collection<String>> writeEntry = (n, k, C) -> {
+                try {
+                    outputWriter.write(">" + n);
+                    outputWriter.newLine();
+                    if (Objects.nonNull(k)) {
+                        outputWriter.write(";" + k);
+                        outputWriter.newLine();
+                    }
+                    String sequence = String.join("", C);
+                    if (!aligned)
+                        sequence = sequence.replaceAll(Constants.DELETION_OR_GAP_STRING, "");
+                    outputWriter.write(String.join(IO.LINE_SEPARATOR, Splitter.fixedLength(80).split(sequence)));
+                    outputWriter.newLine();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }; // Internal helper function to dump content to file.
+            BiFunction<String, Integer, String> substringOrEmpty = (s, i) -> {
+                if (i > s.length())
+                    return "";
+                else
+                    return s.substring(i);
+            }; // Internal helper function to truncate strings.
+            writeEntry.accept(Constants.REFERENCE_FORM_NAME, null, referenceTable.values());
+            Form form;
+            Iterator<String> formNameIterator;
+            LinkedHashMap<Integer, String> formVariants;
+            int position;
+            String alt;
+            String type;
+            String[] variantFields;
+            if (contentMode.equals(Constants.CONTENT_MODE_NUCLEOTIDE)) {
+                formNameIterator = feature.getAlleleNameIterator();
+                do {
+                    form = feature.getAllele(formNameIterator.next());
+                    formVariants = SerializationUtils.clone(referenceTable);
+                    if (!form.name.equals(Constants.REFERENCE_FORM_NAME))
+                        for (String variant : form.variants.split(Constants.FIELD_SEPARATOR_2)) {
+                            variantFields = variant.split(Constants.FIELD_SEPARATOR_1);
+                            position = Integer.parseInt(variantFields[0]);
+                            alt = variantFields[1];
+                            type = feature.getNucleotideVariant(position, alt).getInfo(Constants.TYPE);
+                            if (type.contains(Constants.TYPE_DELETION)) {
+                                // Call is deletion.
+                                for (int i = 1; i < alt.length(); i++)
+                                    formVariants.put(
+                                            position + i,
+                                            alt.charAt(i) + formVariants.get(position + i).substring(1)
+                                    );
+                            } else if (type.contains(Constants.TYPE_SUBSTITUTION)) {
+                                // Call is substitution.
+                                formVariants.put(
+                                        position,
+                                        alt + formVariants.get(position).substring(1)
+                                );
+                            } else if (type.contains(Constants.TYPE_INSERTION)) {
+                                // Call is insertion.
+                                formVariants.put(
+                                        position,
+                                        formVariants.get(position).charAt(0) + alt.substring(1) + substringOrEmpty.apply(formVariants.get(position), alt.length())
+                                );
+                            }
+                        }
+                    if (merge)
+                        writeEntry.accept(form.name, null, formVariants.values());
+                    else
+                        for (String sampleName : form.getOccurrenceSet())
+                            writeEntry.accept(sampleName, null, formVariants.values());
+                } while (formNameIterator.hasNext());
+            } else {
+                FeatureCoding featureCoding = ((FeatureCoding) feature);
+                formNameIterator = featureCoding.getProteoformNameIterator();
+                do {
+                    form = featureCoding.getProteoform(formNameIterator.next());
+                    formVariants = SerializationUtils.clone(referenceTable);
+                    if (!form.name.equals(Constants.REFERENCE_FORM_NAME))
+                        for (String variant : form.variants.split(Constants.FIELD_SEPARATOR_2)) {
+                            variantFields = variant.split(Constants.FIELD_SEPARATOR_1);
+                            position = Integer.parseInt(variantFields[0]);
+                            alt = variantFields[1];
+                            type = featureCoding.getAminoacidVariant(position, alt).getInfo(Constants.TYPE);
+                            if (type.contains(Constants.TYPE_DELETION)) {
+                                // Call is deletion.
+                                for (int i = 1; i < alt.length(); i++)
+                                    formVariants.put(
+                                            position + i,
+                                            alt.charAt(i) + formVariants.get(position).substring(1)
+                                    );
+                            } else if (type.contains(Constants.TYPE_SUBSTITUTION)) {
+                                // Call is substitution.
+                                formVariants.put(
+                                        position,
+                                        alt + formVariants.get(position).substring(1)
+                                );
+                            } else if (type.contains(Constants.TYPE_INSERTION)) {
+                                // Call is insertion.
+                                formVariants.put(
+                                        position,
+                                        formVariants.get(position).charAt(0) + alt.substring(1) + substringOrEmpty.apply(formVariants.get(position), alt.length())
+                                );
+                            }
+                        }
+                    if (merge)
+                        writeEntry.accept(form.name, null, formVariants.values());
+                    else
+                        for (String sampleName : form.getOccurrenceSet())
+                            writeEntry.accept(sampleName, null, formVariants.values());
+                } while (formNameIterator.hasNext());
+            }
+            outputWriter.flush();
+        }
+        Logger.logStatus("Done writing output to file `" + new File(parameters.getOptionValue("O")).getAbsolutePath() + "`");
     }
 
     /**
      * Internal method to output view_x tasks of MUSIAL.
      *
-     * @param content    The content for which a tsv format string is to be built.
-     * @param entryIndex The number of entries to iterate over.
-     * @param output     {@link String} representing a file path to write the output to; If set to null, output will be printed to console.
+     * @param content   The content for which a tsv format string is to be built.
+     * @param noEntries The number of entries to iterate over.
+     * @param output    {@link String} representing a file path to write the output to; If set to null, output will be printed to console.
      * @throws MusialException If I/O operation fails in case of a provided output file.
      */
-    private static void outputView(LinkedHashMap<String, ArrayList<String>> content, int entryIndex, String output) throws MusialException {
+    private static void outputView(LinkedHashMap<String, ArrayList<String>> content, int noEntries, String output) throws MusialException {
         Logger.logStatus("Write output to " + (output == null ? "stdout" : output));
         // Build string content from collected information.
-        StringBuilder outputBuilder = new StringBuilder(entryIndex);
-        ArrayList<String> perEntryAnnotation;
+        StringBuilder outputBuilder = new StringBuilder(noEntries);
+        ArrayList<String> entry;
         outputBuilder.append(String.join("\t", content.keySet())).append("\n");
-        for (int i = 0; i < entryIndex; i++) {
-            perEntryAnnotation = new ArrayList<>();
+        for (int i = 0; i < noEntries; i++) {
+            entry = new ArrayList<>();
             for (ArrayList<String> annotationValues : content.values()) {
-                perEntryAnnotation.add(annotationValues.get(i));
+                entry.add(annotationValues.get(i));
             }
-            outputBuilder.append(String.join("\t", perEntryAnnotation)).append("\n");
+            outputBuilder.append(String.join("\t", entry)).append("\n");
         }
 
         // Write output to file or console.
@@ -702,483 +863,217 @@ public final class Musial {
     }
 
     /**
-     * Exports a variant table in tsv format wrt. a single feature.
+     * Internal method to transfers a value to a container that represents column vectors of a table like object to output.
+     * <p>
+     * This supplements missing values in any object to consider with JSON serializable 'null' entries.
      *
-     * @param parameters {@link CommandLine} instance yielding parameter specification for the MUSIAL export_table task.
-     * @throws IOException     If reading of the input MUSIAL storage fails.
-     * @throws MusialException If any computation fails.
+     * @param container The container to add an entry to.
+     * @param noEntries The number of existing entries in the container.
+     * @param key       The key of the entry.
+     * @param value     The value of the entry.
      */
-    private static void exportTable(CommandLine parameters) throws IOException, MusialException {
-        // Parse feature variants object.
-        MusialStorage musialStorage = MusialStorageFactory.load(new File(parameters.getOptionValue("I")));
-
-        // Store content mode, grouping and rejected output options.
-        String contentMode = parameters.hasOption("c") ? parameters.getOptionValue("c") : "nucleotide";
-        boolean group = parameters.hasOption("g");
-        boolean conservedSites = parameters.hasOption("k");
-
-        // Check if specified feature exists and supports the chosen content mode.
-        Feature feature = musialStorage.getFeature(parameters.getOptionValue("F"));
-        if (feature == null) {
-            throw new MusialException("The specified feature " + parameters.getOptionValue("F") + " could not be found in the provided MUSIAL storage file; Available features are " + String.join(", ", ImmutableList.copyOf(musialStorage.getFeatureNameIterator())));
-        }
-        if (contentMode.equals("aminoacid") && !(feature.isCoding())) {
-            throw new MusialException("The specified feature " + parameters.getOptionValue("F") + " is no coding feature, but `aminoacid` content mode was specified.");
-        }
-
-        // Definition of helper functions.
-        Function<String, String> sampleNameToFormName = s -> {
-            if (contentMode.equals("nucleotide")) {
-                return musialStorage.getSample(s).getAnnotation(MusialConstants.SAMPLE_ANNOTATION_ALLELE_PREFIX + feature.name);
-            } else {
-                return musialStorage.getSample(s).getAnnotation(MusialConstants.SAMPLE_ANNOTATION_PROTEOFORM_PREFIX + feature.name);
-            }
-        };
-        Function<String, String> sampleNameToRepresentativeName = s -> {
-            if (contentMode.equals("nucleotide")) {
-                return feature.getAllele(sampleNameToFormName.apply(s)).getOccurrence().first();
-            } else {
-                return feature.getAllele(((FeatureCoding) feature).getProteoform(sampleNameToFormName.apply(s)).getOccurrence().first()).getOccurrence().first();
-            }
-        };
-        Function<String, LinkedHashSet<String>> getFormOccurrence = s -> {
-            LinkedHashSet<String> occurrence = new LinkedHashSet<>();
-            if (contentMode.equals("nucleotide")) {
-                occurrence.addAll(feature.getAllele(s).getOccurrence());
-            } else {
-                for (String alleleName : ((FeatureCoding) feature).getProteoform(s).getOccurrence()) {
-                    occurrence.addAll(feature.getAllele(alleleName).getOccurrence());
-                }
-            }
-            return occurrence;
-        };
-
-        // Parse reference sequence information, if provided.
-        char[] referenceSequenceChars = null;
-        if (conservedSites && contentMode.equals("nucleotide") && parameters.hasOption("r")) {
-            File referenceSequenceFile = new File(parameters.getOptionValue("r"));
-            IndexedFastaSequenceFile referenceSequence;
-            try {
-                FastaSequenceIndexCreator.create(referenceSequenceFile.toPath(), false);
-            } catch (SAMException e) {
-                // Exception is raised if file already exists. This can be ignored.
-            }
-            referenceSequence = new IndexedFastaSequenceFile(referenceSequenceFile.toPath());
-            musialStorage.setReference(referenceSequence);
-            referenceSequenceChars = musialStorage.getReferenceSequenceOfFeature(feature.name).toCharArray();
-        } else if (conservedSites && contentMode.equals("aminoacid")) {
-            referenceSequenceChars = ((FeatureCoding) feature).getCodingSequence().toCharArray();
-        }
-
-        // Collect all samples that should be exported.
-        HashSet<String> sampleNames;
-        if (parameters.getOptionValues("s") == null) {
-            sampleNames = new HashSet<>(Sets.newHashSet(musialStorage.getSampleNameIterator()));
+    private static void transferContent(LinkedHashMap<String, ArrayList<String>> container, String key, String value, int noEntries) {
+        if (container.containsKey(key)) {
+            container.get(key).add(value);
         } else {
-            sampleNames = (HashSet<String>) Arrays.stream(parameters.getOptionValues("s")).collect(Collectors.toSet());
-        }
-        HashSet<String> representativeSampleNames = new HashSet<>();
-        if (group) {
-            for (String sampleName : sampleNames) {
-                if (sampleNameToFormName.apply(sampleName).equals(MusialConstants.REFERENCE_ID))
-                    continue;
-                representativeSampleNames.add(sampleNameToRepresentativeName.apply(sampleName));
+            container.put(key, new ArrayList<>(noEntries));
+            for (int i = 0; i < noEntries; i++) {
+                container.get(key).add("null");
             }
-        } else {
-            representativeSampleNames = sampleNames;
-        }
-
-        // Generate variants table for feature.
-        TreeMap<String, LinkedHashMap<String, String>> variantsTable = constructVariantsTable(
-                musialStorage,
-                feature.name,
-                representativeSampleNames,
-                contentMode,
-                group,
-                conservedSites,
-                false
-        );
-        System.gc();
-        // Build output.
-        try (BufferedWriter outputWriter = new BufferedWriter(new FileWriter(parameters.getOptionValue("O")))) {
-            // Generate header.
-            if (group) {
-                outputWriter.write("Position\tReference");
-                for (String representativeName : representativeSampleNames) {
-                    outputWriter.write("\t" + sampleNameToFormName.apply(representativeName));
-                }
-                outputWriter.newLine();
-            } else {
-                outputWriter.write("Position\tReference");
-                for (String representativeName : representativeSampleNames) {
-                    outputWriter.write("\t" + representativeName);
-                }
-                outputWriter.newLine();
-            }
-
-            // Generate variants rows.
-            Iterator<String> positionsIterator = variantsTable.navigableKeySet().iterator();
-            Iterator<LinkedHashMap<String, String>> contentIterator = variantsTable.values().iterator();
-            LinkedHashMap<String, String> variantContents;
-            String variantContent;
-            String position;
-            do {
-                position = positionsIterator.next();
-                // Position.
-                outputWriter.write(position + "\t");
-                // Reference content.
-                if (conservedSites) {
-                    //noinspection ConstantConditions
-                    outputWriter
-                            .write(referenceSequenceChars[Integer.parseInt(position.split("\\.")[0]) - (contentMode.equals("nucleotide") ? feature.start : 1)] + "\t");
-                } else {
-                    outputWriter
-                            .write(variantsTable.get(position).get(MusialConstants.REFERENCE_ID) + "\t");
-                }
-                // Variant content.
-                variantContents = contentIterator.next();
-                for (String representativeName : representativeSampleNames) {
-                    if (variantContents == null) {
-                        variantContent = ".";
-                    } else {
-                        variantContent = variantContents.getOrDefault(representativeName, ".");
-                    }
-                    outputWriter.write(variantContent + "\t");
-                }
-                outputWriter.newLine();
-                outputWriter.flush();
-            } while (positionsIterator.hasNext());
-        }
-        Logger.logStatus("Done writing table to file `" + new File(parameters.getOptionValue("O")).getAbsolutePath() + "`");
-    }
-
-    /**
-     * Exports sequences in fasta format wrt. a single feature.
-     *
-     * @param parameters {@link CommandLine} instance yielding parameter specification for the MUSIAL export_sequence task.
-     * @throws IOException     If reading of the input MUSIAL storage fails.
-     * @throws MusialException If any computation fails.
-     */
-    private static void exportSequence(CommandLine parameters) throws IOException, MusialException {
-        // Parse feature variants object.
-        MusialStorage musialStorage = MusialStorageFactory.load(new File(parameters.getOptionValue("I")));
-
-        // Store content mode, grouping and rejected output options.
-        String contentMode = parameters.hasOption("c") ? parameters.getOptionValue("c") : "nucleotide";
-        boolean group = parameters.hasOption("g");
-        boolean rejectedAsReference = parameters.hasOption("x");
-        boolean conservedSites = parameters.hasOption("k");
-        boolean aligned = parameters.hasOption("a");
-
-        // Check if specified feature exists and supports the chosen content mode.
-        Feature feature = musialStorage.getFeature(parameters.getOptionValue("F"));
-        if (feature == null) {
-            throw new MusialException("The specified feature " + parameters.getOptionValue("F") + " could not be found in the provided MUSIAL storage file; Available features are " + String.join(", ", ImmutableList.copyOf(musialStorage.getFeatureNameIterator())));
-        }
-        if (contentMode.equals("aminoacid") && !(feature.isCoding())) {
-            throw new MusialException("The specified feature " + parameters.getOptionValue("F") + " is no coding feature, but `aminoacid` content mode was specified.");
-        }
-
-        // Definition of helper functions.
-        Function<String, String> sampleNameToFormName = s -> {
-            if (s.equals(MusialConstants.REFERENCE_ID))
-                return MusialConstants.REFERENCE_ID;
-            if (contentMode.equals("nucleotide")) {
-                return musialStorage.getSample(s).getAnnotation(MusialConstants.SAMPLE_ANNOTATION_ALLELE_PREFIX + feature.name);
-            } else {
-                return musialStorage.getSample(s).getAnnotation(MusialConstants.SAMPLE_ANNOTATION_PROTEOFORM_PREFIX + feature.name);
-            }
-        };
-        Function<String, String> sampleNameToRepresentativeName = s -> {
-            if (contentMode.equals("nucleotide")) {
-                return feature.getAllele(sampleNameToFormName.apply(s)).getOccurrence().first();
-            } else {
-                return feature.getAllele(((FeatureCoding) feature).getProteoform(sampleNameToFormName.apply(s)).getOccurrence().first()).getOccurrence().first();
-            }
-        };
-        Function<String, LinkedHashSet<String>> getFormOccurrence = s -> {
-            LinkedHashSet<String> occurrence = new LinkedHashSet<>();
-            if (contentMode.equals("nucleotide")) {
-                if (!feature.hasAllele(s))
-                    return occurrence;
-                occurrence.addAll(feature.getAllele(s).getOccurrence());
-            } else {
-                if (!((FeatureCoding) feature).hasProteoform(s))
-                    return occurrence;
-                for (String alleleName : ((FeatureCoding) feature).getProteoform(s).getOccurrence()) {
-                    if (!feature.hasAllele(alleleName))
-                        continue;
-                    occurrence.addAll(feature.getAllele(alleleName).getOccurrence());
-                }
-            }
-            return occurrence;
-        };
-        TriConsumer<BufferedWriter, String, String> writeSequence = (w, s, n) -> {
-            String sequence;
-            if (aligned)
-                sequence = String.join("\n", Splitter.fixedLength(80).split(s));
-            else
-                sequence = String.join("\n", Splitter.fixedLength(80).split(s.replace("-", "")));
-            try {
-                w.write(">" + n);
-                w.newLine();
-                w.write(sequence);
-                w.newLine();
-            } catch (IOException e) {
-                Logger.logWarning("Failed to write sequence of entry " + n + ";" + e.getMessage());
-            }
-        };
-
-        // Parse reference sequence information, if provided.
-        char[] referenceSequenceChars = null;
-        if (conservedSites && contentMode.equals("nucleotide") && parameters.hasOption("r")) {
-            File referenceSequenceFile = new File(parameters.getOptionValue("r"));
-            IndexedFastaSequenceFile referenceSequence;
-            try {
-                FastaSequenceIndexCreator.create(referenceSequenceFile.toPath(), false);
-            } catch (SAMException e) {
-                // Exception is raised if file already exists. This can be ignored.
-            }
-            referenceSequence = new IndexedFastaSequenceFile(referenceSequenceFile.toPath());
-            musialStorage.setReference(referenceSequence);
-            referenceSequenceChars = musialStorage.getReferenceSequenceOfFeature(feature.name).toCharArray();
-        } else if (conservedSites && contentMode.equals("aminoacid")) {
-            referenceSequenceChars = ((FeatureCoding) feature).getCodingSequence().toCharArray();
-        }
-
-        // Collect all samples that should be exported.
-        HashSet<String> sampleNames;
-        if (parameters.getOptionValues("s") == null) {
-            sampleNames = new HashSet<>(Sets.newHashSet(musialStorage.getSampleNameIterator()));
-        } else {
-            sampleNames = (HashSet<String>) Arrays.stream(parameters.getOptionValues("s")).collect(Collectors.toSet());
-        }
-        HashSet<String> representativeSampleNames = new HashSet<>();
-        if (group) {
-            for (String sampleName : sampleNames) {
-                if (sampleNameToFormName.apply(sampleName).equals(MusialConstants.REFERENCE_ID))
-                    continue;
-                representativeSampleNames.add(sampleNameToRepresentativeName.apply(sampleName));
-            }
-        } else {
-            representativeSampleNames = sampleNames;
-        }
-        representativeSampleNames.add(MusialConstants.REFERENCE_ID);
-
-        // Generate variants table for feature.
-        TreeMap<String, LinkedHashMap<String, String>> variantsTable = constructVariantsTable(
-                musialStorage,
-                feature.name,
-                representativeSampleNames,
-                contentMode,
-                group,
-                conservedSites,
-                true
-        );
-        System.gc();
-
-        // Build output.
-        Iterator<String> representativeSampleIterator = representativeSampleNames.iterator();
-        try (BufferedWriter outputWriter = new BufferedWriter(new FileWriter(parameters.getOptionValue("O")))) {
-            do {
-                Iterator<String> positionsIterator = variantsTable.navigableKeySet().iterator();
-                Iterator<LinkedHashMap<String, String>> contentIterator = variantsTable.values().iterator();
-                LinkedHashMap<String, String> variantContents;
-                StringBuilder sequenceBuilder = new StringBuilder((feature.end - feature.start) + 1);
-                String representativeName = representativeSampleIterator.next();
-                String variantContent = null;
-                String position;
-                do {
-                    position = positionsIterator.next();
-                    variantContents = contentIterator.next();
-                    if (variantContents != null) {
-                        variantContent = variantContents.getOrDefault(representativeName, variantContents.get(MusialConstants.REFERENCE_ID)).split(":")[0];
-                    }
-                    if (variantContents == null || (Objects.equals(variantContent, Bio.ANY_NUC) && rejectedAsReference)) {
-                        //noinspection ConstantConditions
-                        variantContent = String.valueOf(referenceSequenceChars[Integer.parseInt(position.split("\\.")[0]) - (contentMode.equals("nucleotide") ? feature.start : 1)]);
-                    }
-                    sequenceBuilder.append(variantContent);
-                } while (positionsIterator.hasNext());
-                if (group) {
-                    writeSequence.accept(outputWriter, sequenceBuilder.toString(), sampleNameToFormName.apply(representativeName));
-                } else {
-                    writeSequence.accept(outputWriter, sequenceBuilder.toString(), representativeName);
-                }
-                outputWriter.flush();
-            } while (representativeSampleIterator.hasNext());
-        }
-        Logger.logStatus("Done writing sequences to file `" + new File(parameters.getOptionValue("O")).getAbsolutePath() + "`");
-    }
-
-    /**
-     * Internal method to transfers an annotation value to a container map. This is used to supplement missing annotation values in any object to consider with null values.
-     *
-     * @param annotations         The container to add annotations to.
-     * @param entryIndex          The number of existing entries in the container.
-     * @param entryAnnotationKeys Annotation keys of the entry to consider.
-     * @param annotationKey       The key of the annotation.
-     * @param annotationValue     The value of the annotation.
-     */
-    private static void transferAnnotation(LinkedHashMap<String, ArrayList<String>> annotations, int entryIndex, HashSet<String> entryAnnotationKeys, String annotationKey, String annotationValue) {
-        entryAnnotationKeys.add(annotationKey);
-        if (annotations.containsKey(annotationKey)) {
-            annotations.get(annotationKey).add(annotationValue);
-        } else {
-            annotations.put(annotationKey, new ArrayList<>(entryIndex));
-            for (int i = 0; i < entryIndex; i++) {
-                annotations.get(annotationKey).add("null");
-            }
-            annotations.get(annotationKey).add(annotationValue);
+            container.get(key).add(value);
         }
     }
 
     /**
-     * Internal method to construct a two-layer map structure used for export of tables and sequences.
-     * <br>
-     * The first layer stores positions in the format x+y, where x represent true genomic positions and y represent insertion positions.
-     * <br>
-     * The second layer stores sample names mapping to variant contents.
+     * Updates the statistics related to genetic variants and allele frequencies based on the data stored in the provided MusialStorage.
+     * This method iterates over features, samples, and proteoforms, calculates statistics such as substitution count, insertion count, deletion count,
+     * ambiguous count, and allele frequencies, and updates the information accordingly.
      *
-     * @param musialStorage  {@link MusialStorage} to build from.
-     * @param featureName    Name of the feature to build the table of; Should be accepted for {@link MusialStorage#getFeature(String)}.
-     * @param sampleNames    Set of sample names to restrict the construction to; Should be accepted for {@link MusialStorage#getSample(String)}.
-     * @param contentMode    Either `aminoacid` or `nucleotide`; Specifies the variants to query.
-     * @param groupSamples   If samples should be grouped by forms.
-     * @param conservedSites If non-variant sites should be considered.
-     * @param primaryOnly    If only the primary variant (of rank one, the one with the highest read frequency) should be considered.
-     * @return Two-layer map structure.
+     * @param musialStorage The MusialStorage containing the genetic variant data.
      */
-    private static TreeMap<String, LinkedHashMap<String, String>> constructVariantsTable(MusialStorage musialStorage, String featureName, HashSet<String> sampleNames, String contentMode, boolean groupSamples, boolean conservedSites, boolean primaryOnly) {
-        TreeMap<String, LinkedHashMap<String, String>> variantsTable = new TreeMap<>((p1, p2) -> {
-            String[] f1 = p1.split("\\.");
-            String[] f2 = p2.split("\\.");
-            int x1 = Integer.parseInt(f1[0]);
-            int y1 = Integer.parseInt(f1[1]);
-            int x2 = Integer.parseInt(f2[0]);
-            int y2 = Integer.parseInt(f2[1]);
-            if (x1 == x2) {
-                return Integer.compare(y1, y2);
-            } else {
-                return Integer.compare(x1, x2);
-            }
-        });
-        TriFunction<Map.Entry<String, VariantAnnotation>, Integer, String, String> getAmbiguousContent = (variant, position, sampleName) -> {
-            String[] sampleSpecificAnnotation = variant.getValue().getProperty(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX + sampleName).split(":");
-            String frequency = sampleSpecificAnnotation[2];
-            String quality = sampleSpecificAnnotation[3];
-            String coverage = sampleSpecificAnnotation[4];
-            return Bio.ANY_NUC + ":" + variant.getKey().charAt(position) + "," + frequency + "," + quality + "," + coverage;
-        };
-        BiFunction<VariantAnnotation, String, Boolean> isPrimary = (variant, sampleName) -> {
-            String[] sampleSpecificAnnotation = variant.getProperty(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX + sampleName).split(":");
-            return sampleSpecificAnnotation[0].startsWith("1/");
-        };
-        Feature feature = musialStorage.getFeature(featureName);
-        NavigableSet<Integer> variantPositions = new TreeSet<>();
-        ConcurrentSkipListMap<String, VariantAnnotation> variants = new ConcurrentSkipListMap<>();
-        VariantAnnotation variantAnnotation;
-        char[] variantChars;
-        char[] referenceChars;
-        String[] perSampleVariantProperties;
-        boolean rejected;
-        TriConsumer<String, String, String> insertToVariantsTable = (position, sampleName, content) -> {
-            if (!variantsTable.containsKey(position))
-                variantsTable.put(position, new LinkedHashMap<>(sampleNames.size()));
-            if (!variantsTable.get(position).containsKey(sampleName))
-                variantsTable.get(position).put(sampleName, content);
-            else if (!Objects.equals(sampleName, MusialConstants.REFERENCE_ID))
-                variantsTable.get(position).put(sampleName, variantsTable.get(position).get(sampleName) + "/" + content);
-        };
-        switch (contentMode) {
-            case "nucleotide" -> variantPositions.addAll(feature.getNucleotideVariantPositions());
-            case "aminoacid" -> variantPositions.addAll(((FeatureCoding) feature).getAminoacidVariantPositions());
-        }
-        if (conservedSites) {
-            int positionStart = contentMode.equals("nucleotide") ? feature.start : 1;
-            int positionEnd = contentMode.equals("nucleotide") ? feature.end : ((FeatureCoding) feature).getCodingSequence().length();
-            for (int position = positionStart; position <= positionEnd; position++) {
-                variantPositions.add(position);
-            }
-        }
-        for (int variantPosition : variantPositions) {
-            switch (contentMode) {
-                case "nucleotide" -> variants = feature.getNucleotideVariants(variantPosition);
-                case "aminoacid" -> variants = ((FeatureCoding) feature).getAminoacidVariants(variantPosition);
-            }
-            if (variants == null) {
-                variantsTable.put(variantPosition + ".0", null);
-                continue;
-            }
-            boolean anyVariantAtPosition = false; // Flag, if any variant at this position occurs in the sample set.
-            boolean variantInSamples; // Flag, if specific variant at this position occurs in the sample set.
-            for (Map.Entry<String, VariantAnnotation> variant : variants.entrySet()) {
-                variantInSamples = false;
-                variantChars = variant.getKey().toCharArray();
-                variantAnnotation = variant.getValue();
-                referenceChars = variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT).toCharArray();
-                String type = "substitution";
-                if (variant.getKey().contains(String.valueOf(Bio.DELETION_AA1)) || variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT).contains(String.valueOf(Bio.DELETION_AA1)))
-                    type = "insertion_deletion";
-                for (String sampleName : variantAnnotation.getSamples()) {
-                    if (!sampleNames.contains(sampleName)) {
-                        continue;
-                    }
-                    if (primaryOnly && (!isPrimary.apply(variantAnnotation, sampleName) && Objects.equals(contentMode, "nucleotide"))) {
-                        continue;
-                    }
-                    perSampleVariantProperties = variantAnnotation.getProperty(MusialConstants.VARIANT_OCCURRENCE_SAMPLE_PREFIX + sampleName).split(":");
-                    rejected = contentMode.equals("nucleotide") && Objects.equals(perSampleVariantProperties[1], "true");
-                    if (rejected && groupSamples) {
-                        continue;
-                    }
-                    anyVariantAtPosition = true;
-                    variantInSamples = true;
+    private static void updateStatistics(MusialStorage musialStorage) {
+        Logger.logStatus("Update info statistics");
+        float noSamples = musialStorage.getNumberOfSamples();
+        Iterator<String> iterator;
+        // Update feature statistics.
+        Feature feature;
+        FeatureCoding featureCoding;
+        Sample sample;
+        float length;
+        iterator = musialStorage.getFeatureNameIterator();
+        int noSubstitutions;
+        int noInsertions;
+        int noDeletions;
+        int noAmbiguous;
+        String alt;
+        String ref;
+        String type;
+        VariantInformation variantInformation;
+        while (iterator.hasNext()) {
+            // Feature level statistics.
+            feature = musialStorage.getFeature(iterator.next());
+            length = Math.abs((feature.end - feature.start) + 1);
+            noSubstitutions = 0;
+            noInsertions = 0;
+            noDeletions = 0;
+            noAmbiguous = 0;
+            for (Integer p : feature.getNucleotideVariantPositions()) {
+                for (Map.Entry<String, VariantInformation> entry : feature.getNucleotideVariantsAt(p).entrySet()) {
+                    alt = entry.getKey();
+                    variantInformation = entry.getValue();
+                    variantInformation.addInfo(
+                            Constants.FREQUENCY,
+                            DECIMAL_FORMATTER.format((variantInformation.getOccurrenceCount() / noSamples) * 100)
+                    );
+                    ref = variantInformation.referenceContent;
+                    type = variantInformation.getInfo(Constants.TYPE);
                     switch (type) {
-                        case "substitution":
-                            if (rejected) {
-                                insertToVariantsTable.accept(variantPosition + ".0", sampleName, getAmbiguousContent.apply(variant, 0, sampleName));
-                            } else {
-                                insertToVariantsTable.accept(variantPosition + ".0", sampleName, variant.getKey());
+                        case (Constants.TYPE_AMBIGUOUS_PREFIX + Constants.TYPE_SUBSTITUTION) -> noAmbiguous += 1;
+                        case (Constants.TYPE_AMBIGUOUS_PREFIX + Constants.TYPE_INSERTION) ->
+                                noAmbiguous += ref.chars().filter(c -> c == '-').count();
+                        case (Constants.TYPE_AMBIGUOUS_PREFIX + Constants.TYPE_DELETION) ->
+                                noAmbiguous += alt.chars().filter(c -> c == 'N').count() - 1;
+                        case (Constants.TYPE_SUBSTITUTION) -> noSubstitutions += 1;
+                        case (Constants.TYPE_INSERTION) -> noInsertions += ref.chars().filter(c -> c == '-').count();
+                        case (Constants.TYPE_DELETION) -> noDeletions += alt.chars().filter(c -> c == '-').count();
+                    }
+                }
+            }
+            if (feature.isCoding()) {
+                featureCoding = (FeatureCoding) feature;
+                for (Integer p : featureCoding.getAminoacidVariantPositions())
+                    for (VariantInformation vI : featureCoding.getAminoacidVariantsAt(p).values())
+                        vI.addInfo(
+                                Constants.FREQUENCY,
+                                DECIMAL_FORMATTER.format((vI.getOccurrenceCount() / noSamples) * 100)
+                        );
+            }
+            feature.addInfo(Constants.NUMBER_OF_SUBSTITUTIONS, String.valueOf(noSubstitutions));
+            feature.addInfo(Constants.NUMBER_OF_INSERTIONS, String.valueOf(noInsertions));
+            feature.addInfo(Constants.NUMBER_OF_DELETIONS, String.valueOf(noDeletions));
+            feature.addInfo(Constants.NUMBER_OF_AMBIGUOUS, String.valueOf(noAmbiguous));
+            feature.addInfo(Constants.VARIABLE_POSITIONS_PERCENTAGE, DECIMAL_FORMATTER.format(
+                    ((noSubstitutions + noInsertions + noDeletions) / length) * 100
+            ));
+            int pos;
+            Iterator<String> iterator2 = feature.getAlleleNameIterator();
+            Form form;
+            String[] formVariants;
+            String[] formVariantFields;
+            while (iterator2.hasNext()) {
+                // Allele level statistics.
+                form = feature.getAllele(iterator2.next());
+                noSubstitutions = 0;
+                noInsertions = 0;
+                noDeletions = 0;
+                noAmbiguous = 0;
+                form.addInfo(
+                        Constants.FREQUENCY,
+                        DECIMAL_FORMATTER.format((form.getOccurrenceCount() / noSamples) * 100)
+                );
+                if (!form.name.equals(Constants.REFERENCE_FORM_NAME))
+                    try {
+                        formVariants = form.variants.split(Constants.FIELD_SEPARATOR_2);
+                        for (String formVariant : formVariants) {
+                            formVariantFields = formVariant.split(Constants.FIELD_SEPARATOR_1);
+                            pos = Integer.parseInt(formVariantFields[0]);
+                            alt = formVariantFields[1];
+                            variantInformation = feature.getNucleotideVariant(pos, alt);
+                            ref = variantInformation.referenceContent;
+                            type = variantInformation.getInfo(Constants.TYPE);
+                            switch (type) {
+                                case (Constants.TYPE_AMBIGUOUS_PREFIX + Constants.TYPE_SUBSTITUTION) -> noAmbiguous += 1;
+                                case (Constants.TYPE_AMBIGUOUS_PREFIX + Constants.TYPE_INSERTION) ->
+                                        noAmbiguous += ref.chars().filter(c -> c == '-').count();
+                                case (Constants.TYPE_AMBIGUOUS_PREFIX + Constants.TYPE_DELETION) ->
+                                        noAmbiguous += alt.chars().filter(c -> c == 'N').count() - 1;
+                                case (Constants.TYPE_SUBSTITUTION) -> noSubstitutions += 1;
+                                case (Constants.TYPE_INSERTION) -> noInsertions += ref.chars().filter(c -> c == '-').count();
+                                case (Constants.TYPE_DELETION) -> noDeletions += alt.chars().filter(c -> c == '-').count();
                             }
-                            break;
-                        case "insertion_deletion":
-                            for (int i = 1; i < variantChars.length; i++) {
-                                if (variantChars[i] == Bio.DELETION_AA1) {
-                                    if (rejected)
-                                        insertToVariantsTable.accept((variantPosition + i) + ".0", sampleName, getAmbiguousContent.apply(variant, i, sampleName));
-                                    else
-                                        insertToVariantsTable.accept((variantPosition + i) + ".0", sampleName, String.valueOf(variantChars[i]));
-                                } else {
-                                    if (rejected)
-                                        insertToVariantsTable.accept((variantPosition) + "." + (i), sampleName, getAmbiguousContent.apply(variant, i, sampleName));
-                                    else
-                                        insertToVariantsTable.accept((variantPosition) + "." + (i), sampleName, String.valueOf(variantChars[i]));
+                        }
+                    } catch (NullPointerException e) {
+                        e.printStackTrace();
+                        System.exit(1);
+                    }
+                form.addInfo(Constants.NUMBER_OF_SUBSTITUTIONS, String.valueOf(noSubstitutions));
+                form.addInfo(Constants.NUMBER_OF_INSERTIONS, String.valueOf(noInsertions));
+                form.addInfo(Constants.NUMBER_OF_DELETIONS, String.valueOf(noDeletions));
+                form.addInfo(Constants.NUMBER_OF_AMBIGUOUS, String.valueOf(noAmbiguous));
+                form.addInfo(Constants.VARIABLE_POSITIONS_PERCENTAGE, DECIMAL_FORMATTER.format(
+                        ((noSubstitutions + noInsertions + noDeletions) / length) * 100
+                ));
+            }
+            // Proteoform level statistics.
+            if (feature.isCoding()) {
+                featureCoding = (FeatureCoding) feature;
+                iterator2 = featureCoding.getProteoformNameIterator();
+                while (iterator2.hasNext()) {
+                    form = featureCoding.getProteoform(iterator2.next());
+                    noSubstitutions = 0;
+                    noInsertions = 0;
+                    noDeletions = 0;
+                    noAmbiguous = 0;
+                    form.addInfo(
+                            Constants.FREQUENCY,
+                            DECIMAL_FORMATTER.format((form.getOccurrenceCount() / noSamples) * 100)
+                    );
+                    if (!form.name.equals(Constants.REFERENCE_FORM_NAME))
+                        try {
+                            formVariants = form.variants.split(Constants.FIELD_SEPARATOR_2);
+                            for (String formVariant : formVariants) {
+                                formVariantFields = formVariant.split(Constants.FIELD_SEPARATOR_1);
+                                pos = Integer.parseInt(formVariantFields[0]);
+                                alt = formVariantFields[1];
+                                variantInformation = featureCoding.getAminoacidVariant(pos, alt);
+                                ref = variantInformation.referenceContent;
+                                type = variantInformation.getInfo(Constants.TYPE);
+                                switch (type) {
+                                    case (Constants.TYPE_AMBIGUOUS_PREFIX + Constants.TYPE_SUBSTITUTION) -> noAmbiguous += 1;
+                                    case (Constants.TYPE_AMBIGUOUS_PREFIX + Constants.TYPE_INSERTION) ->
+                                            noAmbiguous += ref.chars().filter(c -> c == '-').count();
+                                    case (Constants.TYPE_AMBIGUOUS_PREFIX + Constants.TYPE_DELETION) ->
+                                            noAmbiguous += alt.chars().filter(c -> c == 'X').count() - 1;
+                                    case (Constants.TYPE_SUBSTITUTION) -> noSubstitutions += 1;
+                                    case (Constants.TYPE_INSERTION) -> noInsertions += ref.chars().filter(c -> c == '-').count();
+                                    case (Constants.TYPE_DELETION) -> noDeletions += alt.chars().filter(c -> c == '-').count();
                                 }
                             }
-                            break;
-                    }
-                }
-                if (variantInSamples) { // If this specific variant occurs in the sample set, add reference content to table.
-                    switch (type) {
-                        case "substitution":
-                            insertToVariantsTable.accept(variantPosition + ".0", MusialConstants.REFERENCE_ID, String.valueOf(referenceChars[0]));
-                            break;
-                        case "insertion_deletion":
-                            for (int i = 1; i < referenceChars.length; i++) {
-                                if (variantChars[i] == Bio.DELETION_AA1) {
-                                    insertToVariantsTable.accept((variantPosition + i) + ".0", MusialConstants.REFERENCE_ID, String.valueOf(referenceChars[i]));
-                                } else {
-                                    insertToVariantsTable.accept((variantPosition) + "." + (i), MusialConstants.REFERENCE_ID, String.valueOf(referenceChars[i]));
-                                }
-                            }
-                            break;
-                    }
+                        } catch (NullPointerException e) {
+                            e.printStackTrace();
+                            System.exit(1);
+                        }
+                    form.addInfo(Constants.NUMBER_OF_SUBSTITUTIONS, String.valueOf(noSubstitutions));
+                    form.addInfo(Constants.NUMBER_OF_INSERTIONS, String.valueOf(noInsertions));
+                    form.addInfo(Constants.NUMBER_OF_DELETIONS, String.valueOf(noDeletions));
+                    form.addInfo(Constants.NUMBER_OF_AMBIGUOUS, String.valueOf(noAmbiguous));
+                    form.addInfo(Constants.VARIABLE_POSITIONS_PERCENTAGE, DECIMAL_FORMATTER.format(
+                            ((noSubstitutions + noInsertions + noDeletions) / length) * 100
+                    ));
                 }
             }
-            if (!anyVariantAtPosition && conservedSites) // If no variant is contained in the sample set, add null content in case of conserved site output.
-                variantsTable.put(variantPosition + ".0", null);
         }
-        return variantsTable;
+        // Sample level statistics.
+        iterator = musialStorage.getSampleNameIterator();
+        while (iterator.hasNext()) {
+            sample = musialStorage.getSample(iterator.next());
+            noSubstitutions = 0;
+            noInsertions = 0;
+            noDeletions = 0;
+            noAmbiguous = 0;
+            Iterator<String> iterator2 = musialStorage.getFeatureNameIterator();
+            while (iterator2.hasNext()) {
+                feature = musialStorage.getFeature(iterator2.next());
+                noSubstitutions += Integer.parseInt(feature.getAllele(sample.getAllele(feature.name)).getInfo(Constants.NUMBER_OF_SUBSTITUTIONS));
+                noInsertions += Integer.parseInt(feature.getAllele(sample.getAllele(feature.name)).getInfo(Constants.NUMBER_OF_INSERTIONS));
+                noDeletions += Integer.parseInt(feature.getAllele(sample.getAllele(feature.name)).getInfo(Constants.NUMBER_OF_DELETIONS));
+                noAmbiguous += Integer.parseInt(feature.getAllele(sample.getAllele(feature.name)).getInfo(Constants.NUMBER_OF_AMBIGUOUS));
+            }
+            sample.addInfo(Constants.NUMBER_OF_SUBSTITUTIONS, String.valueOf(noSubstitutions));
+            sample.addInfo(Constants.NUMBER_OF_INSERTIONS, String.valueOf(noInsertions));
+            sample.addInfo(Constants.NUMBER_OF_DELETIONS, String.valueOf(noDeletions));
+            sample.addInfo(Constants.NUMBER_OF_AMBIGUOUS, String.valueOf(noAmbiguous));
+        }
+        System.gc();
     }
 }

@@ -9,10 +9,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 /**
- * Comprises static methods to compress {@link String} content using the `brotli4j` library.
+ * Implements static methods to compress {@link String} content using the `brotli4j` library.
  *
  * @author Simon Hackl
- * @version 2.2
+ * @version 2.3
  * @since 2.2
  */
 public class Compression {

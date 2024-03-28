@@ -9,7 +9,7 @@ import com.github.fge.jsonschema.main.JsonSchemaFactory;
 import com.google.gson.Gson;
 import exceptions.MusialException;
 import main.Musial;
-import main.MusialTasks;
+import main.Tasks;
 import org.apache.commons.cli.*;
 import org.apache.commons.io.IOUtils;
 import utility.Validation;
@@ -28,7 +28,7 @@ import java.util.Objects;
  * Used to parse and validate passed command line options or print help information to the user.
  *
  * @author Simon Hackl
- * @version 2.2
+ * @version 2.3
  * @since 2.1
  */
 @SuppressWarnings("DuplicatedCode")
@@ -40,7 +40,7 @@ public class CLIParser {
     @SuppressWarnings("FieldCanBeLocal")
     private final String musialTaskDescription = """
             \n
-             build            Build a local .json database (MUSIAL storage) from variant calls.
+             build            Build a local database/MUSIAL storage (brotli compressed binary JSON format) from variant calls.
              view_features    View annotated features from a built MUSIAL storage in a tabular format.
              view_samples     View annotated samples from a built MUSIAL storage in a tabular format.
              view_variants    View annotated variants from a built MUSIAL storage in a tabular format.
@@ -69,17 +69,17 @@ public class CLIParser {
         Options options = new Options();
 
         // Add explicit options dependent on task to execute.
-        if (Musial.TASK.equalsIgnoreCase(MusialTasks.BUILD.name())) {
+        if (Musial.TASK.equalsIgnoreCase(Tasks.BUILD.name())) {
             addBuildOptions(options);
-        } else if (Musial.TASK.equalsIgnoreCase(MusialTasks.VIEW_FEATURES.name())) {
+        } else if (Musial.TASK.equalsIgnoreCase(Tasks.VIEW_FEATURES.name())) {
             addViewFeaturesOptions(options);
-        } else if (Musial.TASK.equalsIgnoreCase(MusialTasks.VIEW_SAMPLES.name())) {
+        } else if (Musial.TASK.equalsIgnoreCase(Tasks.VIEW_SAMPLES.name())) {
             addViewSamplesOptions(options);
-        } else if (Musial.TASK.equalsIgnoreCase(MusialTasks.VIEW_VARIANTS.name())) {
+        } else if (Musial.TASK.equalsIgnoreCase(Tasks.VIEW_VARIANTS.name())) {
             addViewVariantsOptions(options);
-        } else if (Musial.TASK.equalsIgnoreCase(MusialTasks.EXPORT_TABLE.name())) {
+        } else if (Musial.TASK.equalsIgnoreCase(Tasks.EXPORT_TABLE.name())) {
             addExportTableOptions(options);
-        } else if (Musial.TASK.equalsIgnoreCase(MusialTasks.EXPORT_SEQUENCE.name())) {
+        } else if (Musial.TASK.equalsIgnoreCase(Tasks.EXPORT_SEQUENCE.name())) {
             addExportSequenceOptions(options);
         } else {
             exitNotRecognized(args[0]);
@@ -94,7 +94,7 @@ public class CLIParser {
                 String headerText;
                 if (isFirstArgument) {
                     headerText =
-                            "MUSIAL provides distinct tasks to computes prokaryotic genome, gene and protein sequence alignments from variant call datasets from multiple samples of one species."
+                            "MUSIAL provides distinct tasks to computes prokaryotic genome, gene and protein sequence alignments from variantInformation call datasets from multiple samples of one species."
                                     + " Available tasks are:"
                                     + musialTaskDescription
                                     + "Call `java -jar " + Musial.NAME + "-" + Musial.VERSION + ".jar <task> [-h|--help]` for more information.";
@@ -116,17 +116,17 @@ public class CLIParser {
         // Else, command line interface arguments are parsed wrt. specified task.
         try {
             this.arguments = parser.parse(options, args);
-            if (Musial.TASK.equalsIgnoreCase(MusialTasks.BUILD.name())) {
+            if (Musial.TASK.equalsIgnoreCase(Tasks.BUILD.name())) {
                 this.buildConfiguration = validateBuildOptions();
-            } else if (Musial.TASK.equalsIgnoreCase(MusialTasks.VIEW_FEATURES.name())) {
+            } else if (Musial.TASK.equalsIgnoreCase(Tasks.VIEW_FEATURES.name())) {
                 validateViewFeaturesOptions();
-            } else if (Musial.TASK.equalsIgnoreCase(MusialTasks.VIEW_SAMPLES.name())) {
+            } else if (Musial.TASK.equalsIgnoreCase(Tasks.VIEW_SAMPLES.name())) {
                 validateViewSamplesOptions();
-            } else if (Musial.TASK.equalsIgnoreCase(MusialTasks.VIEW_VARIANTS.name())) {
+            } else if (Musial.TASK.equalsIgnoreCase(Tasks.VIEW_VARIANTS.name())) {
                 validateViewVariantsOptions();
-            } else if (Musial.TASK.equalsIgnoreCase(MusialTasks.EXPORT_TABLE.name())) {
+            } else if (Musial.TASK.equalsIgnoreCase(Tasks.EXPORT_TABLE.name())) {
                 validateExportTableOptions();
-            } else if (Musial.TASK.equalsIgnoreCase(MusialTasks.EXPORT_SEQUENCE.name())) {
+            } else if (Musial.TASK.equalsIgnoreCase(Tasks.EXPORT_SEQUENCE.name())) {
                 validateExportSequenceOptions();
             }
         } catch (ParseException | IOException | ProcessingException e) {
@@ -146,19 +146,6 @@ public class CLIParser {
                         .desc("Path to a .json file specifying the build configuration for MUSIAL. Please visit https://github.com/Integrative-Transcriptomics/MUSIAL for a detailed explanation on how to specify the MUSIAL build configuration file.")
                         .hasArg()
                         .required()
-                        .build()
-        );
-        options.addOption(
-                Option.builder("t")
-                        .longOpt("threads")
-                        .desc("The number of threads to use (Default: 1).")
-                        .hasArg()
-                        .build()
-        );
-        options.addOption(
-                Option.builder("k")
-                        .longOpt("compress")
-                        .desc("Whether to compress the built MUSIAL storage (Default: False).")
                         .build()
         );
     }
@@ -282,16 +269,11 @@ public class CLIParser {
                         .build()
         );
         options.addOption(
-                Option.builder("r")
-                        .longOpt("reference")
-                        .desc("Path to a .fasta file yielding the reference sequences with which the specified MUSIAL storage file was built. If the file is not indexed, this wil be done automatically. This option is only required for `content=nucleotide` and `conserved`.")
+                Option.builder("O")
+                        .longOpt("output")
+                        .desc("Path to a file to write the output to.")
                         .hasArg()
-                        .build()
-        );
-        options.addOption(
-                Option.builder("k")
-                        .longOpt("conserved")
-                        .desc("Export conserved sites (Default: Only variant sites).")
+                        .required()
                         .build()
         );
         Option optionFeatures = Option.builder("F")
@@ -314,20 +296,6 @@ public class CLIParser {
                         .longOpt("content")
                         .desc("Sets the content type of viewed variants; One of `nucleotide` or `aminoacid` (Default: nucleotide).")
                         .hasArg()
-                        .build()
-        );
-        options.addOption(
-                Option.builder("g")
-                        .longOpt("group")
-                        .desc("Whether to merge samples by alleles and proteoforms (Default: No merging).")
-                        .build()
-        );
-        options.addOption(
-                Option.builder("O")
-                        .longOpt("output")
-                        .desc("Path to a file to write the output to.")
-                        .hasArg()
-                        .required()
                         .build()
         );
     }
@@ -347,16 +315,11 @@ public class CLIParser {
                         .build()
         );
         options.addOption(
-                Option.builder("r")
-                        .longOpt("reference")
-                        .desc("Path to a .fasta file yielding the reference sequences with which the specified MUSIAL storage file was built. If the file is not indexed, this wil be done automatically. This option is only required for `content=nucleotide` and `conserved`.")
+                Option.builder("O")
+                        .longOpt("output")
+                        .desc("Path to a file to write the output to.")
                         .hasArg()
-                        .build()
-        );
-        options.addOption(
-                Option.builder("k")
-                        .longOpt("conserved")
-                        .desc("Export conserved sites (Default: Only variant sites).")
+                        .required()
                         .build()
         );
         Option optionFeatures = Option.builder("F")
@@ -367,6 +330,19 @@ public class CLIParser {
                 .build();
         optionFeatures.setArgs(Option.UNLIMITED_VALUES);
         options.addOption(optionFeatures);
+        options.addOption(
+                Option.builder("k")
+                        .longOpt("conserved")
+                        .desc("Export conserved sites (Default: Only variantInformation sites).")
+                        .build()
+        );
+        options.addOption(
+                Option.builder("r")
+                        .longOpt("reference")
+                        .desc("Path to a .fasta file yielding the reference sequences with which the specified MUSIAL storage file was built. If the file is not indexed, this wil be done automatically. This option is only required for `content=nucleotide` and `conserved`.")
+                        .hasArg()
+                        .build()
+        );
         Option optionSamples = Option.builder("s")
                 .longOpt("samples")
                 .desc("Explicit space separated list of samples to restrict variants to (Default: all).")
@@ -382,29 +358,15 @@ public class CLIParser {
                         .build()
         );
         options.addOption(
-                Option.builder("x")
-                        .longOpt("rejected")
-                        .desc("Whether to write rejected variants as reference content (Default: Rejected as ambiguous base). This option is only relevant for `content=nucleotide`.")
-                        .build()
-        );
-        options.addOption(
                 Option.builder("a")
                         .longOpt("aligned")
                         .desc("Whether to align sequences (Default: No alignment).")
                         .build()
         );
         options.addOption(
-                Option.builder("g")
-                        .longOpt("group")
+                Option.builder("m")
+                        .longOpt("merge")
                         .desc("Whether to merge samples by alleles and proteoforms (Default: No merging).")
-                        .build()
-        );
-        options.addOption(
-                Option.builder("O")
-                        .longOpt("output")
-                        .desc("Path to a file to write the output to.")
-                        .hasArg()
-                        .required()
                         .build()
         );
     }
@@ -529,7 +491,7 @@ public class CLIParser {
      * @throws MusialException If the validation fails.
      */
     private void validateExportSequenceOptions() throws MusialException {
-        String EXCEPTION_PREFIX = "(Task `export_table` Argument Validation)";
+        String EXCEPTION_PREFIX = "(Task `export_sequence` Argument Validation)";
         if (!Validation.isFile(new File(arguments.getOptionValue("I"))))
             throw new MusialException(EXCEPTION_PREFIX + " Invalid value '" + arguments.getOptionValue("I") + "' for parameter `storage`; failed to access file.");
         if (Validation.isFile(new File(arguments.getOptionValue("O"))))

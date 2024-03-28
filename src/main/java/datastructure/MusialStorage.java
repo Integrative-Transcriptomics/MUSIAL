@@ -4,30 +4,27 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import exceptions.MusialException;
 import htsjdk.samtools.reference.IndexedFastaSequenceFile;
-import main.MusialConstants;
+import main.Constants;
 import utility.Compression;
 import utility.IO;
+import utility.Logger;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.TreeSet;
+import java.util.*;
 
 /**
  * Main data structure to store information about variants wrt. features and samples.
  *
  * @author Simon Hackl
- * @version 2.2
+ * @version 2.3
  * @since 2.1
  */
 @SuppressWarnings("unused")
-public class MusialStorage {
+public class MusialStorage extends InfoContainer {
 
     /**
      * Set of parameters used for filtering variant calls.
@@ -36,44 +33,60 @@ public class MusialStorage {
     /**
      * Container to store maintained genomic features.
      */
-    private final HashMap<String, Feature> features = new HashMap<>();
+    private final HashMap<String, Feature> features;
     /**
      * Container to store samples, i.e., variant call sets from one biological sample.
      */
-    private final HashMap<String, Sample> samples = new HashMap<>();
+    private final HashMap<String, Sample> samples;
     /**
      * Specification of positions to exclude from the analysis per reference contig.
      */
-    public final HashMap<String, TreeSet<Integer>> excludedPositions = new HashMap<>();
+    private final HashMap<String, TreeSet<Integer>> excludedPositions;
     /**
-     * Indexed reference genome.
+     * Stores already seen variants to avoid redundant form names. No permanent storage in MUSIAL session.
      */
-    public transient IndexedFastaSequenceFile reference;
-
+    private final transient HashMap<Integer, String> formNameCodes = new HashMap<>();
     /**
-     * Stores already seen variants to avoid redundant form names.
+     * Indexed reference sequences. No permanent storage in MUSIAL session.
      */
-    public transient HashMap<Integer, String> formNameCodes = new HashMap<>();
-
-    /**
-     * The length of the reference genome.
-     */
-    @SuppressWarnings("FieldCanBeLocal")
-    private final int referenceLength;
+    private transient IndexedFastaSequenceFile reference;
 
     /**
      * Constructor of {@link MusialStorage}.
      *
-     * @param minimalCoverage              {@link Double}; Minimal read coverage to use for variant filtering.
-     * @param minimalFrequency             {@link Double}; Minimal allele frequency to use for hom. variant filtering.
-     * @param minimalHeterozygousFrequency {@link Double}; Minimal allele frequency to use for het. variant filtering.
-     * @param maximalHeterozygousFrequency {@link Double}; Maximal allele frequency to use for het. variant filtering.
-     * @param minimalQuality               {@link Double}; Minimal Phred scaled call quality to use for variant filtering.
+     * @param minimalCoverage  {@link Double}; Minimal read coverage to use for allele filtering.
+     * @param minimalFrequency {@link Double}; Minimal allele frequency to use for allele filtering.
      */
-    public MusialStorage(IndexedFastaSequenceFile reference, Double minimalCoverage, Double minimalFrequency, Double minimalHeterozygousFrequency, Double maximalHeterozygousFrequency, Double minimalQuality) {
-        this.parameters = new MusialStorageParameters(minimalCoverage, minimalFrequency, minimalHeterozygousFrequency, maximalHeterozygousFrequency, minimalQuality);
+    public MusialStorage(IndexedFastaSequenceFile reference, Double minimalCoverage, Double minimalFrequency) {
+        super();
+        this.parameters = new MusialStorageParameters(minimalCoverage, minimalFrequency);
         this.reference = reference;
-        this.referenceLength = reference.nextSequence().length();
+        addInfo("reference_length", String.valueOf(reference.nextSequence().length()));
+        this.features = new HashMap<>();
+        this.samples = new HashMap<>();
+        this.excludedPositions = new HashMap<>();
+    }
+
+    /**
+     * Constructor of {@link MusialStorage}.
+     *
+     * @param minimalCoverage  {@link Double}; Minimal read coverage to use for allele filtering.
+     * @param minimalFrequency {@link Double}; Minimal allele frequency to use for allele filtering.
+     */
+    public MusialStorage(IndexedFastaSequenceFile reference, Double minimalCoverage, Double minimalFrequency, Collection<Feature> features, Collection<Sample> samples, HashMap<String, TreeSet<Integer>> excludedPositions) throws MusialException {
+        this.parameters = new MusialStorageParameters(minimalCoverage, minimalFrequency);
+        this.reference = reference;
+        this.features = new HashMap<>(features.size());
+        for (Feature feature : features) {
+            addFeature(feature);
+        }
+        this.samples = new HashMap<>(samples.size());
+        for (Sample sample : samples) {
+            sample.imputeVcfFileReader();
+            addSample(sample);
+        }
+        this.excludedPositions = excludedPositions;
+        addInfo("reference_length", String.valueOf(reference.nextSequence().length()));
     }
 
     /**
@@ -83,6 +96,17 @@ public class MusialStorage {
      */
     public void setReference(IndexedFastaSequenceFile reference) {
         this.reference = reference;
+    }
+
+    /**
+     * Checks whether {@code position} is excluded on {@code contig} of {@link #reference}.
+     *
+     * @param contig   Contig (name) to check fo exclusion.
+     * @param position Position to check for exclusion.
+     * @return True if {@code position} on feature {@code featureName} is excluded from the analysis.
+     */
+    public boolean isPositionExcluded(String contig, int position) {
+        return excludedPositions.containsKey(contig) && excludedPositions.get(contig).contains(position);
     }
 
     /**
@@ -101,7 +125,18 @@ public class MusialStorage {
      * @return The queried feature or null, if no feature is stored at key name.
      */
     public Feature getFeature(String name) {
-        return this.features.get(name);
+        return this.features.getOrDefault(name, null);
+    }
+
+    /**
+     * Query whether a feature is stored in this instance by its name.
+     *
+     * @param name Name of the feature to query.
+     * @return Whether the queried feature is present in this instance.
+     */
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+    public boolean hasFeature(String name) {
+        return this.features.containsKey(name);
     }
 
     /**
@@ -127,10 +162,10 @@ public class MusialStorage {
      */
     public String getReferenceSequenceOfFeature(String featureName) {
         Feature feature = getFeature(featureName);
-        if (feature == null) {
+        if (feature == null || reference == null) {
             return null;
         } else {
-            return reference.getSubsequenceAt(feature.chromosome, feature.start, feature.end).getBaseString();
+            return reference.getSubsequenceAt(feature.contig, feature.start, feature.end).getBaseString();
         }
     }
 
@@ -159,7 +194,18 @@ public class MusialStorage {
      * @return The queried sample or null, if no feature is stored at key name.
      */
     public Sample getSample(String name) {
-        return this.samples.get(name);
+        return this.samples.getOrDefault(name, null);
+    }
+
+    /**
+     * Query whether a sample is stored in this instance by its name.
+     *
+     * @param name Name of the sample to query.
+     * @return Whether the queried sample is present in this instance.
+     */
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+    public boolean hasSample(String name) {
+        return this.samples.containsKey(name);
     }
 
     /**
@@ -182,32 +228,35 @@ public class MusialStorage {
     /**
      * Dumps this {@link MusialStorage} instance into a .json(.br) format file. The output is optionally compressed with brotli.
      *
-     * @param outfile  {@link File} object pointing to the file this {@link MusialStorage} should be written to.
+     * @param path     {@link String} specifying file path to which {@link MusialStorage} should be written to.
      * @param compress {@link Boolean} indicating whether the output file should be compressed.
      * @throws MusialException If the output generation fails.
      */
-    public void dump(File outfile, boolean compress) throws MusialException {
-        if (!outfile.exists()) {
-            throw new MusialException("(I/O) The specified output file does not exist:\t" + outfile.getAbsolutePath());
-        }
+    public void dump(String path, boolean compress) throws MusialException {
+        if (compress && !path.endsWith(".br"))
+            path += ".br";
+        else if (!compress && !path.endsWith(".json"))
+            path += ".json";
+        File outFile = new File(path);
+        Logger.logStatus("Dump to file `" + path + "`");
         try {
-            String dumpString;
-            String dumpFilePath = outfile.getAbsolutePath();
+            String dump;
             if (compress) {
                 // Write to compressed (brotli) JSON.
-                dumpString = new Gson().toJson(this);
+                dump = new Gson().toJson(this);
                 Files.write(
-                        Paths.get(dumpFilePath.endsWith(".br") ? dumpFilePath : dumpFilePath + ".br"),
-                        Compression.brotliEncodeStringToBytes(dumpString));
+                        outFile.toPath(),
+                        Compression.brotliEncodeStringToBytes(dump));
             } else {
                 // Write to pretty JSON.
-                dumpString = new GsonBuilder().setPrettyPrinting().create().toJson(this);
-                Writer dumpWriter = new FileWriter(dumpFilePath.endsWith(".json") ? dumpFilePath : dumpFilePath + ".json");
-                dumpWriter.write(dumpString);
-                dumpWriter.close();
+                GsonBuilder gsonBuilder = new GsonBuilder().setPrettyPrinting();
+                dump = gsonBuilder.create().toJson(this, MusialStorage.class);
+                Writer writer = new FileWriter(outFile);
+                writer.write(dump);
+                writer.close();
             }
         } catch (IOException e) {
-            throw new MusialException("(I/O) Failed to write to output file:\t" + outfile.getAbsolutePath());
+            throw new MusialException("(I/O) Failed to write to output file:\t" + path);
         }
     }
 
@@ -221,17 +270,15 @@ public class MusialStorage {
         vcfContent.append("##fileformat=VCFv4.2").append(IO.LINE_SEPARATOR).append("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO").append(IO.LINE_SEPARATOR);
         for (Feature feature : this.features.values()) {
             for (Integer variantPosition : feature.getNucleotideVariantPositions()) {
-                for (Map.Entry<String, VariantAnnotation> variantEntry : feature.getNucleotideVariants(variantPosition).entrySet()) {
+                for (Map.Entry<String, VariantInformation> variantEntry : feature.getNucleotideVariantsAt(variantPosition).entrySet()) {
                     String variantContent = variantEntry.getKey();
-                    VariantAnnotation variantAnnotation = variantEntry.getValue();
-                    boolean isIndel = (variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT).contains("-") || variantContent.contains("-"));
-                    String prefix = "";
-                    if ( isIndel )
-                        prefix = reference.getSubsequenceAt(feature.chromosome, variantPosition, variantPosition).getBaseString();
+                    if (variantContent.contains(Constants.ANY_NUCLEOTIDE_STRING))
+                        continue;
+                    VariantInformation variantInformation = variantEntry.getValue();
                     vcfContent
-                            .append(feature.chromosome).append("\t")
+                            .append(feature.contig).append("\t")
                             .append(variantPosition).append("\t")
-                            .append(".\t").append(prefix).append(variantAnnotation.getProperty(MusialConstants.REFERENCE_CONTENT).replace("-", "")).append("\t").append(prefix).append(variantContent.replace("-", "")).append("\t")
+                            .append(".\t").append(variantInformation.referenceContent.replace("-", "")).append("\t").append(variantContent.replace("-", "")).append("\t")
                             .append("1000\t")
                             .append(".\t")
                             .append("\t").append(IO.LINE_SEPARATOR);
@@ -240,6 +287,24 @@ public class MusialStorage {
             }
         }
         return vcfContent.toString();
+    }
+
+    /**
+     * Used to collide form names based on mapping stored in {@link MusialStorage#formNameCodes}.
+     * <p>
+     * Specifically, this is used to map hash keys of variant fingerprints (see {@link Form#variants}) to human-readable names.
+     *
+     * @param hashKey Key to store.
+     * @param value   Value to store.
+     * @return Returns {@code value} or the value stored at {@code hashKey}, if present.
+     */
+    public String getFormName(int hashKey, String value) {
+        if (formNameCodes.containsKey(hashKey)) {
+            return formNameCodes.get(hashKey);
+        } else {
+            this.formNameCodes.put(hashKey, value);
+            return value;
+        }
     }
 
 }

@@ -5,13 +5,13 @@ package exceptions;
  * features with negative lengths.
  *
  * @author Simon Hackl
- * @version 2.2
+ * @version 2.3
  * @since 2.0
  */
 public final class MusialException extends Exception {
 
     /**
-     * Constructor that accepts a String message.
+     * Constructor that accepts a string message.
      *
      * @param message The message comprised by the exception.
      */

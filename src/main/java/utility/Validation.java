@@ -3,10 +3,10 @@ package utility;
 import java.io.File;
 
 /**
- * This class comprises static methods used for validating input data.
+ * Implements static methods used for validating input parameters.
  *
  * @author Simon Hackl
- * @version 2.2
+ * @version 2.3
  * @since 2.0
  */
 @SuppressWarnings("unused")
