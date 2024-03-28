@@ -76,7 +76,7 @@ loadScripts(document, 'script');</script>
 <h1 title="Class Bio" class="title">Class Bio</h1>
 </div>
 <div class="inheritance" title="Inheritance Tree">java.lang.Object
-<div class="inheritance">utility.Bio</div>
+<div class="inheritance">utility.SequenceOperations</div>
 </div>
 <section class="description">
 <hr>
@@ -283,7 +283,7 @@ int&nbsp;gapExtendPenalty,
 <td class="col-last">
 <div class="block">Invokes the <a href="#globalSequenceAlignment(java.lang.String,java.lang.String,java.util.HashMap,int%5B%5D%5B%5D,int,int,components.Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES,components.Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES)"><code>globalSequenceAlignment(java.lang.String,
     java.lang.String, java.util.HashMap&lt;java.lang.Character, java.lang.Integer&gt;, int[][], int, int,
-    utility.Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES, utility.Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES)</code></a> method with pre-specified parameters for amino-acid sequence
+    utility.SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES, utility.SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES)</code></a> method with pre-specified parameters for amino-acid sequence
  alignment.</div>
 </td>
 </tr>
@@ -296,7 +296,7 @@ java.lang.String&nbsp;nucSeq2,
 <td class="col-last">
 <div class="block">Invokes the <a href="#globalSequenceAlignment(java.lang.String,java.lang.String,java.util.HashMap,int%5B%5D%5B%5D,int,int,components.Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES,components.Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES)"><code>globalSequenceAlignment(java.lang.String,
     java.lang.String, java.util.HashMap&lt;java.lang.Character, java.lang.Integer&gt;, int[][], int, int,
-    utility.Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES, utility.Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES)</code></a> method with pre-specified parameters for nucleotide sequence
+    utility.SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES, utility.SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES)</code></a> method with pre-specified parameters for nucleotide sequence
  alignment.</div>
 </td>
 </tr>
@@ -637,7 +637,7 @@ java.lang.String&nbsp;nucSeq2,
 <a href="Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.html" title="enum in utility">Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES</a>&nbsp;right_mode)</span></div>
 <div class="block">Invokes the <a href="#globalSequenceAlignment(java.lang.String,java.lang.String,java.util.HashMap,int%5B%5D%5B%5D,int,int,components.Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES,components.Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES)"><code>globalSequenceAlignment(java.lang.String,
     java.lang.String, java.util.HashMap&lt;java.lang.Character, java.lang.Integer&gt;, int[][], int, int,
-    utility.Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES, utility.Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES)</code></a> method with pre-specified parameters for nucleotide sequence
+    utility.SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES, utility.SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES)</code></a> method with pre-specified parameters for nucleotide sequence
  alignment.
  <p>
  - Uses a simple substitution matrix that scores matches with 1 and mismatches with -1.
@@ -664,7 +664,7 @@ int&nbsp;gapExtendPenalty,
 <a href="Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.html" title="enum in utility">Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES</a>&nbsp;right_mode)</span></div>
 <div class="block">Invokes the <a href="#globalSequenceAlignment(java.lang.String,java.lang.String,java.util.HashMap,int%5B%5D%5B%5D,int,int,components.Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES,components.Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES)"><code>globalSequenceAlignment(java.lang.String,
     java.lang.String, java.util.HashMap&lt;java.lang.Character, java.lang.Integer&gt;, int[][], int, int,
-    utility.Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES, utility.Bio.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES)</code></a> method with pre-specified parameters for amino-acid sequence
+    utility.SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES, utility.SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES)</code></a> method with pre-specified parameters for amino-acid sequence
  alignment.
  <p>
  - Uses the PAM120 substitution matrix.</div>
@@ -715,7 +715,7 @@ int&nbsp;gapExtendPenalty,
 java.lang.String&nbsp;querySequence)</span></div>
 <div class="block">Computes variants from two aligned sequences.
  <p>
- Variants are extracted wrt. the query versus the target sequence and formatted as p@r@a, where p is the variant
+ Variants are extracted wrt. the query versus the target sequence and formatted as p@r@a, where p is the variantInformation
  position, r is the reference content and a is the single alternate alleles content..</div>
 <dl class="notes">
 <dt>Parameters:</dt>
@@ -737,10 +737,10 @@ java.lang.String&nbsp;sId)</span>
  musialStorage.
  <p>
  - The computed variants maps keys are formatted as `x+y`, where x is the 1-based indexed position in the
- reference sequence at which the variant occurs and y is the 1-based indexed number of inserted positions after
+ reference sequence at which the variantInformation occurs and y is the 1-based indexed number of inserted positions after
  this position.
  - The computed variants maps values are the respective single letter code amino-acid contents of the variants
- including the content at the variant position.</div>
+ including the content at the variantInformation position.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>musialStorage</code> - <a href="../datastructure/VariantsDictionary.html" title="class in datastructure"><code>VariantsDictionary</code></a> instance which content is used to infer proteoform information.</dd>
@@ -749,7 +749,7 @@ java.lang.String&nbsp;sId)</span>
 <dd><code>sId</code> - <code>String</code> specifying the <a href="../datastructure/SampleEntry.html#name"><code>SampleEntry.name</code></a> of the sample of
                            which the proteoform should be inferred.</dd>
 <dt>Returns:</dt>
-<dd><code>ConcurrentSkipListMap</code> mapping positions to variant contents.</dd>
+<dd><code>ConcurrentSkipListMap</code> mapping positions to variantInformation contents.</dd>
 <dt>Throws:</dt>
 <dd><code><a href="../exceptions/MusialBioException.html" title="class in exceptions">MusialBioException</a></code> - If any translation procedure of nucleotide sequences fails.</dd>
 </dl>

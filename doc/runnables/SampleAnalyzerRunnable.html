@@ -76,7 +76,7 @@ loadScripts(document, 'script');</script>
 <h1 title="Class SampleAnalyzerRunnable" class="title">Class SampleAnalyzerRunnable</h1>
 </div>
 <div class="inheritance" title="Inheritance Tree">java.lang.Object
-<div class="inheritance">runnables.SampleAnalyzer</div>
+<div class="inheritance">utility.SampleAnalyzer</div>
 </div>
 <section class="description">
 <dl class="notes">
@@ -195,16 +195,16 @@ me.tongfei.progressbar.ProgressBar&nbsp;pb)</code></th>
 <tbody>
 <tr class="alt-color" id="i0">
 <td class="col-first"><code>private void</code></td>
-<th class="col-second" scope="row"><code><span class="member-name-link"><a href="#processVariantCall(int,double,double,double,htsjdk.variant.variantcontext.Allele,htsjdk.variant.variantcontext.Allele,boolean,boolean)">processVariantCall</a></span>&#8203;(int&nbsp;variantPosition,
+<th class="col-second" scope="row"><code><span class="member-name-link"><a href="#processVariantCall(int,double,double,double,htsjdk.variantInformation.variantcontext.Allele,htsjdk.variantInformation.variantcontext.Allele,boolean,boolean)">processVariantCall</a></span>&#8203;(int&nbsp;variantPosition,
 double&nbsp;variantQuality,
 double&nbsp;variantCoverage,
 double&nbsp;variantFrequency,
-htsjdk.variant.variantcontext.Allele&nbsp;variantAllele,
-htsjdk.variant.variantcontext.Allele&nbsp;referenceAllele,
+htsjdk.variantInformation.variantcontext.Allele&nbsp;variantAllele,
+htsjdk.variantInformation.variantcontext.Allele&nbsp;referenceAllele,
 boolean&nbsp;isHetCall,
 boolean&nbsp;isPrimary)</code></th>
 <td class="col-last">
-<div class="block">Internal method to process a variant-call.</div>
+<div class="block">Internal method to process a variantInformation-call.</div>
 </td>
 </tr>
 <tr class="row-color" id="i1">
@@ -305,28 +305,28 @@ me.tongfei.progressbar.ProgressBar&nbsp;pb)</span></div>
 </section>
 </li>
 <li>
-<section class="detail" id="processVariantCall(int,double,double,double,htsjdk.variant.variantcontext.Allele,htsjdk.variant.variantcontext.Allele,boolean,boolean)">
+<section class="detail" id="processVariantCall(int,double,double,double,htsjdk.variantInformation.variantcontext.Allele,htsjdk.variantInformation.variantcontext.Allele,boolean,boolean)">
 <h3>processVariantCall</h3>
 <div class="member-signature"><span class="modifiers">private</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="member-name">processVariantCall</span>&#8203;(<span class="parameters">int&nbsp;variantPosition,
 double&nbsp;variantQuality,
 double&nbsp;variantCoverage,
 double&nbsp;variantFrequency,
-htsjdk.variant.variantcontext.Allele&nbsp;variantAllele,
-htsjdk.variant.variantcontext.Allele&nbsp;referenceAllele,
+htsjdk.variantInformation.variantcontext.Allele&nbsp;variantAllele,
+htsjdk.variantInformation.variantcontext.Allele&nbsp;referenceAllele,
 boolean&nbsp;isHetCall,
 boolean&nbsp;isPrimary)</span></div>
-<div class="block">Internal method to process a variant-call.</div>
+<div class="block">Internal method to process a variantInformation-call.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
-<dd><code>variantPosition</code> - <code>String</code> the position of the variant.</dd>
-<dd><code>variantQuality</code> - <code>Double</code> the quality of the variant.</dd>
-<dd><code>variantCoverage</code> - <code>Double</code> the coverage of the variant.</dd>
-<dd><code>variantFrequency</code> - <code>Double</code> the frequency of the variant.</dd>
+<dd><code>variantPosition</code> - <code>String</code> the position of the variantInformation.</dd>
+<dd><code>variantQuality</code> - <code>Double</code> the quality of the variantInformation.</dd>
+<dd><code>variantCoverage</code> - <code>Double</code> the coverage of the variantInformation.</dd>
+<dd><code>variantFrequency</code> - <code>Double</code> the frequency of the variantInformation.</dd>
 <dd><code>variantAllele</code> - <code>Allele</code> the alternative form information.</dd>
 <dd><code>referenceAllele</code> - <code>Allele</code> the reference form information.</dd>
-<dd><code>isHetCall</code> - <code>Boolean</code> to indicate if the variant originates from a het. call; necessary to
+<dd><code>isHetCall</code> - <code>Boolean</code> to indicate if the variantInformation originates from a het. call; necessary to
                          apply the correct filter method.</dd>
-<dd><code>isPrimary</code> - <code>Boolean</code> to indicate if the variant originates from the most frequent form.</dd>
+<dd><code>isPrimary</code> - <code>Boolean</code> to indicate if the variantInformation originates from the most frequent form.</dd>
 </dl>
 </section>
 </li>

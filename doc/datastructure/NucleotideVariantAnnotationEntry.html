@@ -82,7 +82,7 @@ loadScripts(document, 'script');</script>
 <hr>
 <pre>public class <span class="type-name-label">NucleotideVariantAnnotationEntry</span>
 extends java.lang.Object</pre>
-<div class="block">Object used to store annotations for a single nucleotide variant.</div>
+<div class="block">Object used to store annotations for a single nucleotide variantInformation.</div>
 <dl class="notes">
 <dt>Since:</dt>
 <dd>2.1</dd>
@@ -113,14 +113,14 @@ extends java.lang.Object</pre>
 <td class="col-first"><code>java.util.HashMap&lt;java.lang.String,&#8203;java.lang.String&gt;</code></td>
 <th class="col-second" scope="row"><code><span class="member-name-link"><a href="#annotations">annotations</a></span></code></th>
 <td class="col-last">
-<div class="block"><code>HashMap</code> of <code>String</code> key/value pairs specifying any information related to the variant.</div>
+<div class="block"><code>HashMap</code> of <code>String</code> key/value pairs specifying any information related to the variantInformation.</div>
 </td>
 </tr>
 <tr class="row-color">
 <td class="col-first"><code>java.util.concurrent.ConcurrentSkipListMap&lt;java.lang.String,&#8203;java.lang.String&gt;</code></td>
 <th class="col-second" scope="row"><code><span class="member-name-link"><a href="#occurrence">occurrence</a></span></code></th>
 <td class="col-last">
-<div class="block"><code>ConcurrentSkipListMap</code> of <code>String</code> key/value pairs indicating the occurrence of this variant.</div>
+<div class="block"><code>ConcurrentSkipListMap</code> of <code>String</code> key/value pairs indicating the occurrence of this variantInformation.</div>
 </td>
 </tr>
 </tbody>
@@ -202,14 +202,14 @@ double&nbsp;coverage)</code></th>
 <section class="detail" id="annotations">
 <h3>annotations</h3>
 <div class="member-signature"><span class="modifiers">public final</span>&nbsp;<span class="return-type">java.util.HashMap&lt;java.lang.String,&#8203;java.lang.String&gt;</span>&nbsp;<span class="member-name">annotations</span></div>
-<div class="block"><code>HashMap</code> of <code>String</code> key/value pairs specifying any information related to the variant.</div>
+<div class="block"><code>HashMap</code> of <code>String</code> key/value pairs specifying any information related to the variantInformation.</div>
 </section>
 </li>
 <li>
 <section class="detail" id="occurrence">
 <h3>occurrence</h3>
 <div class="member-signature"><span class="modifiers">public final</span>&nbsp;<span class="return-type">java.util.concurrent.ConcurrentSkipListMap&lt;java.lang.String,&#8203;java.lang.String&gt;</span>&nbsp;<span class="member-name">occurrence</span></div>
-<div class="block"><code>ConcurrentSkipListMap</code> of <code>String</code> key/value pairs indicating the occurrence of this variant.
+<div class="block"><code>ConcurrentSkipListMap</code> of <code>String</code> key/value pairs indicating the occurrence of this variantInformation.
  <p>
  - Keys correspond to sample names.
  - Values correspond to return values of the <a href="#constructSampleSpecificAnnotation(boolean,boolean,double,double,double)"><code>constructSampleSpecificAnnotation(boolean, boolean, double, double, double)</code></a> method.</div>
@@ -248,18 +248,18 @@ double&nbsp;frequency,
 double&nbsp;coverage)</span></div>
 <div class="block">Constructs a <code>String</code> yielding information about the following properties wrt. a single sample, separated by a `|` symbol:
  <p>
- - If the variant was rejected, i.e. failed any filter criteria.
- - If the variant is primary, i.e. has the highest frequency in the case of a het. variant.
- - The quality of the variant call.
- - The frequency wrt. coverage of the variant call.
- - The total coverage at the variant site.</div>
+ - If the variantInformation was rejected, i.e. failed any filter criteria.
+ - If the variantInformation is primary, i.e. has the highest frequency in the case of a het. variantInformation.
+ - The quality of the variantInformation call.
+ - The frequency wrt. coverage of the variantInformation call.
+ - The total coverage at the variantInformation site.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
-<dd><code>rejected</code> - <code>Boolean</code> whether the variant was rejected.</dd>
-<dd><code>primary</code> - <code>Boolean</code> whether the variant is a primary variant.</dd>
-<dd><code>quality</code> - <code>Double</code>; The quality of the variant call.</dd>
-<dd><code>frequency</code> - <code>Double</code>; The frequency of the variant call wrt. coverage.</dd>
-<dd><code>coverage</code> - <code>Double</code>; The total coverage at the variant site.</dd>
+<dd><code>rejected</code> - <code>Boolean</code> whether the variantInformation was rejected.</dd>
+<dd><code>primary</code> - <code>Boolean</code> whether the variantInformation is a primary variantInformation.</dd>
+<dd><code>quality</code> - <code>Double</code>; The quality of the variantInformation call.</dd>
+<dd><code>frequency</code> - <code>Double</code>; The frequency of the variantInformation call wrt. coverage.</dd>
+<dd><code>coverage</code> - <code>Double</code>; The total coverage at the variantInformation site.</dd>
 <dt>Returns:</dt>
 <dd><code>String</code>; The passed parameters separated by `|` symbols.</dd>
 </dl>

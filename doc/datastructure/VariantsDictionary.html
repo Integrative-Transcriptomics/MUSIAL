@@ -148,7 +148,7 @@ extends java.lang.Object</pre>
 <td class="col-first"><code><a href="VariantsDictionaryParameters.html" title="class in datastructure">VariantsDictionaryParameters</a></code></td>
 <th class="col-second" scope="row"><code><span class="member-name-link"><a href="#parameters">parameters</a></span></code></th>
 <td class="col-last">
-<div class="block">Set of parameters, a <a href="VariantsDictionaryParameters.html" title="class in datastructure"><code>VariantsDictionaryParameters</code></a> instance, used for variant filtering.</div>
+<div class="block">Set of parameters, a <a href="VariantsDictionaryParameters.html" title="class in datastructure"><code>VariantsDictionaryParameters</code></a> instance, used for variantInformation filtering.</div>
 </td>
 </tr>
 <tr class="alt-color">
@@ -243,7 +243,7 @@ double&nbsp;quality,
 double&nbsp;coverage,
 double&nbsp;frequency)</code></th>
 <td class="col-last">
-<div class="block">Adds information about a variant to <a href="#variants"><code>variants</code></a>.</div>
+<div class="block">Adds information about a variantInformation to <a href="#variants"><code>variants</code></a>.</div>
 </td>
 </tr>
 <tr class="row-color" id="i1">
@@ -252,7 +252,7 @@ double&nbsp;frequency)</code></th>
 java.lang.String&nbsp;content,
 java.util.Map&lt;java.lang.String,&#8203;java.lang.String&gt;&nbsp;annotations)</code></th>
 <td class="col-last">
-<div class="block">Adds annotations to an existing variant.</div>
+<div class="block">Adds annotations to an existing variantInformation.</div>
 </td>
 </tr>
 <tr class="alt-color" id="i2">
@@ -320,7 +320,7 @@ java.lang.String&nbsp;sId)</code></th>
 <section class="detail" id="parameters">
 <h3>parameters</h3>
 <div class="member-signature"><span class="modifiers">public final</span>&nbsp;<span class="return-type"><a href="VariantsDictionaryParameters.html" title="class in datastructure">VariantsDictionaryParameters</a></span>&nbsp;<span class="member-name">parameters</span></div>
-<div class="block">Set of parameters, a <a href="VariantsDictionaryParameters.html" title="class in datastructure"><code>VariantsDictionaryParameters</code></a> instance, used for variant filtering.</div>
+<div class="block">Set of parameters, a <a href="VariantsDictionaryParameters.html" title="class in datastructure"><code>VariantsDictionaryParameters</code></a> instance, used for variantInformation filtering.</div>
 </section>
 </li>
 <li>
@@ -363,7 +363,7 @@ java.lang.String&nbsp;sId)</code></th>
 <h3>variants</h3>
 <div class="member-signature"><span class="modifiers">public final</span>&nbsp;<span class="return-type">java.util.concurrent.ConcurrentSkipListMap&lt;java.lang.Integer,&#8203;java.util.concurrent.ConcurrentSkipListMap&lt;java.lang.String,&#8203;<a href="NucleotideVariantAnnotationEntry.html" title="class in datastructure">NucleotideVariantAnnotationEntry</a>&gt;&gt;</span>&nbsp;<span class="member-name">variants</span></div>
 <div class="block">Hierarchical map structure to store variants wrt. maintained features and samples. The first layer represents the
- position on the chromosome. The second layer represents the variant content.</div>
+ position on the chromosome. The second layer represents the variantInformation content.</div>
 </section>
 </li>
 <li>
@@ -416,11 +416,11 @@ java.lang.String&nbsp;chromosome)</span></div>
 <div class="block">Constructor of <a href="VariantsDictionary.html" title="class in datastructure"><code>VariantsDictionary</code></a>.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
-<dd><code>minCoverage</code> - <code>Double</code>; Minimal read coverage to use for variant filtering.</dd>
-<dd><code>minFrequency</code> - <code>Double</code>; Minimal form frequency to use for hom. variant filtering.</dd>
-<dd><code>minHet</code> - <code>Double</code>; Minimal form frequency to use for het. variant filtering.</dd>
-<dd><code>maxHet</code> - <code>Double</code>; Maximal form frequency to use for het. variant filtering.</dd>
-<dd><code>minQuality</code> - <code>Double</code>; Minimal Phred scaled genotyping call quality to use for variant filtering.</dd>
+<dd><code>minCoverage</code> - <code>Double</code>; Minimal read coverage to use for variantInformation filtering.</dd>
+<dd><code>minFrequency</code> - <code>Double</code>; Minimal form frequency to use for hom. variantInformation filtering.</dd>
+<dd><code>minHet</code> - <code>Double</code>; Minimal form frequency to use for het. variantInformation filtering.</dd>
+<dd><code>maxHet</code> - <code>Double</code>; Maximal form frequency to use for het. variantInformation filtering.</dd>
+<dd><code>minQuality</code> - <code>Double</code>; Minimal Phred scaled genotyping call quality to use for variantInformation filtering.</dd>
 <dd><code>chromosome</code> - <code>String</code>; Name of the chromosome on which maintained <a href="FeatureEntry.html" title="class in datastructure"><code>FeatureEntry</code></a>s are located;
                      Has to reflect the value in the used input .vcf, .fasta and .gff files.</dd>
 </dl>
@@ -447,19 +447,19 @@ boolean&nbsp;isRejected,
 double&nbsp;quality,
 double&nbsp;coverage,
 double&nbsp;frequency)</span></div>
-<div class="block">Adds information about a variant to <a href="#variants"><code>variants</code></a>.</div>
+<div class="block">Adds information about a variantInformation to <a href="#variants"><code>variants</code></a>.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
-<dd><code>featureId</code> - <code>String</code>; The internal name of the feature for which this variant was detected.</dd>
+<dd><code>featureId</code> - <code>String</code>; The internal name of the feature for which this variantInformation was detected.</dd>
 <dd><code>referencePosition</code> - <code>Integer</code>; The position on the reference chromosome (1-based indexing).</dd>
-<dd><code>variantContent</code> - <code>String</code>; The alternate content of the variant; Single letter contents reflect
+<dd><code>variantContent</code> - <code>String</code>; The alternate content of the variantInformation; Single letter contents reflect
                           SNVs, multi letter contents reflect SVs.</dd>
-<dd><code>referenceContent</code> - <code>String</code>; The reference content of the variant; The length in relation to the
+<dd><code>referenceContent</code> - <code>String</code>; The reference content of the variantInformation; The length in relation to the
                           variantContent parameter indicates whether a SV is a insertion or deletion.</dd>
-<dd><code>sampleId</code> - <code>String</code>; The internal name of the sample of which the variant was called.</dd>
-<dd><code>isPrimary</code> - <code>Boolean</code>; Whether the variant call is a primary call, i.e. if it is the variant
+<dd><code>sampleId</code> - <code>String</code>; The internal name of the sample of which the variantInformation was called.</dd>
+<dd><code>isPrimary</code> - <code>Boolean</code>; Whether the variantInformation call is a primary call, i.e. if it is the variantInformation
                           with the highest frequency.</dd>
-<dd><code>isRejected</code> - <code>Boolean</code>; Whether the variant was rejected, i.e. if it failed any filtering
+<dd><code>isRejected</code> - <code>Boolean</code>; Whether the variantInformation was rejected, i.e. if it failed any filtering
                           criteria.</dd>
 <dd><code>quality</code> - <code>Double</code>; The Phred scaled GT quality of the call.</dd>
 <dd><code>coverage</code> - <code>Double</code>; The depth of coverage of the call.</dd>
@@ -473,11 +473,11 @@ double&nbsp;frequency)</span></div>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="member-name">addVariantAnnotation</span>&#8203;(<span class="parameters">int&nbsp;position,
 java.lang.String&nbsp;content,
 java.util.Map&lt;java.lang.String,&#8203;java.lang.String&gt;&nbsp;annotations)</span></div>
-<div class="block">Adds annotations to an existing variant.</div>
+<div class="block">Adds annotations to an existing variantInformation.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
-<dd><code>position</code> - <code>Integer</code>; The position at which the variant is stored.</dd>
-<dd><code>content</code> - <code>String</code>; The content of the variant.</dd>
+<dd><code>position</code> - <code>Integer</code>; The position at which the variantInformation is stored.</dd>
+<dd><code>content</code> - <code>String</code>; The content of the variantInformation.</dd>
 <dd><code>annotations</code> - <code>HashMap</code> of <code>String</code> key/value pairs which reflect the annotations that shall be
                     added.</dd>
 </dl>

@@ -72,7 +72,7 @@ loadScripts(document, 'script');</script>
 <h1 title="Class SampleAnalyzer" class="title">Class SampleAnalyzer</h1>
 </div>
 <div class="inheritance" title="Inheritance Tree"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">java.lang.Object</a>
-<div class="inheritance">runnables.SampleAnalyzer</div>
+<div class="inheritance">utility.SampleAnalyzer</div>
 </div>
 <section class="class-description" id="class-description">
 <dl class="notes">
@@ -123,7 +123,7 @@ implements <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base
 <div class="col-first even-row-color"><code><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/HashSet.html" title="class or interface in java.util" class="external-link">HashSet</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</code></div>
 <div class="col-second even-row-color"><code><a href="#variantCalls" class="member-name-link">variantCalls</a></code></div>
 <div class="col-last even-row-color">
-<div class="block">A <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/ConcurrentSkipListMap.html" title="class or interface in java.util.concurrent" class="external-link"><code>ConcurrentSkipListMap</code></a> to temporarily store novel variant calls.</div>
+<div class="block">A <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/ConcurrentSkipListMap.html" title="class or interface in java.util.concurrent" class="external-link"><code>ConcurrentSkipListMap</code></a> to temporarily store novel variantInformation calls.</div>
 </div>
 <div class="col-first odd-row-color"><code>private <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/StringBuilder.html" title="class or interface in java.lang" class="external-link">StringBuilder</a></code></div>
 <div class="col-second odd-row-color"><code><a href="#variantFingerprint" class="member-name-link">variantFingerprint</a></code></div>
@@ -172,37 +172,37 @@ implements <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base
  double&nbsp;quality,
  double&nbsp;coverage)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Add information about a variant call to <a href="#variantCalls"><code>variantCalls</code></a>.</div>
+<div class="block">Add information about a variantInformation call to <a href="#variantCalls"><code>variantCalls</code></a>.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>private <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Iterator.html" title="class or interface in java.util" class="external-link">Iterator</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getVariantCallsIterator()" class="member-name-link">getVariantCallsIterator</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>private void</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#processVariantCall(int,double,double,double,htsjdk.variant.variantcontext.Allele,htsjdk.variant.variantcontext.Allele,int,int)" class="member-name-link">processVariantCall</a><wbr>(int&nbsp;variantPosition,
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#processVariantCall(int,double,double,double,htsjdk.variantInformation.variantcontext.Allele,htsjdk.variantInformation.variantcontext.Allele,int,int)" class="member-name-link">processVariantCall</a><wbr>(int&nbsp;variantPosition,
  double&nbsp;variantQuality,
  double&nbsp;variantCoverage,
  double&nbsp;variantFrequency,
- htsjdk.variant.variantcontext.Allele&nbsp;variantAllele,
- htsjdk.variant.variantcontext.Allele&nbsp;referenceAllele,
+ htsjdk.variantInformation.variantcontext.Allele&nbsp;variantAllele,
+ htsjdk.variantInformation.variantcontext.Allele&nbsp;referenceAllele,
  int&nbsp;rank,
  int&nbsp;maximalRank)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Process a single variant call.</div>
+<div class="block">Process a single variantInformation call.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#run()" class="member-name-link">run</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Run sample variant call analysis.</div>
+<div class="block">Run sample variantInformation call analysis.</div>
 </div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>private void</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#transferVariantCall(java.lang.String%5B%5D)" class="member-name-link">transferVariantCall</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>[]&nbsp;variantCall)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Transfer a single variant call to <a href="#feature"><code>feature</code></a>.</div>
+<div class="block">Transfer a single variantInformation call to <a href="#feature"><code>feature</code></a>.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>private void</code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#transferVariantCalls()" class="member-name-link">transferVariantCalls</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Transfer all collected variant calls to <a href="#feature"><code>feature</code></a>.</div>
+<div class="block">Transfer all collected variantInformation calls to <a href="#feature"><code>feature</code></a>.</div>
 </div>
 </div>
 </div>
@@ -260,13 +260,13 @@ implements <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base
 <section class="detail" id="variantCalls">
 <h3>variantCalls</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/HashSet.html" title="class or interface in java.util" class="external-link">HashSet</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</span>&nbsp;<span class="element-name">variantCalls</span></div>
-<div class="block">A <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/ConcurrentSkipListMap.html" title="class or interface in java.util.concurrent" class="external-link"><code>ConcurrentSkipListMap</code></a> to temporarily store novel variant calls.
+<div class="block">A <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/ConcurrentSkipListMap.html" title="class or interface in java.util.concurrent" class="external-link"><code>ConcurrentSkipListMap</code></a> to temporarily store novel variantInformation calls.
  <p>
  Entries are stored as _:_ separated <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link"><code>String</code></a> values in the following order:
  <ul>
-  <li>position of the variant wrt. the reference genome</li>
-  <li>rank of the variant in case of multiple calls of the same sample at the same position</li>
-  <li>if the variant is rejected wrt. <a href="../datastructure/MusialStorage.html#parameters"><code>MusialStorage.parameters</code></a></li>
+  <li>position of the variantInformation wrt. the reference genome</li>
+  <li>rank of the variantInformation in case of multiple calls of the same sample at the same position</li>
+  <li>if the variantInformation is rejected wrt. <a href="../datastructure/MusialStorage.html#parameters"><code>MusialStorage.parameters</code></a></li>
   <li>alt. base content of the call</li>
   <li>ref. base content of the call</li>
   <li>frequency of the call wrt. read support</li>
@@ -310,7 +310,7 @@ implements <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base
 <section class="detail" id="run()">
 <h3>run</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">run</span>()</div>
-<div class="block">Run sample variant call analysis.</div>
+<div class="block">Run sample variantInformation call analysis.</div>
 <dl class="notes">
 <dt>Specified by:</dt>
 <dd><code><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Runnable.html#run()" title="class or interface in java.lang" class="external-link">run</a></code>&nbsp;in interface&nbsp;<code><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Runnable.html" title="class or interface in java.lang" class="external-link">Runnable</a></code></dd>
@@ -318,17 +318,17 @@ implements <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base
 </section>
 </li>
 <li>
-<section class="detail" id="processVariantCall(int,double,double,double,htsjdk.variant.variantcontext.Allele,htsjdk.variant.variantcontext.Allele,int,int)">
+<section class="detail" id="processVariantCall(int,double,double,double,htsjdk.variantInformation.variantcontext.Allele,htsjdk.variantInformation.variantcontext.Allele,int,int)">
 <h3>processVariantCall</h3>
 <div class="member-signature"><span class="modifiers">private</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">processVariantCall</span><wbr><span class="parameters">(int&nbsp;variantPosition,
  double&nbsp;variantQuality,
  double&nbsp;variantCoverage,
  double&nbsp;variantFrequency,
- htsjdk.variant.variantcontext.Allele&nbsp;variantAllele,
- htsjdk.variant.variantcontext.Allele&nbsp;referenceAllele,
+ htsjdk.variantInformation.variantcontext.Allele&nbsp;variantAllele,
+ htsjdk.variantInformation.variantcontext.Allele&nbsp;referenceAllele,
  int&nbsp;rank,
  int&nbsp;maximalRank)</span></div>
-<div class="block">Process a single variant call.</div>
+<div class="block">Process a single variantInformation call.</div>
 </section>
 </li>
 <li>
@@ -343,7 +343,7 @@ implements <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base
  double&nbsp;frequency,
  double&nbsp;quality,
  double&nbsp;coverage)</span></div>
-<div class="block">Add information about a variant call to <a href="#variantCalls"><code>variantCalls</code></a>.</div>
+<div class="block">Add information about a variantInformation call to <a href="#variantCalls"><code>variantCalls</code></a>.</div>
 </section>
 </li>
 <li>
@@ -352,7 +352,7 @@ implements <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base
 <div class="member-signature"><span class="modifiers">private</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Iterator.html" title="class or interface in java.util" class="external-link">Iterator</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</span>&nbsp;<span class="element-name">getVariantCallsIterator</span>()</div>
 <dl class="notes">
 <dt>Returns:</dt>
-<dd>Iterator over all variant calls in <a href="#variantCalls"><code>variantCalls</code></a>.</dd>
+<dd>Iterator over all variantInformation calls in <a href="#variantCalls"><code>variantCalls</code></a>.</dd>
 </dl>
 </section>
 </li>
@@ -361,10 +361,10 @@ implements <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base
 <h3>transferVariantCalls</h3>
 <div class="member-signature"><span class="modifiers">private</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">transferVariantCalls</span>()
                            throws <span class="exceptions"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/io/IOException.html" title="class or interface in java.io" class="external-link">IOException</a></span></div>
-<div class="block">Transfer all collected variant calls to <a href="#feature"><code>feature</code></a>.</div>
+<div class="block">Transfer all collected variantInformation calls to <a href="#feature"><code>feature</code></a>.</div>
 <dl class="notes">
 <dt>Throws:</dt>
-<dd><code><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/io/IOException.html" title="class or interface in java.io" class="external-link">IOException</a></code> - If variant encoding fails.</dd>
+<dd><code><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/io/IOException.html" title="class or interface in java.io" class="external-link">IOException</a></code> - If variantInformation encoding fails.</dd>
 </dl>
 </section>
 </li>
@@ -372,7 +372,7 @@ implements <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base
 <section class="detail" id="transferVariantCall(java.lang.String[])">
 <h3>transferVariantCall</h3>
 <div class="member-signature"><span class="modifiers">private</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">transferVariantCall</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>[]&nbsp;variantCall)</span></div>
-<div class="block">Transfer a single variant call to <a href="#feature"><code>feature</code></a>.
+<div class="block">Transfer a single variantInformation call to <a href="#feature"><code>feature</code></a>.
  <p>
  See format of <a href="#variantCalls"><code>variantCalls</code></a> for field access documentation.</div>
 </section>
