@@ -753,7 +753,7 @@ public final class Musial {
                 do {
                     form = feature.getAllele(formNameIterator.next());
                     formVariants = SerializationUtils.clone(referenceTable);
-                    if (!form.name.equals(Constants.REFERENCE_FORM_NAME))
+                    if (!form.name.equals(Constants.REFERENCE_FORM_NAME)) {
                         for (String variant : form.variants.split(Constants.FIELD_SEPARATOR_2)) {
                             variantFields = variant.split(Constants.FIELD_SEPARATOR_1);
                             position = Integer.parseInt(variantFields[0]);
@@ -780,11 +780,12 @@ public final class Musial {
                                 );
                             }
                         }
-                    if (merge)
-                        writeEntry.accept(form.name, null, formVariants.values());
-                    else
-                        for (String sampleName : form.getOccurrenceSet())
-                            writeEntry.accept(sampleName, null, formVariants.values());
+                        if (merge)
+                            writeEntry.accept(form.name, null, formVariants.values());
+                        else
+                            for (String sampleName : form.getOccurrenceSet())
+                                writeEntry.accept(sampleName, null, formVariants.values());
+                    }
                 } while (formNameIterator.hasNext());
             } else {
                 FeatureCoding featureCoding = ((FeatureCoding) feature);
@@ -792,7 +793,7 @@ public final class Musial {
                 do {
                     form = featureCoding.getProteoform(formNameIterator.next());
                     formVariants = SerializationUtils.clone(referenceTable);
-                    if (!form.name.equals(Constants.REFERENCE_FORM_NAME))
+                    if (!form.name.equals(Constants.REFERENCE_FORM_NAME)) {
                         for (String variant : form.variants.split(Constants.FIELD_SEPARATOR_2)) {
                             variantFields = variant.split(Constants.FIELD_SEPARATOR_1);
                             position = Integer.parseInt(variantFields[0]);
@@ -819,11 +820,12 @@ public final class Musial {
                                 );
                             }
                         }
-                    if (merge)
-                        writeEntry.accept(form.name, null, formVariants.values());
-                    else
-                        for (String sampleName : form.getOccurrenceSet())
-                            writeEntry.accept(sampleName, null, formVariants.values());
+                        if (merge)
+                            writeEntry.accept(form.name, null, formVariants.values());
+                        else
+                            for (String sampleName : form.getOccurrenceSet())
+                                writeEntry.accept(sampleName, null, formVariants.values());
+                    }
                 } while (formNameIterator.hasNext());
             }
             outputWriter.flush();
