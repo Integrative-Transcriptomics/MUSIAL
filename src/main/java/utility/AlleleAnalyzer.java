@@ -67,13 +67,10 @@ public class AlleleAnalyzer {
         boolean isInDel;
         long noDeletedPositions;
         int lengthDifference;
-
         int relativeVariantPosition;
         int alignmentBandWidth = 1;
-
         char[] proteoformSequenceAlnChars;
         char proteoformSequenceAlnChar;
-
         while (iterator.hasNext()) {
             allele = _featureCoding.getAllele(iterator.next());
             try {
@@ -87,6 +84,8 @@ public class AlleleAnalyzer {
                     variantAlleleSites = featureCoding.getNucleotideVariantPositions();
                     for (int pos : variantAlleleSites) {
                         for (Map.Entry<String, VariantInformation> entry : featureCoding.getNucleotideVariantsAt(pos).entrySet()) {
+                            if (allele.getOccurrenceSet().stream().noneMatch(entry.getValue()::hasOccurrence))
+                                continue;
                             relativeVariantPosition = pos - featureCoding.start; // 0-based position on feature.
                             alt = entry.getKey();
                             ref = entry.getValue().referenceContent;
