@@ -4,6 +4,7 @@ import datastructure.Feature;
 import datastructure.Form;
 import datastructure.MusialStorage;
 import datastructure.Sample;
+import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;
 import htsjdk.variant.variantcontext.Allele;
 import htsjdk.variant.variantcontext.Genotype;
@@ -104,7 +105,7 @@ public final class SampleAnalyzer {
      * Processes a single variant call within the sample analysis.
      */
     @SuppressWarnings("DuplicatedCode")
-    private static void processVariantContext() {
+    private static void processVariantContext() throws MusialException {
         // Representation of variant calls as: ( Ref, Alt, AF, AD )
         HashMap<Integer, ArrayList<Quartet<String, String, Double, Integer>>> callsPerPosition = new HashMap<>();
         Allele referenceAllele = variantContext.getReference();
@@ -113,17 +114,46 @@ public final class SampleAnalyzer {
         alleles.addAll(variantContext.getAlternateAlleles());
         Genotype genotypesContext = variantContext.getGenotypes().get(0); // Only one genotype is expected, i.e., single sample.
         // TODO: Change for multi sample .vcf file support.
+        int DP; // Total depth of coverage at site. Filtered reads are not counted.
         int AD; // Allelic depth of coverage, i.e., read support for one specific allele.
-        int DP = Arrays.stream(genotypesContext.getAD()).sum(); // Total depth of coverage at site. Filtered reads are not counted.
         double AF; // Allelic frequency, i.e., frequency of one specific allele wrt. all reads.
+        int refAD = -1;
+        double refAF = -1;
+        // Determine depth of coverage: TODO: Extend for other input formats.
+        if (genotypesContext.hasAD()) // (1) GATK HaplotypeCaller
+            DP = Arrays.stream(genotypesContext.getAD()).sum();
+        else if (variantContext.hasAttribute("DP4")) // (2) bcftools
+            DP = variantContext.getAttributeAsIntList("DP4", 0).stream().reduce(0, Integer::sum);
+        else // (3) Other
+            DP = genotypesContext.getDP();
         Allele allele;
         String ref;
         String alt;
         boolean referenceWasAdded = false;
         for (int i = 0; i < alleles.size(); i++) {
             allele = alleles.get(i);
-            AD = genotypesContext.getAD()[i];
+            // Determine allele frequency: TODO: Extend for other input formats.
+            if (genotypesContext.hasAD()) // (1) GATK HaplotypeCaller
+                AD = genotypesContext.getAD()[i];
+            else if (variantContext.hasAttribute("DP4")) { // (2) bcftools
+                List<Integer> dp4 = variantContext.getAttributeAsIntList("DP4", 0);
+                if (i == 0)
+                    AD = dp4.get(0) + dp4.get(1); // Ref. call reads, i.e., reference allele coverage.
+                else if (i == 1)
+                    AD = dp4.get(2) + dp4.get(3); // Alt. call reads, i.e., alternative allele coverage.
+                else {
+                    // TODO: Get GT?
+                    Logger.logWarning("Inference of allele frequency by `DP4` does not support more than one ALT call. Skipping variant at position " + variantPosition + " of sample " + _sample.name + ".");
+                    return;
+                }
+            } else {
+                throw new MusialException("Failed to infer allele frequency; Variant has none of the attributes [AD, DP4]!");
+            }
             AF = (double) AD / DP;
+            if (i == 0) { // Store reference call values for use in ambiguous call resolution.
+                refAD = AD;
+                refAF = AF;
+            }
             ref = referenceAllele.getBaseString();
             alt = allele.getBaseString();
             // Adjust base strings.
@@ -149,7 +179,7 @@ public final class SampleAnalyzer {
                     for (Triple<Integer, String, String> resolvedVariant : resolvedVariants) {
                         callsPerPosition.putIfAbsent(variantPosition + (resolvedVariant.getLeft() - 1), new ArrayList<>());
                         if (!referenceWasAdded) {
-                            callsPerPosition.get(variantPosition + (resolvedVariant.getLeft() - 1)).add(Quartet.with(resolvedVariant.getMiddle(), resolvedVariant.getMiddle(), (double) genotypesContext.getAD()[0] / DP, genotypesContext.getAD()[0]));
+                            callsPerPosition.get(variantPosition + (resolvedVariant.getLeft() - 1)).add(Quartet.with(resolvedVariant.getMiddle(), resolvedVariant.getMiddle(), refAF, refAD));
                             referenceWasAdded = true;
                         }
                         callsPerPosition.get(variantPosition + (resolvedVariant.getLeft() - 1)).add(Quartet.with(resolvedVariant.getMiddle(), resolvedVariant.getRight(), AF, AD));
