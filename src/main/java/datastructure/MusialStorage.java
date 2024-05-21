@@ -226,15 +226,15 @@ public class MusialStorage extends InfoContainer {
     }
 
     /**
-     * Dumps this {@link MusialStorage} instance into a .json(.br) format file. The output is optionally compressed with brotli.
+     * Dumps this {@link MusialStorage} instance into a .json(.gz) format file. The output is optionally compressed with gzip.
      *
      * @param path     {@link String} specifying file path to which {@link MusialStorage} should be written to.
      * @param compress {@link Boolean} indicating whether the output file should be compressed.
      * @throws MusialException If the output generation fails.
      */
     public void dump(String path, boolean compress) throws MusialException {
-        if (compress && !path.endsWith(".br"))
-            path += ".br";
+        if (compress && !path.endsWith(".gz"))
+            path += ".gz";
         else if (!compress && !path.endsWith(".json"))
             path += ".json";
         File outFile = new File(path);
@@ -242,11 +242,11 @@ public class MusialStorage extends InfoContainer {
         try {
             String dump;
             if (compress) {
-                // Write to compressed (brotli) JSON.
+                // Write to compressed (gzip) JSON.
                 dump = new Gson().toJson(this);
                 Files.write(
                         outFile.toPath(),
-                        Compression.brotliEncodeStringToBytes(dump));
+                        Compression.gzip(dump));
             } else {
                 // Write to pretty JSON.
                 GsonBuilder gsonBuilder = new GsonBuilder().setPrettyPrinting();
@@ -256,7 +256,7 @@ public class MusialStorage extends InfoContainer {
                 writer.close();
             }
         } catch (IOException e) {
-            throw new MusialException("(I/O) Failed to write to output file:\t" + path);
+            throw new MusialException("(I/O) Failed to write to output file (" + path + "):\t" + e.getMessage());
         }
     }
 

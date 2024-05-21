@@ -194,7 +194,7 @@ public final class Musial {
         System.gc();
 
         // Infer coding feature variant/proteoform information; For all coding features.
-        Logger.logStatus("Infer proteoforms");
+        Logger.logStatus("Infer proteoforms (if any)");
         iterator = musialStorage.getFeatureNameIterator();
         Feature feature;
         FeatureCoding featureCoding;
@@ -716,7 +716,7 @@ public final class Musial {
         }
 
         // Build output.
-        try (BufferedWriter outputWriter = new BufferedWriter(new FileWriter(parameters.getOptionValue("O")), 16384)) {
+        try (BufferedWriter outputWriter = new BufferedWriter(new FileWriter(parameters.getOptionValue("O")), 512000)) {
             TriConsumer<String, String, Collection<String>> writeEntry = (n, k, C) -> {
                 try {
                     outputWriter.write(">" + n);
@@ -786,6 +786,7 @@ public final class Musial {
                             for (String sampleName : form.getOccurrenceSet())
                                 writeEntry.accept(sampleName, null, formVariants.values());
                     }
+                    outputWriter.flush();
                 } while (formNameIterator.hasNext());
             } else {
                 FeatureCoding featureCoding = ((FeatureCoding) feature);
@@ -826,9 +827,9 @@ public final class Musial {
                             for (String sampleName : form.getOccurrenceSet())
                                 writeEntry.accept(sampleName, null, formVariants.values());
                     }
+                    outputWriter.flush();
                 } while (formNameIterator.hasNext());
             }
-            outputWriter.flush();
         }
         Logger.logStatus("Done writing output to file `" + new File(parameters.getOptionValue("O")).getAbsolutePath() + "`");
     }

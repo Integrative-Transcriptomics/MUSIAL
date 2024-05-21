@@ -89,9 +89,6 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'com.google.code.gson:gson-extras:2.8.5'
     implementation 'org.apache.commons:commons-text:1.10.0'
-    implementation 'com.aayushatharva.brotli4j:brotli4j:1.12.0'
-    implementation 'com.aayushatharva.brotli4j:native-windows-x86_64:1.12.0'
-    implementation 'com.aayushatharva.brotli4j:native-linux-x86_64:1.12.0'
     implementation 'com.github.java-json-tools:json-schema-validator:2.2.14'
 }
 

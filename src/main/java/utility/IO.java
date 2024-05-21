@@ -1,7 +1,5 @@
 package utility;
 
-import com.aayushatharva.brotli4j.Brotli4jLoader;
-import com.aayushatharva.brotli4j.encoder.Encoder;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.typeadapters.RuntimeTypeAdapterFactory;
@@ -12,12 +10,11 @@ import exceptions.MusialException;
 import org.apache.commons.io.FileUtils;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Scanner;
 import java.util.function.Function;
+import java.util.zip.GZIPInputStream;
 
 /**
  * This class comprises static methods used for reading and writing files.
@@ -71,11 +68,17 @@ public final class IO {
             Gson gson = new GsonBuilder().setPrettyPrinting().registerTypeAdapterFactory(adapterFactory).create();
             return gson.fromJson(reader, MusialStorage.class);
         };
-        if (dumpFile.getAbsolutePath().endsWith(".br")) {
-            String decodedDumpFileContent = Compression.brotliDecodeBytes(FileUtils.readFileToByteArray(dumpFile));
+
+        if (dumpFile.getAbsolutePath().endsWith(".gz")) {
             // Case: Dump file is compressed.
             try (
-                    BufferedReader bufferedReader = new BufferedReader(new StringReader(decodedDumpFileContent))
+                    BufferedReader bufferedReader = new BufferedReader(
+                            new InputStreamReader(
+                                    new GZIPInputStream(
+                                            Files.newInputStream(dumpFile.toPath())
+                                    )
+                            )
+                    )
             ) {
                 return loadDumpFromBufferedReader.apply(bufferedReader);
             }
@@ -83,14 +86,17 @@ public final class IO {
             // Case: Dump file is not compressed.
             try (
                     BufferedReader bufferedReader = new BufferedReader(
-                            new InputStreamReader(Files.newInputStream(dumpFile.toPath()),
-                                    StandardCharsets.UTF_8))
+                            new InputStreamReader(
+                                    Files.newInputStream(dumpFile.toPath())
+                            )
+                    )
             ) {
                 return loadDumpFromBufferedReader.apply(bufferedReader);
             }
         } else {
             throw new MusialException("Unable to load MUSIAL storage from file " + dumpFile.getAbsolutePath() + " (unknown file extension).");
         }
+
     }
 
     /**
@@ -116,23 +122,6 @@ public final class IO {
     }
 
     /**
-     * Tries to generate the file specified by the passed {@link File} object.
-     *
-     * @param file {@link File} object representing a file.
-     * @throws MusialException If the file could not be generated.
-     */
-    public static void generateFile(File file) throws MusialException {
-        try {
-            if (!file.createNewFile()) {
-                throw new MusialException("(I/O) Failed to generate file:\t" + file.getAbsolutePath());
-            }
-        } catch (IOException e) {
-            throw new MusialException(e.getMessage());
-        }
-
-    }
-
-    /**
      * Function to write a generic file with any line content.
      *
      * @param outputFile  {@link File} object pointing to the output file.
@@ -148,25 +137,6 @@ public final class IO {
             } catch (IOException e) {
                 Logger.logWarning("Failed to write content to file " + outputFile.getAbsolutePath());
             }
-        }
-    }
-
-    /**
-     * DEPRECATED Compress a target file using brotli.
-     *
-     * @param target {@link File} target to compress.
-     */
-    public static void compressFile(File target) {
-        try {
-            String content = Files.readString(target.toPath());
-            // Write compressed (brotli) output.
-            Brotli4jLoader.ensureAvailability();
-            byte[] compressed = Encoder.compress(content.getBytes());
-            Files.write(Paths.get(target.getAbsolutePath() + ".br"), compressed);
-            //noinspection ResultOfMethodCallIgnored
-            target.delete();
-        } catch (IOException e) {
-            Logger.logWarning("Failed to compress file " + target.getAbsolutePath());
         }
     }
 
