@@ -55,7 +55,7 @@ public final class Musial {
     /**
      * Whether to compress output. This can not be set by the user and is for debugging purposes only.
      */
-    private static final boolean COMPRESS = false;
+    private static final boolean COMPRESS = true;
     /**
      * {@link String} representing the name of the software; parsed from `/src/main/resources/info.properties`.
      */
