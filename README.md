@@ -56,9 +56,10 @@ descriptions can be found in the collapsible sections.
 <summary><code>build</code></summary>
 
 ```
-usage: java -jar MUSIAL-v2.3.jar -c <arg>
+usage: java -jar MUSIAL-v2.3.jar -C <arg> [-w <arg>]
 command line arguments of task build
- -c,--configuration <arg>   Path to a .json file specifying the build configuration for MUSIAL.
+ -C,--configuration <arg>   Path to a .json file specifying the build configuration for MUSIAL.
+ -w,--workdir <arg>         Path to a temporary working directory. By default './tmp/' is used.
 ```
 
 The `build` task constitutes the first step for all analysis conducted with MUSIAL. The command uses the single

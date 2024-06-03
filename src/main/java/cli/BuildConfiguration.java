@@ -101,7 +101,6 @@ public final class BuildConfiguration {
         } else {
             throw new MusialException(EXCEPTION_PREFIX + " Invalid or missing parameter `minimalCoverage`; expected positive float.");
         }
-
         // Parse minimalFrequency
         if (parameters.containsKey("minimalFrequency")
                 && Validation.isPercentage(String.valueOf(parameters.get("minimalFrequency")))) {

@@ -182,7 +182,7 @@ public final class SnpEffAnnotator {
     private void transferAnnotation() {
         List<String> variantCallAnnotations;
         try {
-            variantCallAnnotations = IO.readLinesFromFile("./tmp/annotated_variants.vcf").stream().filter(s -> !s.startsWith("#")).collect(Collectors.toList());
+            variantCallAnnotations = IO.readLinesFromFile(this.targetDirectory + "/" + "annotated_variants.vcf").stream().filter(s -> !s.startsWith("#")).collect(Collectors.toList());
             String pos;
             String ref;
             StringBuilder alt;

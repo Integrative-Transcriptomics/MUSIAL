@@ -56,6 +56,6 @@ public class Constants {
     public final static char DELETION_OR_GAP_CHAR = '-';
     public final static String CALL_INFO_NO_VARIANT = ".";
     public final static String CALL_INFO_NO_INFO = "?";
-    public final static String CALL_INFO_REJECTED = "!";
+    public final static String CALL_INFO_REJECTED = "?";
 
 }

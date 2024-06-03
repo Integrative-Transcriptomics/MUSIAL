@@ -55,7 +55,7 @@ public final class Musial {
     /**
      * Whether to compress output. This can not be set by the user and is for debugging purposes only.
      */
-    private static final boolean COMPRESS = true;
+    private static final boolean COMPRESS = false;
     /**
      * {@link String} representing the name of the software; parsed from `/src/main/resources/info.properties`.
      */
@@ -183,9 +183,14 @@ public final class Musial {
 
         // Run SnpEff annotation of variants.
         Logger.logStatus("Annotate variants with SnpEff");
+        String temporaryWorkingDir = "./tmp/";
+        if (CLI_PARSER.arguments.hasOption("w"))
+            temporaryWorkingDir = CLI_PARSER.arguments.getOptionValue("w");
+        if (!temporaryWorkingDir.endsWith("/"))
+            temporaryWorkingDir += "/";
         SnpEffAnnotator snpEffAnnotator = new SnpEffAnnotator(
-                new File("./tmp/"),
-                new File("./tmp/variants.vcf"),
+                new File(temporaryWorkingDir),
+                new File(temporaryWorkingDir + "variants.vcf"),
                 parameters.referenceSequenceFile,
                 parameters.referenceFeaturesFile,
                 musialStorage
@@ -528,7 +533,7 @@ public final class Musial {
         int noSamples = sampleNames.size();
         Map<String, Integer> sampleNameIndex = IntStream.range(0, noSamples).boxed().collect(Collectors.toMap(sampleNames::get, Function.identity()));
         // Build output.
-        try (BufferedWriter outputWriter = new BufferedWriter(new FileWriter(parameters.getOptionValue("O")), 16384)) {
+        try (BufferedWriter outputWriter = new BufferedWriter(new FileWriter(parameters.getOptionValue("O")), 32768)) {
             StringBuilder line = new StringBuilder();
             StringBuilder sampleVariantContentBuilder = new StringBuilder();
             String[] sampleContents;
@@ -716,7 +721,7 @@ public final class Musial {
         }
 
         // Build output.
-        try (BufferedWriter outputWriter = new BufferedWriter(new FileWriter(parameters.getOptionValue("O")), 512000)) {
+        try (BufferedWriter outputWriter = new BufferedWriter(new FileWriter(parameters.getOptionValue("O")), 32768)) {
             TriConsumer<String, String, Collection<String>> writeEntry = (n, k, C) -> {
                 try {
                     outputWriter.write(">" + n);

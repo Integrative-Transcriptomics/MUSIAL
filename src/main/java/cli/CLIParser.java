@@ -141,11 +141,18 @@ public class CLIParser {
      */
     private void addBuildOptions(Options options) {
         options.addOption(
-                Option.builder("c")
+                Option.builder("C")
                         .longOpt("configuration")
                         .desc("Path to a .json file specifying the build configuration for MUSIAL. Please visit https://github.com/Integrative-Transcriptomics/MUSIAL for a detailed explanation on how to specify the MUSIAL build configuration file.")
                         .hasArg()
                         .required()
+                        .build()
+        );
+        options.addOption(
+                Option.builder("w")
+                        .longOpt("workdir")
+                        .desc("Path to a temporary working directory. By default './tmp/' is used.")
+                        .hasArg()
                         .build()
         );
     }
@@ -388,7 +395,7 @@ public class CLIParser {
             final JsonNode buildConfigurationJsonSchema = JsonLoader.fromFile(new File("./musial_build_configuration.schema.json"));
             final JsonSchema buildConfigurationSchema = factory.getJsonSchema(buildConfigurationJsonSchema);
             // Validate passed configuration file with schema.
-            final JsonNode buildConfiguration = JsonLoader.fromPath(arguments.getOptionValue("c"));
+            final JsonNode buildConfiguration = JsonLoader.fromPath(arguments.getOptionValue("C"));
             ProcessingReport schemaValidationReport = buildConfigurationSchema.validate(buildConfiguration);
             if (!schemaValidationReport.isSuccess()) {
                 throw new MusialException("(CLI Argument Parsing Failed) Validation of build configuration file failed; " + schemaValidationReport);
@@ -402,7 +409,7 @@ public class CLIParser {
                 BufferedReader bufferedReader =
                         new BufferedReader(
                                 new InputStreamReader(
-                                        Files.newInputStream(Path.of(arguments.getOptionValue("c"))), StandardCharsets.UTF_8
+                                        Files.newInputStream(Path.of(arguments.getOptionValue("C"))), StandardCharsets.UTF_8
                                 )
                         )
         ) {
