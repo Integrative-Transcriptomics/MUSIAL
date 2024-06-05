@@ -12,8 +12,6 @@ import java.util.*;
  * Implements static methods for sequence operations, such as inversion, translation, and alignment.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.0
  */
 public final class SequenceOperations {
 
@@ -576,8 +574,8 @@ public final class SequenceOperations {
         char[] querySequenceArray = querySequence.toCharArray();
         char targetContent;
         char queryContent;
-        int variantStart = 1;
-        int lastNonGapPosition = 1;
+        int variantStart = 0;
+        int lastNonGapPosition = 0;
         int alignmentLength = targetSequence.length();
         boolean isSubstitution = false;
         boolean isInsertion = false;
@@ -597,7 +595,7 @@ public final class SequenceOperations {
                 isSubstitution = false;
                 isInsertion = false;
                 isDeletion = false;
-                lastNonGapPosition = i + 1;
+                lastNonGapPosition = i;
             } else if (targetContent == Constants.DELETION_OR_GAP_CHAR) {
                 // CASE: Insertion (in variant).
                 if (isDeletion) {
@@ -605,15 +603,15 @@ public final class SequenceOperations {
                         Logger.logWarning("Ambiguous Deletion to Insertion switch in aligned sequences ..." + referenceBuilder + targetContent + "...\t..." + variantBuilder + queryContent + "...; Variant will be skipped.");
                     ambiguousSwitch = true;
                 } else {
-                    if (isSubstitution) {
+                    /*if (isSubstitution) {
                         variants.add(Triple.of(variantStart, referenceBuilder.toString(), variantBuilder.toString()));
                         referenceBuilder.setLength(0);
                         variantBuilder.setLength(0);
-                    }
-                    if (!isInsertion) {
+                    }*/
+                    if (!isInsertion && !isSubstitution) {
                         variantStart = lastNonGapPosition;
-                        referenceBuilder.append(targetSequenceArray[lastNonGapPosition - 1]);
-                        variantBuilder.append(targetSequenceArray[lastNonGapPosition - 1]);
+                        referenceBuilder.append(targetSequenceArray[lastNonGapPosition]);
+                        variantBuilder.append(querySequenceArray[lastNonGapPosition]);
                     }
                     referenceBuilder.append(Constants.DELETION_OR_GAP_CHAR);
                     variantBuilder.append(queryContent);
@@ -627,15 +625,15 @@ public final class SequenceOperations {
                         Logger.logWarning("Ambiguous Insertion to Deletion switch in aligned sequences ..." + referenceBuilder + targetContent + "...\t..." + variantBuilder + queryContent + "...; Variant will be skipped.");
                     ambiguousSwitch = true;
                 } else {
-                    if (isSubstitution) {
+                    /*if (isSubstitution) {
                         variants.add(Triple.of(variantStart, referenceBuilder.toString(), variantBuilder.toString()));
                         referenceBuilder.setLength(0);
                         variantBuilder.setLength(0);
-                    }
-                    if (!isDeletion) {
+                    }*/
+                    if (!isDeletion && !isSubstitution) {
                         variantStart = lastNonGapPosition;
-                        referenceBuilder.append(targetSequenceArray[lastNonGapPosition - 1]);
-                        variantBuilder.append(targetSequenceArray[lastNonGapPosition - 1]);
+                        referenceBuilder.append(targetSequenceArray[lastNonGapPosition]);
+                        variantBuilder.append(querySequenceArray[lastNonGapPosition]);
                     }
                     referenceBuilder.append(targetContent);
                     variantBuilder.append(Constants.DELETION_OR_GAP_CHAR);
@@ -653,7 +651,7 @@ public final class SequenceOperations {
                 isSubstitution = true;
                 isInsertion = false;
                 isDeletion = false;
-                lastNonGapPosition = i + 1;
+                lastNonGapPosition = i;
                 variantStart = lastNonGapPosition;
                 variantBuilder.append(queryContent);
                 referenceBuilder.append(targetContent);

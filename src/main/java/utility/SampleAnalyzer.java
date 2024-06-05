@@ -21,8 +21,6 @@ import java.util.stream.Collectors;
  * Implements static methods to run sample/.vcf analysis.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.0
  */
 public final class SampleAnalyzer {
 
@@ -85,9 +83,6 @@ public final class SampleAnalyzer {
                     if (storage.isPositionExcluded(contig, variantPosition))
                         // Skip excluded positions.
                         continue;
-                    if (variantContext.getMaxPloidy(1) > 1)
-                        // Skip non-haploid variants.
-                        continue;
                     // Process the variant, i.e., filter and decide on actual content.
                     processVariantContext();
                 }
@@ -107,7 +102,7 @@ public final class SampleAnalyzer {
     @SuppressWarnings("DuplicatedCode")
     private static void processVariantContext() throws MusialException {
         // Representation of variant calls as: ( Ref, Alt, AF, AD )
-        HashMap<Integer, ArrayList<Quartet<String, String, Double, Integer>>> callsPerPosition = new HashMap<>();
+        LinkedHashMap<Integer, ArrayList<Quartet<String, String, Double, Integer>>> callsPerPosition = new LinkedHashMap<>();
         Allele referenceAllele = variantContext.getReference();
         ArrayList<Allele> alleles = new ArrayList<>();
         alleles.add(referenceAllele);
@@ -120,16 +115,15 @@ public final class SampleAnalyzer {
         int refAD = -1;
         double refAF = -1;
         // Determine depth of coverage: TODO: Extend for other input formats.
-        if (genotypesContext.hasAD()) // (1) GATK HaplotypeCaller
+        if (genotypesContext.hasAD()) // (1) GATK HaplotypeCaller and (2) freeBayes
             DP = Arrays.stream(genotypesContext.getAD()).sum();
-        else if (variantContext.hasAttribute("DP4")) // (2) bcftools
+        else if (variantContext.hasAttribute("DP4")) // (3) bcftools
             DP = variantContext.getAttributeAsIntList("DP4", 0).stream().reduce(0, Integer::sum);
         else // (3) Other
             DP = genotypesContext.getDP();
         Allele allele;
         String ref;
         String alt;
-        boolean referenceWasAdded = false;
         for (int i = 0; i < alleles.size(); i++) {
             allele = alleles.get(i);
             // Determine allele frequency: TODO: Extend for other input formats.
@@ -163,32 +157,34 @@ public final class SampleAnalyzer {
                 callsPerPosition.putIfAbsent(variantPosition, new ArrayList<>());
                 callsPerPosition.get(variantPosition).add(Quartet.with(ref, alt, AF, AD));
                 if (alt.charAt(0) != ref.charAt(0)) // Temp. warning for unexpected variant call format.
-                    Logger.logWarning("Unexpected variant content for sample " + _sample.name + " at position " + variantPosition + "; " + ref + " " + alt);
+                    Logger.logWarning("Unexpected variant content for sample " + _sample.name + " at position " + variantPosition + ": " + ref + " " + alt);
             } else if (ref.length() == 1 && alt.length() > ref.length()) {
                 // 2. Allele represents insertion.
                 ref = ref + Constants.DELETION_OR_GAP_STRING.repeat(alt.length() - 1);
                 callsPerPosition.putIfAbsent(variantPosition, new ArrayList<>());
                 callsPerPosition.get(variantPosition).add(Quartet.with(ref, alt, AF, AD));
                 if (alt.charAt(0) != ref.charAt(0)) // Temp. warning for unexpected variant call format.
-                    Logger.logWarning("Unexpected variant content for sample " + _sample.name + " at position " + variantPosition + "; " + ref + " " + alt);
-            } else if (variantContext.isComplexIndel() || variantContext.isMNP()) {
-                // 3. Ambiguous call: Mutual variants are derived by aligning alternative allele with reference sequence.
-                if (i != 0) {
+                    Logger.logWarning("Unexpected variant content for sample " + _sample.name + " at position " + variantPosition + ": " + ref + " " + alt);
+            } else if (ref.length() == 1 && alt.length() == 1) {
+                // 3. Substitution.
+                callsPerPosition.putIfAbsent(variantPosition, new ArrayList<>());
+                callsPerPosition.get(variantPosition).add(Quartet.with(ref, alt, AF, AD));
+            } else if (ref.length() > 1 && alt.length() > 1) {
+                // 4. Ambiguous call: Mutual variants are derived by aligning alternative allele with reference sequence.
+                if (i != 0) { // Skip reference allele to avoid variants that contain itself as ref. and alt.
                     Triplet<Integer, String, String> alignment = SequenceOperations.globalNucleotideSequenceAlignment(ref, alt, SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID, SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE, null);
                     ArrayList<Triple<Integer, String, String>> resolvedVariants = SequenceOperations.getVariantsOfAlignedSequences(alignment.getValue1(), alignment.getValue2());
                     for (Triple<Integer, String, String> resolvedVariant : resolvedVariants) {
-                        callsPerPosition.putIfAbsent(variantPosition + (resolvedVariant.getLeft() - 1), new ArrayList<>());
-                        if (!referenceWasAdded) {
-                            callsPerPosition.get(variantPosition + (resolvedVariant.getLeft() - 1)).add(Quartet.with(resolvedVariant.getMiddle(), resolvedVariant.getMiddle(), refAF, refAD));
-                            referenceWasAdded = true;
-                        }
-                        callsPerPosition.get(variantPosition + (resolvedVariant.getLeft() - 1)).add(Quartet.with(resolvedVariant.getMiddle(), resolvedVariant.getRight(), AF, AD));
+                        callsPerPosition.putIfAbsent(variantPosition + (resolvedVariant.getLeft()), new ArrayList<>());
+                        // TODO: Validate correctness for highly complex variants, e.g. (ref) CACCC (alt) GTCCG, ATCCT.
+                        if (callsPerPosition.get(variantPosition + (resolvedVariant.getLeft())).size() == 0) // Add reference only as first call, if not present.
+                            callsPerPosition.get(variantPosition + (resolvedVariant.getLeft())).add(Quartet.with(resolvedVariant.getMiddle(), resolvedVariant.getMiddle(), refAF, refAD));
+                        callsPerPosition.get(variantPosition + (resolvedVariant.getLeft())).add(Quartet.with(resolvedVariant.getMiddle(), resolvedVariant.getRight(), AF, AD));
                     }
                 }
             } else {
-                // 4. Substitution or reference call.
-                callsPerPosition.putIfAbsent(variantPosition, new ArrayList<>());
-                callsPerPosition.get(variantPosition).add(Quartet.with(ref, alt, AF, AD));
+                // 5. Unexpected.
+                Logger.logWarning("Ignore not processable variant content for sample " + _sample.name + " at position " + variantPosition + ": " + ref + " " + alt);
             }
         }
         // Decide on most frequent call and transfer to sample and form.

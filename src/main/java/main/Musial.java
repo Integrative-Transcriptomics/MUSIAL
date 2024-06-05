@@ -31,8 +31,6 @@ import java.util.stream.IntStream;
  *
  * @author Alexander Seitz
  * @author Simon Hackl
- * @version 2.3
- * @since 1.0
  */
 @SuppressWarnings("DuplicatedCode")
 public final class Musial {
@@ -52,10 +50,6 @@ public final class Musial {
      * Project wide formatter to convert decimal numbers to strings.
      */
     public static final DecimalFormat DECIMAL_FORMATTER = new DecimalFormat("#.####", DecimalFormatSymbols.getInstance(Locale.US));
-    /**
-     * Whether to compress output. This can not be set by the user and is for debugging purposes only.
-     */
-    private static final boolean COMPRESS = true;
     /**
      * {@link String} representing the name of the software; parsed from `/src/main/resources/info.properties`.
      */
@@ -216,7 +210,7 @@ public final class Musial {
         updateStatistics(musialStorage);
 
         // Write updated storage to file.
-        musialStorage.dump(parameters.output.getAbsolutePath(), COMPRESS);
+        musialStorage.dump(parameters.output.getAbsolutePath(), !CLI_PARSER.arguments.hasOption("u"));
     }
 
     /**
@@ -533,6 +527,7 @@ public final class Musial {
         int noSamples = sampleNames.size();
         Map<String, Integer> sampleNameIndex = IntStream.range(0, noSamples).boxed().collect(Collectors.toMap(sampleNames::get, Function.identity()));
         // Build output.
+        Logger.logStatus("Write variants table");
         try (BufferedWriter outputWriter = new BufferedWriter(new FileWriter(parameters.getOptionValue("O")), 32768)) {
             StringBuilder line = new StringBuilder();
             StringBuilder sampleVariantContentBuilder = new StringBuilder();
@@ -639,6 +634,7 @@ public final class Musial {
         Function<VariantInformation, Boolean> variantOccurs = (variantInformation -> variantInformation.getOccurrenceSet().stream().anyMatch(sampleNamesSet::contains));
 
         // Construct reference table.
+        Logger.logStatus("Collate variants information");
         LinkedHashMap<Integer, String> referenceTable;
         if (conserved) {
             String[] perPositionReferenceContent;
@@ -721,6 +717,7 @@ public final class Musial {
         }
 
         // Build output.
+        Logger.logStatus("Write sequence data");
         try (BufferedWriter outputWriter = new BufferedWriter(new FileWriter(parameters.getOptionValue("O")), 32768)) {
             TriConsumer<String, String, Collection<String>> writeEntry = (n, k, C) -> {
                 try {

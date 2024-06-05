@@ -33,8 +33,6 @@ import java.util.stream.Stream;
  * Parse parameters for `build` task.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.1
  */
 public final class BuildConfiguration {
     /**
@@ -129,9 +127,9 @@ public final class BuildConfiguration {
             throw new MusialException(EXCEPTION_PREFIX + " Invalid value '" + referenceSequenceFile.getAbsolutePath() + "' for parameter `referenceSequenceFile`; failed to access file.");
         }
 
-        // Parse reference features (.gff/.gff3)
+        // Parse reference features (.gff3); Important: .gff does not work!
         if (!parameters.containsKey("referenceFeaturesFile")) {
-            throw new MusialException(EXCEPTION_PREFIX + " Missing parameter `referenceFeaturesFile`; expected path to .gff file.");
+            throw new MusialException(EXCEPTION_PREFIX + " Missing parameter `referenceFeaturesFile`; expected path to .gff3 file.");
         }
         this.referenceFeaturesFile = new File((String) parameters.get("referenceFeaturesFile"));
         if (Validation.isFile(referenceFeaturesFile)) {
@@ -193,7 +191,7 @@ public final class BuildConfiguration {
                     .findFirst()
                     .orElse(null);
             if (matchKey == null || featureEntry.get(matchKey) == null) {
-                throw new MusialException(EXCEPTION_PREFIX + " Failed to find .gff attribute key/value pair to match feature " + featureKey);
+                throw new MusialException(EXCEPTION_PREFIX + " Failed to find GFF attribute key/value pair to match feature " + featureKey);
             }
             Map<String, String> annotations;
             if (featureEntry.containsKey("annotations")) {
@@ -294,11 +292,11 @@ public final class BuildConfiguration {
      * Initializes a {@link Feature} object with the specified parameters and adds it to the features list.
      *
      * @param name        {@link String}; The internal name to use for the feature.
-     * @param matchKey    {@link String}; The key of the attribute in the specified .gff format reference annotation to match the feature from.
-     * @param matchValue  {@link String}; The value of the attribute in the specified .gff format reference annotation to match the feature from.
+     * @param matchKey    {@link String}; The key of the attribute in the specified GFF format reference annotation to match the feature from.
+     * @param matchValue  {@link String}; The value of the attribute in the specified GFF format reference annotation to match the feature from.
      * @param coding      {@link Boolean}; Whether to consider feature as cds, independent of provided structure.
      * @param annotations {@link java.util.HashMap} of {@link String} key/pair values; feature meta information.
-     * @throws MusialException If the initialization of the {@link Feature} fails; If the specified .gff reference annotation or .pdb protein file can not be read; If the specified feature is not found or parsed multiple times from the reference annotation.
+     * @throws MusialException If the initialization of the {@link Feature} fails; If the specified GFF reference annotation or .pdb protein file can not be read; If the specified feature is not found or parsed multiple times from the reference annotation.
      */
     private void addFeature(String name, String matchKey, String matchValue, boolean coding, Map<String, String> annotations)
             throws MusialException {

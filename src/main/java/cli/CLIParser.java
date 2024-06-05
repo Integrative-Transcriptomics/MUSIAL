@@ -28,8 +28,6 @@ import java.util.Objects;
  * Used to parse and validate passed command line options or print help information to the user.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.1
  */
 @SuppressWarnings("DuplicatedCode")
 public class CLIParser {
@@ -40,12 +38,12 @@ public class CLIParser {
     @SuppressWarnings("FieldCanBeLocal")
     private final String musialTaskDescription = """
             \n
-             build            Build a local database/MUSIAL storage (brotli compressed binary JSON format) from variant calls.
-             view_features    View annotated features from a built MUSIAL storage in a tabular format.
-             view_samples     View annotated samples from a built MUSIAL storage in a tabular format.
-             view_variants    View annotated variants from a built MUSIAL storage in a tabular format.
-             export_table     Export variants from a built MUSIAL storage into a matrix-like .tsv file.
-             export_sequence  Generate sequences in .fasta format from a built MUSIAL storage.
+             build            Build a local database/MUSIAL storage (opt. gzip compressed) JSON format file from variant calls.
+             view_features    View annotated features from a MUSIAL storage file in a tabular format.
+             view_samples     View annotated samples from a MUSIAL storage file in a tabular format.
+             view_variants    View annotated variants from a MUSIAL storage file in a tabular format.
+             export_table     Export variants from a MUSIAL storage file as a matrix-like .tsv file.
+             export_sequence  Generate sequences in .fasta format from a MUSIAL storage file.
             \n
             """;
 
@@ -153,6 +151,12 @@ public class CLIParser {
                         .longOpt("workdir")
                         .desc("Path to a temporary working directory. By default './tmp/' is used.")
                         .hasArg()
+                        .build()
+        );
+        options.addOption(
+                Option.builder("u")
+                        .longOpt("uncompressed")
+                        .desc("Do not compress the storage file (Default: compressed).")
                         .build()
         );
     }
