@@ -8,8 +8,6 @@ import java.util.zip.GZIPOutputStream;
  * Implements static methods to compress {@link String} content using the {@link java.util.zip} library.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.2
  */
 public class Compression {
 

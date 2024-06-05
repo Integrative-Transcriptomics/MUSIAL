@@ -16,8 +16,6 @@ import java.util.NavigableSet;
  * Analyzes alleles of features, aligns them with reference sequences, and derives variant information.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.2
  */
 public class AlleleAnalyzer {
 

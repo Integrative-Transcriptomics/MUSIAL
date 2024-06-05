@@ -17,8 +17,6 @@ import java.util.stream.Collectors;
  * Representation of a sample, i.e., variant calls from a single biological sample.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.0
  */
 @SuppressWarnings("unused")
 public final class Sample extends InfoContainer {

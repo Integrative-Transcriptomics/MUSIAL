@@ -4,8 +4,6 @@ package datastructure;
  * Container to store a biological variation of a feature, i.e., an allele of a gene or proteoform of a protein.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.2
  */
 public class Form extends OccurrenceContainer {
 

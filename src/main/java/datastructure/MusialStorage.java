@@ -20,8 +20,6 @@ import java.util.*;
  * Main data structure to store information about variants wrt. features and samples.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.1
  */
 @SuppressWarnings("unused")
 public class MusialStorage extends InfoContainer {

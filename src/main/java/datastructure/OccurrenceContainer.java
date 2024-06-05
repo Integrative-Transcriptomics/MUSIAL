@@ -7,8 +7,6 @@ import java.util.LinkedHashSet;
  * Interface for sample occurrence storage.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.3
  */
 public class OccurrenceContainer extends InfoContainer {
 

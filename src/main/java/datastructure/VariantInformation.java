@@ -4,8 +4,6 @@ package datastructure;
  * Container to store annotations and information of a single variant on a feature.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.1
  */
 public class VariantInformation extends OccurrenceContainer {
 

@@ -5,8 +5,6 @@ package exceptions;
  * features with negative lengths.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.0
  */
 public final class MusialException extends Exception {
 

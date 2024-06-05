@@ -10,8 +10,6 @@ import java.util.*;
  * Extension of the {@link Feature} class to represent coding features.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.2
  */
 @SuppressWarnings("unused")
 public class FeatureCoding extends Feature {

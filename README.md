@@ -15,7 +15,7 @@ formats.
 
 ## Dependencies and Building
 
-The current version of MUSIAL `v2.3` is built with `JDK 17.0.8` and `Gradle 8.2.1`. A precompiled, executable **jar**
+The current version of MUSIAL `v2.3.3` is built with `JDK 17.0.8` and `Gradle 8.2.1`. A precompiled, executable **jar**
 file is deposited at the **Releases** section of this repository. If you want to re-build MUSIAL,
 type `gradle clean build` in the projects root directory. The **jar** file is then contained in the **/releases**
 directory.
@@ -44,21 +44,24 @@ task is the starting point for all other tasks. The tasks currently available ar
 descriptions can be found in the collapsible sections.
 
 ```
- build            Build a local database/MUSIAL storage (brotli compressed binary JSON format) from variant calls.
- view_features    View annotated features from a MUSIAL storage in a tabular format.
- view_samples     View annotated samples from a MUSIAL storage in a tabular format.
- view_variants    View annotated variants from a MUSIAL storage in a tabular format.
- export_table     Export variants from a MUSIAL storage into a matrix-like .tsv file.
- export_sequence  Generate sequences in .fasta format from a MUSIAL storage.
+ build            Build a local database/MUSIAL storage (opt. gzip compressed) JSON format file from variant calls.
+ view_features    View annotated features from a MUSIAL storage file in a tabular format.
+ view_samples     View annotated samples from a MUSIAL storage file in a tabular format.
+ view_variants    View annotated variants from a MUSIAL storage file in a tabular format.
+ export_table     Export variants from a MUSIAL storage file as a matrix-like .tsv file.
+ export_sequence  Generate sequences in .fasta format from a MUSIAL storage file.
 ```
 
 <details>
 <summary><code>build</code></summary>
 
 ```
-usage: java -jar MUSIAL-v2.3.jar -C <arg> [-w <arg>]
+usage: java -jar MUSIAL-v2.3.3.jar build -C <arg> [-u] [-w <arg>]
 command line arguments of task build
- -C,--configuration <arg>   Path to a .json file specifying the build configuration for MUSIAL.
+ -C,--configuration <arg>   Path to a .json file specifying the build configuration for MUSIAL. Please visit
+                            https://github.com/Integrative-Transcriptomics/MUSIAL for a detailed explanation on how to specify the MUSIAL build
+                            configuration file.
+ -u,--uncompressed <arg>    Do not compress the storage file (Default: compressed).
  -w,--workdir <arg>         Path to a temporary working directory. By default './tmp/' is used.
 ```
 
@@ -81,8 +84,8 @@ following.
     "excludedPositions": {                      | Optional: Positions of contigs to exclude from the analysis. 
         "<ContigName>": [<Number>, ... ]        | <ContigName> has to match the name of any sequence in 'referenceSequenceFile', <Number>s have to be any positions (1-based index) on that sequence; Unmatched entries are ignored. 
     },
-    "referenceSequenceFile": "<FilePath>",      | Absolute or relative (to the working directory Java is run from) path to a .fasta file.
-    "referenceFeaturesFile": "<FilePath>",      |                                                                   ... to a .gff or .gff3 file.
+    "referenceSequenceFile": "<FilePath>",      | Absolute or relative (to the working directory Java is run from) path to a .fasta|.fa|.fna file.
+    "referenceFeaturesFile": "<FilePath>",      |                                                                   ... to a .gff3 file.
     "output": "<FilePath>",                     |                                                                   ... to store the output of the task. If the specified value does not end with .br, .br is appended at the end.
     "samples": {                                | Collection of samples, each sample is defined by one .vcf file. 
         "<Name>": {                             | Any string value, used as internal name of the sample. 
@@ -152,16 +155,16 @@ for the first and last feature could look as follows:
 Contig1	Custom	region	1	1139633	.	+	.	Name=genome
 ```
 
-#### Input Restrictions
+#### ❗ Input Restrictions
 
-- MUSIAL requires the input reference sequence and all variant call format files to be indexed. If missing, the
-  respective **.fai** and **.tbi** files are generated automatically.
-- MUSIAL utilizes the `biojava GFF3Reader` to process **.gff** files. If contig names/**FASTA** headers are numbers,
-  i.e., *>1*, *>2*, ... an index error will likely be thrown, as the value is interpreted as the index of the sequence
-  in the 0-based index list of all sequences.
+- MUSIAL requires the input reference sequence and all variant call format files to be indexed. If missing, the respective **.fai** and **.tbi** files are generated automatically.
+- MUSIAL utilizes the `biojava GFF3Reader` to process **GFF** files:
+  - The library is unable to parse files ending with .gff, so ensure that your GFF files use the .gff3 extension.
+  - Please ensure that the GFF file does contain comment lines only at the start and no data other than the expected feature annotations are stored (many GFF files store sequence information in addition).
+  - If contig names/**FASTA** headers are numbers, i.e., *>1*, *>2*, ... an index error will likely be thrown, as the value is interpreted as the index of the sequence in the 0-based index list of all sequences.
 - Please ensure, that the contig names in the reference sequence, reference feature and variant call files match.
-- Currently, only single sample haploid **.vcf** files are supported, i.e., only one called allele per variant context.
-- InDels can only be processed from **.vcf** files, if the first character of the **REF** and **ALT** fields is identical.
+- Currently, only single sample **.vcf** files are supported, i.e., only one genotype per variant context.
+- Complex InDel processing is made available by re-aligning the respective sequence content from the **.vcf** file, i.e., entries like `16333	ATTCA	GTTA` are split into `16333	A	G` and `16335	TC	T-`. **Note:** The outcome of this process may not be identical to the results of other alignment or mapping software, can lead to mixed substitution and InDel information and, thus, lead to somewhat ambiguous results. **We highly recommend to use variant call information without complex InDels**.
 
 </details>
 
@@ -169,7 +172,7 @@ Contig1	Custom	region	1	1139633	.	+	.	Name=genome
 <summary><code>view_features</code></summary>
 
 ```
-usage: java -jar MUSIAL-v2.3.jar [-f <arg>] -I <arg> [-o <arg>]
+usage: java -jar MUSIAL-v2.3.3.jar view_features [-f <arg>] -I <arg> [-o <arg>]
 command line arguments of task view_features
  -f,--features <arg>   Explicit space separated list of features to view (Default: all).
  -I,--storage <arg>    Path to a .json file generated with the build task of MUSIAL to view.
@@ -209,7 +212,7 @@ Gene2	Contig1		157943	159430	+	4			1			21			0			2.2177			12			4			b		1
 <summary><code>view_samples</code></summary>
 
 ```
-usage: java -jar MUSIAL-v2.3.jar -I <arg> [-o <arg>] [-s <arg>]
+usage: java -jar MUSIAL-v2.3.3.jar view_samples -I <arg> [-o <arg>] [-s <arg>]
 command line arguments of task view_samples
  -I,--storage <arg>   Path to a .json file generated with the BUILD task of MUSIAL to view.
  -o,--output <arg>    Path to a file to write the output to (Default: stdout).
@@ -233,8 +236,7 @@ Sample2	19			0			6			3			reference	reference		A3.s19.i0.d6.a3	P1.s56.i0.d4.a2.t0
 - **number_of_ambiguous** Ambiguous positions of this sample across all features
 - **allele_[Feature]** The internal name of the assigned allele of this sample for each feature.
 - **proteoform_[Feature]** The internal name of the assigned proteoform of this sample for each feature.
-- **Custom Annotations** The value for a user-defined annotation for this sample. All annotations of all viewed samples
-  are displayed as separate columns.
+- **Custom Annotations** The value for a user-defined annotation for this sample. All annotations of all viewed samples are displayed as separate columns.
 - ! All missing values are replaced with _null_.
 
 </details>
@@ -243,7 +245,7 @@ Sample2	19			0			6			3			reference	reference		A3.s19.i0.d6.a3	P1.s56.i0.d4.a2.t0
 <summary><code>view_variants</code></summary>
 
 ```
-usage: java -jar MUSIAL-v2.3.jar [-c <arg>] [-f <arg>] -I <arg> [-o <arg>] [-s <arg>]
+usage: java -jar MUSIAL-v2.3.3.jar view_variants [-c <arg>] [-f <arg>] -I <arg> [-o <arg>] [-s <arg>]
 command line arguments of task view_variants
  -c,--content <arg>    Sets the content type of viewed variants; One of `nucleotide` or `aminoacid` (Default: nucleotide).
  -f,--features <arg>   Explicit space separated list of features to restrict variants to (Default: all).
@@ -283,7 +285,7 @@ position	reference_content	alternate_content	feature		occurrence		type		frequenc
 <summary><code>export_table</code></summary>
 
 ```
-usage: java -jar MUSIAL-v2.3.jar [-c <arg>] -F <arg> -I <arg> -O <arg> [-s <arg>]
+usage: java -jar MUSIAL-v2.3.3.jar export_table [-c <arg>] -F <arg> -I <arg> -O <arg> [-s <arg>]
 command line arguments of task export_table
  -c,--content <arg>   Sets the content type of viewed variants; One of `nucleotide` or `aminoacid` (Default: nucleotide).
  -F,--feature <arg>   The feature for which variants should be exported.
@@ -318,7 +320,7 @@ For `export_table -c nucleotide` each cell is described by `<CallIndex> ; <Total
 <summary><code>export_sequence</code></summary>
 
 ```
-usage: java -jar MUSIAL-v2.3.jar [-a] [-c <arg>] -F <arg> -I <arg> [-k] [-m] -O <arg> [-r <arg>] [-s <arg>]
+usage: java -jar MUSIAL-v2.3.3.jar export_sequence [-a] [-c <arg>] -F <arg> -I <arg> [-k] [-m] -O <arg> [-r <arg>] [-s <arg>]
 command line arguments of task export_sequence
  -a,--aligned           Whether to align sequences (Default: No alignment).
  -c,--content <arg>     Sets the content type of viewed variants; One of `nucleotide` or `aminoacid` (Default: nucleotide).
@@ -352,7 +354,7 @@ We will soon add a description of MUSIAL's internal storage structure.
 
 #### Processing Efficiency
 - When developing MUSIAL, we took care to ensure an efficient computing and storage structure. However, we do not use dedicated index files, which has some limitations:
-  - We refrain from entering large eukaryotic haploid data sets (at least the possibility of processing them has not yet been tested).
+  - We refrain from using large (eukaryotic) data sets (at least the possibility of processing them has not yet been validated).
 
 #### Other OMICS Integration
 - MUSIAL allows to integrate nucleotide variants to the protein level (i.e., the inference of SAVs, aminoacid InDels and proteoforms). A corresponding integration into the RNA level is currently not possible.

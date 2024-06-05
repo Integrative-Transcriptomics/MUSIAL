@@ -4,8 +4,6 @@ package datastructure;
  * Stores parameters used for variant call filtering.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.1
  */
 public class MusialStorageParameters {
 

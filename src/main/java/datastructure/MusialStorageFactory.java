@@ -12,8 +12,6 @@ import java.io.IOException;
  * Factory class for {@link MusialStorage} instances. Implements methods to build new or load existing instances from local files.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.0
  */
 public final class MusialStorageFactory {
 

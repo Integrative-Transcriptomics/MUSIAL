@@ -7,8 +7,6 @@ import java.util.Arrays;
  * Collection of common property keys used for annotations.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.2
  */
 public class Constants {
     public final static String REFERENCE_FORM_NAME = "reference";

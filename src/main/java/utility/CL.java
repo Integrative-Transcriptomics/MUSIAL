@@ -7,8 +7,6 @@ import java.io.File;
  *
  * @author Alexander Seitz
  * @author Simon Hackl
- * @version 2.3
- * @since 2.0
  */
 public class CL {
 

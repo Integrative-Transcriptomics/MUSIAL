@@ -20,8 +20,6 @@ import java.util.zip.GZIPInputStream;
  * This class comprises static methods used for reading and writing files.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.0
  */
 @SuppressWarnings("unused")
 public final class IO {

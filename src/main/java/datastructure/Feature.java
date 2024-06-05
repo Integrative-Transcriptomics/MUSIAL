@@ -10,8 +10,6 @@ import java.util.*;
  * This may be the full genome, a single gene, contigs or plasmids and chromosomes.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.0
  */
 @SuppressWarnings("unused")
 public class Feature extends InfoContainer {

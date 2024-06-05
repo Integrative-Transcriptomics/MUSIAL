@@ -8,8 +8,6 @@ import java.util.Set;
  * Interface for meta-information storage.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.3
  */
 @SuppressWarnings("unused")
 public class InfoContainer {

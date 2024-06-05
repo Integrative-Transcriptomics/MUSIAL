@@ -6,8 +6,6 @@ import java.io.File;
  * Implements static methods used for validating input parameters.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.0
  */
 @SuppressWarnings("unused")
 public class Validation {

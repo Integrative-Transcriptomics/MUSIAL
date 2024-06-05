@@ -22,8 +22,6 @@ import java.util.stream.Collectors;
  * Implements static methods to run SnpEff locally via command line.
  *
  * @author Simon Hackl
- * @version 2.3
- * @since 2.0
  */
 public final class SnpEffAnnotator {
 
