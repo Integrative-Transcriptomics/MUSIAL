@@ -30,17 +30,17 @@
     "referenceSequenceFile": {
       "description": "Path to a .fasta file; Content will be used as reference genome.",
       "type": "string",
-      "pattern": "^.+.fasta$"
+      "pattern": "^.+.fasta|.+.fna|.+.fa$"
     },
     "referenceFeaturesFile": {
       "description": "Path to a .gff or .gff3 file; Content will be used as reference genome feature annotation.",
       "type": "string",
-      "pattern": "^.+.gff|.+.gff3$"
+      "pattern": "^.+.gff3$"
     },
     "output": {
       "description": "Path pointing to a file; Content will be used as output file path.",
       "type": "string",
-      "pattern": "^.+.json|.+.br$"
+      "pattern": "^.+.json|.+.gz$"
     },
     "samples": {
       "description": "Object specifying the set of samples to analyze.",
