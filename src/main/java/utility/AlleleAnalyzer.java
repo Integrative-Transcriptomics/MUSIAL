@@ -60,10 +60,6 @@ public class AlleleAnalyzer {
         String proteoformSequence;
         String ref;
         String alt;
-        boolean isDeletion;
-        boolean isInsertion;
-        boolean isInDel;
-        long noDeletedPositions;
         int lengthDifference;
         int relativeVariantPosition;
         int alignmentBandWidth = 1;
@@ -87,35 +83,14 @@ public class AlleleAnalyzer {
                             relativeVariantPosition = pos - featureCoding.start; // 0-based position on feature.
                             alt = entry.getKey();
                             ref = entry.getValue().referenceContent;
-                            isDeletion = alt.contains(Constants.DELETION_OR_GAP_STRING);
-                            isInsertion = ref.contains(Constants.DELETION_OR_GAP_STRING);
-                            isInDel = (isDeletion && isInsertion);
                             lengthDifference = Math.abs(ref.replaceAll("-", "").length() - alt.replaceAll("-", "").length());
-                            if (isInDel) {
-                                // Insert Insertion-Deletion.
-                                // Compare with deletion and insertion case; Replaces deleted reference content with put. inserted alt. content.
-                                noDeletedPositions = alt.chars().filter(c -> c == '-').count();
-                                alleleSequenceBuilder.replace(relativeVariantPosition, (int) (relativeVariantPosition + noDeletedPositions + 1), alt.replace("-", ""));
-                                alignmentBandWidth += lengthDifference;
-                            } else if (isDeletion) {
-                                // Replace deletion.
-                                // Replace substitutes substring at [ start, end ).
-                                alleleSequenceBuilder.replace(relativeVariantPosition, relativeVariantPosition + alt.length(), alt.replace("-", ""));
-                                alignmentBandWidth += lengthDifference;
-                            } else if (isInsertion) {
-                                // Insert insertion.
-                                // Insert adds substring starting at offset, i.e., we need to shift by one to account for excluded conserved position.
-                                alleleSequenceBuilder.insert(relativeVariantPosition + 1, alt.substring(1));
-                                alignmentBandWidth += lengthDifference;
-                            } else {
-                                // Case; Replace substitution; shift end by one for fixed subst. length of one.
-                                alleleSequenceBuilder.replace(relativeVariantPosition, relativeVariantPosition + alt.length(), alt);
-                            }
+                            alignmentBandWidth = Math.max(3, lengthDifference);
+                            alleleSequenceBuilder.replace(relativeVariantPosition, relativeVariantPosition + ref.length(), alt);
                         }
                     }
                     alignmentBandWidth = (int) Math.ceil(alignmentBandWidth / 3.0);
                     // Translate allele nucleotide sequence and align with reference aminoacid sequence.
-                    proteoformSequence = SequenceOperations.translateNucSequence(alleleSequenceBuilder.toString(), true, true, featureCoding.isSense);
+                    proteoformSequence = SequenceOperations.translateNucSequence(alleleSequenceBuilder.toString().replace(Constants.DELETION_OR_GAP_STRING, ""), true, true, featureCoding.isSense);
                     Triplet<Integer, String, String> sequenceAlignment = SequenceOperations.globalAminoAcidSequenceAlignment(
                             featureCoding.getCodingSequence(),
                             proteoformSequence,

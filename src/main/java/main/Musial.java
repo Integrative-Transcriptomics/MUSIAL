@@ -637,7 +637,7 @@ public final class Musial {
         Logger.logStatus("Collate variants information");
         LinkedHashMap<Integer, String> referenceTable;
         if (conserved) {
-            String[] perPositionReferenceContent;
+            String[] referenceContent;
             NavigableSet<Integer> variantPositions;
             Function<Integer, Collection<VariantInformation>> getVariantInformation;
             if (contentMode.equals(Constants.CONTENT_MODE_NUCLEOTIDE) && parameters.hasOption("r")) {
@@ -650,28 +650,29 @@ public final class Musial {
                 }
                 referenceSequence = new IndexedFastaSequenceFile(referenceSequenceFile.toPath());
                 musialStorage.setReference(referenceSequence);
-                perPositionReferenceContent = musialStorage.getReferenceSequenceOfFeature(feature.name).split("");
-                referenceTable = new LinkedHashMap<>(perPositionReferenceContent.length, 10);
+                referenceContent = musialStorage.getReferenceSequenceOfFeature(feature.name).split("");
+                referenceTable = new LinkedHashMap<>(referenceContent.length, 10);
                 variantPositions = feature.getNucleotideVariantPositions();
                 getVariantInformation = (position) -> feature.getNucleotideVariantsAt(position).values();
             } else if (contentMode.equals(Constants.CONTENT_MODE_AMINOACID)) {
                 FeatureCoding featureCoding = (FeatureCoding) feature;
-                perPositionReferenceContent = featureCoding.getCodingSequence().split("");
-                referenceTable = new LinkedHashMap<>(perPositionReferenceContent.length, 10);
+                referenceContent = featureCoding.getCodingSequence().split("");
+                referenceTable = new LinkedHashMap<>(referenceContent.length, 10);
                 variantPositions = featureCoding.getAminoacidVariantPositions();
                 getVariantInformation = (position) -> featureCoding.getAminoacidVariantsAt(position).values();
             } else {
-                throw new MusialException("Failed to export sequences with parameters --content=" + contentMode + " and --reference=" + parameters.getOptionValue("r") + ".");
+                throw new MusialException("Failed to export sequences with parameters --content " + contentMode + " and --reference " + parameters.getOptionValue("r") + ".");
             }
-            for (int i = 0; i < perPositionReferenceContent.length; i++)
+            for (int i = 0; i < referenceContent.length; i++)
                 if (contentMode.equals(Constants.CONTENT_MODE_NUCLEOTIDE))
-                    referenceTable.put(feature.start + i, perPositionReferenceContent[i]);
+                    referenceTable.put(feature.start + i, referenceContent[i]);
                 else
-                    referenceTable.put(1 + i, perPositionReferenceContent[i]);
+                    referenceTable.put(i, referenceContent[i]);
             for (Integer position : variantPositions)
                 for (VariantInformation variantInformation : getVariantInformation.apply(position))
                     // Replaces reference content with maximal insertion length wrt. samples to use.
                     if (variantInformation.getInfo(Constants.TYPE).contains(Constants.TYPE_INSERTION) && variantOccurs.apply(variantInformation))
+                        // Reference content is stored in variant information with padded '-' symbols to indicate insertion.
                         if (variantInformation.referenceContent.length() > referenceTable.getOrDefault(position, "").length())
                             referenceTable.put(position, variantInformation.referenceContent);
         } else {
@@ -735,7 +736,8 @@ public final class Musial {
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-            }; // Internal helper function to dump content to file.
+            };
+            // Internal helper function to dump content to file. Returns the i-suffix of s or empty string if i > length of s.
             BiFunction<String, Integer, String> substringOrEmpty = (s, i) -> {
                 if (i > s.length())
                     return "";
@@ -763,7 +765,7 @@ public final class Musial {
                             type = feature.getNucleotideVariant(position, alt).getInfo(Constants.TYPE);
                             if (type.contains(Constants.TYPE_DELETION)) {
                                 // Call is deletion.
-                                for (int i = 1; i < alt.length(); i++)
+                                for (int i = 0; i < alt.length(); i++)
                                     formVariants.put(
                                             position + i,
                                             alt.charAt(i) + formVariants.get(position + i).substring(1)
@@ -772,13 +774,14 @@ public final class Musial {
                                 // Call is substitution.
                                 formVariants.put(
                                         position,
+                                        // Add alt. at position and any putative gaps of insertions in other samples.
                                         alt + formVariants.get(position).substring(1)
                                 );
                             } else if (type.contains(Constants.TYPE_INSERTION)) {
                                 // Call is insertion.
                                 formVariants.put(
                                         position,
-                                        formVariants.get(position).charAt(0) + alt.substring(1) + substringOrEmpty.apply(formVariants.get(position), alt.length())
+                                        alt + substringOrEmpty.apply(formVariants.get(position), alt.length())
                                 );
                             }
                         }
@@ -804,10 +807,10 @@ public final class Musial {
                             type = featureCoding.getAminoacidVariant(position, alt).getInfo(Constants.TYPE);
                             if (type.contains(Constants.TYPE_DELETION)) {
                                 // Call is deletion.
-                                for (int i = 1; i < alt.length(); i++)
+                                for (int i = 0; i < alt.length(); i++)
                                     formVariants.put(
                                             position + i,
-                                            alt.charAt(i) + formVariants.get(position).substring(1)
+                                            alt.charAt(i) + formVariants.get(position + i).substring(1)
                                     );
                             } else if (type.contains(Constants.TYPE_SUBSTITUTION)) {
                                 // Call is substitution.
@@ -819,7 +822,7 @@ public final class Musial {
                                 // Call is insertion.
                                 formVariants.put(
                                         position,
-                                        formVariants.get(position).charAt(0) + alt.substring(1) + substringOrEmpty.apply(formVariants.get(position), alt.length())
+                                        alt + substringOrEmpty.apply(formVariants.get(position), alt.length())
                                 );
                             }
                         }
