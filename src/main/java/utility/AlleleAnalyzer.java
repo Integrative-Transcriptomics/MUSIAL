@@ -5,10 +5,7 @@ import main.Constants;
 import org.apache.commons.lang3.tuple.Triple;
 import org.javatuples.Triplet;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.NavigableSet;
+import java.util.*;
 
 /**
  * Implements static methods for allele analysis to infer proteoforms.
@@ -56,12 +53,14 @@ public class AlleleAnalyzer {
         Iterator<String> iterator = featureCoding.getAlleleNameIterator();
         sites = new ArrayList<>();
         NavigableSet<Integer> variantAlleleSites;
-        StringBuilder alleleSequenceBuilder;
+        ArrayList<String> alleleSequenceContainer; // Stores per position content as one or multiple base symbols incl. gaps for deletions.
+        String referenceSequence;
         String proteoformSequence;
         String ref;
         String alt;
-        int lengthDifference;
-        int relativeVariantPosition;
+        String type;
+        int maxInDelLength = 0;
+        int relativePosition;
         int alignmentBandWidth = 1;
         char[] proteoformSequenceAlnChars;
         char proteoformSequenceAlnChar;
@@ -74,31 +73,60 @@ public class AlleleAnalyzer {
                     sites = new ArrayList<>();
                 } else {
                     // Derive allele nucleotide sequence and maximal indel length.
-                    alleleSequenceBuilder = new StringBuilder(musialStorage.getReferenceSequenceOfFeature(featureCoding.name));
-                    variantAlleleSites = featureCoding.getNucleotideVariantPositions();
+                    referenceSequence = musialStorage.getReferenceSequenceOfFeature(featureCoding.name);
+                    alleleSequenceContainer = new ArrayList<>(Arrays.asList(
+                            referenceSequence.split("")
+                    ));
+                    variantAlleleSites = featureCoding.getNucleotideVariantPositions(); // TODO: Could be improved by method to return VariantInformation entries by allele name.
                     for (int pos : variantAlleleSites) {
                         for (Map.Entry<String, VariantInformation> entry : featureCoding.getNucleotideVariantsAt(pos).entrySet()) {
                             if (allele.getOccurrenceSet().stream().noneMatch(entry.getValue()::hasOccurrence))
                                 continue;
-                            relativeVariantPosition = pos - featureCoding.start; // 0-based position on feature.
+                            relativePosition = pos - featureCoding.start; // 0-based position on feature.
                             alt = entry.getKey();
                             ref = entry.getValue().referenceContent;
-                            lengthDifference = Math.abs(ref.replaceAll("-", "").length() - alt.replaceAll("-", "").length());
-                            alignmentBandWidth = Math.max(3, lengthDifference);
-                            alleleSequenceBuilder.replace(relativeVariantPosition, relativeVariantPosition + ref.length(), alt);
+                            type = entry.getValue().getInfo(Constants.TYPE);
+                            if (type.contains(Constants.TYPE_INSERTION))
+                                alleleSequenceContainer.set(relativePosition, alt);
+                            else
+                                for (int i = 0; i < alt.length(); i++) {
+                                    alleleSequenceContainer.set(relativePosition + i, String.valueOf(alt.charAt(i)));
+                                }
+                            maxInDelLength = Math.max(
+                                    maxInDelLength,
+                                    Math.abs(ref.replaceAll("-", "").length() - alt.replaceAll("-", "").length())
+                            );
                         }
                     }
-                    alignmentBandWidth = (int) Math.ceil(alignmentBandWidth / 3.0);
+                    alignmentBandWidth = Math.max(12, (int) Math.ceil(maxInDelLength / 3.0));
                     // Translate allele nucleotide sequence and align with reference aminoacid sequence.
-                    proteoformSequence = SequenceOperations.translateNucSequence(alleleSequenceBuilder.toString().replace(Constants.DELETION_OR_GAP_STRING, ""), true, true, featureCoding.isSense);
-                    Triplet<Integer, String, String> sequenceAlignment = SequenceOperations.globalAminoAcidSequenceAlignment(
-                            featureCoding.getCodingSequence(),
-                            proteoformSequence,
-                            proteoformSequence.length() * 8, 9,
-                            SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID,
-                            SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE,
-                            alignmentBandWidth
+                    proteoformSequence = SequenceOperations.translateNucSequence(
+                            String.join("", alleleSequenceContainer).replace(Constants.DELETION_OR_GAP_STRING, ""),
+                            true,
+                            true,
+                            featureCoding.isSense
                     );
+                    Triplet<Integer, String, String> sequenceAlignment;
+                    try {
+                        sequenceAlignment = SequenceOperations.globalAminoAcidSequenceAlignment(
+                                featureCoding.getCodingSequence(),
+                                proteoformSequence,
+                                12, 6,
+                                SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID,
+                                SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE,
+                                alignmentBandWidth
+                        );
+                    } catch (IndexOutOfBoundsException e) {
+                        Logger.logWarning("Banded alignment failed for feature " + featureCoding.name + " and allele " + allele.name + ". Re-running analysis as full alignment.");
+                        sequenceAlignment = SequenceOperations.globalAminoAcidSequenceAlignment(
+                                featureCoding.getCodingSequence(),
+                                proteoformSequence,
+                                12, 6,
+                                SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID,
+                                SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE,
+                                0
+                        );
+                    }
                     // Refine aligned allele aminoacid sequence notation to use for storage.
                     proteoformSequenceAlnChars = sequenceAlignment.getValue2().toCharArray();
                     novelTerminations = new ArrayList<>();

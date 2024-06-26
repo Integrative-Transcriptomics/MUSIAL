@@ -4,7 +4,6 @@ import datastructure.Feature;
 import datastructure.Form;
 import datastructure.MusialStorage;
 import datastructure.Sample;
-import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;
 import htsjdk.variant.variantcontext.Allele;
 import htsjdk.variant.variantcontext.Genotype;
@@ -42,7 +41,7 @@ public final class SampleAnalyzer {
     /**
      * Container of all accepted variant sites to infer alleles.
      */
-    private static ArrayList<Triple<Integer, String, String>> acceptedSites;
+    private static ArrayList<Triple<Integer, String, String>> variantSites;
 
     /**
      * The VariantContext representing a genetic variant.
@@ -71,7 +70,7 @@ public final class SampleAnalyzer {
                 Iterator<VariantContext> variantContextIterator = _sample.vcfFileReader.query(
                         feature.contig, feature.start, feature.end
                 );
-                acceptedSites = new ArrayList<>();
+                variantSites = new ArrayList<>();
                 String contig;
                 while (variantContextIterator.hasNext()) {
                     variantContext = variantContextIterator.next();
@@ -97,10 +96,10 @@ public final class SampleAnalyzer {
     }
 
     /**
-     * Processes a single variant call within the sample analysis.
+     * Processes a single variant context.
      */
     @SuppressWarnings("DuplicatedCode")
-    private static void processVariantContext() throws MusialException {
+    private static void processVariantContext() {
         // Representation of variant calls as: ( Ref, Alt, AF, AD )
         LinkedHashMap<Integer, ArrayList<Quartet<String, String, Double, Integer>>> callsPerPosition = new LinkedHashMap<>();
         Allele referenceAllele = variantContext.getReference();
@@ -115,82 +114,94 @@ public final class SampleAnalyzer {
         int refAD = -1;
         double refAF = -1;
         // Determine depth of coverage: TODO: Extend for other input formats.
-        if (genotypesContext.hasAD()) // (1) GATK HaplotypeCaller and (2) freeBayes
+        if (genotypesContext.hasAD()) // (i) GATK HaplotypeCaller, freeBayes
             DP = Arrays.stream(genotypesContext.getAD()).sum();
-        else if (variantContext.hasAttribute("DP4")) // (3) bcftools
+        else if (variantContext.hasAttribute("DP4")) // (ii) bcftools
             DP = variantContext.getAttributeAsIntList("DP4", 0).stream().reduce(0, Integer::sum);
-        else // (3) Other
+        else // (iii) Other
             DP = genotypesContext.getDP();
         Allele allele;
         String ref;
         String alt;
-        for (int i = 0; i < alleles.size(); i++) {
+        for (int i = 0; i < alleles.size(); i++) { // Iterate over alleles, first one represents reference.
             allele = alleles.get(i);
+
             // Determine allele frequency: TODO: Extend for other input formats.
-            if (genotypesContext.hasAD()) // (1) GATK HaplotypeCaller
+            if (genotypesContext.hasAD()) // (i) GATK HaplotypeCaller, freebayes
                 AD = genotypesContext.getAD()[i];
-            else if (variantContext.hasAttribute("DP4")) { // (2) bcftools
+            else if (variantContext.hasAttribute("DP4")) { // (ii) bcftools
                 List<Integer> dp4 = variantContext.getAttributeAsIntList("DP4", 0);
                 if (i == 0)
                     AD = dp4.get(0) + dp4.get(1); // Ref. call reads, i.e., reference allele coverage.
                 else if (i == 1)
                     AD = dp4.get(2) + dp4.get(3); // Alt. call reads, i.e., alternative allele coverage.
                 else {
-                    // TODO: Get GT?
                     Logger.logWarning("Inference of allele frequency by `DP4` does not support more than one ALT call. Skipping variant at position " + variantPosition + " of sample " + _sample.name + ".");
                     return;
                 }
             } else {
-                throw new MusialException("Failed to infer allele frequency; Variant has none of the attributes [AD, DP4]!");
+                Logger.logWarning("Inference of allele frequency without attributes [AD, DP4] is not supported. Skipping variant at position " + variantPosition + " of sample " + _sample.name + ".");
+                return;
             }
             AF = (double) AD / DP;
-            if (i == 0) { // Store reference call values for use in ambiguous call resolution.
-                refAD = AD;
+
+            // Store reference call and AD, AF values - only used to resolve ambiguous calls.
+            if (i == 0) {
                 refAF = AF;
+                refAD = AD;
             }
+
+            // Access reference and alternative allele content.
             ref = referenceAllele.getBaseString();
             alt = allele.getBaseString();
-            // Adjust base strings.
-            if (alt.length() == 1 && ref.length() > alt.length()) {
-                // 1. Allele represents deletion.
+
+            // Decide on variant type and add content to all position calls.
+            if (i == 0) {
+                // 1. Allele is reference.
+                callsPerPosition.putIfAbsent(variantPosition, new ArrayList<>());
+                callsPerPosition.get(variantPosition).add(Quartet.with(ref, ref, refAF, refAD));
+            } else if (ref.length() == 1 && alt.length() == 1) {
+                // 2. Allele/variant is Substitution.
+                callsPerPosition.putIfAbsent(variantPosition, new ArrayList<>());
+                callsPerPosition.get(variantPosition).add(Quartet.with(ref, alt, AF, AD));
+            } else if (alt.length() == 1) {
+                // 3. Allele/variant is (simple) deletion.
                 alt = alt + Constants.DELETION_OR_GAP_STRING.repeat(ref.length() - 1);
                 callsPerPosition.putIfAbsent(variantPosition, new ArrayList<>());
                 callsPerPosition.get(variantPosition).add(Quartet.with(ref, alt, AF, AD));
-                if (alt.charAt(0) != ref.charAt(0)) // Temp. warning for unexpected variant call format.
-                    Logger.logWarning("Unexpected variant content for sample " + _sample.name + " at position " + variantPosition + ": " + ref + " " + alt);
-            } else if (ref.length() == 1 && alt.length() > ref.length()) {
-                // 2. Allele represents insertion.
+            } else if (ref.length() == 1) {
+                // 4. Allele/variant is (simple) insertion.
                 ref = ref + Constants.DELETION_OR_GAP_STRING.repeat(alt.length() - 1);
                 callsPerPosition.putIfAbsent(variantPosition, new ArrayList<>());
                 callsPerPosition.get(variantPosition).add(Quartet.with(ref, alt, AF, AD));
-                if (alt.charAt(0) != ref.charAt(0)) // Temp. warning for unexpected variant call format.
-                    Logger.logWarning("Unexpected variant content for sample " + _sample.name + " at position " + variantPosition + ": " + ref + " " + alt);
-            } else if (ref.length() == 1 && alt.length() == 1) {
-                // 3. Substitution.
-                callsPerPosition.putIfAbsent(variantPosition, new ArrayList<>());
-                callsPerPosition.get(variantPosition).add(Quartet.with(ref, alt, AF, AD));
-            } else if (ref.length() > 1 && alt.length() > 1) {
-                // 4. Ambiguous call: Mutual variants are derived by aligning alternative allele with reference sequence.
-                if (i != 0) { // Skip reference allele to avoid variants that contain itself as ref. and alt.
-                    Triplet<Integer, String, String> alignment = SequenceOperations.globalNucleotideSequenceAlignment(ref, alt, SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID, SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE, null);
-                    ArrayList<Triple<Integer, String, String>> resolvedVariants = SequenceOperations.getVariantsOfAlignedSequences(alignment.getValue1(), alignment.getValue2());
-                    for (Triple<Integer, String, String> resolvedVariant : resolvedVariants) {
-                        callsPerPosition.putIfAbsent(variantPosition + (resolvedVariant.getLeft()), new ArrayList<>());
-                        // TODO: Validate correctness for highly complex variants, e.g. (ref) CACCC (alt) GTCCG, ATCCT.
-                        if (callsPerPosition.get(variantPosition + (resolvedVariant.getLeft())).size() == 0) // Add reference only as first call, if not present.
-                            callsPerPosition.get(variantPosition + (resolvedVariant.getLeft())).add(Quartet.with(resolvedVariant.getMiddle(), resolvedVariant.getMiddle(), refAF, refAD));
-                        callsPerPosition.get(variantPosition + (resolvedVariant.getLeft())).add(Quartet.with(resolvedVariant.getMiddle(), resolvedVariant.getRight(), AF, AD));
-                    }
-                }
             } else {
-                // 5. Unexpected.
-                Logger.logWarning("Ignore not processable variant content for sample " + _sample.name + " at position " + variantPosition + ": " + ref + " " + alt);
+                // 5. Ambiguous call/Complex InDel: Mutual variants are derived by aligning alternative allele sequence with reference allele sequence.
+                Triplet<Integer, String, String> alignment = SequenceOperations.globalNucleotideSequenceAlignment(ref, alt, SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID, SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE, null);
+                ArrayList<Triple<Integer, String, String>> resolvedVariants = SequenceOperations.getVariantsOfAlignedSequences(alignment.getValue1(), alignment.getValue2());
+
+                Logger.logWarning("Resolved ambiguous variant for sample " + _sample.name + " at position " + variantPosition + ": " + ref + ", " + alt + "\n" + resolvedVariants.stream().map(t -> " ".repeat(30) + t.getLeft() + "\t" + t.getMiddle() + "\t" + t.getRight()).collect(Collectors.joining("\n")));
+
+                for (Triple<Integer, String, String> resolvedVariant : resolvedVariants) {
+                    ref = resolvedVariant.getMiddle();
+                    alt = resolvedVariant.getRight();
+                    callsPerPosition.putIfAbsent(variantPosition + (resolvedVariant.getLeft()), new ArrayList<>());
+                    // TODO: This may overwrite previous allocations.
+                    if (callsPerPosition.get(variantPosition + (resolvedVariant.getLeft())).size() == 0) // Add reference only as first call, if not present.
+                        callsPerPosition.get(variantPosition + (resolvedVariant.getLeft())).add(Quartet.with(ref, ref, refAF, refAD));
+                    callsPerPosition.get(variantPosition + (resolvedVariant.getLeft())).add(Quartet.with(ref, alt, AF, AD));
+                }
             }
         }
+
         // Decide on most frequent call and transfer to sample and form.
         ArrayList<Quartet<String, String, Double, Integer>> calls;
         for (Integer position : callsPerPosition.keySet()) {
             calls = callsPerPosition.get(position);
+
+            // Skip position, if only one call (reference) is stored.
+            if (calls.size() == 1)
+                continue;
+
             //noinspection OptionalGetWithoutIsPresent
             Quartet<String, String, Double, Integer> mostFrequentCall = calls.stream().max(Comparator.comparingDouble(Quartet::getValue2)).get();
             String mostFrequentCallIndex;
@@ -202,14 +213,14 @@ public final class SampleAnalyzer {
             } else {
                 mostFrequentCallIndex = String.valueOf(calls.indexOf(mostFrequentCall));
             }
-            if (!Objects.equals(mostFrequentCallIndex, "0")) {
+            if (!Objects.equals(mostFrequentCallIndex, "0")) { // If most frequent call is not reference allele.
                 ref = mostFrequentCall.getValue0();
                 alt = mostFrequentCall.getValue1();
-                if (mostFrequentCallIndex.equals(Constants.CALL_INFO_NO_VARIANT) || mostFrequentCallIndex.equals(Constants.CALL_INFO_REJECTED)) {
+                if (mostFrequentCallIndex.equals(Constants.CALL_INFO_REJECTED)) { // If call does not pass filters, add information as any nucleotide.
                     int variantLength = Math.max(ref.length(), alt.length());
                     alt = Constants.ANY_NUCLEOTIDE_STRING.repeat(variantLength);
                 }
-                acceptedSites.add(Triple.of(position, ref, alt));
+                variantSites.add(Triple.of(position, ref, alt));
             }
             _sample.addVariantCall(feature.name, position, new Tuple<>(mostFrequentCallIndex, DP), calls.stream().map(c -> new Tuple<>(c.getValue1(), c.getValue3())).collect(Collectors.toList()));
         }
@@ -220,9 +231,9 @@ public final class SampleAnalyzer {
      */
     @SuppressWarnings("DuplicatedCode")
     private static void allocateVariantsInformation() {
-        StringBuilder acceptedSitesString = new StringBuilder(acceptedSites.size() * 4);
+        StringBuilder acceptedSitesString = new StringBuilder(variantSites.size() * 4);
         String formName;
-        if (acceptedSites.size() == 0) {
+        if (variantSites.size() == 0) {
             formName = Constants.REFERENCE_FORM_NAME;
         } else {
             int pos;
@@ -232,7 +243,7 @@ public final class SampleAnalyzer {
             int count_insertion = 0;
             int count_deletion = 0;
             int count_ambiguous = 0;
-            for (Triple<Integer, String, String> s : acceptedSites) {
+            for (Triple<Integer, String, String> s : variantSites) {
                 pos = s.getLeft();
                 ref = s.getMiddle();
                 alt = s.getRight();
