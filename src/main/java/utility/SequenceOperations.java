@@ -143,36 +143,36 @@ public final class SequenceOperations {
         put(Constants.TERMINATION_AMINOACID_CHAR, 24);
     }};
     /**
-     * The PAM250 matrix used for alignment computation.
+     * The BLOSUM80 matrix used for alignment computation.
      * <p>
-     * Source <a href="https://www.ncbi.nlm.nih.gov/IEB/ToolBox/C_DOC/lxr/source/data/PAM250">ncbi.nlm.nih.gov/IEB/ToolBox/C_DOC/lxr/source/data/PAM250</a>
+     * Source <a href="https://www.ncbi.nlm.nih.gov/IEB/ToolBox/C_DOC/lxr/source/data/BLOSUM80">ncbi.nlm.nih.gov/IEB/ToolBox/C_DOC/lxr/source/data/BLOSUM80</a>
      */
-    private static final int[][] PAM250 = {
-            {2, -2, 0, 0, -2, 0, 0, 1, -1, -1, -2, -1, -1, -3, 1, 1, 1, -6, -3, 0, 0, -1, 0, -1, -8},
-            {-2, 6, 0, -1, -4, 1, -1, -3, 2, -2, -3, 3, 0, -4, 0, 0, -1, 2, -4, -2, -1, -3, 0, -1, -8},
-            {0, 0, 2, 2, -4, 1, 1, 0, 2, -2, -3, 1, -2, -3, 0, 1, 0, -4, -2, -2, 2, -3, 1, -1, -8},
-            {0, -1, 2, 4, -5, 2, 3, 1, 1, -2, -4, 0, -3, -6, -1, 0, 0, -7, -4, -2, 3, -3, 3, -1, -8},
-            {-2, -4, -4, -5, 12, -5, -5, -3, -3, -2, -6, -5, -5, -4, -3, 0, -2, -8, 0, -2, -4, -5, -5, -1, -8},
-            {0, 1, 1, 2, -5, 4, 2, -1, 3, -2, -2, 1, -1, -5, 0, -1, -1, -5, -4, -2, 1, -2, 3, -1, -8},
-            {0, -1, 1, 3, -5, 2, 4, 0, 1, -2, -3, 0, -2, -5, -1, 0, 0, -7, -4, -2, 3, -3, 3, -1, -8},
-            {1, -3, 0, 1, -3, -1, 0, 5, -2, -3, -4, -2, -3, -5, 0, 1, 0, -7, -5, -1, 0, -4, 0, -1, -8},
-            {-1, 2, 2, 1, -3, 3, 1, -2, 6, -2, -2, 0, -2, -2, 0, -1, -1, -3, 0, -2, 1, -2, 2, -1, -8},
-            {-1, -2, -2, -2, -2, -2, -2, -3, -2, 5, 2, -2, 2, 1, -2, -1, 0, -5, -1, 4, -2, 3, -2, -1, -8},
-            {-2, -3, -3, -4, -6, -2, -3, -4, -2, 2, 6, -3, 4, 2, -3, -3, -2, -2, -1, 2, -3, 5, -3, -1, -8},
-            {-1, 3, 1, 0, -5, 1, 0, -2, 0, -2, -3, 5, 0, -5, -1, 0, 0, -3, -4, -2, 1, -3, 0, -1, -8},
-            {-1, 0, -2, -3, -5, -1, -2, -3, -2, 2, 4, 0, 6, 0, -2, -2, -1, -4, -2, 2, -2, 3, -2, -1, -8},
-            {-3, -4, -3, -6, -4, -5, -5, -5, -2, 1, 2, -5, 0, 9, -5, -3, -3, 0, 7, -1, -4, 2, -5, -1, -8},
-            {1, 0, 0, -1, -3, 0, -1, 0, 0, -2, -3, -1, -2, -5, 6, 1, 0, -6, -5, -1, -1, -2, 0, -1, -8},
-            {1, 0, 1, 0, 0, -1, 0, 1, -1, -1, -3, 0, -2, -3, 1, 2, 1, -2, -3, -1, 0, -2, 0, -1, -8},
-            {1, -1, 0, 0, -2, -1, 0, 0, -1, 0, -2, 0, -1, -3, 0, 1, 3, -5, -3, 0, 0, -1, -1, -1, -8},
-            {-6, 2, -4, -7, -8, -5, -7, -7, -3, -5, -2, -3, -4, 0, -6, -2, -5, 17, 0, -6, -5, -3, -6, -1, -8},
-            {-3, -4, -2, -4, 0, -4, -4, -5, 0, -1, -1, -4, -2, 7, -5, -3, -3, 0, 10, -2, -3, -1, -4, -1, -8},
-            {0, -2, -2, -2, -2, -2, -2, -1, -2, 4, 2, -2, 2, -1, -1, -1, 0, -6, -2, 4, -2, 2, -2, -1, -8},
-            {0, -1, 2, 3, -4, 1, 3, 0, 1, -2, -3, 1, -2, -4, -1, 0, 0, -5, -3, -2, 3, -3, 2, -1, -8},
-            {-1, -3, -3, -3, -5, -2, -3, -4, -2, 3, 5, -3, 3, 2, -2, -2, -1, -3, -1, 2, -3, 5, -2, -1, -8},
-            {0, 0, 1, 3, -5, 3, 3, 0, 2, -2, -3, 0, -2, -5, 0, 0, -1, -6, -4, -2, 2, -2, 3, -1, -8},
-            {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -8},
-            {-8, -8, -8, -8, -8, -8, -8, -8, -8, -8, -8, -8, -8, -8, -8, -8, -8, -8, -8, -8, -8, -8, -8, -8, 1}
+    private static final int[][] BLOSUM80 = {
+            {5, -2, -2, -2, -1, -1, -1, 0, -2, -2, -2, -1, -1, -3, -1, 1, 0, -3, -2, 0, -2, -2, -1, -1, -6},
+            {-2, 6, -1, -2, -4, 1, -1, -3, 0, -3, -3, 2, -2, -4, -2, -1, -1, -4, -3, -3, -1, -3, 0, -1, -6},
+            {-2, -1, 6, 1, -3, 0, -1, -1, 0, -4, -4, 0, -3, -4, -3, 0, 0, -4, -3, -4, 5, -4, 0, -1, -6},
+            {-2, -2, 1, 6, -4, -1, 1, -2, -2, -4, -5, -1, -4, -4, -2, -1, -1, -6, -4, -4, 5, -5, 1, -1, -6},
+            {-1, -4, -3, -4, 9, -4, -5, -4, -4, -2, -2, -4, -2, -3, -4, -2, -1, -3, -3, -1, -4, -2, -4, -1, -6},
+            {-1, 1, 0, -1, -4, 6, 2, -2, 1, -3, -3, 1, 0, -4, -2, 0, -1, -3, -2, -3, 0, -3, 4, -1, -6},
+            {-1, -1, -1, 1, -5, 2, 6, -3, 0, -4, -4, 1, -2, -4, -2, 0, -1, -4, -3, -3, 1, -4, 5, -1, -6},
+            {0, 0, -3, -1, -2, -4, -2, -3, 6, -3, -5, -4, -2, -4, -4, -3, -1, -2, -4, -4, -4, -1, -5, -3, -1, -6},
+            {-2, 0, 0, -2, -4, 1, 0, -3, 8, -4, -3, -1, -2, -2, -3, -1, -2, -3, 2, -4, -1, -4, 0, -1, -6},
+            {-2, -3, -4, -4, -2, -3, -4, -5, -4, 5, 1, -3, 1, -1, -4, -3, -1, -3, -2, 3, -4, 3, -4, -1, -6},
+            {-2, -3, -4, -5, -2, -3, -4, -4, -3, 1, 4, -3, 2, 0, -3, -3, -2, -2, -2, 1, -4, 3, -3, -1, -6},
+            {-1, 2, 0, -1, -4, 1, 1, -2, -1, -3, -3, 5, -2, -4, -1, -1, -1, -4, -3, -3, -1, -3, 1, -1, -6},
+            {-1, -2, -3, -4, -2, 0, -2, -4, -2, 1, 2, -2, 6, 0, -3, -2, -1, -2, -2, 1, -3, 2, -1, -1, -6},
+            {-3, -4, -4, -4, -3, -4, -4, -4, -2, -1, 0, -4, 0, 6, -4, -3, -2, 0, 3, -1, -4, 0, -4, -1, -6},
+            {-1, -2, -3, -2, -4, -2, -2, -3, -3, -4, -3, -1, -3, -4, 8, -1, -2, -5, -4, -3, -2, -4, -2, -1, -6},
+            {1, -1, 0, -1, -2, 0, 0, -1, -1, -3, -3, -1, -2, -3, -1, 5, 1, -4, -2, -2, 0, -3, 0, -1, -6},
+            {0, -1, 0, -1, -1, -1, -1, -2, -2, -1, -2, -1, -1, -2, -2, 1, 5, -4, -2, 0, -1, -1, -1, -1, -6},
+            {-3, -4, -4, -6, -3, -3, -4, -4, -3, -3, -2, -4, -2, 0, -5, -4, -4, 11, 2, -3, -5, -3, -3, -1, -6},
+            {-2, -3, -3, -4, -3, -2, -3, -4, 2, -2, -2, -3, -2, 3, -4, -2, -2, 2, 7, -2, -3, -2, -3, -1, -6},
+            {0, -3, -4, -4, -1, -3, -3, -4, -4, 3, 1, -3, 1, -1, -3, -2, 0, -3, -2, 4, -4, 2, -3, -1, -6},
+            {-2, -1, 5, 5, -4, 0, 1, -1, -1, -4, -4, -1, -3, -4, -2, 0, -1, -5, -3, -4, 5, -4, 0, -1, -6},
+            {-2, -3, -4, -5, -2, -3, -4, -5, -4, 3, 3, -3, 2, 0, -4, -3, -1, -3, -2, 2, -4, 3, -3, -1, -6},
+            {-1, 0, 0, 1, -4, 4, 5, -3, 0, -4, -3, 1, -1, -4, -2, 0, -1, -3, -3, -3, 0, -3, 5, -1, -6},
+            {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -6},
+            {-6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, 1}
     };
 
     /**
@@ -367,7 +367,7 @@ public final class SequenceOperations {
                                                                                     GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES left_mode,
                                                                                     GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES right_mode,
                                                                                     Integer bandWidth) {
-        return globalSequenceAlignment(aaSeq1, aaSeq2, AA1_PAM250_INDEX, PAM250, gapOpenPenalty, gapExtendPenalty,
+        return globalSequenceAlignment(aaSeq1, aaSeq2, AA1_PAM250_INDEX, BLOSUM80, gapOpenPenalty, gapExtendPenalty,
                 left_mode, right_mode, bandWidth);
     }
 
@@ -380,8 +380,8 @@ public final class SequenceOperations {
      * @param scoringMatrix         {@link Integer[][]} containing the scoring values for each pair of characters that may occur in the aligned sequences.
      * @param gapOpenPenalty        {@link Integer} value used to penalize the opening of a gap.
      * @param gapExtendPenalty      {@link Integer} value used to penalize the extension of a gap.
-     * @param left_mode             {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle left-marginal gaps.
-     * @param right_mode            {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle right-marginal gaps.
+     * @param prefix_gap_mode       {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle left-marginal gaps.
+     * @param suffix_gap_mode       {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle right-marginal gaps.
      * @param bandWidth             {@link Integer} specifying the band-width for banded alignment or null for non-banded alignment.
      * @return {@link Triplet} storing the alignment score, the aligned first sequence and the aligned second sequence.
      */
@@ -389,19 +389,19 @@ public final class SequenceOperations {
                                                                             HashMap<Character, Integer> scoringMatrixIndexMap,
                                                                             int[][] scoringMatrix, int gapOpenPenalty,
                                                                             int gapExtendPenalty,
-                                                                            GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES left_mode,
-                                                                            GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES right_mode,
+                                                                            GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES prefix_gap_mode,
+                                                                            GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES suffix_gap_mode,
                                                                             Integer bandWidth) {
-    /*
-    Notes on the alignment matrices:
-    - The y-axis will yield seq1.
-    - The x-axis will yield seq2
-    - Indels are wrt. seq1; thus insertions are traced back by walking vertically and deletions are traced back by
-    walking horizontally in the matrix.
-     */
+        /*
+        Notes on the alignment matrices:
+        - The y-axis will yield seq1.
+        - The x-axis will yield seq2
+        - Indels are wrt. seq1; thus insertions are traced back by walking vertically and deletions are traced back by
+        walking horizontally in the matrix.
+         */
         @SuppressWarnings("DuplicatedCode")
-        double[][] alignmentMatrix = new double[seq1.length() + 1][seq2.length() + 1];
-        Arrays.stream(alignmentMatrix).forEach(row -> Arrays.fill(row, Double.NEGATIVE_INFINITY));
+        double[][] scoreMatrix = new double[seq1.length() + 1][seq2.length() + 1];
+        Arrays.stream(scoreMatrix).forEach(row -> Arrays.fill(row, Double.NEGATIVE_INFINITY));
         double[][] matchScoreMatrix = new double[seq1.length() + 1][seq2.length() + 1];
         Arrays.stream(matchScoreMatrix).forEach(row -> Arrays.fill(row, Double.NEGATIVE_INFINITY));
         double[][] insertionScoreMatrix = new double[seq1.length() + 1][seq2.length() + 1];
@@ -413,24 +413,24 @@ public final class SequenceOperations {
         char[] seq2Array = seq2.toCharArray();
         int alignmentScore;
         int capacity = Math.max(seq1.length(), seq2.length());
-        StringBuilder seq1Builder = new StringBuilder(capacity);
-        StringBuilder seq2Builder = new StringBuilder(capacity);
+        StringBuilder alnSeq1Builder = new StringBuilder(capacity);
+        StringBuilder alnSeq2Builder = new StringBuilder(capacity);
         /*
-    (1) Compute global sequence alignment.
-     */
-        alignmentMatrix[0][0] = 0;
+        (1) Fill alignment score matrix.
+         */
+        scoreMatrix[0][0] = 0;
         matchScoreMatrix[0][0] = 0;
         insertionScoreMatrix[0][0] = 0;
         deletionScoreMatrix[0][0] = 0;
         int gapCost;
         // i -> PREFIX
         for (int i = 1; i < (Objects.isNull(bandWidth) ? seq1.length() + 1 : bandWidth + 1); i++) {
-            gapCost = switch (left_mode) {
+            gapCost = switch (prefix_gap_mode) {
                 case FREE -> 0;
                 case PENALIZE -> -gapOpenPenalty - (i - 1) * gapExtendPenalty;
-                case FORBID -> -gapOpenPenalty * seq1.length();
+                case FORBID -> -gapOpenPenalty * 2 * seq1.length();
             };
-            alignmentMatrix[i][0] = gapCost;
+            scoreMatrix[i][0] = gapCost;
             matchScoreMatrix[i][0] = gapCost;
             insertionScoreMatrix[i][0] = gapCost;
             deletionScoreMatrix[i][0] = gapCost;
@@ -438,12 +438,12 @@ public final class SequenceOperations {
         }
         // j -> SUFFIX
         for (int j = 1; j < (Objects.isNull(bandWidth) ? seq2.length() + 1 : bandWidth + 1); j++) {
-            gapCost = switch (right_mode) {
+            gapCost = switch (suffix_gap_mode) {
                 case FREE -> 0;
                 case PENALIZE -> -gapOpenPenalty - (j - 1) * gapExtendPenalty;
-                case FORBID -> -gapOpenPenalty * seq2.length();
+                case FORBID -> -gapOpenPenalty * 2 * seq2.length();
             };
-            alignmentMatrix[0][j] = gapCost;
+            scoreMatrix[0][j] = gapCost;
             matchScoreMatrix[0][j] = gapCost;
             insertionScoreMatrix[0][j] = gapCost;
             deletionScoreMatrix[0][j] = gapCost;
@@ -461,47 +461,47 @@ public final class SequenceOperations {
             );
             for (int j = jLeftBound; j < jRightBound + 1; j++) {
                 matchScoreMatrix[i][j] =
-                        alignmentMatrix[i - 1][j - 1]
+                        scoreMatrix[i - 1][j - 1]
                                 + scoringMatrix[scoringMatrixIndexMap.get(seq1Array[i - 1])][scoringMatrixIndexMap
                                 .get(seq2Array[j - 1])];
                 insertionScoreMatrix[i][j] =
                         Math.max(
-                                alignmentMatrix[i - 1][j] - gapOpenPenalty,
+                                scoreMatrix[i - 1][j] - gapOpenPenalty,
                                 insertionScoreMatrix[i - 1][j] - gapExtendPenalty
                         );
                 deletionScoreMatrix[i][j] =
                         Math.max(
-                                alignmentMatrix[i][j - 1] - gapOpenPenalty,
+                                scoreMatrix[i][j - 1] - gapOpenPenalty,
                                 deletionScoreMatrix[i][j - 1] - gapExtendPenalty
                         );
                 max = Integer.MIN_VALUE;
                 if (insertionScoreMatrix[i][j] > max) {
                     max = insertionScoreMatrix[i][j];
-                    alignmentMatrix[i][j] = (int) max;
+                    scoreMatrix[i][j] = (int) max;
                     tracebackMatrix[i][j] = 'I';
                 }
                 if (deletionScoreMatrix[i][j] > max) {
                     max = deletionScoreMatrix[i][j];
-                    alignmentMatrix[i][j] = (int) max;
+                    scoreMatrix[i][j] = (int) max;
                     tracebackMatrix[i][j] = 'D';
                 }
                 if (matchScoreMatrix[i][j] > max) {
                     max = matchScoreMatrix[i][j];
-                    alignmentMatrix[i][j] = (int) max;
+                    scoreMatrix[i][j] = (int) max;
                     tracebackMatrix[i][j] = 'M';
                 }
             }
         }
-        alignmentScore = (int) alignmentMatrix[seq1.length()][seq2.length()];
-    /*
-    (2) Compute traceback path from global alignment.
-    */
+        alignmentScore = (int) scoreMatrix[seq1.length()][seq2.length()];
+        /*
+        (2) Deduce traceback path from matrix.
+        */
         LinkedList<Character> tracebackPath = new LinkedList<>();
-        boolean constructTracebackPath = true;
+        boolean runTraceback = true;
         int i = seq1.length();
         int j = seq2.length();
         char tracebackDirection = tracebackMatrix[i][j];
-        while (constructTracebackPath) {
+        while (runTraceback) {
             if (tracebackDirection == 'M') {
                 tracebackPath.add('M');
                 i = i - 1;
@@ -514,10 +514,10 @@ public final class SequenceOperations {
                 i = i - 1;
             }
             if (i == 0 && j == 0) {
-                constructTracebackPath = false;
+                runTraceback = false;
             } else {
                 tracebackDirection = tracebackMatrix[i][j];
-                if (tracebackDirection == '\u0000') // Prevents traceback to walk out of the set alignment band.
+                if (tracebackDirection == '\u0000') // Prevents traceback to walk out of set alignment band.
                     tracebackDirection = 'M';
             }
         }
@@ -532,26 +532,26 @@ public final class SequenceOperations {
             tracebackDirection = character;
             if (tracebackDirection == 'M') {
                 // CASE: Match or mismatch of nucleotide and amino-acid sequence.
-                seq1Builder.append(seq1Array[seq1Index]);
+                alnSeq1Builder.append(seq1Array[seq1Index]);
                 seq1Index += 1;
-                seq2Builder.append(seq2Array[seq2Index]);
+                alnSeq2Builder.append(seq2Array[seq2Index]);
                 seq2Index += 1;
             } else if (tracebackDirection == 'D') {
                 // CASE: Deletion wrt. to first amino acid sequence.
-                seq1Builder.append(Constants.DELETION_OR_GAP_STRING);
-                seq2Builder.append(seq2Array[seq2Index]);
+                alnSeq1Builder.append(Constants.DELETION_OR_GAP_STRING);
+                alnSeq2Builder.append(seq2Array[seq2Index]);
                 seq2Index += 1;
             } else if (tracebackDirection == 'I') {
                 // CASE: Insertion wrt. to first amino acid sequence.
-                seq1Builder.append(seq1Array[seq1Index]);
+                alnSeq1Builder.append(seq1Array[seq1Index]);
                 seq1Index += 1;
-                seq2Builder.append(Constants.DELETION_OR_GAP_STRING);
+                alnSeq2Builder.append(Constants.DELETION_OR_GAP_STRING);
             }
         }
     /*
     (6) Insert results into Triplet.
      */
-        return new Triplet<>(alignmentScore, seq1Builder.toString(), seq2Builder.toString());
+        return new Triplet<>(alignmentScore, alnSeq1Builder.toString(), alnSeq2Builder.toString());
     }
 
     /**
@@ -603,11 +603,6 @@ public final class SequenceOperations {
                         Logger.logWarning("Ambiguous Deletion to Insertion switch in aligned sequences ..." + referenceBuilder + targetContent + "...\t..." + variantBuilder + queryContent + "...; Variant will be skipped.");
                     ambiguousSwitch = true;
                 } else {
-                    /*if (isSubstitution) {
-                        variants.add(Triple.of(variantStart, referenceBuilder.toString(), variantBuilder.toString()));
-                        referenceBuilder.setLength(0);
-                        variantBuilder.setLength(0);
-                    }*/
                     if (!isInsertion && !isSubstitution) {
                         variantStart = lastNonGapPosition;
                         referenceBuilder.append(targetSequenceArray[lastNonGapPosition]);
@@ -625,11 +620,6 @@ public final class SequenceOperations {
                         Logger.logWarning("Ambiguous Insertion to Deletion switch in aligned sequences ..." + referenceBuilder + targetContent + "...\t..." + variantBuilder + queryContent + "...; Variant will be skipped.");
                     ambiguousSwitch = true;
                 } else {
-                    /*if (isSubstitution) {
-                        variants.add(Triple.of(variantStart, referenceBuilder.toString(), variantBuilder.toString()));
-                        referenceBuilder.setLength(0);
-                        variantBuilder.setLength(0);
-                    }*/
                     if (!isDeletion && !isSubstitution) {
                         variantStart = lastNonGapPosition;
                         referenceBuilder.append(targetSequenceArray[lastNonGapPosition]);
