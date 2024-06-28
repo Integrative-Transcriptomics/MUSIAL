@@ -44,8 +44,8 @@ public class FeatureCoding extends Feature {
      * @param end        {@link Integer} The 1-based indexed end position of the feature on the reference.
      * @throws MusialException If the specified locus is ambiguous.
      */
-    public FeatureCoding(String name, String chromosome, int start, int end, String type) throws MusialException {
-        super(name, chromosome, start, end, type);
+    public FeatureCoding(String name, String chromosome, int start, int end, char strand, String type) throws MusialException {
+        super(name, chromosome, start, end, strand, type);
     }
 
     /**

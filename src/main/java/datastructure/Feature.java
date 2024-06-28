@@ -1,6 +1,5 @@
 package datastructure;
 
-import exceptions.MusialException;
 import main.Constants;
 
 import java.util.*;
@@ -60,27 +59,15 @@ public class Feature extends InfoContainer {
      *               is located on.
      * @param start  {@link Integer} The 1-based indexed starting position of the feature on the reference.
      * @param end    {@link Integer} The 1-based indexed end position of the feature on the reference.
-     * @throws MusialException If the specified locus is ambiguous.
      */
-    public Feature(String name, String contig, int start, int end, String type) throws MusialException {
+    public Feature(String name, String contig, int start, int end, char strand, String type) {
         super();
         this.name = name;
         this.contig = contig;
         this.type = type;
-        if (start >= 0 && end > 0 && (end > start)) {
-            // CASE: Feature is on sense strand.
-            this.isSense = true;
-            this.start = start + 1; // +1, as currently .getBegin() instead of bioStart() is used.
-            this.end = end;
-        } else if (start < 0 && end <= 0 && (end < start)) {
-            // CASE: Feature is on anti-sense strand.
-            this.isSense = false;
-            this.start = -start + 1; // +1, as currently .getBegin() instead of bioStart() is used.
-            this.end = -end;
-        } else {
-            throw new MusialException(
-                    "Failed to add  feature due to faulty position data (start, end)\t" + start + ", " + end);
-        }
+        this.start = start;
+        this.end = end;
+        this.isSense = (strand == '+');
     }
 
     /**

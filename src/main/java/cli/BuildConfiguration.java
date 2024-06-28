@@ -321,12 +321,9 @@ public final class BuildConfiguration {
             FeatureI matchedFeature = matchedFeatures.get(0);
             Location featureLocation = matchedFeature.location();
             String featureChromosome = matchedFeature.seqname();
-            /* FIXME: Starting positions are shifted by minus one, i.e. the returned values do not match with the ones of
-                      the `gff` files. This is currently fixed in the Feature.java class.
-            */
             Feature feature;
             if (coding) {
-                feature = new FeatureCoding(name, featureChromosome, featureLocation.getBegin(), featureLocation.getEnd(), "coding");
+                feature = new FeatureCoding(name, featureChromosome, featureLocation.bioStart(), featureLocation.bioEnd(), featureLocation.bioStrand(), "coding");
                 ((FeatureCoding) feature).setCodingSequence(
                         SequenceOperations.translateNucSequence(
                                 referenceSequence.getSubsequenceAt(feature.contig, feature.start, feature.end).getBaseString(),
@@ -336,7 +333,7 @@ public final class BuildConfiguration {
                         )
                 );
             } else {
-                feature = new Feature(name, featureChromosome, featureLocation.getBegin(), featureLocation.getEnd(), "non_coding");
+                feature = new Feature(name, featureChromosome, featureLocation.getBegin(), featureLocation.getEnd(), featureLocation.bioStrand(), "non_coding");
             }
             for (Map.Entry<String, String> annotation : annotations.entrySet()) {
                 feature.addInfo(annotation.getKey(), annotation.getValue());
