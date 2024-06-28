@@ -86,6 +86,10 @@ public class AlleleAnalyzer {
                             alt = entry.getKey();
                             ref = entry.getValue().referenceContent;
                             type = entry.getValue().getInfo(Constants.TYPE);
+                            if ( relativePosition < 0 ) {
+                                Logger.logWarning( "Skipping variant " + alt + " at (relative) position " + pos + " for allele " + allele.name + " of feature " + featureCoding.name + "." );
+                                continue;
+                            }
                             if (type.contains(Constants.TYPE_INSERTION) || type.contains(Constants.TYPE_SUBSTITUTION))
                                 alleleSequenceContainer.set(relativePosition, alt);
                             else
