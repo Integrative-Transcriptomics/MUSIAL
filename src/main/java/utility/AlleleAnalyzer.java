@@ -86,16 +86,16 @@ public class AlleleAnalyzer {
                             alt = entry.getKey();
                             ref = entry.getValue().referenceContent;
                             type = entry.getValue().getInfo(Constants.TYPE);
-                            if (type.contains(Constants.TYPE_INSERTION))
+                            if (type.contains(Constants.TYPE_INSERTION) || type.contains(Constants.TYPE_SUBSTITUTION))
                                 alleleSequenceContainer.set(relativePosition, alt);
                             else
                                 for (int i = 0; i < alt.length(); i++) {
-                                    if ((relativePosition + i) < alleleSequenceContainer.size()) // Avoid addition of deletions that exceed the feature length!
+                                    if ((relativePosition + i) < alleleSequenceContainer.size()) // Avoid deletions that exceed the feature length!
                                         alleleSequenceContainer.set(relativePosition + i, String.valueOf(alt.charAt(i)));
                                 }
                             maxInDelLength = Math.max(
                                     maxInDelLength,
-                                    Math.abs(ref.replaceAll("-", "").length() - alt.replaceAll("-", "").length())
+                                    Math.abs(ref.replaceAll(Constants.DELETION_OR_GAP_STRING, "").length() - alt.replaceAll(Constants.DELETION_OR_GAP_STRING, "").length())
                             );
                         }
                     }
@@ -119,7 +119,7 @@ public class AlleleAnalyzer {
                                 alignmentBandWidth
                         );
                     } catch (IndexOutOfBoundsException e) {
-                        Logger.logWarning("Banded alignment failed for feature " + featureCoding.name + " and allele " + allele.name + ". Re-running analysis as full alignment.");
+                        Logger.logWarning("Banded alignment failed for feature " + featureCoding.name + " and allele " + allele.name + "; Re-running analysis as full alignment.");
                         sequenceAlignment = SequenceOperations.globalAminoAcidSequenceAlignment(
                                 featureCoding.getCodingSequence(),
                                 proteoformSequence,
