@@ -766,10 +766,11 @@ public final class Musial {
                             if (type.contains(Constants.TYPE_DELETION)) {
                                 // Call is deletion.
                                 for (int i = 0; i < alt.length(); i++)
-                                    formVariants.put(
-                                            position + i,
-                                            alt.charAt(i) + formVariants.get(position + i).substring(1)
-                                    );
+                                    if (formVariants.containsKey(position + i)) // Avoid addition of deletions that exceed the feature length!
+                                        formVariants.put(
+                                                position + i,
+                                                alt.charAt(i) + formVariants.get(position + i).substring(1)
+                                        );
                             } else if (type.contains(Constants.TYPE_SUBSTITUTION)) {
                                 // Call is substitution.
                                 formVariants.put(
@@ -808,10 +809,11 @@ public final class Musial {
                             if (type.contains(Constants.TYPE_DELETION)) {
                                 // Call is deletion.
                                 for (int i = 0; i < alt.length(); i++)
-                                    formVariants.put(
-                                            position + i,
-                                            alt.charAt(i) + formVariants.get(position + i).substring(1)
-                                    );
+                                    if (formVariants.containsKey(position + i)) // Avoid addition of deletions that exceed the feature length!
+                                        formVariants.put(
+                                                position + i,
+                                                alt.charAt(i) + formVariants.get(position + i).substring(1)
+                                        );
                             } else if (type.contains(Constants.TYPE_SUBSTITUTION)) {
                                 // Call is substitution.
                                 formVariants.put(

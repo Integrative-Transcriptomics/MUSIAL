@@ -90,7 +90,8 @@ public class AlleleAnalyzer {
                                 alleleSequenceContainer.set(relativePosition, alt);
                             else
                                 for (int i = 0; i < alt.length(); i++) {
-                                    alleleSequenceContainer.set(relativePosition + i, String.valueOf(alt.charAt(i)));
+                                    if ((relativePosition + i) < alleleSequenceContainer.size()) // Avoid addition of deletions that exceed the feature length!
+                                        alleleSequenceContainer.set(relativePosition + i, String.valueOf(alt.charAt(i)));
                                 }
                             maxInDelLength = Math.max(
                                     maxInDelLength,
@@ -98,6 +99,7 @@ public class AlleleAnalyzer {
                             );
                         }
                     }
+
                     alignmentBandWidth = Math.max(12, (int) Math.ceil(maxInDelLength / 3.0));
                     // Translate allele nucleotide sequence and align with reference aminoacid sequence.
                     proteoformSequence = SequenceOperations.translateNucSequence(
