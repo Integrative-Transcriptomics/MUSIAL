@@ -48,6 +48,10 @@ public final class BuildConfiguration {
      */
     public final HashMap<String, TreeSet<Integer>> excludedPositions = new HashMap<>();
     /**
+     * Optional explicit variants to exclude from the analysis.
+     */
+    public final HashMap<String, HashMap<Integer, HashSet<String>>> excludedVariants = new HashMap<>();
+    /**
      * Prefix to use for exception messages.
      */
     @SuppressWarnings("FieldCanBeLocal")
@@ -162,10 +166,32 @@ public final class BuildConfiguration {
         if (parameters.containsKey("excludedPositions")) {
             //noinspection rawtypes,unchecked
             LinkedTreeMap<String, ArrayList<Double>> excludedPositions = (LinkedTreeMap) parameters.get("excludedPositions");
-            for (String key : excludedPositions.keySet()) {
-                this.excludedPositions.put(key, new TreeSet<>());
-                for (Double excludedPosition : excludedPositions.get(key)) {
-                    this.excludedPositions.get(key).add(excludedPosition.intValue());
+            for (String contig : excludedPositions.keySet()) {
+                this.excludedPositions.put(contig, new TreeSet<>());
+                for (Double excludedPosition : excludedPositions.get(contig)) {
+                    this.excludedPositions.get(contig).add(excludedPosition.intValue());
+                }
+            }
+        }
+
+        // Parse excluded variants
+        if (parameters.containsKey("excludedVariants")) {
+            //noinspection rawtypes,unchecked
+            LinkedTreeMap<String, ArrayList<String>> excludedVariants = (LinkedTreeMap) parameters.get("excludedVariants");
+            for (String contig : excludedVariants.keySet()) {
+                this.excludedVariants.put(contig, new HashMap<>());
+                for (String excludedVariantEntry : excludedVariants.get(contig)) {
+                    try {
+                        String[] excludedVariantFields = excludedVariantEntry.split(":");
+                        Integer position = Integer.parseInt(excludedVariantFields[0]);
+                        String excludedVariant = excludedVariantFields[1];
+                        this.excludedVariants.get(contig).putIfAbsent(
+                                position, new HashSet<>()
+                        );
+                        this.excludedVariants.get(contig).get(position).add(excludedVariant);
+                    } catch (Exception e) {
+                        Logger.logWarning("Failed to parse variant to ignore on feature " + contig + ": " + excludedVariantEntry + ".");
+                    }
                 }
             }
         }

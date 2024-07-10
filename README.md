@@ -84,6 +84,9 @@ following.
     "excludedPositions": {                      | Optional: Positions of contigs to exclude from the analysis. 
         "<ContigName>": [<Number>, ... ]        | <ContigName> has to match the name of any sequence in 'referenceSequenceFile', <Number>s have to be any positions (1-based index) on that sequence; Unmatched entries are ignored. 
     },
+    "excludedVariants": {                       | Optional: Explicit variants to exclude from the analysis. 
+        "<ContigName>": [<Number>:<Var>, ... ]  | <ContigName> has to match the name of any sequence in 'referenceSequenceFile', <Number>s have to be any positions (1-based index) on that sequence; <Var> is interpreted as the explicit alternative (ALT) content of input .vcf files to ignore; Unmatched entries are ignored. 
+    },
     "referenceSequenceFile": "<FilePath>",      | Absolute or relative (to the working directory Java is run from) path to a .fasta|.fa|.fna file.
     "referenceFeaturesFile": "<FilePath>",      |                                                                   ... to a .gff3 file.
     "output": "<FilePath>",                     |                                                                   ... to store the output of the task. If the specified value does not end with .br, .br is appended at the end.

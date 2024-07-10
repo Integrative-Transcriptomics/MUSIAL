@@ -41,6 +41,10 @@ public class MusialStorage extends InfoContainer {
      */
     private final HashMap<String, TreeSet<Integer>> excludedPositions;
     /**
+     * Specification of positions and explicit variants to exclude from the analysis per reference contig.
+     */
+    public final HashMap<String, HashMap<Integer, HashSet<String>>> excludedVariants;
+    /**
      * Stores already seen variants to avoid redundant form names. No permanent storage in MUSIAL session.
      */
     private final transient HashMap<Integer, String> formNameCodes = new HashMap<>();
@@ -63,6 +67,7 @@ public class MusialStorage extends InfoContainer {
         this.features = new HashMap<>();
         this.samples = new HashMap<>();
         this.excludedPositions = new HashMap<>();
+        this.excludedVariants = new HashMap<>();
     }
 
     /**
@@ -71,7 +76,7 @@ public class MusialStorage extends InfoContainer {
      * @param minimalCoverage  {@link Double}; Minimal read coverage to use for allele filtering.
      * @param minimalFrequency {@link Double}; Minimal allele frequency to use for allele filtering.
      */
-    public MusialStorage(IndexedFastaSequenceFile reference, Double minimalCoverage, Double minimalFrequency, Collection<Feature> features, Collection<Sample> samples, HashMap<String, TreeSet<Integer>> excludedPositions) throws MusialException {
+    public MusialStorage(IndexedFastaSequenceFile reference, Double minimalCoverage, Double minimalFrequency, Collection<Feature> features, Collection<Sample> samples, HashMap<String, TreeSet<Integer>> excludedPositions, HashMap<String, HashMap<Integer, HashSet<String>>> excludedVariants) throws MusialException {
         this.parameters = new MusialStorageParameters(minimalCoverage, minimalFrequency);
         this.reference = reference;
         this.features = new HashMap<>(features.size());
@@ -84,6 +89,7 @@ public class MusialStorage extends InfoContainer {
             addSample(sample);
         }
         this.excludedPositions = excludedPositions;
+        this.excludedVariants = excludedVariants;
         addInfo("reference_length", String.valueOf(reference.nextSequence().length()));
     }
 
@@ -105,6 +111,18 @@ public class MusialStorage extends InfoContainer {
      */
     public boolean isPositionExcluded(String contig, int position) {
         return excludedPositions.containsKey(contig) && excludedPositions.get(contig).contains(position);
+    }
+
+    /**
+     * Checks whether {@code variant} at {@code position} is excluded on {@code contig} of {@link #reference}.
+     *
+     * @param contig   Contig (name) to check fo exclusion.
+     * @param position Position to check for exclusion.
+     * @param variant  Variant to check for exclusion.
+     * @return True if {@code variant} at {@code position} on feature {@code featureName} is excluded from the analysis.
+     */
+    public boolean isVariantExcluded(String contig, int position, String variant) {
+        return excludedVariants.containsKey(contig) && excludedVariants.get(contig).containsKey(position) && excludedVariants.get(contig).get(position).contains(variant);
     }
 
     /**

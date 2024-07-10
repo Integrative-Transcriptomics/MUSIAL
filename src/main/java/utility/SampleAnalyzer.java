@@ -107,6 +107,12 @@ public final class SampleAnalyzer {
         alleles.add(referenceAllele);
         alleles.addAll(variantContext.getAlternateAlleles());
         Genotype genotypesContext = variantContext.getGenotypes().get(0); // Only one genotype is expected, i.e., single sample.
+        // Check if all variants are excluded/at least one variant alleles remains.
+        alleles = (ArrayList<Allele>) alleles.stream().filter(
+                (a) -> !storage.isVariantExcluded(variantContext.getContig(), variantPosition, a.getBaseString())
+        ).collect(Collectors.toList());
+        if ( alleles.size() < 2 )
+            return;
         // TODO: Change for multi sample .vcf file support.
         int DP; // Total depth of coverage at site. Filtered reads are not counted.
         int AD; // Allelic depth of coverage, i.e., read support for one specific allele.
@@ -125,7 +131,9 @@ public final class SampleAnalyzer {
         String alt;
         for (int i = 0; i < alleles.size(); i++) { // Iterate over alleles, first one represents reference.
             allele = alleles.get(i);
-
+            // Access reference and alternative allele content.
+            ref = referenceAllele.getBaseString();
+            alt = allele.getBaseString();
             // Determine allele frequency: TODO: Extend for other input formats.
             if (genotypesContext.hasAD()) // (i) GATK HaplotypeCaller, freebayes
                 AD = genotypesContext.getAD()[i];
@@ -144,17 +152,11 @@ public final class SampleAnalyzer {
                 return;
             }
             AF = (double) AD / DP;
-
             // Store reference call and AD, AF values - only used to resolve ambiguous calls.
             if (i == 0) {
                 refAF = AF;
                 refAD = AD;
             }
-
-            // Access reference and alternative allele content.
-            ref = referenceAllele.getBaseString();
-            alt = allele.getBaseString();
-
             // Decide on variant type and add content to all position calls.
             if (i == 0) {
                 // 1. Allele is reference.
@@ -178,9 +180,7 @@ public final class SampleAnalyzer {
                 // 5. Ambiguous call/Complex InDel: Mutual variants are derived by aligning alternative allele sequence with reference allele sequence.
                 Triplet<Integer, String, String> alignment = SequenceOperations.globalNucleotideSequenceAlignment(ref, alt, SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.FORBID, SequenceOperations.GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES.PENALIZE, null);
                 ArrayList<Triple<Integer, String, String>> resolvedVariants = SequenceOperations.getVariantsOfAlignedSequences(alignment.getValue1(), alignment.getValue2());
-
                 Logger.logWarning("Resolved ambiguous variant for sample " + _sample.name + " at position " + variantPosition + ": " + ref + ", " + alt + "\n" + resolvedVariants.stream().map(t -> " ".repeat(30) + t.getLeft() + "\t" + t.getMiddle() + "\t" + t.getRight()).collect(Collectors.joining("\n")));
-
                 for (Triple<Integer, String, String> resolvedVariant : resolvedVariants) {
                     ref = resolvedVariant.getMiddle();
                     alt = resolvedVariant.getRight();

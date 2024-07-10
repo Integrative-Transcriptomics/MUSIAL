@@ -1,6 +1,6 @@
 {
   "$schema": "musial_build_configuration.schema.json",
-  "title": "MUSIAL v2.3 build configuration",
+  "title": "MUSIAL v2.3.7 build configuration",
   "description": "JSON schema to validate and document the MUSIAL build task configuration.",
   "type": "object",
   "properties": {
@@ -27,10 +27,22 @@
         }
       }
     },
+    "excludedVariants": {
+      "description": "Explicit variants that shall be excluded from the analysis. Expected format of entries is <POS>:<ALT>",
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "referenceSequenceFile": {
       "description": "Path to a .fasta file; Content will be used as reference genome.",
       "type": "string",
-      "pattern": "^.+.fasta|.+.fna|.+.fa$"
+      "pattern": "^.+.fasta|.+.fas|.+.fa|.+.fa|.+.fna|.+.ffn|.+.faa|.+.mpfa|.+.frn$"
     },
     "referenceFeaturesFile": {
       "description": "Path to a .gff or .gff3 file; Content will be used as reference genome feature annotation.",
@@ -51,7 +63,7 @@
           "type": "object",
           "properties": {
             "vcfFile": {
-              "description": ".vcf file matching the format described in http://samtools.github.io/hts-specs/VCFv4.3.pdf.",
+              "description": ".vcf file matching the format described in https://samtools.github.io/hts-specs/VCFv4.3.pdf.",
               "type": "string",
               "pattern": "^.+.vcf$"
             },

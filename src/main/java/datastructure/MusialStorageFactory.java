@@ -27,7 +27,7 @@ public final class MusialStorageFactory {
         if (configuration.output.exists()) {
             throw new MusialException("(I/O) Specified output file '" + configuration.output.getAbsolutePath() + "' already exists.");
         } else {
-            return new MusialStorage(configuration.referenceSequence, configuration.minimalCoverage, configuration.minimalFrequency, configuration.features.values(), configuration.samples.values(), configuration.excludedPositions);
+            return new MusialStorage(configuration.referenceSequence, configuration.minimalCoverage, configuration.minimalFrequency, configuration.features.values(), configuration.samples.values(), configuration.excludedPositions, configuration.excludedVariants);
         }
     }
 
