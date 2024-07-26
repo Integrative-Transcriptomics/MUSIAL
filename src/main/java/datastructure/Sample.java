@@ -153,7 +153,7 @@ public final class Sample extends InfoContainer {
         this.calls.putIfAbsent(featureName, new LinkedHashMap<>(50, 50));
         this.calls.get(featureName).put(
                 pos,
-                call.a + Constants.FIELD_SEPARATOR_2 + call.b + Constants.FIELD_SEPARATOR_2 + calls.stream().map(c -> c.a + Constants.FIELD_SEPARATOR_1 + c.b).collect(Collectors.joining(","))
+                call.a + Constants.ENTRY_SEPARATOR + call.b + Constants.ENTRY_SEPARATOR + calls.stream().map(c -> c.a + Constants.FIELD_SEPARATOR + c.b).collect(Collectors.joining(","))
         );
     }
 
@@ -183,12 +183,10 @@ public final class Sample extends InfoContainer {
         if (!this.calls.containsKey(featureName) || !this.calls.get(featureName).containsKey(position)) {
             return Constants.CALL_INFO_NO_VARIANT;
         } else {
-            String[] fields = this.calls.get(featureName).get(position).split(Constants.FIELD_SEPARATOR_2);
-            ArrayList<String> callContents = (ArrayList<String>) Arrays.stream(fields[2].split(",")).map(c -> c.split(Constants.FIELD_SEPARATOR_1)[0]).toList();
+            String[] fields = this.calls.get(featureName).get(position).split(Constants.ENTRY_SEPARATOR);
+            ArrayList<String> callContents = (ArrayList<String>) Arrays.stream(fields[2].split(",")).map(c -> c.split(Constants.FIELD_SEPARATOR)[0]).toList();
             if (fields[0].equals(Constants.CALL_INFO_NO_INFO)) {
                 return Constants.CALL_INFO_NO_INFO.repeat(callContents.get(0).length());
-            } else if (fields[0].equals(Constants.CALL_INFO_REJECTED)) {
-                return Constants.CALL_INFO_REJECTED.repeat(callContents.get(0).length());
             } else {
                 return callContents.get(Integer.parseInt(fields[0]));
             }
@@ -221,7 +219,7 @@ public final class Sample extends InfoContainer {
         if (!this.calls.containsKey(featureName) || !this.calls.get(featureName).containsKey(position)) {
             return false;
         } else {
-            return this.calls.get(featureName).get(position).split(Constants.FIELD_SEPARATOR_2)[0].equals("0");
+            return this.calls.get(featureName).get(position).split(Constants.ENTRY_SEPARATOR)[0].equals("0");
         }
     }
 
@@ -236,7 +234,7 @@ public final class Sample extends InfoContainer {
         if (!this.calls.containsKey(featureName) || !this.calls.get(featureName).containsKey(position)) {
             return false;
         } else {
-            return this.calls.get(featureName).get(position).split(Constants.FIELD_SEPARATOR_2)[0].equals(Constants.CALL_INFO_NO_INFO) || this.calls.get(featureName).get(position).split(Constants.FIELD_SEPARATOR_2)[0].equals(Constants.CALL_INFO_REJECTED);
+            return this.calls.get(featureName).get(position).split(Constants.ENTRY_SEPARATOR)[0].equals(Constants.CALL_INFO_NO_INFO) || this.calls.get(featureName).get(position).split(Constants.ENTRY_SEPARATOR)[0].equals(Constants.CALL_INFO_REJECTED);
         }
     }
 

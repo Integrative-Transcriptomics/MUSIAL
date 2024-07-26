@@ -19,7 +19,7 @@ public class Constants {
     public final static String CONTENT_MODE_NUCLEOTIDE = "nucleotide";
     public final static String CONTENT_MODE_AMINOACID = "aminoacid";
     public final static String TYPE = "type";
-    public final static String TYPE_AMBIGUOUS_PREFIX = "ambiguous_";
+    public final static String TYPE_AMBIGUOUS = "ambiguous";
     public final static String TYPE_SUBSTITUTION = "substitution";
     public final static String TYPE_INSERTION = "insertion";
     public final static String TYPE_DELETION = "deletion";
@@ -39,10 +39,9 @@ public class Constants {
             "CDS_position/CDS_len",
             "Protein_position/Protein_len"
     ));
-    public final static String FIELD_SEPARATOR_1 = ":";
-    public final static String FIELD_SEPARATOR_2 = ";";
+    public final static String FIELD_SEPARATOR = ":";
+    public final static String ENTRY_SEPARATOR = ",";
     public final static String ANY_NUCLEOTIDE_STRING = "N";
-    public final static char ANY_NUCLEOTiDE_CHAR = 'N';
     public final static String ANY_AMINOACID_STRING = "X";
     public final static String ANY_AMINOACID3_STRING = "ANY";
     public final static char ANY_AMINOACID_CHAR = 'X';
@@ -55,5 +54,7 @@ public class Constants {
     public final static String CALL_INFO_NO_VARIANT = ".";
     public final static String CALL_INFO_NO_INFO = "?";
     public final static String CALL_INFO_REJECTED = "?";
+    public final static String VARIANT_INFO_PRIMARY = "primary";
+    public final static String VARIANT_INFO_ACTUAL_ALT = "actual_alt";
 
 }

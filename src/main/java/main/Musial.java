@@ -303,7 +303,7 @@ public final class Musial {
             variantPositions = Constants.CONTENT_MODE_AMINOACID.equals(contentType) ? ((FeatureCoding) feature).getAminoacidVariantPositions() : feature.getNucleotideVariantPositions();
             for (Integer variantPosition : variantPositions) {
                 switch (contentType) {
-                    case Constants.CONTENT_MODE_NUCLEOTIDE -> variants = feature.getNucleotideVariantsAt(variantPosition);
+                    case Constants.CONTENT_MODE_NUCLEOTIDE -> variants = feature.getNucleotideVariantsAt(variantPosition, false);
                     case Constants.CONTENT_MODE_AMINOACID -> variants = ((FeatureCoding) feature).getAminoacidVariantsAt(variantPosition);
                 }
                 for (Map.Entry<String, VariantInformation> variant : variants.entrySet()) {
@@ -548,7 +548,7 @@ public final class Musial {
             NavigableSet<Integer> variantPositions = contentMode.equals(Constants.CONTENT_MODE_AMINOACID) ? ((FeatureCoding) feature).getAminoacidVariantPositions() : feature.getNucleotideVariantPositions();
             Set<Map.Entry<String, VariantInformation>> variants;
             for (Integer position : variantPositions) {
-                variants = (contentMode.equals(Constants.CONTENT_MODE_AMINOACID) ? ((FeatureCoding) feature).getAminoacidVariantsAt(position) : feature.getNucleotideVariantsAt(position)).entrySet();
+                variants = (contentMode.equals(Constants.CONTENT_MODE_AMINOACID) ? ((FeatureCoding) feature).getAminoacidVariantsAt(position) : feature.getNucleotideVariantsAt(position, true)).entrySet();
                 sampleContents = new String[noSamples];
                 //noinspection OptionalGetWithoutIsPresent
                 ref = variants.stream().findFirst().get().getValue().referenceContent.charAt(0);
@@ -653,7 +653,7 @@ public final class Musial {
                 referenceContent = musialStorage.getReferenceSequenceOfFeature(feature.name).split("");
                 referenceTable = new LinkedHashMap<>(referenceContent.length, 10);
                 variantPositions = feature.getNucleotideVariantPositions();
-                getVariantInformation = (position) -> feature.getNucleotideVariantsAt(position).values();
+                getVariantInformation = (position) -> feature.getNucleotideVariantsAt(position, true).values();
             } else if (contentMode.equals(Constants.CONTENT_MODE_AMINOACID)) {
                 FeatureCoding featureCoding = (FeatureCoding) feature;
                 referenceContent = featureCoding.getCodingSequence().split("");
@@ -684,7 +684,7 @@ public final class Musial {
             if (contentMode.equals(Constants.CONTENT_MODE_NUCLEOTIDE)) {
                 variantPositions = feature.getNucleotideVariantPositions();
                 referenceTable = new LinkedHashMap<>(variantPositions.size(), 10);
-                getVariantEntries = (position) -> feature.getNucleotideVariantsAt(position).entrySet();
+                getVariantEntries = (position) -> feature.getNucleotideVariantsAt(position, true).entrySet();
             } else if (contentMode.equals(Constants.CONTENT_MODE_AMINOACID)) {
                 FeatureCoding featureCoding = (FeatureCoding) feature;
                 variantPositions = featureCoding.getAminoacidVariantPositions();
@@ -698,16 +698,19 @@ public final class Musial {
                     alt = entry.getKey();
                     variantInformation = entry.getValue();
                     if (variantOccurs.apply(variantInformation)) {
-                        if (variantInformation.getInfo(Constants.TYPE).contains(Constants.TYPE_INSERTION)) {
+                        if (variantInformation.getInfo(Constants.TYPE).equals(Constants.TYPE_INSERTION)) {
                             if (variantInformation.referenceContent.length() > referenceTable.getOrDefault(position, "").length())
                                 referenceTable.put(position, variantInformation.referenceContent);
-                        } else if (variantInformation.getInfo(Constants.TYPE).contains(Constants.TYPE_DELETION)) {
+                        } else if (variantInformation.getInfo(Constants.TYPE).equals(Constants.TYPE_DELETION)) {
                             // Insert position wise reference content of deletion that occurs in any sample.
                             chars = variantInformation.referenceContent.toCharArray();
                             for (int i = 0; i < chars.length; i++)
                                 referenceTable.putIfAbsent(position + i, String.valueOf(chars[i]));
-                        } else if (variantInformation.getInfo(Constants.TYPE).contains(Constants.TYPE_SUBSTITUTION)) {
+                        } else if (variantInformation.getInfo(Constants.TYPE).equals(Constants.TYPE_SUBSTITUTION)) {
                             // Insert reference content of substitution that occurs in any sample.
+                            referenceTable.putIfAbsent(position, variantInformation.referenceContent);
+                        } else if (variantInformation.getInfo(Constants.TYPE).equals(Constants.TYPE_AMBIGUOUS)) {
+                            // Insert reference content of ambiguous call that occurs in any sample.
                             referenceTable.putIfAbsent(position, variantInformation.referenceContent);
                         } else {
                             Logger.logWarning("Unable to process variant " + position + " " + alt + " of type " + variantInformation.getInfo(Constants.TYPE) + ".");
@@ -758,8 +761,8 @@ public final class Musial {
                     form = feature.getAllele(formNameIterator.next());
                     formVariants = SerializationUtils.clone(referenceTable);
                     if (!form.name.equals(Constants.REFERENCE_FORM_NAME)) {
-                        for (String variant : form.variants.split(Constants.FIELD_SEPARATOR_2)) {
-                            variantFields = variant.split(Constants.FIELD_SEPARATOR_1);
+                        for (String variant : form.variants.split(Constants.ENTRY_SEPARATOR)) {
+                            variantFields = variant.split(Constants.FIELD_SEPARATOR);
                             position = Integer.parseInt(variantFields[0]);
                             alt = variantFields[1];
                             type = feature.getNucleotideVariant(position, alt).getInfo(Constants.TYPE);
@@ -771,7 +774,7 @@ public final class Musial {
                                                 position + i,
                                                 alt.charAt(i) + formVariants.get(position + i).substring(1)
                                         );
-                            } else if (type.contains(Constants.TYPE_SUBSTITUTION)) {
+                            } else if (type.contains(Constants.TYPE_SUBSTITUTION) || type.contains(Constants.TYPE_AMBIGUOUS)) {
                                 // Call is substitution.
                                 formVariants.put(
                                         position,
@@ -801,8 +804,8 @@ public final class Musial {
                     form = featureCoding.getProteoform(formNameIterator.next());
                     formVariants = SerializationUtils.clone(referenceTable);
                     if (!form.name.equals(Constants.REFERENCE_FORM_NAME)) {
-                        for (String variant : form.variants.split(Constants.FIELD_SEPARATOR_2)) {
-                            variantFields = variant.split(Constants.FIELD_SEPARATOR_1);
+                        for (String variant : form.variants.split(Constants.ENTRY_SEPARATOR)) {
+                            variantFields = variant.split(Constants.FIELD_SEPARATOR);
                             position = Integer.parseInt(variantFields[0]);
                             alt = variantFields[1];
                             type = featureCoding.getAminoacidVariant(position, alt).getInfo(Constants.TYPE);
@@ -814,7 +817,7 @@ public final class Musial {
                                                 position + i,
                                                 alt.charAt(i) + formVariants.get(position + i).substring(1)
                                         );
-                            } else if (type.contains(Constants.TYPE_SUBSTITUTION)) {
+                            } else if (type.contains(Constants.TYPE_SUBSTITUTION) || type.contains(Constants.TYPE_AMBIGUOUS)) {
                                 // Call is substitution.
                                 formVariants.put(
                                         position,
@@ -928,7 +931,7 @@ public final class Musial {
             noDeletions = 0;
             noAmbiguous = 0;
             for (Integer p : feature.getNucleotideVariantPositions()) {
-                for (Map.Entry<String, VariantInformation> entry : feature.getNucleotideVariantsAt(p).entrySet()) {
+                for (Map.Entry<String, VariantInformation> entry : feature.getNucleotideVariantsAt(p, false).entrySet()) {
                     alt = entry.getKey();
                     variantInformation = entry.getValue();
                     variantInformation.addInfo(
@@ -938,11 +941,7 @@ public final class Musial {
                     ref = variantInformation.referenceContent;
                     type = variantInformation.getInfo(Constants.TYPE);
                     switch (type) {
-                        case (Constants.TYPE_AMBIGUOUS_PREFIX + Constants.TYPE_SUBSTITUTION) -> noAmbiguous += 1;
-                        case (Constants.TYPE_AMBIGUOUS_PREFIX + Constants.TYPE_INSERTION) ->
-                                noAmbiguous += ref.chars().filter(c -> c == '-').count();
-                        case (Constants.TYPE_AMBIGUOUS_PREFIX + Constants.TYPE_DELETION) ->
-                                noAmbiguous += alt.chars().filter(c -> c == 'N').count() - 1;
+                        case (Constants.TYPE_AMBIGUOUS) -> noAmbiguous += 1;
                         case (Constants.TYPE_SUBSTITUTION) -> noSubstitutions += 1;
                         case (Constants.TYPE_INSERTION) -> noInsertions += ref.chars().filter(c -> c == '-').count();
                         case (Constants.TYPE_DELETION) -> noDeletions += alt.chars().filter(c -> c == '-').count();
@@ -983,20 +982,16 @@ public final class Musial {
                 );
                 if (!form.name.equals(Constants.REFERENCE_FORM_NAME))
                     try {
-                        formVariants = form.variants.split(Constants.FIELD_SEPARATOR_2);
+                        formVariants = form.variants.split(Constants.ENTRY_SEPARATOR);
                         for (String formVariant : formVariants) {
-                            formVariantFields = formVariant.split(Constants.FIELD_SEPARATOR_1);
+                            formVariantFields = formVariant.split(Constants.FIELD_SEPARATOR);
                             pos = Integer.parseInt(formVariantFields[0]);
                             alt = formVariantFields[1];
                             variantInformation = feature.getNucleotideVariant(pos, alt);
                             ref = variantInformation.referenceContent;
                             type = variantInformation.getInfo(Constants.TYPE);
                             switch (type) {
-                                case (Constants.TYPE_AMBIGUOUS_PREFIX + Constants.TYPE_SUBSTITUTION) -> noAmbiguous += 1;
-                                case (Constants.TYPE_AMBIGUOUS_PREFIX + Constants.TYPE_INSERTION) ->
-                                        noAmbiguous += ref.chars().filter(c -> c == '-').count();
-                                case (Constants.TYPE_AMBIGUOUS_PREFIX + Constants.TYPE_DELETION) ->
-                                        noAmbiguous += alt.chars().filter(c -> c == 'N').count() - 1;
+                                case (Constants.TYPE_AMBIGUOUS) -> noAmbiguous += 1;
                                 case (Constants.TYPE_SUBSTITUTION) -> noSubstitutions += 1;
                                 case (Constants.TYPE_INSERTION) -> noInsertions += ref.chars().filter(c -> c == '-').count();
                                 case (Constants.TYPE_DELETION) -> noDeletions += alt.chars().filter(c -> c == '-').count();
@@ -1030,20 +1025,16 @@ public final class Musial {
                     );
                     if (!form.name.equals(Constants.REFERENCE_FORM_NAME))
                         try {
-                            formVariants = form.variants.split(Constants.FIELD_SEPARATOR_2);
+                            formVariants = form.variants.split(Constants.ENTRY_SEPARATOR);
                             for (String formVariant : formVariants) {
-                                formVariantFields = formVariant.split(Constants.FIELD_SEPARATOR_1);
+                                formVariantFields = formVariant.split(Constants.FIELD_SEPARATOR);
                                 pos = Integer.parseInt(formVariantFields[0]);
                                 alt = formVariantFields[1];
                                 variantInformation = featureCoding.getAminoacidVariant(pos, alt);
                                 ref = variantInformation.referenceContent;
                                 type = variantInformation.getInfo(Constants.TYPE);
                                 switch (type) {
-                                    case (Constants.TYPE_AMBIGUOUS_PREFIX + Constants.TYPE_SUBSTITUTION) -> noAmbiguous += 1;
-                                    case (Constants.TYPE_AMBIGUOUS_PREFIX + Constants.TYPE_INSERTION) ->
-                                            noAmbiguous += ref.chars().filter(c -> c == '-').count();
-                                    case (Constants.TYPE_AMBIGUOUS_PREFIX + Constants.TYPE_DELETION) ->
-                                            noAmbiguous += alt.chars().filter(c -> c == 'X').count() - 1;
+                                    case (Constants.TYPE_AMBIGUOUS) -> noAmbiguous += 1;
                                     case (Constants.TYPE_SUBSTITUTION) -> noSubstitutions += 1;
                                     case (Constants.TYPE_INSERTION) -> noInsertions += ref.chars().filter(c -> c == '-').count();
                                     case (Constants.TYPE_DELETION) -> noDeletions += alt.chars().filter(c -> c == '-').count();

@@ -42,10 +42,10 @@ public class FeatureCoding extends Feature {
      *                   is located on.
      * @param start      {@link Integer} The 1-based indexed starting position of the feature on the reference.
      * @param end        {@link Integer} The 1-based indexed end position of the feature on the reference.
-     * @throws MusialException If the specified locus is ambiguous.
      */
-    public FeatureCoding(String name, String chromosome, int start, int end, char strand, String type) throws MusialException {
+    public FeatureCoding(String name, String chromosome, int start, int end, char strand, String type) {
         super(name, chromosome, start, end, strand, type);
+        this.addProteoform(new Form(Constants.REFERENCE_FORM_NAME, ""));
     }
 
     /**
@@ -145,18 +145,18 @@ public class FeatureCoding extends Feature {
         this.aminoacidVariants.putIfAbsent(position, new LinkedHashMap<>());
         this.aminoacidVariants.get(position).putIfAbsent(alt, new VariantInformation(ref));
         // Determine variant type.
-        StringBuilder typeBuilder = new StringBuilder();
-        if (alt.contains(Constants.DELETION_OR_GAP_STRING))
-            typeBuilder.append(Constants.TYPE_AMBIGUOUS_PREFIX);
-        if (alt.length() == 1)
-            typeBuilder.append(Constants.TYPE_SUBSTITUTION);
+        String type;
+        if (alt.contains(Constants.ANY_AMINOACID_STRING))
+            type = Constants.TYPE_AMBIGUOUS;
+        else if (alt.length() == 1)
+            type = Constants.TYPE_SUBSTITUTION;
         else {
             if (ref.contains(Constants.DELETION_OR_GAP_STRING))
-                typeBuilder.append(Constants.TYPE_INSERTION);
+                type = Constants.TYPE_INSERTION;
             else
-                typeBuilder.append(Constants.TYPE_DELETION);
+                type = Constants.TYPE_DELETION;
         }
-        this.aminoacidVariants.get(position).get(alt).addInfo(Constants.TYPE, typeBuilder.toString());
+        this.aminoacidVariants.get(position).get(alt).addInfo(Constants.TYPE, type);
     }
 
     /**

@@ -11,6 +11,7 @@ import htsjdk.variant.variantcontext.VariantContext;
 import main.Constants;
 import org.apache.commons.lang3.tuple.Triple;
 import org.javatuples.Quartet;
+import org.javatuples.Quintet;
 import org.javatuples.Triplet;
 
 import java.util.*;
@@ -39,9 +40,9 @@ public final class SampleAnalyzer {
     private static Sample _sample;
 
     /**
-     * Container of all accepted variant sites to infer alleles.
+     * Container of variant sites to infer alleles. Stored as (Position, Reference, Alternative, Primary, Pass).
      */
-    private static ArrayList<Triple<Integer, String, String>> variantSites;
+    private static ArrayList<Quintet<Integer, String, String, Boolean, Boolean>> variantSites;
 
     /**
      * The VariantContext representing a genetic variant.
@@ -111,7 +112,7 @@ public final class SampleAnalyzer {
         alleles = (ArrayList<Allele>) alleles.stream().filter(
                 (a) -> !storage.isVariantExcluded(variantContext.getContig(), variantPosition, a.getBaseString())
         ).collect(Collectors.toList());
-        if ( alleles.size() < 2 )
+        if (alleles.size() < 2)
             return;
         // TODO: Change for multi sample .vcf file support.
         int DP; // Total depth of coverage at site. Filtered reads are not counted.
@@ -185,44 +186,47 @@ public final class SampleAnalyzer {
                     ref = resolvedVariant.getMiddle();
                     alt = resolvedVariant.getRight();
                     callsPerPosition.putIfAbsent(variantPosition + (resolvedVariant.getLeft()), new ArrayList<>());
-                    // TODO: This may overwrite previous allocations.
                     if (callsPerPosition.get(variantPosition + (resolvedVariant.getLeft())).size() == 0) // Add reference only as first call, if not present.
                         callsPerPosition.get(variantPosition + (resolvedVariant.getLeft())).add(Quartet.with(ref, ref, refAF, refAD));
                     callsPerPosition.get(variantPosition + (resolvedVariant.getLeft())).add(Quartet.with(ref, alt, AF, AD));
                 }
             }
         }
-
         // Decide on most frequent call and transfer to sample and form.
+        int position;
         ArrayList<Quartet<String, String, Double, Integer>> calls;
-        for (Integer position : callsPerPosition.keySet()) {
-            calls = callsPerPosition.get(position);
-
+        for (Map.Entry<Integer, ArrayList<Quartet<String, String, Double, Integer>>> entry : callsPerPosition.entrySet()) {
+            position = entry.getKey();
+            calls = entry.getValue();
             // Skip position, if only one call (reference) is stored.
             if (calls.size() == 1)
                 continue;
-
             //noinspection OptionalGetWithoutIsPresent
-            Quartet<String, String, Double, Integer> mostFrequentCall = calls.stream().max(Comparator.comparingDouble(Quartet::getValue2)).get();
-            String mostFrequentCallIndex;
-            if (DP == 0) {
-                mostFrequentCallIndex = Constants.CALL_INFO_NO_INFO;
-            } else if (DP < storage.parameters.minimalCoverage || mostFrequentCall.getValue2() < storage.parameters.minimalFrequency) {
-                // Conservative wrt. reference.
-                mostFrequentCallIndex = Constants.CALL_INFO_REJECTED;
-            } else {
-                mostFrequentCallIndex = String.valueOf(calls.indexOf(mostFrequentCall));
+            Quartet<String, String, Double, Integer> primaryCall = calls.stream().max(Comparator.comparingDouble(Quartet::getValue2)).get();
+            int primaryCallIndex = calls.indexOf(primaryCall);
+            boolean primary;
+            boolean pass;
+            boolean ambiguous = false;
+            int callIndex;
+            for (Quartet<String, String, Double, Integer> call : calls) {
+                callIndex = calls.indexOf(call);
+                primary = callIndex == primaryCallIndex; // Set if call is the primary call.
+                pass = call.getValue3() >= storage.parameters.minimalCoverage || call.getValue2() >= storage.parameters.minimalFrequency; // Set if call passes acceptance criteria.
+                ambiguous = primary && !pass;
+                ref = call.getValue0();
+                alt = call.getValue1();
+                variantSites.add(Quintet.with(position, ref, alt, primary, pass));
             }
-            if (!Objects.equals(mostFrequentCallIndex, "0")) { // If most frequent call is not reference allele.
-                ref = mostFrequentCall.getValue0();
-                alt = mostFrequentCall.getValue1();
-                if (mostFrequentCallIndex.equals(Constants.CALL_INFO_REJECTED)) { // If call does not pass filters, add information as any nucleotide.
-                    int variantLength = Math.max(ref.length(), alt.length());
-                    alt = Constants.ANY_NUCLEOTIDE_STRING.repeat(variantLength);
-                }
-                variantSites.add(Triple.of(position, ref, alt));
-            }
-            _sample.addVariantCall(feature.name, position, new Tuple<>(mostFrequentCallIndex, DP), calls.stream().map(c -> new Tuple<>(c.getValue1(), c.getValue3())).collect(Collectors.toList()));
+            // Add call information to sample.
+            _sample.addVariantCall(
+                    feature.name,
+                    position,
+                    new Tuple<>(
+                            ambiguous ? Constants.CALL_INFO_REJECTED : String.valueOf(primaryCallIndex),
+                            DP
+                    ),
+                    calls.stream().map(c -> new Tuple<>(c.getValue1(), c.getValue3())).collect(Collectors.toList())
+            );
         }
     }
 
@@ -231,41 +235,58 @@ public final class SampleAnalyzer {
      */
     @SuppressWarnings("DuplicatedCode")
     private static void allocateVariantsInformation() {
-        StringBuilder acceptedSitesString = new StringBuilder(variantSites.size() * 4);
+        ArrayList<String> primaryVariantsList = new ArrayList<>(variantSites.size());
         String formName;
-        if (variantSites.size() == 0) {
-            formName = Constants.REFERENCE_FORM_NAME;
-        } else {
-            int pos;
-            String ref;
-            String alt;
-            int count_substitution = 0;
-            int count_insertion = 0;
-            int count_deletion = 0;
-            int count_ambiguous = 0;
-            for (Triple<Integer, String, String> s : variantSites) {
-                pos = s.getLeft();
-                ref = s.getMiddle();
-                alt = s.getRight();
-                if (alt.contains(Constants.ANY_NUCLEOTIDE_STRING)) {
-                    count_ambiguous += alt.codePoints().filter(c -> c == Constants.ANY_NUCLEOTiDE_CHAR).count();
-                } else if (ref.length() == 1 && alt.length() == 1) {
-                    count_substitution += 1;
-                } else {
-                    count_insertion += ref.codePoints().filter(c -> c == '-').count();
-                    count_deletion += alt.codePoints().filter(c -> c == '-').count();
+        int pos;
+        String ref;
+        String alt;
+        boolean isReference;
+        boolean primary;
+        boolean pass;
+        for (Quintet<Integer, String, String, Boolean, Boolean> s : variantSites) {
+            pos = s.getValue0();
+            ref = s.getValue1();
+            alt = s.getValue2();
+            isReference = ref.equals(alt);
+            primary = s.getValue3();
+            pass = s.getValue4();
+            if (primary) {
+                if (!pass) {
+                    // If the primary variant does not pass filter criteria, replace alt content with N to indicate ambiguity.
+                    // This might also be the case, if the reference allele is the primary variant.
+                    primaryVariantsList.add(pos + Constants.FIELD_SEPARATOR + Constants.ANY_NUCLEOTIDE_STRING);
+                    feature.addNucleotideVariant(pos, Constants.ANY_NUCLEOTIDE_STRING, ref);
+                    feature.getNucleotideVariant(pos, Constants.ANY_NUCLEOTIDE_STRING).addOccurrence(_sample.name);
+                    //noinspection ConstantConditions
+                    feature.getNucleotideVariant(pos, Constants.ANY_NUCLEOTIDE_STRING).addInfo(Constants.VARIANT_INFO_PRIMARY, String.valueOf(primary));
+                    feature.getNucleotideVariant(pos, Constants.ANY_NUCLEOTIDE_STRING).addInfo(Constants.VARIANT_INFO_ACTUAL_ALT, alt);
+                } else if (!isReference) {
+                    // If the primary variant passes filter criteria AND is not the reference allele, add information as is.
+                    primaryVariantsList.add(pos + Constants.FIELD_SEPARATOR + alt);
+                    feature.addNucleotideVariant(pos, alt, ref);
+                    feature.getNucleotideVariant(pos, alt).addOccurrence(_sample.name);
+                    //noinspection ConstantConditions
+                    feature.getNucleotideVariant(pos, alt).addInfo(Constants.VARIANT_INFO_PRIMARY, String.valueOf(primary));
                 }
-                acceptedSitesString.append(pos).append(Constants.FIELD_SEPARATOR_1).append(alt).append(Constants.FIELD_SEPARATOR_2);
+                // Otherwise the information is ignored, i.e., the reference allele is the primary variant.
+            }
+            if (!primary && pass && !isReference) {
+                // If the variant is not primary and not reference, but passes the filter criteria, add information to feature anyway.
                 feature.addNucleotideVariant(pos, alt, ref);
                 feature.getNucleotideVariant(pos, alt).addOccurrence(_sample.name);
+                //noinspection ConstantConditions
+                feature.getNucleotideVariant(pos, alt).addInfo(Constants.VARIANT_INFO_PRIMARY, String.valueOf(primary));
             }
-            acceptedSitesString.setLength(acceptedSitesString.length() - 1); // Delete last ';' separator symbol.
-            formName = storage.getFormName(
-                    acceptedSitesString.toString().hashCode(),
-                    "A" + (feature.getAlleleCount() + 1) + ".s" + count_substitution + ".i" + count_insertion + ".d" + count_deletion + ".a" + count_ambiguous
-            );
         }
-        Form allele = new Form(formName, acceptedSitesString.toString());
+        String primaryVariantsString = String.join(Constants.ENTRY_SEPARATOR, primaryVariantsList);
+        if (primaryVariantsList.size() == 0)
+            formName = Constants.REFERENCE_FORM_NAME;
+        else
+            formName = storage.getFormName(
+                    primaryVariantsString.hashCode(),
+                    "A" + (feature.getAlleleCount() + 1)
+            );
+        Form allele = new Form(formName, primaryVariantsString);
         feature.addAllele(allele);
         feature.getAllele(formName).addOccurrence(_sample.name);
         _sample.setAllele(feature.name, allele.name);

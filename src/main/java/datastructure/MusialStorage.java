@@ -286,19 +286,22 @@ public class MusialStorage extends InfoContainer {
         vcfContent.append("##fileformat=VCFv4.2").append(IO.LINE_SEPARATOR).append("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO").append(IO.LINE_SEPARATOR);
         for (Feature feature : this.features.values()) {
             for (Integer variantPosition : feature.getNucleotideVariantPositions()) {
-                for (Map.Entry<String, VariantInformation> variantEntry : feature.getNucleotideVariantsAt(variantPosition).entrySet()) {
+                for (Map.Entry<String, VariantInformation> variantEntry : feature.getNucleotideVariantsAt(variantPosition, false).entrySet()) {
                     String variantContent = variantEntry.getKey();
-                    if (variantContent.contains(Constants.ANY_NUCLEOTIDE_STRING))
-                        continue;
                     VariantInformation variantInformation = variantEntry.getValue();
+                    if (variantContent.contains(Constants.ANY_NUCLEOTIDE_STRING)) {
+                        variantContent = variantInformation.getInfo(Constants.VARIANT_INFO_ACTUAL_ALT);
+                        if (variantContent.equals(variantInformation.referenceContent))
+                            continue;
+                    }
                     vcfContent
                             .append(feature.contig).append("\t")
                             .append(variantPosition).append("\t")
-                            .append(".\t").append(variantInformation.referenceContent.replace("-", "")).append("\t").append(variantContent.replace("-", "")).append("\t")
+                            .append(".\t").append(variantInformation.referenceContent.replace("-", "")).append("\t")
+                            .append(variantContent.replace("-", "")).append("\t")
                             .append("1000\t")
                             .append(".\t")
                             .append("\t").append(IO.LINE_SEPARATOR);
-
                 }
             }
         }

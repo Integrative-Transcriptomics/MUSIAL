@@ -2,6 +2,7 @@ package utility;
 
 import datastructure.*;
 import main.Constants;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.javatuples.Triplet;
 
@@ -39,6 +40,7 @@ public class AlleleAnalyzer {
     /**
      * List of positions where novel terminations are found.
      */
+    @SuppressWarnings({"FieldCanBeLocal", "MismatchedQueryAndUpdateOfCollection"})
     private static ArrayList<String> novelTerminations;
 
     /**
@@ -50,18 +52,19 @@ public class AlleleAnalyzer {
     public static void run(FeatureCoding featureCoding, MusialStorage musialStorage) {
         storage = musialStorage;
         _featureCoding = featureCoding;
-        Iterator<String> iterator = featureCoding.getAlleleNameIterator();
+        Iterator<String> iterator = _featureCoding.getAlleleNameIterator();
         sites = new ArrayList<>();
-        NavigableSet<Integer> variantAlleleSites;
         ArrayList<String> alleleSequenceContainer; // Stores per position content as one or multiple base symbols incl. gaps for deletions.
+        TreeMap<Integer, Pair<String, VariantInformation>> alleleVariants;
         String referenceSequence;
         String proteoformSequence;
         String ref;
         String alt;
         String type;
+        int pos;
         int maxInDelLength = 0;
         int relativePosition;
-        int alignmentBandWidth = 1;
+        int alignmentBandWidth;
         char[] proteoformSequenceAlnChars;
         char proteoformSequenceAlnChar;
         while (iterator.hasNext()) {
@@ -73,37 +76,33 @@ public class AlleleAnalyzer {
                     sites = new ArrayList<>();
                 } else {
                     // Derive allele nucleotide sequence and maximal indel length.
-                    referenceSequence = musialStorage.getReferenceSequenceOfFeature(featureCoding.name);
+                    referenceSequence = musialStorage.getReferenceSequenceOfFeature(_featureCoding.name);
+                    alleleVariants = _featureCoding.getNucleotideVariantsOf(allele.name);
                     alleleSequenceContainer = new ArrayList<>(Arrays.asList(
                             referenceSequence.split("")
                     ));
-                    variantAlleleSites = featureCoding.getNucleotideVariantPositions(); // TODO: Could be improved by method to return VariantInformation entries by allele name.
-                    for (int pos : variantAlleleSites) {
-                        for (Map.Entry<String, VariantInformation> entry : featureCoding.getNucleotideVariantsAt(pos).entrySet()) {
-                            if (allele.getOccurrenceSet().stream().noneMatch(entry.getValue()::hasOccurrence))
-                                continue;
-                            relativePosition = pos - featureCoding.start; // 0-based position on feature.
-                            alt = entry.getKey();
-                            ref = entry.getValue().referenceContent;
-                            type = entry.getValue().getInfo(Constants.TYPE);
-                            if ( relativePosition < 0 ) {
-                                Logger.logWarning( "Skipping variant " + alt + " at (relative) position " + pos + " for allele " + allele.name + " of feature " + featureCoding.name + "." );
-                                continue;
-                            }
-                            if (type.contains(Constants.TYPE_INSERTION) || type.contains(Constants.TYPE_SUBSTITUTION))
-                                alleleSequenceContainer.set(relativePosition, alt);
-                            else
-                                for (int i = 0; i < alt.length(); i++) {
-                                    if ((relativePosition + i) < alleleSequenceContainer.size()) // Avoid deletions that exceed the feature length!
-                                        alleleSequenceContainer.set(relativePosition + i, String.valueOf(alt.charAt(i)));
-                                }
-                            maxInDelLength = Math.max(
-                                    maxInDelLength,
-                                    Math.abs(ref.replaceAll(Constants.DELETION_OR_GAP_STRING, "").length() - alt.replaceAll(Constants.DELETION_OR_GAP_STRING, "").length())
-                            );
+                    for (Map.Entry<Integer, Pair<String, VariantInformation>> alleleVariantsEntry : alleleVariants.entrySet()) {
+                        pos = alleleVariantsEntry.getKey();
+                        alt = alleleVariantsEntry.getValue().getLeft();
+                        ref = alleleVariantsEntry.getValue().getRight().referenceContent;
+                        relativePosition = pos - _featureCoding.start; // 0-based position on feature.
+                        type = alleleVariantsEntry.getValue().getRight().getInfo(Constants.TYPE);
+                        if (relativePosition < 0) {
+                            Logger.logWarning("Skipping variant " + alt + " at (relative) position " + pos + " for allele " + allele.name + " of feature " + featureCoding.name + ".");
+                            continue;
                         }
+                        if (type.contains(Constants.TYPE_INSERTION) || type.contains(Constants.TYPE_SUBSTITUTION))
+                            alleleSequenceContainer.set(relativePosition, alt);
+                        else
+                            for (int i = 0; i < alt.length(); i++) {
+                                if ((relativePosition + i) < alleleSequenceContainer.size()) // Avoid deletions that exceed the feature length!
+                                    alleleSequenceContainer.set(relativePosition + i, String.valueOf(alt.charAt(i)));
+                            }
+                        maxInDelLength = Math.max(
+                                maxInDelLength,
+                                Math.abs(ref.replaceAll(Constants.DELETION_OR_GAP_STRING, "").length() - alt.replaceAll(Constants.DELETION_OR_GAP_STRING, "").length())
+                        );
                     }
-
                     alignmentBandWidth = Math.max(12, (int) Math.ceil(maxInDelLength / 3.0));
                     // Translate allele nucleotide sequence and align with reference aminoacid sequence.
                     proteoformSequence = SequenceOperations.translateNucSequence(
@@ -158,38 +157,27 @@ public class AlleleAnalyzer {
      */
     @SuppressWarnings("DuplicatedCode")
     private static void allocateVariantsInformation() {
-        StringBuilder sitesString = new StringBuilder(sites.size() * 4);
+        ArrayList<String> sitesList = new ArrayList<>(sites.size());
+        String sitesString = "";
         String formName;
         if (sites.size() == 0) {
             formName = Constants.REFERENCE_FORM_NAME;
         } else {
-            int count_substitution = 0;
-            int count_insertion = 0;
-            int count_deletion = 0;
-            int count_ambiguous = 0;
             for (Triple<Integer, String, String> s : sites) {
                 final int pos = s.getLeft();
                 final String ref = s.getMiddle();
                 final String alt = s.getRight();
-                if (alt.contains(Constants.ANY_AMINOACID_STRING)) {
-                    count_ambiguous += alt.codePoints().filter(c -> c == Constants.ANY_AMINOACID_CHAR).count();
-                } else if (ref.length() == 1 && alt.length() == 1) {
-                    count_substitution += 1;
-                } else {
-                    count_insertion += ref.codePoints().filter(c -> c == '-').count();
-                    count_deletion += alt.codePoints().filter(c -> c == '-').count();
-                }
-                sitesString.append(pos).append(Constants.FIELD_SEPARATOR_1).append(alt).append(Constants.FIELD_SEPARATOR_2);
+                sitesList.add(pos + Constants.FIELD_SEPARATOR + alt);
                 _featureCoding.addAminoacidVariant(pos, alt, ref);
                 allele.getOccurrenceIterator().forEachRemaining(sampleName -> _featureCoding.getAminoacidVariant(pos, alt).addOccurrence(sampleName));
             }
-            sitesString.setLength(sitesString.length() - 1); // Delete last ';' separator symbol.
+            sitesString = String.join(Constants.ENTRY_SEPARATOR, sitesList);
             formName = storage.getFormName(
-                    sitesString.toString().hashCode(),
-                    "P" + (_featureCoding.getProteoformCount() + 1) + ".s" + count_substitution + ".i" + count_insertion + ".d" + count_deletion + ".a" + count_ambiguous + ".t" + novelTerminations.size()
+                    sitesString.hashCode(),
+                    "P" + (_featureCoding.getProteoformCount() + 1)
             );
         }
-        Form proteoform = new Form(formName, sitesString.toString());
+        Form proteoform = new Form(formName, sitesString);
         _featureCoding.addProteoform(proteoform);
         Iterator<String> iterator = allele.getOccurrenceIterator();
         do {

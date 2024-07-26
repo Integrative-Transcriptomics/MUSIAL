@@ -1,6 +1,7 @@
 package datastructure;
 
 import main.Constants;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.*;
 
@@ -68,6 +69,7 @@ public class Feature extends InfoContainer {
         this.start = start;
         this.end = end;
         this.isSense = (strand == '+');
+        this.addAllele(new Form(Constants.REFERENCE_FORM_NAME, ""));
     }
 
     /**
@@ -152,18 +154,18 @@ public class Feature extends InfoContainer {
         this.nucleotideVariants.putIfAbsent(position, new LinkedHashMap<>());
         this.nucleotideVariants.get(position).putIfAbsent(alt, new VariantInformation(ref));
         // Determine variant type.
-        StringBuilder typeBuilder = new StringBuilder();
+        String type;
         if (alt.contains(Constants.ANY_NUCLEOTIDE_STRING))
-            typeBuilder.append(Constants.TYPE_AMBIGUOUS_PREFIX);
-        if (alt.length() == 1)
-            typeBuilder.append(Constants.TYPE_SUBSTITUTION);
+            type = Constants.TYPE_AMBIGUOUS;
+        else if (alt.length() == 1)
+            type = Constants.TYPE_SUBSTITUTION;
         else {
             if (ref.contains(Constants.DELETION_OR_GAP_STRING))
-                typeBuilder.append(Constants.TYPE_INSERTION);
+                type = Constants.TYPE_INSERTION;
             else
-                typeBuilder.append(Constants.TYPE_DELETION);
+                type = Constants.TYPE_DELETION;
         }
-        this.nucleotideVariants.get(position).get(alt).addInfo(Constants.TYPE, typeBuilder.toString());
+        this.nucleotideVariants.get(position).get(alt).addInfo(Constants.TYPE, type);
     }
 
     /**
@@ -181,31 +183,21 @@ public class Feature extends InfoContainer {
     }
 
     /**
-     * Returns all {@link VariantInformation}s stored at this instances {@link Feature#nucleotideVariants} at position.
+     * Returns {@link VariantInformation}s stored at this instances {@link Feature#nucleotideVariants} at position.
      *
-     * @param position The position of the variant annotations to access.
+     * @param position    The position of the variant annotations to access.
+     * @param onlyPrimary Whether to retrieve only primary or all variants.
      * @return A map of alternative contents to {@link VariantInformation}s.
      */
-    public LinkedHashMap<String, VariantInformation> getNucleotideVariantsAt(int position) {
-        return this.nucleotideVariants.getOrDefault(position, null);
-    }
-
-    /**
-     * Returns a map representation of all variants of a single allele of this {@link Feature}.
-     *
-     * @param alleleName The name of the allele.
-     * @return Map of variable positions to alternative base contents.
-     */
-    public TreeMap<Integer, String> getNucleotideVariants(String alleleName) {
-        TreeMap<Integer, String> variants = new TreeMap<>();
-        if (!alleleName.equals(Constants.REFERENCE_FORM_NAME)) {
-            String[] variantFields;
-            for (String variant : this.alleles.get(alleleName).variants.split(Constants.FIELD_SEPARATOR_2)) {
-                variantFields = variant.split(Constants.FIELD_SEPARATOR_1);
-                variants.put(Integer.valueOf(variantFields[0]), variantFields[1]);
-            }
-        }
-        return variants;
+    public LinkedHashMap<String, VariantInformation> getNucleotideVariantsAt(int position, boolean onlyPrimary) {
+        if (onlyPrimary) {
+            LinkedHashMap<String, VariantInformation> variants = new LinkedHashMap<>();
+            this.nucleotideVariants.getOrDefault(position, null)
+                    .entrySet().stream().filter(entry -> Boolean.parseBoolean(entry.getValue().getInfo(Constants.VARIANT_INFO_PRIMARY)))
+                    .forEach(entry -> variants.put(entry.getKey(), entry.getValue()));
+            return variants;
+        } else
+            return this.nucleotideVariants.getOrDefault(position, null);
     }
 
     /**
@@ -215,6 +207,29 @@ public class Feature extends InfoContainer {
      */
     public NavigableSet<Integer> getNucleotideVariantPositions() {
         return this.nucleotideVariants.navigableKeySet();
+    }
+
+    /**
+     * Retrieves all variants stored for the specified allele/{@link Form} with name {@code alleleName}.
+     *
+     * @param alleleName The name of the allele of which variants shall be retrieved.
+     * @return Navigable map structure with variants of specified allele. Might be empty.
+     */
+    public TreeMap<Integer, Pair<String, VariantInformation>> getNucleotideVariantsOf(String alleleName) {
+        TreeMap<Integer, Pair<String, VariantInformation>> variants = new TreeMap<>();
+        int position;
+        String alt;
+        for (String variantEntry : this.alleles.get(alleleName).variants.split(Constants.ENTRY_SEPARATOR)) {
+            String[] variantFields = variantEntry.split(Constants.FIELD_SEPARATOR);
+            position = Integer.parseInt(variantFields[0]);
+            alt = variantFields[1];
+            if (this.nucleotideVariants.containsKey(position) && this.nucleotideVariants.get(position).containsKey(alt))
+                variants.put(
+                        position,
+                        Pair.of(alt, this.nucleotideVariants.get(position).get(alt))
+                );
+        }
+        return variants;
     }
 
 }
