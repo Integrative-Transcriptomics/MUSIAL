@@ -359,7 +359,7 @@ public final class BuildConfiguration {
                         )
                 );
             } else {
-                feature = new Feature(name, featureChromosome, featureLocation.getBegin(), featureLocation.getEnd(), featureLocation.bioStrand(), "non_coding");
+                feature = new Feature(name, featureChromosome, featureLocation.bioStart(), featureLocation.bioEnd(), featureLocation.bioStrand(), "non_coding");
             }
             for (Map.Entry<String, String> annotation : annotations.entrySet()) {
                 feature.addInfo(annotation.getKey(), annotation.getValue());
