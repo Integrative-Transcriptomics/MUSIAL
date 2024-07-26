@@ -16,7 +16,7 @@
       "maximum": 1.0
     },
     "excludedPositions": {
-      "description": "Positions that shall be excluded from the analysis.",
+      "description": "Positions that shall be excluded from the analysis. Expected format of entries is <CONTIG>: [ <POS>, ... ]",
       "type": "object",
       "patternProperties": {
         "^.+$": {
@@ -28,7 +28,7 @@
       }
     },
     "excludedVariants": {
-      "description": "Explicit variants that shall be excluded from the analysis. Expected format of entries is <POS>:<ALT>",
+      "description": "Explicit variants that shall be excluded from the analysis. Expected format of entries is <CONTIG>: [ '<POS>:<ALT>', ... ]",
       "type": "object",
       "patternProperties": {
         "^.+$": {
