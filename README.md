@@ -15,7 +15,7 @@ formats.
 
 ## Dependencies and Building
 
-The current version of MUSIAL `v2.3.3` is built with `JDK 17.0.8` and `Gradle 8.2.1`. A precompiled, executable **jar**
+The current version of MUSIAL `v2.3.8` is built with `JDK 17.0.8` and `Gradle 8.2.1`. A precompiled, executable **jar**
 file is deposited at the **Releases** section of this repository. If you want to re-build MUSIAL,
 type `gradle clean build` in the projects root directory. The **jar** file is then contained in the **/releases**
 directory.
@@ -24,7 +24,7 @@ directory.
 
 ## Access via Web
 
-MUSIAL is also accessible as a web-application at https://musial-tuevis.cs.uni-tuebingen.de/ (currently version `v2.2` is active), supporting not only the
+MUSIAL is also accessible as a web-application at https://musial-tuevis.cs.uni-tuebingen.de/ (currently version `v2.8` is active), supporting not only the
 computational capabilities of the software, but extending it with various user interactions and visualizations. The
 source code of the web-application as well as a separate usage instruction will be available via the `web` branch of
 this repository shortly.
@@ -368,12 +368,10 @@ We will soon add a description of MUSIAL's internal storage structure.
 #### Upcoming Features
 
 - Provision and description of an example data set.
-- Adaptation of the web-application to `v2.3`.
 - Benchmarking.
 
 ---
 
 ## Contact
 
-If you encounter any problems when using MUSIAL, please feel free to open an issue or contact me
-via `simon.hackl@uni-tuebingen.de`
+If you encounter any problems when using MUSIAL, please feel free to open an issue or contact me via `simon.hackl@uni-tuebingen.de`
