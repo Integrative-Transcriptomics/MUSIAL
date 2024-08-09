@@ -42,6 +42,8 @@ public class FeatureCoding extends Feature {
      *                   is located on.
      * @param start      {@link Integer} The 1-based indexed starting position of the feature on the reference.
      * @param end        {@link Integer} The 1-based indexed end position of the feature on the reference.
+     * @param strand     The strand orientation (+/-) of the coding feature.
+     * @param type       The type (coding or non-coding) of this feature (should also be coding here).
      */
     public FeatureCoding(String name, String chromosome, int start, int end, char strand, String type) {
         super(name, chromosome, start, end, strand, type);

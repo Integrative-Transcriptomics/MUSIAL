@@ -14,6 +14,8 @@ public class VariantInformation extends OccurrenceContainer {
 
     /**
      * Constructor of {@link VariantInformation}.
+     *
+     * @param referenceContent The {@link String} to set as the reference content of this variant.
      */
     public VariantInformation(String referenceContent) {
         super();

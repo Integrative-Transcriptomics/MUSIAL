@@ -50,13 +50,14 @@ public final class IO {
     }
 
     /**
-     * Initializes a {@link MusialStorage} object from a variants dictionary JSON file.
+     * Initializes a {@link MusialStorage} object from a MUSIAL storage JSON file.
      *
      * @param dumpFile {@link File} pointing to the JSON file to parse.
      * @return {@link MusialStorage} instance.
-     * @throws IOException If any error occurs while parsing the variants dictionary JSON file.
+     * @throws IOException     If any error occurs while parsing the variants dictionary JSON file.
+     * @throws MusialException When an unknown file extension of the {@code dumpFile} is encountered.
      */
-    public static MusialStorage loadMusialDump(File dumpFile) throws IOException, MusialException {
+    public static MusialStorage loadMUSIALDump(File dumpFile) throws IOException, MusialException {
         Function<BufferedReader, MusialStorage> loadDumpFromBufferedReader = reader -> {
             RuntimeTypeAdapterFactory<Feature> adapterFactory =
                     RuntimeTypeAdapterFactory
@@ -124,6 +125,7 @@ public final class IO {
      *
      * @param outputFile  {@link File} object pointing to the output file.
      * @param fileContent {@link String} content to write to file.
+     * @throws MusialException See {@link IO#generateDirectory(File)}.
      */
     public static void writeFile(File outputFile, String fileContent) throws MusialException {
         if (outputFile.exists()) {

@@ -16,6 +16,7 @@ public class Compression {
      *
      * @param content {@link String} to compress.
      * @return {@link Byte} Array; `gzip` compressed byte content of the input.
+     * @throws IOException See {@link GZIPOutputStream#write} and {@link GZIPOutputStream#close()}.
      */
     public static byte[] gzip(String content) throws IOException {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream(512);

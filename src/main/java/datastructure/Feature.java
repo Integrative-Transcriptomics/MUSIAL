@@ -60,6 +60,8 @@ public class Feature extends InfoContainer {
      *               is located on.
      * @param start  {@link Integer} The 1-based indexed starting position of the feature on the reference.
      * @param end    {@link Integer} The 1-based indexed end position of the feature on the reference.
+     * @param strand The strand orientation (+/-) of the coding feature.
+     * @param type   The type (coding or non-coding) of this feature.
      */
     public Feature(String name, String contig, int start, int end, char strand, String type) {
         super();

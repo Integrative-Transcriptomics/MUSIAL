@@ -54,8 +54,9 @@ public final class Sample extends InfoContainer {
     /**
      * Constructor of {@link Sample}.
      *
-     * @param vcfFile {@link File} instances pointing to the .vcf file of this sample.
-     * @param name    {@link String} representing the sample name.
+     * @param vcfFile    {@link File} instances pointing to the .vcf file of this sample.
+     * @param name       {@link String} representing the sample name.
+     * @param noFeatures {@link Integer} indicating the expected no. features to store information on with this sample instance.
      */
     public Sample(File vcfFile, String name, int noFeatures) {
         super();
@@ -70,6 +71,8 @@ public final class Sample extends InfoContainer {
      * Initialize a {@link VCFFileReader} instance pointing to the .vcf file associated with this instance.
      * <p>
      * Validate that a .tbi index of the .vcf file is present and generates one, if not.
+     *
+     * @throws MusialException When the initialization of the {@link VCFFileReader} instance fails.
      */
     public void imputeVcfFileReader() throws MusialException {
         try {
@@ -117,6 +120,7 @@ public final class Sample extends InfoContainer {
      * Returns the value set for {@code featureName} in {@link #allele} or {@code null} if not set.
      *
      * @param featureName {@link Feature#name} to retrieve {@link Form#name} associated with this sample for.
+     * @return {@link Form#name}.
      */
     public String getAllele(String featureName) {
         return this.allele.getOrDefault(featureName, null);
@@ -136,6 +140,7 @@ public final class Sample extends InfoContainer {
      * Returns the value set for {@code featureName} in {@link #proteoform} or {@code null} if not set.
      *
      * @param featureName {@link FeatureCoding#name}.
+     * @return {@link Form#name}
      */
     public String getProteoform(String featureName) {
         return this.proteoform.getOrDefault(featureName, null);

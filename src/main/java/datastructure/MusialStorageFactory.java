@@ -36,15 +36,16 @@ public final class MusialStorageFactory {
      *
      * @param inputFile {@link File} instance pointing to the file that contains the {@link MusialStorage} content.
      * @return {@link MusialStorage} instance.
-     * @throws MusialException .
+     * @throws MusialException When the {@code inputFile} does not exist.
+     * @throws IOException See {@link IO#loadMUSIALDump(File)}.
      */
     public static MusialStorage load(File inputFile)
             throws MusialException, IOException {
         if (!inputFile.exists()) {
-            throw new MusialException("(I/O) Specified file '" + inputFile.getAbsolutePath() + "' to load MUSIAL dump from does not exist.");
+            throw new MusialException("(I/O) Specified file '" + inputFile.getAbsolutePath() + "' to load MUSIAL storage does not exist.");
         } else {
             Logger.logStatus("Load MUSIAL dump from '" + inputFile.getAbsolutePath() + "'");
-            return IO.loadMusialDump(inputFile);
+            return IO.loadMUSIALDump(inputFile);
         }
     }
 

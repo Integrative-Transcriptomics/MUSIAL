@@ -56,6 +56,7 @@ public class MusialStorage extends InfoContainer {
     /**
      * Constructor of {@link MusialStorage}.
      *
+     * @param reference        {@link IndexedFastaSequenceFile} to use as the reference (sequence).
      * @param minimalCoverage  {@link Double}; Minimal read coverage to use for allele filtering.
      * @param minimalFrequency {@link Double}; Minimal allele frequency to use for allele filtering.
      */
@@ -73,8 +74,14 @@ public class MusialStorage extends InfoContainer {
     /**
      * Constructor of {@link MusialStorage}.
      *
-     * @param minimalCoverage  {@link Double}; Minimal read coverage to use for allele filtering.
-     * @param minimalFrequency {@link Double}; Minimal allele frequency to use for allele filtering.
+     * @param reference         {@link IndexedFastaSequenceFile} to use as the reference (sequence).
+     * @param minimalCoverage   {@link Double}; Minimal read coverage to use for allele filtering.
+     * @param minimalFrequency  {@link Double}; Minimal allele frequency to use for allele filtering.
+     * @param features          {@link Collection} of {@link Feature}s.
+     * @param samples           {@link Collection} of {@link Sample}s.
+     * @param excludedPositions {@link HashMap} specifying positions to exclude from the analysis.
+     * @param excludedVariants  {@link HashMap} specifying variants to exclude from the analysis.
+     * @throws MusialException See {@link Sample#imputeVcfFileReader()}.
      */
     public MusialStorage(IndexedFastaSequenceFile reference, Double minimalCoverage, Double minimalFrequency, Collection<Feature> features, Collection<Sample> samples, HashMap<String, TreeSet<Integer>> excludedPositions, HashMap<String, HashMap<Integer, HashSet<String>>> excludedVariants) throws MusialException {
         this.parameters = new MusialStorageParameters(minimalCoverage, minimalFrequency);
