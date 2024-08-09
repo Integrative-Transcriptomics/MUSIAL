@@ -26,7 +26,7 @@ directory.
 
 MUSIAL is also accessible as a web-application at https://musial-tuevis.cs.uni-tuebingen.de/ (currently version `v2.2` is active), supporting not only the
 computational capabilities of the software, but extending it with various user interactions and visualizations. The
-source code of the web-application as well as a separate usage instruction will be available via the `vWeb` branch of
+source code of the web-application as well as a separate usage instruction will be available via the `web` branch of
 this repository shortly.
 
 ---
@@ -80,18 +80,18 @@ following.
 ```
 {
     "minimalCoverage": <Number>                 | Positive integer, variant call positions with read coverage below this value will be marked as ambiguous/rejected.
-    "minimalFrequency": <Number>                | Float between 0.0 and 1.0, variant calls with read coverage relative to total position coverage below this value will be marked as ambiguous/rejected. 
-    "excludedPositions": {                      | Optional: Positions of contigs to exclude from the analysis. 
-        "<ContigName>": [<Number>, ... ]        | <ContigName> has to match the name of any sequence in 'referenceSequenceFile', <Number>s have to be any positions (1-based index) on that sequence; Unmatched entries are ignored. 
+    "minimalFrequency": <Number>                | Float between 0.0 and 1.0, variant calls with read coverage relative to total position coverage below this value will be marked as ambiguous/rejected.
+    "excludedPositions": {                      | Optional: Positions of contigs to exclude from the analysis.
+        "<ContigName>": [<Number>, ... ]        | <ContigName> has to match the name of any sequence in 'referenceSequenceFile', <Number>s have to be any positions (1-based index) on that sequence; Unmatched entries are ignored.
     },
-    "excludedVariants": {                       | Optional: Explicit variants to exclude from the analysis. 
-        "<ContigName>": [<Number>:<Var>, ... ]  | <ContigName> has to match the name of any sequence in 'referenceSequenceFile', <Number>s have to be any positions (1-based index) on that sequence; <Var> is interpreted as the explicit alternative (ALT) content of input .vcf files to ignore; Unmatched entries are ignored. 
+    "excludedVariants": {                       | Optional: Explicit variants to exclude from the analysis.
+        "<ContigName>": [<Number>:<Var>, ... ]  | <ContigName> has to match the name of any sequence in 'referenceSequenceFile', <Number>s have to be any positions (1-based index) on that sequence; <Var> is interpreted as the explicit alternative (ALT) content of input .vcf files to ignore; Unmatched entries are ignored.
     },
     "referenceSequenceFile": "<FilePath>",      | Absolute or relative (to the working directory Java is run from) path to a .fasta|.fa|.fna file.
     "referenceFeaturesFile": "<FilePath>",      |                                                                   ... to a .gff3 file.
     "output": "<FilePath>",                     |                                                                   ... to store the output of the task. If the specified value does not end with .br, .br is appended at the end.
-    "samples": {                                | Collection of samples, each sample is defined by one .vcf file. 
-        "<Name>": {                             | Any string value, used as internal name of the sample. 
+    "samples": {                                | Collection of samples, each sample is defined by one .vcf file.
+        "<Name>": {                             | Any string value, used as internal name of the sample.
             "vcfFile": "<FilePath>",            | Absolute or relative (to the working directory Java is run from) path to a .vcf file.
             "annotations": {                    | Meta-information associated with the sample.
                 "<Key>": "<Value>",             | <Key> and <Value> can be any strings.
@@ -102,7 +102,7 @@ following.
     },
     "samplesDirectory": "<DirectoryPath>",      | Absolute or relative (to the working directory Java is run from) path to a directory. MUSIAL will collect all .vcf files in this directory as samples without annotations. The base name of the files are used as sample names.
     "features": {                               | Collection of features, each feature is considered an interval on any contig specified in 'referenceSequenceFile'.
-        "<Name>": {                             | Any string value, used as internal name of the feature. 
+        "<Name>": {                             | Any string value, used as internal name of the feature.
             "match_<AttributeKey>": "<Value>",  | <AttributeKey> has to match any attribute key in 'referenceFeaturesFile', <Value> is the value to match this feature for.
             "coding": true|false,               | Whether the feature is considered as a protein coding gene or not.
             "annotations": {                    | Meta-information associated with the feature.
@@ -164,7 +164,7 @@ Contig1	Custom	region	1	1139633	.	+	.	Name=genome
 - MUSIAL utilizes the `biojava GFF3Reader` to process **GFF** files:
   - The library is unable to parse files ending with .gff, so ensure that your GFF files use the .gff3 extension.
   - Please ensure that the GFF file does contain comment lines only at the start and no data other than the expected feature annotations are stored (many GFF files store sequence information in addition).
-  - If contig names/**FASTA** headers are numbers, i.e., *>1*, *>2*, ... an index error will likely be thrown, as the value is interpreted as the index of the sequence in the 0-based index list of all sequences.
+  - If contig names/**FASTA** headers are numbers, i.e., _>1_, _>2_, ... an index error will likely be thrown, as the value is interpreted as the index of the sequence in the 0-based index list of all sequences.
 - Please ensure, that the contig names in the reference sequence, reference feature and variant call files match.
 - Currently, only single sample **.vcf** files are supported, i.e., only one genotype per variant context.
 - Complex InDel processing is made available by re-aligning the respective sequence content from the **.vcf** file, i.e., entries like `16333	ATTCA	GTTA` are split into `16333	A	G` and `16335	TC	T-`. **Note:** The outcome of this process may not be identical to the results of other alignment or mapping software, can lead to mixed substitution and InDel information and, thus, lead to somewhat ambiguous results. **We highly recommend to use variant call information without complex InDels**.
@@ -237,8 +237,8 @@ Sample2	19			0			6			3			reference	reference		A3.s19.i0.d6.a3	P1.s56.i0.d4.a2.t0
 - **number_of_insertions** Nucleotide insertions (single base resolution) of this sample across all features.
 - **number_of_deletions** Nucleotide deletions (single base resolution) of this sample across all features.
 - **number_of_ambiguous** Ambiguous positions of this sample across all features
-- **allele_[Feature]** The internal name of the assigned allele of this sample for each feature.
-- **proteoform_[Feature]** The internal name of the assigned proteoform of this sample for each feature.
+- **allele\_[Feature]** The internal name of the assigned allele of this sample for each feature.
+- **proteoform\_[Feature]** The internal name of the assigned proteoform of this sample for each feature.
 - **Custom Annotations** The value for a user-defined annotation for this sample. All annotations of all viewed samples are displayed as separate columns.
 - ! All missing values are replaced with _null_.
 
@@ -273,9 +273,9 @@ position	reference_content	alternate_content	feature		occurrence		type		frequenc
 - **alternate_content** The alternative base content.
 - **feature** The feature this variant is located on.
 - **occurrence** Comma separated list of samples that yield this variant.
-- **type** The type of the variant determined by MUSIAL (one of _substitution_, _insertion_, or _deletion_, with an optional _ambiguous__ prefix).
+- **type** The type of the variant determined by MUSIAL (one of _substitution_, _insertion_, or _deletion_, with an optional \_ambiguous\_\_ prefix).
 - **frequency** The frequency in percent of this variant relative to all samples.
-- **snpeff_[ANN]** MUSIAL conducts SnpEff annotation of all unambiguous nucleotide variant calls and extracts the added **ANN** fields as annotation fields. The full list of SnpEff **ANN** fields can be found [here](https://pcingola.github.io/SnpEff/snpeff/inputoutput/#ann-field-vcf-output-files). 
+- **snpeff\_[ANN]** MUSIAL conducts SnpEff annotation of all unambiguous nucleotide variant calls and extracts the added **ANN** fields as annotation fields. The full list of SnpEff **ANN** fields can be found [here](https://pcingola.github.io/SnpEff/snpeff/inputoutput/#ann-field-vcf-output-files).
 
 #### Differences `view_variants -c aminoacid`
 
@@ -297,7 +297,7 @@ command line arguments of task export_table
  -s,--samples <arg>   Explicit space separated list of samples to restrict variants to (Default: all).
 ```
 
-The `export_table` task is used to create a complete overview of the variant calls of a subset (or all) analyzed samples with respect to a single feature. It can best be regarded as the short version of a multi-sample **.vcf** file.  The output of the `export_table -c nucleotide` task will look something like:
+The `export_table` task is used to create a complete overview of the variant calls of a subset (or all) analyzed samples with respect to a single feature. It can best be regarded as the short version of a multi-sample **.vcf** file. The output of the `export_table -c nucleotide` task will look something like:
 
 ```
 Position	Reference	Sample1		Sample2		⋯
@@ -308,6 +308,7 @@ Position	Reference	Sample1		Sample2		⋯
 
 **Position** reflects the corresponding position in the reference sequence (1-based) and **Reference** the base in the reference sequence at this position. All subsequent columns describe the potential variant call at this position per sample or `.`, if no information about the position was present in the sample's **.vcf** file.
 For `export_table -c nucleotide` each cell is described by `<CallIndex> ; <TotalCoverage> ; <A1>:<A1Coverage>,<A2>:<A2Coverage>,...`, where
+
 - `<CallIndex>` The index of the called/most frequent allele with respect to the third field `<A1>:<A1Coverage>,...`.
 - `<TotalCoverage>` The total read coverage at the position for the sample (extracted from the respective **.vcf** file).
 - `<A1>:<A1Coverage>,<A2>:<A2Coverage>,...` A `,` separated list of alternative contents and their respective read support. The first entry at index 0 is the reference content.
@@ -339,7 +340,6 @@ command line arguments of task export_sequence
 
 The `export_sequence` task is used to create **FASTA** format sequence data from the variant calls of a subset (or all) analyzed samples with respect to a single feature.
 
-
 </details>
 
 <details>
@@ -356,14 +356,17 @@ We will soon add a description of MUSIAL's internal storage structure.
 ## Open Developments and Limitations
 
 #### Processing Efficiency
+
 - When developing MUSIAL, we took care to ensure an efficient computing and storage structure. However, we do not use dedicated index files, which has some limitations:
   - We refrain from using large (eukaryotic) data sets (at least the possibility of processing them has not yet been validated).
 
 #### Other OMICS Integration
+
 - MUSIAL allows to integrate nucleotide variants to the protein level (i.e., the inference of SAVs, aminoacid InDels and proteoforms). A corresponding integration into the RNA level is currently not possible.
 - We are looking for a method to predict the effects of SAVs and amino acid InDels on the integrity and function of proteins.
 
 #### Upcoming Features
+
 - Provision and description of an example data set.
 - Adaptation of the web-application to `v2.3`.
 - Benchmarking.
