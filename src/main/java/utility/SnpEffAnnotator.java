@@ -155,10 +155,10 @@ public final class SnpEffAnnotator {
             // Run snpEff annotation on each input .vcf file (multi-threaded).
             String[] runSNPEff = {"java", "-jar", "snpEff.jar",
                     "-v",
-                    "-no-downstream", // Do not show DOWNSTREAM changes
-                    "-no-intergenic", // Do not show INTERGENIC changes
-                    "-no-intron", // Do not show INTRON changes
-                    "-no-upstream", // Do not show UPSTREAM changes
+                    // Do not show DOWNSTREAM changes: "-no-downstream",
+                    // Do not show INTERGENIC changes: "-no-intergenic",
+                    // Do not show INTRON changes: "-no-intron",
+                    // Do not show UPSTREAM changes: "-no-upstream",
                     "reference",
                     targetVcf.getAbsolutePath()
             };
