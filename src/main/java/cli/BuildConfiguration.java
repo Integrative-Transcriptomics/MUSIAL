@@ -118,11 +118,7 @@ public final class BuildConfiguration {
         this.referenceSequenceFile = new File((String) parameters.get("referenceSequenceFile"));
         if (Validation.isFile(referenceSequenceFile)) {
             try {
-                try {
-                    FastaSequenceIndexCreator.create(referenceSequenceFile.toPath(), false);
-                } catch (SAMException e) {
-                    // Exception is raised if file already exists. This can be ignored.
-                }
+                FastaSequenceIndexCreator.create(referenceSequenceFile.toPath(), true);
                 this.referenceSequence = new IndexedFastaSequenceFile(referenceSequenceFile.toPath());
             } catch (IOException e) {
                 throw new MusialException(EXCEPTION_PREFIX + " Failed to create or locate index for reference sequence file '" + referenceSequenceFile.getAbsolutePath() + "'; " + e.getMessage());
