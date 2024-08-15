@@ -7,7 +7,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import datastructure.*;
 import exceptions.MusialException;
-import htsjdk.samtools.SAMException;
 import htsjdk.samtools.reference.FastaSequenceIndexCreator;
 import htsjdk.samtools.reference.IndexedFastaSequenceFile;
 import org.apache.commons.cli.CommandLine;
@@ -168,11 +167,11 @@ public final class Musial {
         Logger.logStatus("Process variant calls");
         iterator = musialStorage.getSampleNameIterator();
         Sample sample;
-        do {
+        while (iterator.hasNext()) {
             sample = musialStorage.getSample(iterator.next());
             sample.imputeVcfFileReader();
             SampleAnalyzer.run(sample, musialStorage.getFeatureNameIterator(), musialStorage);
-        } while (iterator.hasNext());
+        }
         System.gc();
 
         // Run SnpEff annotation of variants.
@@ -197,13 +196,13 @@ public final class Musial {
         iterator = musialStorage.getFeatureNameIterator();
         Feature feature;
         FeatureCoding featureCoding;
-        do {
+        while (iterator.hasNext()) {
             feature = musialStorage.getFeature(iterator.next());
             if (feature instanceof FeatureCoding) {
                 featureCoding = (FeatureCoding) feature;
                 AlleleAnalyzer.run(featureCoding, musialStorage);
             }
-        } while (iterator.hasNext());
+        }
         System.gc();
 
         // Update info statistics.
@@ -390,11 +389,11 @@ public final class Musial {
             sample = musialStorage.getSample(sampleNameIterator.next());
             outputContainer.get("name").add(sample.name);
             featureNameIterator = musialStorage.getFeatureNameIterator();
-            do {
+            while (featureNameIterator.hasNext()) {
                 featureName = featureNameIterator.next();
                 transferContent(outputContainer, "allele_" + featureName, Objects.isNull(sample.getAllele(featureName)) ? "null" : sample.getAllele(featureName), rowCount);
                 transferContent(outputContainer, "proteoform_" + featureName, Objects.isNull(sample.getProteoform(featureName)) ? "null" : sample.getProteoform(featureName), rowCount);
-            } while (featureNameIterator.hasNext());
+            }
             for (Map.Entry<String, String> info : sample.getInfoSet()) {
                 key = info.getKey();
                 value = info.getValue();
@@ -643,11 +642,7 @@ public final class Musial {
             if (contentMode.equals(Constants.CONTENT_MODE_NUCLEOTIDE) && parameters.hasOption("r")) {
                 File referenceSequenceFile = new File(parameters.getOptionValue("r"));
                 IndexedFastaSequenceFile referenceSequence;
-                try {
-                    FastaSequenceIndexCreator.create(referenceSequenceFile.toPath(), false);
-                } catch (SAMException e) {
-                    // Exception is raised if file already exists. This can be ignored.
-                }
+                FastaSequenceIndexCreator.create(referenceSequenceFile.toPath(), true);
                 referenceSequence = new IndexedFastaSequenceFile(referenceSequenceFile.toPath());
                 musialStorage.setReference(referenceSequence);
                 referenceContent = musialStorage.getReferenceSequenceOfFeature(feature.name).split("");
@@ -757,7 +752,7 @@ public final class Musial {
             String[] variantFields;
             if (contentMode.equals(Constants.CONTENT_MODE_NUCLEOTIDE)) {
                 formNameIterator = feature.getAlleleNameIterator();
-                do {
+                while (formNameIterator.hasNext()) {
                     form = feature.getAllele(formNameIterator.next());
                     formVariants = SerializationUtils.clone(referenceTable);
                     if (!form.name.equals(Constants.REFERENCE_FORM_NAME)) {
@@ -796,11 +791,11 @@ public final class Musial {
                                 writeEntry.accept(sampleName, null, formVariants.values());
                     }
                     outputWriter.flush();
-                } while (formNameIterator.hasNext());
+                }
             } else {
                 FeatureCoding featureCoding = ((FeatureCoding) feature);
                 formNameIterator = featureCoding.getProteoformNameIterator();
-                do {
+                while (formNameIterator.hasNext()) {
                     form = featureCoding.getProteoform(formNameIterator.next());
                     formVariants = SerializationUtils.clone(referenceTable);
                     if (!form.name.equals(Constants.REFERENCE_FORM_NAME)) {
@@ -838,7 +833,7 @@ public final class Musial {
                                 writeEntry.accept(sampleName, null, formVariants.values());
                     }
                     outputWriter.flush();
-                } while (formNameIterator.hasNext());
+                }
             }
         }
         Logger.logStatus("Done writing output to file `" + new File(parameters.getOptionValue("O")).getAbsolutePath() + "`");

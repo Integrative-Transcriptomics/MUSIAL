@@ -180,11 +180,11 @@ public class AlleleAnalyzer {
         Form proteoform = new Form(formName, sitesString);
         _featureCoding.addProteoform(proteoform);
         Iterator<String> iterator = allele.getOccurrenceIterator();
-        do {
+        while (iterator.hasNext()) {
             Sample sample = storage.getSample(iterator.next());
             _featureCoding.getProteoform(proteoform.name).addOccurrence(sample.name);
             sample.setProteoform(_featureCoding.name, proteoform.name);
-        } while (iterator.hasNext());
+        }
         allele.addInfo("proteoform", proteoform.name);
     }
 
