@@ -296,11 +296,10 @@ public class MusialStorage extends InfoContainer {
                 for (Map.Entry<String, VariantInformation> variantEntry : feature.getNucleotideVariantsAt(variantPosition, false).entrySet()) {
                     String variantContent = variantEntry.getKey();
                     VariantInformation variantInformation = variantEntry.getValue();
-                    if (variantContent.contains(Constants.ANY_NUCLEOTIDE_STRING)) {
+                    if (variantContent.contains(Constants.ANY_NUCLEOTIDE_STRING))
                         variantContent = variantInformation.getInfo(Constants.VARIANT_INFO_ACTUAL_ALT);
-                        if (variantContent.equals(variantInformation.referenceContent))
-                            continue;
-                    }
+                    if (variantContent.equals(variantInformation.referenceContent))
+                        continue;
                     vcfContent
                             .append(feature.contig).append("\t")
                             .append(variantPosition).append("\t")
