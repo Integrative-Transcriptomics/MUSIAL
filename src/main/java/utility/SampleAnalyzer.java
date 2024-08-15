@@ -211,7 +211,7 @@ public final class SampleAnalyzer {
             for (Quartet<String, String, Double, Integer> call : calls) {
                 callIndex = calls.indexOf(call);
                 primary = callIndex == primaryCallIndex; // Set if call is the primary call.
-                pass = call.getValue3() >= storage.parameters.minimalCoverage || call.getValue2() >= storage.parameters.minimalFrequency; // Set if call passes acceptance criteria.
+                pass = call.getValue3() >= storage.parameters.minimalCoverage && call.getValue2() >= storage.parameters.minimalFrequency; // Set if call passes acceptance criteria.
                 ambiguous = primary && !pass;
                 ref = call.getValue0();
                 alt = call.getValue1();
