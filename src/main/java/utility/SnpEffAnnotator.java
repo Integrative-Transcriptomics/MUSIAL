@@ -208,11 +208,26 @@ public final class SnpEffAnnotator {
                         if (i >= 12) {
                             break;
                         }
-                        variantInformation = musialStorage.getFeature(affectedFeatureName).getNucleotideVariant(Integer.parseInt(pos), alt.toString());
-                        variantInformation.addInfo(
-                                Constants.SNP_EFF_INFO_PREFIX + Constants.SNP_EFF_INFO_KEYS.get(i - 1),
-                                annotationFields[i]
-                        );
+                        try {
+                            // Try to access variant information entry and add SnpEff information.
+                            variantInformation = musialStorage.getFeature(affectedFeatureName).getNucleotideVariant(Integer.parseInt(pos), alt.toString());
+                            variantInformation.addInfo(
+                                    Constants.SNP_EFF_INFO_PREFIX + Constants.SNP_EFF_INFO_KEYS.get(i - 1),
+                                    annotationFields[i]
+                            );
+                        } catch (NullPointerException e0) {
+                            // In the case of a null pointer exception, the variant is likely to be ambiguous; Try to access variant information entry with ambiguous content. This is more efficient than an if-case for rare occasions.
+                            try {
+                                variantInformation = musialStorage.getFeature(affectedFeatureName).getNucleotideVariant(Integer.parseInt(pos), Constants.ANY_NUCLEOTIDE_STRING);
+                                variantInformation.addInfo(
+                                        Constants.SNP_EFF_INFO_PREFIX + Constants.SNP_EFF_INFO_KEYS.get(i - 1),
+                                        annotationFields[i]
+                                );
+                            } catch (NullPointerException e1) {
+                                // If the variant is also not stored with ambiguous content, log warning.
+                                Logger.logWarning("Variant " + alt + " at position " + pos + " (feature " + affectedFeatureName + ") is not contained in the storage.");
+                            }
+                        }
                     }
                 }
                 alt.setLength(0);
