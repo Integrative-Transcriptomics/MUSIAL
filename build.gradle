@@ -1,7 +1,7 @@
 /*
 Set meta-information for the project build.
 */
-version 'v2.3.9'
+version 'v2.3.10'
 group 'de.tue.cs.ibmi.it'
 
 println "Project: $project"

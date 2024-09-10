@@ -60,9 +60,9 @@ public final class SnpEffAnnotator {
      * Constructor of {@link SnpEffAnnotator} class.
      *
      * @param targetDirectory    The working directory of SnpEff.
-     * @param targetVcf          The .vcf format file to annotate.
-     * @param referenceSequences The reference sequence of the target .vcf file in .fasta format.
-     * @param referenceFeatures  The reference sequence features of the target .vcf file in .gff format.
+     * @param targetVcf          The VCF file to annotate.
+     * @param referenceSequences The reference sequence of the target VCF file in FASTA format.
+     * @param referenceFeatures  The reference sequence features of the target VCF file in GFF(3) format.
      * @param musialStorage      The {@link MusialStorage} instance to transfer annotations to.
      */
     public SnpEffAnnotator(File targetDirectory, File targetVcf, File referenceSequences, File referenceFeatures, MusialStorage musialStorage) {
@@ -143,28 +143,29 @@ public final class SnpEffAnnotator {
                 throw new MusialException(EXCEPTION_PREFIX + " Failed to add reference  " + this.targetDirectory.getAbsolutePath());
             }
             // Generate database with reference genome information.
-            String[] createSNPEffDatabase = {"java", "-jar", "snpEff.jar", "build",
+            String[] snpEff_build = {"java", "-jar", "snpEff.jar", "build",
                     "-gff3",
-                    "-v", "reference"
+                    "-noCheckCds",
+                    "-noCheckProtein",
+                    "-nodownload",
+                    "reference"
             };
-            CL.runCommand(createSNPEffDatabase,
-                    this.targetDirectory + "/" + "snpEffDatabase.error",
-                    this.targetDirectory + "/" + "snpEffDatabase.log",
+            CL.runCommand(snpEff_build,
+                    this.targetDirectory + "/" + "snpEff.build.error",
+                    this.targetDirectory + "/" + "snpEff.build.log",
                     this.targetDirectory.getAbsolutePath()
             );
-            // Run snpEff annotation on each input .vcf file (multi-threaded).
-            String[] runSNPEff = {"java", "-jar", "snpEff.jar",
-                    "-v",
-                    // Do not show DOWNSTREAM changes: "-no-downstream",
-                    // Do not show INTERGENIC changes: "-no-intergenic",
-                    // Do not show INTRON changes: "-no-intron",
-                    // Do not show UPSTREAM changes: "-no-upstream",
+            // Run snpEff annotation on each input .vcf file.
+            String[] snpEff_ann = {"java", "-jar", "snpEff.jar", "ann",
+                    "-noStats",
+                    "-lof",
+                    "-nodownload",
                     "reference",
                     targetVcf.getAbsolutePath()
             };
-            CL.runCommand(runSNPEff,
-                    new File(this.targetDirectory + "/" + "snpEff.log").getAbsolutePath(),
-                    new File(this.targetDirectory + "/" + "annotated_variants.vcf").getAbsolutePath(),
+            CL.runCommand(snpEff_ann,
+                    new File(this.targetDirectory + "/" + "snpEff.ann.log").getAbsolutePath(),
+                    new File(this.targetDirectory + "/" + "variants.ann.vcf").getAbsolutePath(),
                     this.targetDirectory.getAbsolutePath()
             );
             // Transfer annotation results to musial storage.
@@ -180,7 +181,7 @@ public final class SnpEffAnnotator {
     private void transferAnnotation() {
         List<String> variantCallAnnotations;
         try {
-            variantCallAnnotations = IO.readLinesFromFile(this.targetDirectory + "/" + "annotated_variants.vcf").stream().filter(s -> !s.startsWith("#")).collect(Collectors.toList());
+            variantCallAnnotations = IO.readLinesFromFile(this.targetDirectory + "/" + "variants.ann.vcf").stream().filter(s -> !s.startsWith("#")).collect(Collectors.toList());
             String pos;
             String ref;
             StringBuilder alt;
@@ -197,7 +198,7 @@ public final class SnpEffAnnotator {
                 if (annotationFields[7].equals(".")) {
                     continue;
                 } else {
-                    annotationFields = annotationFields[7].replace("ANN=", "").split("\\|");
+                    annotationFields = annotationFields[7].replace("ANN=", "").split(",")[0].split("\\|");
                 }
                 Iterator<String> affectedFeatureNames = musialStorage.getFeatureNameIterator(Integer.parseInt(pos));
                 String affectedFeatureName;
