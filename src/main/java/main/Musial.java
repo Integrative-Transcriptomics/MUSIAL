@@ -755,7 +755,7 @@ public final class Musial {
                 while (formNameIterator.hasNext()) {
                     form = feature.getAllele(formNameIterator.next());
                     formVariants = SerializationUtils.clone(referenceTable);
-                    if (!form.name.equals(Constants.REFERENCE_FORM_NAME)) {
+                    if (!form.name.equals(Constants.REFERENCE_FORM_NAME) && form.getOccurrenceSet().stream().anyMatch(sampleNamesSet::contains)) {
                         for (String variant : form.variants.split(Constants.ENTRY_SEPARATOR)) {
                             variantFields = variant.split(Constants.FIELD_SEPARATOR);
                             position = Integer.parseInt(variantFields[0]);
@@ -788,9 +788,10 @@ public final class Musial {
                             writeEntry.accept(form.name, null, formVariants.values());
                         else
                             for (String sampleName : form.getOccurrenceSet())
-                                writeEntry.accept(sampleName, null, formVariants.values());
+                                if ( sampleNamesSet.contains(sampleName) )
+                                    writeEntry.accept(sampleName, null, formVariants.values());
+                        outputWriter.flush();
                     }
-                    outputWriter.flush();
                 }
             } else {
                 FeatureCoding featureCoding = ((FeatureCoding) feature);
@@ -798,7 +799,7 @@ public final class Musial {
                 while (formNameIterator.hasNext()) {
                     form = featureCoding.getProteoform(formNameIterator.next());
                     formVariants = SerializationUtils.clone(referenceTable);
-                    if (!form.name.equals(Constants.REFERENCE_FORM_NAME)) {
+                    if (!form.name.equals(Constants.REFERENCE_FORM_NAME) && form.getOccurrenceSet().stream().anyMatch(sampleNamesSet::contains)) {
                         for (String variant : form.variants.split(Constants.ENTRY_SEPARATOR)) {
                             variantFields = variant.split(Constants.FIELD_SEPARATOR);
                             position = Integer.parseInt(variantFields[0]);
@@ -830,9 +831,11 @@ public final class Musial {
                             writeEntry.accept(form.name, null, formVariants.values());
                         else
                             for (String sampleName : form.getOccurrenceSet())
-                                writeEntry.accept(sampleName, null, formVariants.values());
+                                if (sampleNamesSet.contains(sampleName))
+                                    writeEntry.accept(sampleName, null, formVariants.values());
+                        outputWriter.flush();
                     }
-                    outputWriter.flush();
+
                 }
             }
         }
