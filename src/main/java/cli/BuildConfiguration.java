@@ -5,7 +5,6 @@ import datastructure.Feature;
 import datastructure.FeatureCoding;
 import datastructure.Sample;
 import exceptions.MusialException;
-import htsjdk.samtools.SAMException;
 import htsjdk.samtools.reference.BlockCompressedIndexedFastaSequenceFile;
 import htsjdk.samtools.reference.FastaSequenceIndexCreator;
 import htsjdk.samtools.reference.IndexedFastaSequenceFile;
