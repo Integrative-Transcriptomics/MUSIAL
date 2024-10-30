@@ -634,7 +634,7 @@ public final class Musial {
 
         // Construct reference table.
         Logger.logStatus("Collate variants information");
-        LinkedHashMap<Integer, String> referenceTable;
+        LinkedHashMap<Integer, String> variantsTable;
         if (conserved) {
             String[] referenceContent;
             NavigableSet<Integer> variantPositions;
@@ -646,13 +646,13 @@ public final class Musial {
                 referenceSequence = new IndexedFastaSequenceFile(referenceSequenceFile.toPath());
                 musialStorage.setReference(referenceSequence);
                 referenceContent = musialStorage.getReferenceSequenceOfFeature(feature.name).split("");
-                referenceTable = new LinkedHashMap<>(referenceContent.length, 10);
+                variantsTable = new LinkedHashMap<>(referenceContent.length, 10);
                 variantPositions = feature.getNucleotideVariantPositions();
                 getVariantInformation = (position) -> feature.getNucleotideVariantsAt(position, true).values();
             } else if (contentMode.equals(Constants.CONTENT_MODE_AMINOACID)) {
                 FeatureCoding featureCoding = (FeatureCoding) feature;
                 referenceContent = featureCoding.getCodingSequence().split("");
-                referenceTable = new LinkedHashMap<>(referenceContent.length, 10);
+                variantsTable = new LinkedHashMap<>(referenceContent.length, 10);
                 variantPositions = featureCoding.getAminoacidVariantPositions();
                 getVariantInformation = (position) -> featureCoding.getAminoacidVariantsAt(position).values();
             } else {
@@ -660,16 +660,16 @@ public final class Musial {
             }
             for (int i = 0; i < referenceContent.length; i++)
                 if (contentMode.equals(Constants.CONTENT_MODE_NUCLEOTIDE))
-                    referenceTable.put(feature.start + i, referenceContent[i]);
+                    variantsTable.put(feature.start + i, referenceContent[i]);
                 else
-                    referenceTable.put(i, referenceContent[i]);
+                    variantsTable.put(i, referenceContent[i]);
             for (Integer position : variantPositions)
                 for (VariantInformation variantInformation : getVariantInformation.apply(position))
                     // Replaces reference content with maximal insertion length wrt. samples to use.
                     if (variantInformation.getInfo(Constants.TYPE).contains(Constants.TYPE_INSERTION) && variantOccurs.apply(variantInformation))
                         // Reference content is stored in variant information with padded '-' symbols to indicate insertion.
-                        if (variantInformation.referenceContent.length() > referenceTable.getOrDefault(position, "").length())
-                            referenceTable.put(position, variantInformation.referenceContent);
+                        if (variantInformation.referenceContent.length() > variantsTable.getOrDefault(position, "").length())
+                            variantsTable.put(position, variantInformation.referenceContent);
         } else {
             NavigableSet<Integer> variantPositions;
             Function<Integer, Collection<Map.Entry<String, VariantInformation>>> getVariantEntries;
@@ -678,12 +678,12 @@ public final class Musial {
             char[] chars;
             if (contentMode.equals(Constants.CONTENT_MODE_NUCLEOTIDE)) {
                 variantPositions = feature.getNucleotideVariantPositions();
-                referenceTable = new LinkedHashMap<>(variantPositions.size(), 10);
+                variantsTable = new LinkedHashMap<>(variantPositions.size(), 10);
                 getVariantEntries = (position) -> feature.getNucleotideVariantsAt(position, true).entrySet();
             } else if (contentMode.equals(Constants.CONTENT_MODE_AMINOACID)) {
                 FeatureCoding featureCoding = (FeatureCoding) feature;
                 variantPositions = featureCoding.getAminoacidVariantPositions();
-                referenceTable = new LinkedHashMap<>(variantPositions.size(), 10);
+                variantsTable = new LinkedHashMap<>(variantPositions.size(), 10);
                 getVariantEntries = (position) -> featureCoding.getAminoacidVariantsAt(position).entrySet();
             } else {
                 throw new MusialException("Failed to export sequences with parameter --content=" + contentMode + ".");
@@ -694,19 +694,19 @@ public final class Musial {
                     variantInformation = entry.getValue();
                     if (variantOccurs.apply(variantInformation)) {
                         if (variantInformation.getInfo(Constants.TYPE).equals(Constants.TYPE_INSERTION)) {
-                            if (variantInformation.referenceContent.length() > referenceTable.getOrDefault(position, "").length())
-                                referenceTable.put(position, variantInformation.referenceContent);
+                            if (variantInformation.referenceContent.length() > variantsTable.getOrDefault(position, "").length())
+                                variantsTable.put(position, variantInformation.referenceContent);
                         } else if (variantInformation.getInfo(Constants.TYPE).equals(Constants.TYPE_DELETION)) {
                             // Insert position wise reference content of deletion that occurs in any sample.
                             chars = variantInformation.referenceContent.toCharArray();
                             for (int i = 0; i < chars.length; i++)
-                                referenceTable.putIfAbsent(position + i, String.valueOf(chars[i]));
+                                variantsTable.putIfAbsent(position + i, String.valueOf(chars[i]));
                         } else if (variantInformation.getInfo(Constants.TYPE).equals(Constants.TYPE_SUBSTITUTION)) {
                             // Insert reference content of substitution that occurs in any sample.
-                            referenceTable.putIfAbsent(position, variantInformation.referenceContent);
+                            variantsTable.putIfAbsent(position, variantInformation.referenceContent);
                         } else if (variantInformation.getInfo(Constants.TYPE).equals(Constants.TYPE_AMBIGUOUS)) {
                             // Insert reference content of ambiguous call that occurs in any sample.
-                            referenceTable.putIfAbsent(position, variantInformation.referenceContent);
+                            variantsTable.putIfAbsent(position, variantInformation.referenceContent);
                         } else {
                             Logger.logWarning("Unable to process variant " + position + " " + alt + " of type " + variantInformation.getInfo(Constants.TYPE) + ".");
                         }
@@ -742,10 +742,10 @@ public final class Musial {
                 else
                     return s.substring(i);
             }; // Internal helper function to truncate strings.
-            writeEntry.accept(Constants.REFERENCE_FORM_NAME, null, referenceTable.values());
+            writeEntry.accept(Constants.REFERENCE_FORM_NAME, null, variantsTable.values());
             Form form;
             Iterator<String> formNameIterator;
-            LinkedHashMap<Integer, String> formVariants;
+            LinkedHashMap<Integer, String> variantsTableClone;
             int position;
             String alt;
             String type;
@@ -754,42 +754,44 @@ public final class Musial {
                 formNameIterator = feature.getAlleleNameIterator();
                 while (formNameIterator.hasNext()) {
                     form = feature.getAllele(formNameIterator.next());
-                    formVariants = SerializationUtils.clone(referenceTable);
-                    if (!form.name.equals(Constants.REFERENCE_FORM_NAME) && form.getOccurrenceSet().stream().anyMatch(sampleNamesSet::contains)) {
-                        for (String variant : form.variants.split(Constants.ENTRY_SEPARATOR)) {
-                            variantFields = variant.split(Constants.FIELD_SEPARATOR);
-                            position = Integer.parseInt(variantFields[0]);
-                            alt = variantFields[1];
-                            type = feature.getNucleotideVariant(position, alt).getInfo(Constants.TYPE);
-                            if (type.contains(Constants.TYPE_DELETION)) {
-                                // Call is deletion.
-                                for (int i = 0; i < alt.length(); i++)
-                                    if (formVariants.containsKey(position + i)) // Avoid deletions that exceed the feature length!
-                                        formVariants.put(
-                                                position + i,
-                                                alt.charAt(i) + formVariants.get(position + i).substring(1)
-                                        );
-                            } else if (type.contains(Constants.TYPE_SUBSTITUTION) || type.contains(Constants.TYPE_AMBIGUOUS)) {
-                                // Call is substitution.
-                                formVariants.put(
-                                        position,
-                                        // Add alt. at position and any putative gaps of insertions in other samples.
-                                        alt + formVariants.get(position).substring(1)
-                                );
-                            } else if (type.contains(Constants.TYPE_INSERTION)) {
-                                // Call is insertion.
-                                formVariants.put(
-                                        position,
-                                        alt + substringOrEmpty.apply(formVariants.get(position), alt.length())
-                                );
+                    variantsTableClone = SerializationUtils.clone(variantsTable);
+                    if (form.getOccurrenceSet().stream().anyMatch(sampleNamesSet::contains)) {
+                        if ( !form.variants.equals("") ) { // If the current form has any variants, i.e., is not the reference.
+                            for (String variant : form.variants.split(Constants.ENTRY_SEPARATOR)) {
+                                variantFields = variant.split(Constants.FIELD_SEPARATOR);
+                                position = Integer.parseInt(variantFields[0]);
+                                alt = variantFields[1];
+                                type = feature.getNucleotideVariant(position, alt).getInfo(Constants.TYPE);
+                                if (type.contains(Constants.TYPE_DELETION)) {
+                                    // Call is deletion.
+                                    for (int i = 0; i < alt.length(); i++)
+                                        if (variantsTableClone.containsKey(position + i)) // Avoid deletions that exceed the feature length!
+                                            variantsTableClone.put(
+                                                    position + i,
+                                                    alt.charAt(i) + variantsTableClone.get(position + i).substring(1)
+                                            );
+                                } else if (type.contains(Constants.TYPE_SUBSTITUTION) || type.contains(Constants.TYPE_AMBIGUOUS)) {
+                                    // Call is substitution.
+                                    variantsTableClone.put(
+                                            position,
+                                            // Add alt. at position and any putative gaps of insertions in other samples.
+                                            alt + variantsTableClone.get(position).substring(1)
+                                    );
+                                } else if (type.contains(Constants.TYPE_INSERTION)) {
+                                    // Call is insertion.
+                                    variantsTableClone.put(
+                                            position,
+                                            alt + substringOrEmpty.apply(variantsTableClone.get(position), alt.length())
+                                    );
+                                }
                             }
                         }
-                        if (merge)
-                            writeEntry.accept(form.name, null, formVariants.values());
+                        if (merge && !form.name.equals(Constants.REFERENCE_FORM_NAME))
+                            writeEntry.accept(form.name, null, variantsTableClone.values());
                         else
                             for (String sampleName : form.getOccurrenceSet())
-                                if ( sampleNamesSet.contains(sampleName) )
-                                    writeEntry.accept(sampleName, null, formVariants.values());
+                                if (sampleNamesSet.contains(sampleName))
+                                    writeEntry.accept(sampleName, null, variantsTableClone.values());
                         outputWriter.flush();
                     }
                 }
@@ -798,41 +800,43 @@ public final class Musial {
                 formNameIterator = featureCoding.getProteoformNameIterator();
                 while (formNameIterator.hasNext()) {
                     form = featureCoding.getProteoform(formNameIterator.next());
-                    formVariants = SerializationUtils.clone(referenceTable);
-                    if (!form.name.equals(Constants.REFERENCE_FORM_NAME) && form.getOccurrenceSet().stream().anyMatch(sampleNamesSet::contains)) {
-                        for (String variant : form.variants.split(Constants.ENTRY_SEPARATOR)) {
-                            variantFields = variant.split(Constants.FIELD_SEPARATOR);
-                            position = Integer.parseInt(variantFields[0]);
-                            alt = variantFields[1];
-                            type = featureCoding.getAminoacidVariant(position, alt).getInfo(Constants.TYPE);
-                            if (type.contains(Constants.TYPE_DELETION)) {
-                                // Call is deletion.
-                                for (int i = 0; i < alt.length(); i++)
-                                    if (formVariants.containsKey(position + i)) // Avoid deletions that exceed the feature length!
-                                        formVariants.put(
-                                                position + i,
-                                                alt.charAt(i) + formVariants.get(position + i).substring(1)
-                                        );
-                            } else if (type.contains(Constants.TYPE_SUBSTITUTION) || type.contains(Constants.TYPE_AMBIGUOUS)) {
-                                // Call is substitution.
-                                formVariants.put(
-                                        position,
-                                        alt + formVariants.get(position).substring(1)
-                                );
-                            } else if (type.contains(Constants.TYPE_INSERTION)) {
-                                // Call is insertion.
-                                formVariants.put(
-                                        position,
-                                        alt + substringOrEmpty.apply(formVariants.get(position), alt.length())
-                                );
+                    variantsTableClone = SerializationUtils.clone(variantsTable);
+                    if (form.getOccurrenceSet().stream().anyMatch(sampleNamesSet::contains)) {
+                        if ( !form.variants.equals("") ) { // If the current form has any variants, i.e., is not the reference.
+                            for (String variant : form.variants.split(Constants.ENTRY_SEPARATOR)) {
+                                variantFields = variant.split(Constants.FIELD_SEPARATOR);
+                                position = Integer.parseInt(variantFields[0]);
+                                alt = variantFields[1];
+                                type = featureCoding.getAminoacidVariant(position, alt).getInfo(Constants.TYPE);
+                                if (type.contains(Constants.TYPE_DELETION)) {
+                                    // Call is deletion.
+                                    for (int i = 0; i < alt.length(); i++)
+                                        if (variantsTableClone.containsKey(position + i)) // Avoid deletions that exceed the feature length!
+                                            variantsTableClone.put(
+                                                    position + i,
+                                                    alt.charAt(i) + variantsTableClone.get(position + i).substring(1)
+                                            );
+                                } else if (type.contains(Constants.TYPE_SUBSTITUTION) || type.contains(Constants.TYPE_AMBIGUOUS)) {
+                                    // Call is substitution.
+                                    variantsTableClone.put(
+                                            position,
+                                            alt + variantsTableClone.get(position).substring(1)
+                                    );
+                                } else if (type.contains(Constants.TYPE_INSERTION)) {
+                                    // Call is insertion.
+                                    variantsTableClone.put(
+                                            position,
+                                            alt + substringOrEmpty.apply(variantsTableClone.get(position), alt.length())
+                                    );
+                                }
                             }
                         }
-                        if (merge)
-                            writeEntry.accept(form.name, null, formVariants.values());
+                        if (merge && !form.name.equals(Constants.REFERENCE_FORM_NAME))
+                            writeEntry.accept(form.name, null, variantsTableClone.values());
                         else
                             for (String sampleName : form.getOccurrenceSet())
                                 if (sampleNamesSet.contains(sampleName))
-                                    writeEntry.accept(sampleName, null, formVariants.values());
+                                    writeEntry.accept(sampleName, null, variantsTableClone.values());
                         outputWriter.flush();
                     }
 
