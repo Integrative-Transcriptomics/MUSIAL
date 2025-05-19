@@ -1,0 +1,80 @@
+{
+  "$schema": "buildConfigurationSchema.json",
+  "title": "MUSIAL v2.4 build configuration",
+  "description": "JSON schema to validate and document the MUSIAL build task parameters.",
+  "type": "object",
+  "properties": {
+    "minimalCoverage": {
+      "description": "The minimal depth of coverage wrt. reads of a variant to be accepted.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "minimalFrequency": {
+      "description": "The minimal frequency wrt. reads supporting a nucleotide variant call for a variant to be accepted.",
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "storeFiltered": {
+      "description": "If set to true, calls that are filtered by coverage and frequency restrictions are retained as ambiguous variants (N).",
+      "type": "boolean"
+    },
+    "skipSnpEff": {
+      "description": "If set to true, SnpEff analysis will be skipped.",
+      "type": "boolean"
+    },
+    "skipProteoformInference": {
+      "description": "If set to true, proteoform inference will be skipped.",
+      "type": "boolean"
+    },
+    "excludedPositions": {
+      "description": "Path to a BED file (no header row, rows starting with # are ignored); Only obligatory columns one (chrom), two (start) and three (end) are considered. Specification of positions to be excluded from the analysis.",
+      "type": "string",
+      "pattern": "^.+.bed|.+.tsv|.+.csv$"
+    },
+    "excludedVariants": {
+      "description": "Path to a .tsv file (no header row, rows starting with # are ignored); The file is expected to contain four columns (chrom, pos, ref, alt). Specification of variants to be excluded from the analysis",
+      "type": "string",
+      "pattern": "^.+.tsv|.+.csv$"
+    },
+    "reference": {
+      "description": "Path to a FASTA file. Content will be used as the reference sequences.",
+      "type": "string",
+      "pattern": "^.+.fasta|.+.fas|.+.fa$"
+    },
+    "annotation": {
+      "description": "Path to a GFF3 file; Content will be used as reference sequences feature annotation.",
+      "type": "string",
+      "pattern": "^.+.gff3|.+.gff$"
+    },
+    "output": {
+      "description": "Path to directory or file to write the output file (storage) to.",
+      "type": "string",
+      "pattern": "^.+$"
+    },
+    "vcfInput": {
+      "description": "List of files or directories specifying the samples (VCF files) to be analyzed.",
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "vcfMeta": {
+      "description": "Path to a .tsv or .csv file specifying sample annotations. The file is expected to contain a header row with the first column representing the sample names (matching to the `variantCalls` genotype fields). The remaining columns can be arbitrary.",
+      "type": "string",
+      "pattern": "^.+.tsv|.+.csv$"
+    },
+    "features": {
+      "description": "Path to a .tsv or .csv file (no header row, rows starting with # are ignored) specifying the set of reference features to analyze. The file is expected to contain two columns representing the attribute key and value to match the feature from, i.e., key/value pairs of any property in the last column of the provided GFF3 file. An optional third column can be used to specify additional attributes in the notation KEY=VALUE;...",
+      "type": "string",
+      "pattern": "^.+.tsv|.+.csv$"
+    }
+  },
+  "required": [
+    "output",
+    "vcfInput"
+  ],
+  "additionalProperties": false
+}
