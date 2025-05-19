@@ -1,10 +1,9 @@
 /*
 Set meta-information for the project build.
 */
-version 'v2.3.10'
+version 'v2.4.0'
 group 'de.tue.cs.ibmi.it'
 
-println "Project: $project"
 println "Name: $name"
 println "Project directory: $projectDir"
 println "Build directory: $buildDir"
@@ -20,6 +19,13 @@ buildscript {
     repositories {
         mavenCentral()
     }
+}
+
+/*
+Set JUnit platform for testing.
+ */
+tasks.withType(Test) {
+    useJUnitPlatform()
 }
 
 /*
@@ -59,6 +65,9 @@ Defines the repositories to look up dependencies.
 repositories {
     mavenCentral()
     maven {
+        url "https://repository.jboss.org/nexus/content/repositories/thirdparty-releases/"
+    }
+    maven {
         url "https://bio.informatik.uni-jena.de/repository/libs-release-oss/"
     }
     maven {
@@ -76,20 +85,19 @@ All project dependencies are defined in the following block.
 */
 dependencies {
     implementation 'commons-cli:commons-cli:1.5.0'
-    implementation 'commons-io:commons-io:2.11.0'
-    implementation 'com.github.samtools:htsjdk:3.0.4'
-    implementation 'com.google.guava:guava:31.1-jre'
-    implementation 'args4j:args4j:2.33'
-    implementation 'org.apache.logging.log4j:log4j-core:2.20.0'
-    implementation 'org.apache.logging.log4j:log4j-api:2.20.0'
-    implementation 'org.biojava:biojava-core:5.4.0'
-    implementation 'org.biojava:biojava-genome:5.4.0'
-    implementation 'com.github.cliftonlabs:json-simple:4.0.1'
-    implementation 'org.javatuples:javatuples:1.2'
+    implementation 'commons-io:commons-io:2.14.0'
+    implementation 'org.biojava:biojava-core:5.3.0'
+    implementation 'org.biojava:biojava-genome:5.3.0'
+    implementation 'org.apache.commons:commons-text:1.10.0'
+    implementation 'org.apache.logging.log4j:log4j-core:2.24.3'
+    implementation 'org.slf4j:slf4j-simple:2.0.17'
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'com.google.code.gson:gson-extras:2.8.5'
-    implementation 'org.apache.commons:commons-text:1.10.0'
+    implementation 'com.google.guava:guava:33.4.8-android'
+    implementation 'com.github.samtools:htsjdk:4.1.3'
     implementation 'com.github.java-json-tools:json-schema-validator:2.2.14'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
 }
 
 /*
@@ -100,8 +108,8 @@ configurations {
     includeJars.extendsFrom implementationjava
 }
 
-sourceCompatibility = JavaVersion.VERSION_17
-targetCompatibility = JavaVersion.VERSION_17
+sourceCompatibility = JavaVersion.VERSION_21
+targetCompatibility = JavaVersion.VERSION_21
 
 /*
 Defines the source directories for the tasks executed by the `java` plugin.

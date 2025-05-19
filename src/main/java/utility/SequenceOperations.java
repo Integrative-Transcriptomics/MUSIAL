@@ -1,332 +1,79 @@
 package utility;
 
-import com.google.common.base.Splitter;
+import datastructure.Contig;
+import datastructure.Feature;
 import exceptions.MusialException;
-import main.Constants;
+import htsjdk.samtools.util.Tuple;
 import org.apache.commons.lang3.tuple.Triple;
-import org.javatuples.Triplet;
+import org.biojava.nbio.core.sequence.DNASequence;
+import org.biojava.nbio.core.sequence.compound.AmbiguityDNACompoundSet;
+import org.biojava.nbio.core.sequence.compound.AmbiguityRNACompoundSet;
+import org.biojava.nbio.core.sequence.compound.NucleotideCompound;
+import org.biojava.nbio.core.sequence.template.CompoundSet;
+import org.biojava.nbio.core.sequence.template.Sequence;
+import org.biojava.nbio.core.sequence.transcription.Frame;
+import org.biojava.nbio.core.sequence.transcription.TranscriptionEngine;
 
+import java.io.IOException;
 import java.util.*;
 
 /**
- * Implements static methods for sequence operations, such as inversion, translation, and alignment.
+ * Utility class for performing various sequence operations.
+ * <p>
+ * This class provides static methods for sequence alignment, variant integration,
+ * sequence translation, and other related operations. It includes methods for
+ * handling nucleotide and protein sequences, as well as utilities for working
+ * with gaps and variants.
+ * </p>
  *
- * @author Simon Hackl
+ * <p>
+ * Example usage:
+ * <pre>
+ * Tuple<String, String> alignment = SequenceOperations.globalNucleotideSequenceAlignment(
+ *     "ACTG", "ACG", 5, 2, MARGINAL_GAPS.FREE, MARGINAL_GAPS.FREE, null);
+ * </pre>
+ * </p>
  */
 public final class SequenceOperations {
 
     /**
-     * Hash map mapping nucleotide codons to single-letter amino acids. Stop codons map to no character.
-     */
-    public static final HashMap<String, String> CODON_MAP = new HashMap<>() {{
-        put("TTT", "F");
-        put("TTC", "F");
-        put("TTA", "L");
-        put("TTG", "L");
-        put("CTT", "L");
-        put("CTC", "L");
-        put("CTA", "L");
-        put("CTG", "L");
-        put("ATT", "I");
-        put("ATC", "I");
-        put("ATA", "I");
-        put("ATG", "M");
-        put("GTT", "V");
-        put("GTC", "V");
-        put("GTA", "V");
-        put("GTG", "V");
-        put("TCT", "S");
-        put("TCC", "S");
-        put("TCA", "S");
-        put("TCG", "S");
-        put("CCT", "P");
-        put("CCC", "P");
-        put("CCA", "P");
-        put("CCG", "P");
-        put("ACT", "T");
-        put("ACC", "T");
-        put("ACA", "T");
-        put("ACG", "T");
-        put("GCT", "A");
-        put("GCC", "A");
-        put("GCA", "A");
-        put("GCG", "A");
-        put("TAT", "Y");
-        put("TAC", "Y");
-        put("TAA", "");
-        put("TAG", "");
-        put("CAT", "H");
-        put("CAC", "H");
-        put("CAA", "Q");
-        put("CAG", "Q");
-        put("AAT", "N");
-        put("AAC", "N");
-        put("AAA", "K");
-        put("AAG", "K");
-        put("GAT", "D");
-        put("GAC", "D");
-        put("GAA", "E");
-        put("GAG", "E");
-        put("TGT", "C");
-        put("TGC", "C");
-        put("TGA", "");
-        put("TGG", "W");
-        put("CGT", "R");
-        put("CGC", "R");
-        put("CGA", "R");
-        put("CGG", "R");
-        put("AGT", "S");
-        put("AGC", "S");
-        put("AGA", "R");
-        put("AGG", "R");
-        put("GGT", "G");
-        put("GGC", "G");
-        put("GGA", "G");
-        put("GGG", "G");
-    }};
-    /**
-     * Hash map mapping amino-acid one to three-letter codes.
-     */
-    public static final HashMap<String, String> AA1TO3 = new HashMap<>() {{
-        put("A", "ALA");
-        put("R", "ARG");
-        put("N", "ASN");
-        put("D", "ASP");
-        put("C", "CYS");
-        put("E", "GLU");
-        put("Q", "GLN");
-        put("G", "GLY");
-        put("H", "HIS");
-        put("I", "ILE");
-        put("L", "LEU");
-        put("K", "LYS");
-        put("M", "MET");
-        put("F", "PHE");
-        put("P", "PRO");
-        put("S", "SER");
-        put("T", "THR");
-        put("W", "TRP");
-        put("Y", "TYR");
-        put("V", "VAL");
-        put(Constants.ANY_AMINOACID_STRING, Constants.ANY_AMINOACID3_STRING);
-        put(Constants.TERMINATION_AMINOACID_STRING, Constants.TERMINATION_AMINOACID3_STRING);
-        put(Constants.DELETION_OR_GAP_STRING, Constants.DELETION_OR_GAP_3_STRING);
-    }};
-    /**
-     * Hash map mapping amino-acid one letter symbols to indices used to access substitution matrix values.
-     */
-    public static final HashMap<Character, Integer> AA1_PAM250_INDEX = new HashMap<>() {{
-        put('A', 0);
-        put('R', 1);
-        put('N', 2);
-        put('D', 3);
-        put('C', 4);
-        put('Q', 5);
-        put('E', 6);
-        put('G', 7);
-        put('H', 8);
-        put('I', 9);
-        put('L', 10);
-        put('K', 11);
-        put('M', 12);
-        put('F', 13);
-        put('P', 14);
-        put('S', 15);
-        put('T', 16);
-        put('W', 17);
-        put('Y', 18);
-        put('V', 19);
-        put('B', 20);
-        put('J', 21);
-        put('Z', 22);
-        put(Constants.ANY_AMINOACID_CHAR, 23);
-        put(Constants.TERMINATION_AMINOACID_CHAR, 24);
-    }};
-    /**
-     * The BLOSUM80 matrix used for alignment computation.
+     * A cache for storing translated DNA sequences.
      * <p>
-     * Source <a href="https://www.ncbi.nlm.nih.gov/IEB/ToolBox/C_DOC/lxr/source/data/BLOSUM80">ncbi.nlm.nih.gov/IEB/ToolBox/C_DOC/lxr/source/data/BLOSUM80</a>
+     * This static {@link HashMap} is used to store previously translated DNA sequences
+     * to improve performance by avoiding redundant translations. The key is the hash code
+     * of the translation request (including sequence and direction), and the value is the
+     * translated amino acid sequence.
+     * </p>
      */
-    private static final int[][] BLOSUM80 = {
-            {5, -2, -2, -2, -1, -1, -1, 0, -2, -2, -2, -1, -1, -3, -1, 1, 0, -3, -2, 0, -2, -2, -1, -1, -6},
-            {-2, 6, -1, -2, -4, 1, -1, -3, 0, -3, -3, 2, -2, -4, -2, -1, -1, -4, -3, -3, -1, -3, 0, -1, -6},
-            {-2, -1, 6, 1, -3, 0, -1, -1, 0, -4, -4, 0, -3, -4, -3, 0, 0, -4, -3, -4, 5, -4, 0, -1, -6},
-            {-2, -2, 1, 6, -4, -1, 1, -2, -2, -4, -5, -1, -4, -4, -2, -1, -1, -6, -4, -4, 5, -5, 1, -1, -6},
-            {-1, -4, -3, -4, 9, -4, -5, -4, -4, -2, -2, -4, -2, -3, -4, -2, -1, -3, -3, -1, -4, -2, -4, -1, -6},
-            {-1, 1, 0, -1, -4, 6, 2, -2, 1, -3, -3, 1, 0, -4, -2, 0, -1, -3, -2, -3, 0, -3, 4, -1, -6},
-            {-1, -1, -1, 1, -5, 2, 6, -3, 0, -4, -4, 1, -2, -4, -2, 0, -1, -4, -3, -3, 1, -4, 5, -1, -6},
-            {0, 0, -3, -1, -2, -4, -2, -3, 6, -3, -5, -4, -2, -4, -4, -3, -1, -2, -4, -4, -4, -1, -5, -3, -1, -6},
-            {-2, 0, 0, -2, -4, 1, 0, -3, 8, -4, -3, -1, -2, -2, -3, -1, -2, -3, 2, -4, -1, -4, 0, -1, -6},
-            {-2, -3, -4, -4, -2, -3, -4, -5, -4, 5, 1, -3, 1, -1, -4, -3, -1, -3, -2, 3, -4, 3, -4, -1, -6},
-            {-2, -3, -4, -5, -2, -3, -4, -4, -3, 1, 4, -3, 2, 0, -3, -3, -2, -2, -2, 1, -4, 3, -3, -1, -6},
-            {-1, 2, 0, -1, -4, 1, 1, -2, -1, -3, -3, 5, -2, -4, -1, -1, -1, -4, -3, -3, -1, -3, 1, -1, -6},
-            {-1, -2, -3, -4, -2, 0, -2, -4, -2, 1, 2, -2, 6, 0, -3, -2, -1, -2, -2, 1, -3, 2, -1, -1, -6},
-            {-3, -4, -4, -4, -3, -4, -4, -4, -2, -1, 0, -4, 0, 6, -4, -3, -2, 0, 3, -1, -4, 0, -4, -1, -6},
-            {-1, -2, -3, -2, -4, -2, -2, -3, -3, -4, -3, -1, -3, -4, 8, -1, -2, -5, -4, -3, -2, -4, -2, -1, -6},
-            {1, -1, 0, -1, -2, 0, 0, -1, -1, -3, -3, -1, -2, -3, -1, 5, 1, -4, -2, -2, 0, -3, 0, -1, -6},
-            {0, -1, 0, -1, -1, -1, -1, -2, -2, -1, -2, -1, -1, -2, -2, 1, 5, -4, -2, 0, -1, -1, -1, -1, -6},
-            {-3, -4, -4, -6, -3, -3, -4, -4, -3, -3, -2, -4, -2, 0, -5, -4, -4, 11, 2, -3, -5, -3, -3, -1, -6},
-            {-2, -3, -3, -4, -3, -2, -3, -4, 2, -2, -2, -3, -2, 3, -4, -2, -2, 2, 7, -2, -3, -2, -3, -1, -6},
-            {0, -3, -4, -4, -1, -3, -3, -4, -4, 3, 1, -3, 1, -1, -3, -2, 0, -3, -2, 4, -4, 2, -3, -1, -6},
-            {-2, -1, 5, 5, -4, 0, 1, -1, -1, -4, -4, -1, -3, -4, -2, 0, -1, -5, -3, -4, 5, -4, 0, -1, -6},
-            {-2, -3, -4, -5, -2, -3, -4, -5, -4, 3, 3, -3, 2, 0, -4, -3, -1, -3, -2, 2, -4, 3, -3, -1, -6},
-            {-1, 0, 0, 1, -4, 4, 5, -3, 0, -4, -3, 1, -1, -4, -2, 0, -1, -3, -3, -3, 0, -3, 5, -1, -6},
-            {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -6},
-            {-6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, 1}
-    };
+    private final static HashMap<Integer, String> translationCache = new HashMap<>();
 
     /**
-     * Returns an amino-acid representation of the passed `codon`.
-     *
-     * @param codon              {@link String} representing the nucleotide codon to translate.
-     * @param asAA3              {@link Boolean} whether the codon should be translated to the amino-acid three-letter code or not.
-     * @param includeTermination {@link Boolean} whether a representation for translation termination (in the case of
-     *                           three-letter code 'TER' and in the case of one-letter code 'Z') shall
-     *                           be returned or not, i.e. an empty String is returned instead.
-     * @param includeIncomplete  {@link Boolean} whether incomplete codons, i.e. with a length other than 3, should be
-     *                           translated as incomplete amino-acids.
-     * @return {@link String} representing a translated amino-acid.
-     * @throws MusialException If the passed codon has a length other than three and `includeIncomplete` is false.
-     */
-    public static String translateCodon(String codon, boolean asAA3, boolean includeTermination,
-                                        boolean includeIncomplete)
-            throws MusialException {
-        if (codon.length() != 3) {
-            if (!includeIncomplete) {
-                throw new MusialException("Unable to translate codon " + codon + " with length different from three.");
-            } else {
-                if (asAA3) {
-                    return Constants.ANY_AMINOACID3_STRING;
-                } else {
-                    return Constants.ANY_AMINOACID_STRING;
-                }
-            }
-        } else if (codon.contains(Constants.ANY_NUCLEOTIDE_STRING)) {
-            if (asAA3) {
-                return Constants.ANY_AMINOACID3_STRING;
-            } else {
-                return Constants.ANY_AMINOACID_STRING;
-            }
-        } else if (CODON_MAP.get(codon).equals("") && includeTermination) {
-            if (asAA3) {
-                return Constants.TERMINATION_AMINOACID3_STRING;
-            } else {
-                return Constants.TERMINATION_AMINOACID_STRING;
-            }
-        } else {
-            if (CODON_MAP.get(codon).equals("")) {
-                return "";
-            } else {
-                if (asAA3) {
-                    return AA1TO3.get(CODON_MAP.get(codon));
-                } else {
-                    return CODON_MAP.get(codon);
-                }
-            }
-        }
-    }
-
-    /**
-     * Translates a nucleotide sequence, split into codons of length three, into a single-letter amino acid sequence.
-     *
-     * @param splitNucSequence   {@link ArrayList<String>} representing a nucleotide sequence that was split into codons
-     *                           of length 3.
-     * @param includeTermination {@link Boolean} whether a representation for translation termination (in the case of
-     *                           three-letter code 'TER' and in the case of one-letter code 'Z') shall
-     *                           be returned or not, i.e. an empty String is returned instead.
-     * @param includeIncomplete  {@link Boolean} whether an incomplete amino-acid should be added to the end if the
-     *                           sequence contains an incomplete codon at the end.
-     * @return {@link String} representing the translated nucleotide sequence.
-     * @throws MusialException If any codon with a length different from three is detected.
-     */
-    public static String translateNucSequence(Iterable<String> splitNucSequence, boolean includeTermination,
-                                              boolean includeIncomplete) throws MusialException {
-        StringBuilder translatedNucSequenceBuilder = new StringBuilder();
-        for (String s : splitNucSequence) {
-            if (s.length() != 3) {
-                if (!includeIncomplete) {
-                    throw new MusialException("Failed to translate nucleotide sequence containing codon of length unequal 3.");
-                }
-            } else {
-                translatedNucSequenceBuilder.append(translateCodon(s, false, includeTermination, includeIncomplete));
-            }
-        }
-        return translatedNucSequenceBuilder.toString();
-    }
-
-    /**
-     * Translates a nucleotide sequence into a single-letter amino acid sequence.
-     *
-     * @param nucSequence        {@link String} representing a nucleotide sequence.
-     * @param includeTermination {@link Boolean} whether a representation for translation termination (in the case of
-     *                           three-letter code 'TER' and in the case of one-letter code 'Z') shall
-     *                           be returned or not, i.e. an empty String is returned instead.
-     * @param includeIncomplete  {@link Boolean} whether an incomplete amino-acid should be added to the end if the
-     *                           sequence contains an incomplete codon at the end.
-     * @param asSense            {@link Boolean} whether the sequence shall be translated as sense or anti-sense.
-     * @return {@link String} representing the translated nucleotide sequence.
-     * @throws MusialException If any codon with a length different from three is detected.
-     */
-    public static String translateNucSequence(String nucSequence, boolean includeTermination,
-                                              boolean includeIncomplete, boolean asSense) throws MusialException {
-        if (!asSense) {
-            nucSequence = reverseComplement(nucSequence);
-        }
-        Iterable<String> splitNucSequence = Splitter.fixedLength(3).split(nucSequence);
-        return translateNucSequence(splitNucSequence, includeTermination, includeIncomplete);
-    }
-
-    /**
-     * Returns the reverse complement of the passed nucleotide sequence.
-     *
-     * @param sequence {@link String} representing a nucleotide sequence.
-     * @return {@link String} representing the reverse complement of the passed sequence.
-     */
-    public static String reverseComplement(String sequence) {
-        StringBuilder reverseComplementBuilder = new StringBuilder();
-        char[] sequenceCharArray = sequence.toCharArray();
-        for (int i = sequenceCharArray.length - 1; i >= 0; i--) {
-            char sequenceAtI = sequenceCharArray[i];
-            reverseComplementBuilder.append(invertBase(sequenceAtI));
-        }
-        return reverseComplementBuilder.toString();
-    }
-
-    /**
-     * Returns the complement of a nucleotide base, i.e. switches A to T, C to G and vice versa. For non nucleotide
-     * symbols the identity is returned.
-     *
-     * @param base {@link Character} base to invert.
-     * @return {@link Character} the inverted base.
-     */
-    public static Character invertBase(char base) {
-        return switch (base) {
-            case 'A' -> 'T';
-            case 'C' -> 'G';
-            case 'G' -> 'C';
-            case 'T' -> 'A';
-            default -> base;
-        };
-    }
-
-    /**
-     * Invokes the {@link SequenceOperations#globalSequenceAlignment} method with pre-specified parameters for nucleotide sequence
-     * alignment.
+     * Performs global nucleotide sequence alignment using a simple scoring matrix.
      * <p>
-     * - Uses a simple substitution matrix that scores matches with 1 and mismatches with -1.
-     * - Uses a gap open and extension penalty of -2 and -1, respectively.
+     * This method aligns two nucleotide sequences using a gap-affine Needleman-Wunsch algorithm.
+     * It utilizes a predefined scoring matrix for nucleotide matches, mismatches, and gaps.
+     * </p>
      *
-     * @param nucSeq1    {@link String} representation of the first nucleotide sequence for alignment.
-     * @param nucSeq2    {@link String} representation of the second nucleotide sequence for alignment.
-     * @param left_mode  {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle left-marginal gaps.
-     * @param right_mode {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle right-marginal gaps.
-     * @param bandWidth  {@link Integer} specifying the band-width for banded alignment or null for non-banded alignment.
-     * @return {@link Triplet} storing the alignment score, the aligned first sequence and the aligned second sequence.
+     * <p>
+     * The scoring matrix is defined as follows:
+     * <ul>
+     *   <li>Match: +1</li>
+     *   <li>Mismatch: -1</li>
+     *   <li>Gap: -1</li>
+     * </ul>
+     * </p>
+     *
+     * @param sequenceA        The first nucleotide sequence to align.
+     * @param sequenceB        The second nucleotide sequence to align.
+     * @param gapOpenPenalty   The penalty for opening a gap in the alignment.
+     * @param gapExtendPenalty The penalty for extending an existing gap in the alignment.
+     * @param left             Specifies how to handle left-marginal gaps (FREE, PENALIZE, FORBID).
+     * @param right            Specifies how to handle right-marginal gaps (FREE, PENALIZE, FORBID).
+     * @param bandWidth        The band-width for banded alignment, or null for non-banded alignment.
+     * @return A {@link Tuple} containing the aligned sequences.
      */
-    public static Triplet<Integer, String, String> globalNucleotideSequenceAlignment(String nucSeq1, String nucSeq2,
-                                                                                     GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES left_mode,
-                                                                                     GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES right_mode,
-                                                                                     Integer bandWidth) {
+    public static Tuple<String, String> globalNucleotideSequenceAlignment(String sequenceA, String sequenceB, int gapOpenPenalty, int gapExtendPenalty,
+                                                                          MarginalGaps left, MarginalGaps right, Integer bandWidth) {
         HashMap<Character, Integer> simpleNucleotideScoringMatrixIndexMap = new HashMap<>() {{
             put('A', 0);
             put('C', 1);
@@ -341,94 +88,168 @@ public final class SequenceOperations {
                 {-1, -1, -1, 1, -1},
                 {-1, -1, -1, -1, -1},
         };
-        return globalSequenceAlignment(nucSeq1, nucSeq2, simpleNucleotideScoringMatrixIndexMap,
+        return globalSequenceAlignment(sequenceA, sequenceB, simpleNucleotideScoringMatrixIndexMap,
                 simpleNucleotideScoringMatrix,
-                2, 1, left_mode, right_mode, bandWidth);
+                gapOpenPenalty, gapExtendPenalty, left, right, bandWidth);
     }
 
     /**
-     * Invokes the {@link SequenceOperations#globalSequenceAlignment} method with pre-specified parameters for amino-acid sequence
-     * alignment.
+     * Performs global protein sequence alignment using the BLOSUM80 scoring matrix.
      * <p>
-     * Uses the PAM250 substitution matrix.
+     * This method aligns two protein sequences using a gap-affine Needleman-Wunsch algorithm.
+     * It utilizes the BLOSUM80 scoring matrix for amino acid matches, mismatches, and gaps.
+     * </p>
      *
-     * @param aaSeq1           {@link String} representation of the first amino-acid sequence for alignment.
-     * @param aaSeq2           {@link String} representation of the second amino-acid sequence for alignment.
-     * @param gapOpenPenalty   {@link Integer} (positive!) to use as gap open penalty.
-     * @param gapExtendPenalty {@link Integer} (positive!) to use as gap extension penalty.
-     * @param left_mode        {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle left-marginal gaps.
-     * @param right_mode       {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle right-marginal gaps.
-     * @param bandWidth        {@link Integer} specifying the band-width for banded alignment or null for non-banded alignment.
-     * @return {@link Triplet} storing the alignment score, the aligned first sequence and the aligned second sequence.
+     * <p>
+     * The scoring matrix is defined as follows:
+     * <ul>
+     *   <li>Match: Based on BLOSUM80 values.</li>
+     *   <li>Mismatch: Based on BLOSUM80 values.</li>
+     *   <li>Gap penalties: Defined by the gap open and gap extend penalties.</li>
+     * </ul>
+     * </p>
+     *
+     * @param sequenceA        The first protein sequence to align.
+     * @param sequenceB        The second protein sequence to align.
+     * @param gapOpenPenalty   The penalty for opening a gap in the alignment.
+     * @param gapExtendPenalty The penalty for extending an existing gap in the alignment.
+     * @param left             Specifies how to handle left-marginal gaps (FREE, PENALIZE, FORBID).
+     * @param right            Specifies how to handle right-marginal gaps (FREE, PENALIZE, FORBID).
+     * @param bandWidth        The band-width for banded alignment, or null for non-banded alignment.
+     * @return A {@link Tuple} containing the aligned sequences.
      */
-    public static Triplet<Integer, String, String> globalAminoAcidSequenceAlignment(String aaSeq1, String aaSeq2,
-                                                                                    int gapOpenPenalty,
-                                                                                    int gapExtendPenalty,
-                                                                                    GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES left_mode,
-                                                                                    GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES right_mode,
-                                                                                    Integer bandWidth) {
-        return globalSequenceAlignment(aaSeq1, aaSeq2, AA1_PAM250_INDEX, BLOSUM80, gapOpenPenalty, gapExtendPenalty,
-                left_mode, right_mode, bandWidth);
+    public static Tuple<String, String> globalProteinSequenceAlignment(String sequenceA, String sequenceB, int gapOpenPenalty, int gapExtendPenalty,
+                                                                       MarginalGaps left, MarginalGaps right, Integer bandWidth) {
+        HashMap<Character, Integer> blosum80IndexMap = new HashMap<>() {{
+            put('A', 0);
+            put('R', 1);
+            put('N', 2);
+            put('D', 3);
+            put('C', 4);
+            put('Q', 5);
+            put('E', 6);
+            put('G', 7);
+            put('H', 8);
+            put('I', 9);
+            put('L', 10);
+            put('K', 11);
+            put('M', 12);
+            put('F', 13);
+            put('P', 14);
+            put('S', 15);
+            put('T', 16);
+            put('W', 17);
+            put('Y', 18);
+            put('V', 19);
+            put('B', 20);
+            put('J', 21);
+            put('Z', 22);
+            put('X', 23);
+            put('*', 24);
+        }};
+        // GG
+        // HH
+        // SG -3
+        int[][] blosum80 = {
+                {5, -2, -2, -2, -1, -1, -1, 0, -2, -2, -2, -1, -1, -3, -1, 1, 0, -3, -2, 0, -2, -2, -1, -1, -6},
+                {-2, 6, -1, -2, -4, 1, -1, -3, 0, -3, -3, 2, -2, -4, -2, -1, -1, -4, -3, -3, -1, -3, 0, -1, -6},
+                {-2, -1, 6, 1, -3, 0, -1, -1, 0, -4, -4, 0, -3, -4, -3, 0, 0, -4, -3, -4, 5, -4, 0, -1, -6},
+                {-2, -2, 1, 6, -4, -1, 1, -2, -2, -4, -5, -1, -4, -4, -2, -1, -1, -6, -4, -4, 5, -5, 1, -1, -6},
+                {-1, -4, -3, -4, 9, -4, -5, -4, -4, -2, -2, -4, -2, -3, -4, -2, -1, -3, -3, -1, -4, -2, -4, -1, -6},
+                {-1, 1, 0, -1, -4, 6, 2, -2, 1, -3, -3, 1, 0, -4, -2, 0, -1, -3, -2, -3, 0, -3, 4, -1, -6},
+                {-1, -1, -1, 1, -5, 2, 6, -3, 0, -4, -4, 1, -2, -4, -2, 0, -1, -4, -3, -3, 1, -4, 5, -1, -6},
+                {0, -3, -1, -2, -4, -2, -3, 6, -3, -5, -4, -2, -4, -4, -3, -1, -2, -4, -4, -4, -1, -5, -3, -1, -6},
+                {-2, 0, 0, -2, -4, 1, 0, -3, 8, -4, -3, -1, -2, -2, -3, -1, -2, -3, 2, -4, -1, -4, 0, -1, -6},
+                {-2, -3, -4, -4, -2, -3, -4, -5, -4, 5, 1, -3, 1, -1, -4, -3, -1, -3, -2, 3, -4, 3, -4, -1, -6},
+                {-2, -3, -4, -5, -2, -3, -4, -4, -3, 1, 4, -3, 2, 0, -3, -3, -2, -2, -2, 1, -4, 3, -3, -1, -6},
+                {-1, 2, 0, -1, -4, 1, 1, -2, -1, -3, -3, 5, -2, -4, -1, -1, -1, -4, -3, -3, -1, -3, 1, -1, -6},
+                {-1, -2, -3, -4, -2, 0, -2, -4, -2, 1, 2, -2, 6, 0, -3, -2, -1, -2, -2, 1, -3, 2, -1, -1, -6},
+                {-3, -4, -4, -4, -3, -4, -4, -4, -2, -1, 0, -4, 0, 6, -4, -3, -2, 0, 3, -1, -4, 0, -4, -1, -6},
+                {-1, -2, -3, -2, -4, -2, -2, -3, -3, -4, -3, -1, -3, -4, 8, -1, -2, -5, -4, -3, -2, -4, -2, -1, -6},
+                {1, -1, 0, -1, -2, 0, 0, -1, -1, -3, -3, -1, -2, -3, -1, 5, 1, -4, -2, -2, 0, -3, 0, -1, -6},
+                {0, -1, 0, -1, -1, -1, -1, -2, -2, -1, -2, -1, -1, -2, -2, 1, 5, -4, -2, 0, -1, -1, -1, -1, -6},
+                {-3, -4, -4, -6, -3, -3, -4, -4, -3, -3, -2, -4, -2, 0, -5, -4, -4, 11, 2, -3, -5, -3, -3, -1, -6},
+                {-2, -3, -3, -4, -3, -2, -3, -4, 2, -2, -2, -3, -2, 3, -4, -2, -2, 2, 7, -2, -3, -2, -3, -1, -6},
+                {0, -3, -4, -4, -1, -3, -3, -4, -4, 3, 1, -3, 1, -1, -3, -2, 0, -3, -2, 4, -4, 2, -3, -1, -6},
+                {-2, -1, 5, 5, -4, 0, 1, -1, -1, -4, -4, -1, -3, -4, -2, 0, -1, -5, -3, -4, 5, -4, 0, -1, -6},
+                {-2, -3, -4, -5, -2, -3, -4, -5, -4, 3, 3, -3, 2, 0, -4, -3, -1, -3, -2, 2, -4, 3, -3, -1, -6},
+                {-1, 0, 0, 1, -4, 4, 5, -3, 0, -4, -3, 1, -1, -4, -2, 0, -1, -3, -3, -3, 0, -3, 5, -1, -6},
+                {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -6},
+                {-6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, 1}
+        };
+        return globalSequenceAlignment(sequenceA, sequenceB, blosum80IndexMap, blosum80, gapOpenPenalty, gapExtendPenalty, left, right, bandWidth);
     }
 
     /**
-     * Computes a global sequence alignment using the gap-affine Needleman-Wunsch algorithm.
+     * Computes optimal pairwise global sequence alignment using a gap-affine banded Needleman-Wunsch algorithm.
+     * <p>
+     * This method aligns two sequences using a scoring matrix and gap penalties. It supports banded alignment
+     * for performance optimization and handles marginal gaps based on the specified modes.
+     * </p>
      *
-     * @param seq1                  {@link String} representation of the first sequence for alignment.
-     * @param seq2                  {@link String} representation of the second sequence for alignment.
-     * @param scoringMatrixIndexMap {@link HashMap} mapping characters that may occur in the aligned sequences to integer indices of the scoring matrix.
-     * @param scoringMatrix         {@link Integer[][]} containing the scoring values for each pair of characters that may occur in the aligned sequences.
-     * @param gapOpenPenalty        {@link Integer} value used to penalize the opening of a gap.
-     * @param gapExtendPenalty      {@link Integer} value used to penalize the extension of a gap.
-     * @param prefix_gap_mode       {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle left-marginal gaps.
-     * @param suffix_gap_mode       {@link GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES} value to indicate how to handle right-marginal gaps.
-     * @param bandWidth             {@link Integer} specifying the band-width for banded alignment or null for non-banded alignment.
-     * @return {@link Triplet} storing the alignment score, the aligned first sequence and the aligned second sequence.
+     * <p>
+     * The alignment matrices are structured as follows:
+     * <ul>
+     *   <li>The y-axis corresponds to the first sequence (sequenceY).</li>
+     *   <li>The x-axis corresponds to the second sequence (sequenceX).</li>
+     *   <li>Insertions are traced back by walking vertically, and deletions are traced back by walking horizontally.</li>
+     * </ul>
+     * </p>
+     *
+     * @param sequenceY        The first sequence to align.
+     * @param sequenceX        The second sequence to align.
+     * @param characterIndex   A mapping of characters to their respective indices in the scoring matrix.
+     * @param scores           A 2D array representing the scoring matrix for character matches and mismatches.
+     * @param gapOpenPenalty   The penalty for opening a gap in the alignment.
+     * @param gapExtendPenalty The penalty for extending an existing gap in the alignment.
+     * @param prefix_gap_mode  Specifies how to handle left-marginal gaps (FREE, PENALIZE, FORBID).
+     * @param suffix_gap_mode  Specifies how to handle right-marginal gaps (FREE, PENALIZE, FORBID).
+     * @param bandWidth        The band-width for banded alignment, or null for non-banded alignment.
+     * @return A {@link Tuple} containing the aligned sequences.
+     * @throws IllegalArgumentException If the bandWidth is too narrow for the given sequences.
      */
-    private static Triplet<Integer, String, String> globalSequenceAlignment(String seq1, String seq2,
-                                                                            HashMap<Character, Integer> scoringMatrixIndexMap,
-                                                                            int[][] scoringMatrix, int gapOpenPenalty,
-                                                                            int gapExtendPenalty,
-                                                                            GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES prefix_gap_mode,
-                                                                            GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES suffix_gap_mode,
-                                                                            Integer bandWidth) {
+    private static Tuple<String, String> globalSequenceAlignment(String sequenceY, String sequenceX,
+                                                                 HashMap<Character, Integer> characterIndex,
+                                                                 int[][] scores, int gapOpenPenalty,
+                                                                 int gapExtendPenalty,
+                                                                 MarginalGaps prefix_gap_mode,
+                                                                 MarginalGaps suffix_gap_mode,
+                                                                 Integer bandWidth) {
         /*
-        Notes on the alignment matrices:
+        Note on the alignment matrices:
         - The y-axis will yield seq1.
-        - The x-axis will yield seq2
+        - The x-axis will yield seq2.
         - Indels are wrt. seq1; thus insertions are traced back by walking vertically and deletions are traced back by
-        walking horizontally in the matrix.
+          walking horizontally in the matrix.
          */
-        @SuppressWarnings("DuplicatedCode")
-        double[][] scoreMatrix = new double[seq1.length() + 1][seq2.length() + 1];
-        Arrays.stream(scoreMatrix).forEach(row -> Arrays.fill(row, Double.NEGATIVE_INFINITY));
-        double[][] matchScoreMatrix = new double[seq1.length() + 1][seq2.length() + 1];
-        Arrays.stream(matchScoreMatrix).forEach(row -> Arrays.fill(row, Double.NEGATIVE_INFINITY));
-        double[][] insertionScoreMatrix = new double[seq1.length() + 1][seq2.length() + 1];
-        Arrays.stream(insertionScoreMatrix).forEach(row -> Arrays.fill(row, Double.NEGATIVE_INFINITY));
-        double[][] deletionScoreMatrix = new double[seq1.length() + 1][seq2.length() + 1];
-        Arrays.stream(deletionScoreMatrix).forEach(row -> Arrays.fill(row, Double.NEGATIVE_INFINITY));
-        char[][] tracebackMatrix = new char[seq1.length() + 1][seq2.length() + 1];
-        char[] seq1Array = seq1.toCharArray();
-        char[] seq2Array = seq2.toCharArray();
-        int alignmentScore;
-        int capacity = Math.max(seq1.length(), seq2.length());
-        StringBuilder alnSeq1Builder = new StringBuilder(capacity);
-        StringBuilder alnSeq2Builder = new StringBuilder(capacity);
-        /*
-        (1) Fill alignment score matrix.
-         */
+        if (Objects.nonNull(bandWidth)) {
+            int lengthDifference = Math.abs(sequenceX.length() - sequenceY.length());
+            if (lengthDifference > bandWidth)
+                throw new IllegalArgumentException("Band width %d is too narrow for the given sequences with length difference of %d."
+                        .formatted(bandWidth, lengthDifference));
+        }
+        double[][] scoreMatrix = initializeMatrix(sequenceY.length() + 1, sequenceX.length() + 1);
+        double[][] matchScoreMatrix = initializeMatrix(sequenceY.length() + 1, sequenceX.length() + 1);
+        double[][] insertionScoreMatrix = initializeMatrix(sequenceY.length() + 1, sequenceX.length() + 1);
+        double[][] deletionScoreMatrix = initializeMatrix(sequenceY.length() + 1, sequenceX.length() + 1);
+        char[][] tracebackMatrix = new char[sequenceY.length() + 1][sequenceX.length() + 1];
+        char[] sequenceYBases = sequenceY.toCharArray();
+        char[] sequenceXBases = sequenceX.toCharArray();
+        int capacity = Math.max(sequenceY.length(), sequenceX.length());
+        StringBuilder alignedSequenceYBuilder = new StringBuilder(capacity);
+        StringBuilder alignedSequenceXBuilder = new StringBuilder(capacity);
+        // (1) Fill alignment score matrix.
         scoreMatrix[0][0] = 0;
         matchScoreMatrix[0][0] = 0;
         insertionScoreMatrix[0][0] = 0;
         deletionScoreMatrix[0][0] = 0;
         int gapCost;
         // i -> PREFIX
-        for (int i = 1; i < (Objects.isNull(bandWidth) ? seq1.length() + 1 : bandWidth + 1); i++) {
+        for (int i = 1; i < (Objects.isNull(bandWidth) ? sequenceY.length() + 1 : bandWidth + 1); i++) {
             gapCost = switch (prefix_gap_mode) {
                 case FREE -> 0;
                 case PENALIZE -> -gapOpenPenalty - (i - 1) * gapExtendPenalty;
-                case FORBID -> -gapOpenPenalty * 2 * seq1.length();
+                case FORBID -> -gapOpenPenalty * 2 * sequenceY.length();
             };
             scoreMatrix[i][0] = gapCost;
             matchScoreMatrix[i][0] = gapCost;
@@ -437,11 +258,11 @@ public final class SequenceOperations {
             tracebackMatrix[i][0] = 'I';
         }
         // j -> SUFFIX
-        for (int j = 1; j < (Objects.isNull(bandWidth) ? seq2.length() + 1 : bandWidth + 1); j++) {
+        for (int j = 1; j < (Objects.isNull(bandWidth) ? sequenceX.length() + 1 : bandWidth + 1); j++) {
             gapCost = switch (suffix_gap_mode) {
                 case FREE -> 0;
                 case PENALIZE -> -gapOpenPenalty - (j - 1) * gapExtendPenalty;
-                case FORBID -> -gapOpenPenalty * 2 * seq2.length();
+                case FORBID -> -gapOpenPenalty * 2 * sequenceX.length();
             };
             scoreMatrix[0][j] = gapCost;
             matchScoreMatrix[0][j] = gapCost;
@@ -450,20 +271,20 @@ public final class SequenceOperations {
             tracebackMatrix[0][j] = 'D';
         }
         double max;
-        for (int i = 1; i < seq1.length() + 1; i++) {
+        for (int i = 1; i < sequenceY.length() + 1; i++) {
             int jLeftBound = Math.max(
                     1,
                     (Objects.isNull(bandWidth) ? 1 : i - bandWidth)
             );
             int jRightBound = Math.min(
-                    seq2.length(),
-                    (Objects.isNull(bandWidth) ? seq2.length() : i + bandWidth)
+                    sequenceX.length(),
+                    (Objects.isNull(bandWidth) ? sequenceX.length() : i + bandWidth)
             );
             for (int j = jLeftBound; j < jRightBound + 1; j++) {
                 matchScoreMatrix[i][j] =
                         scoreMatrix[i - 1][j - 1]
-                                + scoringMatrix[scoringMatrixIndexMap.get(seq1Array[i - 1])][scoringMatrixIndexMap
-                                .get(seq2Array[j - 1])];
+                                + scores[characterIndex.get(sequenceYBases[i - 1])][characterIndex
+                                .get(sequenceXBases[j - 1])];
                 insertionScoreMatrix[i][j] =
                         Math.max(
                                 scoreMatrix[i - 1][j] - gapOpenPenalty,
@@ -477,29 +298,26 @@ public final class SequenceOperations {
                 max = Integer.MIN_VALUE;
                 if (insertionScoreMatrix[i][j] > max) {
                     max = insertionScoreMatrix[i][j];
-                    scoreMatrix[i][j] = (int) max;
+                    scoreMatrix[i][j] = max;
                     tracebackMatrix[i][j] = 'I';
                 }
                 if (deletionScoreMatrix[i][j] > max) {
                     max = deletionScoreMatrix[i][j];
-                    scoreMatrix[i][j] = (int) max;
+                    scoreMatrix[i][j] = max;
                     tracebackMatrix[i][j] = 'D';
                 }
                 if (matchScoreMatrix[i][j] > max) {
                     max = matchScoreMatrix[i][j];
-                    scoreMatrix[i][j] = (int) max;
+                    scoreMatrix[i][j] = max;
                     tracebackMatrix[i][j] = 'M';
                 }
             }
         }
-        alignmentScore = (int) scoreMatrix[seq1.length()][seq2.length()];
-        /*
-        (2) Deduce traceback path from matrix.
-        */
+        // (2) Deduce traceback path from matrix.
         LinkedList<Character> tracebackPath = new LinkedList<>();
         boolean runTraceback = true;
-        int i = seq1.length();
-        int j = seq2.length();
+        int i = sequenceY.length();
+        int j = sequenceX.length();
         char tracebackDirection = tracebackMatrix[i][j];
         while (runTraceback) {
             if (tracebackDirection == 'M') {
@@ -522,9 +340,7 @@ public final class SequenceOperations {
             }
         }
         Collections.reverse(tracebackPath);
-    /*
-    (3) Iterate over traceback path and construct aligned sequences.
-    */
+        // (3) Iterate over traceback path and construct aligned sequences.
         int seq1Index = 0;
         int seq2Index = 0;
         for (Character character : tracebackPath) {
@@ -532,145 +348,277 @@ public final class SequenceOperations {
             tracebackDirection = character;
             if (tracebackDirection == 'M') {
                 // CASE: Match or mismatch of nucleotide and amino-acid sequence.
-                alnSeq1Builder.append(seq1Array[seq1Index]);
+                alignedSequenceYBuilder.append(sequenceYBases[seq1Index]);
                 seq1Index += 1;
-                alnSeq2Builder.append(seq2Array[seq2Index]);
+                alignedSequenceXBuilder.append(sequenceXBases[seq2Index]);
                 seq2Index += 1;
             } else if (tracebackDirection == 'D') {
                 // CASE: Deletion wrt. to first amino acid sequence.
-                alnSeq1Builder.append(Constants.DELETION_OR_GAP_STRING);
-                alnSeq2Builder.append(seq2Array[seq2Index]);
+                alignedSequenceYBuilder.append(Constants.gapString);
+                alignedSequenceXBuilder.append(sequenceXBases[seq2Index]);
                 seq2Index += 1;
             } else if (tracebackDirection == 'I') {
                 // CASE: Insertion wrt. to first amino acid sequence.
-                alnSeq1Builder.append(seq1Array[seq1Index]);
+                alignedSequenceYBuilder.append(sequenceYBases[seq1Index]);
                 seq1Index += 1;
-                alnSeq2Builder.append(Constants.DELETION_OR_GAP_STRING);
+                alignedSequenceXBuilder.append(Constants.gapString);
             }
         }
-    /*
-    (6) Insert results into Triplet.
-     */
-        return new Triplet<>(alignmentScore, alnSeq1Builder.toString(), alnSeq2Builder.toString());
+        // (4) Insert results into Tuple.
+        return new Tuple<>(alignedSequenceYBuilder.toString(), alignedSequenceXBuilder.toString());
     }
 
     /**
-     * Computes variants from two aligned sequences.
+     * Initializes a 2D matrix with the specified number of rows and columns.
      * <p>
-     * Variants are extracted wrt. the query versus the target sequence and formatted as p:a:r, where p is the variant
-     * position, r is the reference content and a is the alternate content.
+     * This method creates a 2D array of doubles with the given dimensions and fills
+     * each cell with {@link Double#NEGATIVE_INFINITY}. It uses Java Streams to iterate
+     * over the rows and apply the fill operation.
+     * </p>
      *
-     * @param targetSequence {@link String} representation of the target sequence (i.e. reference).
-     * @param querySequence  {@link String} representation of the query sequence (i.e. the one with variants).
-     * @return {@link ArrayList} containing derived variants, c.f. method description for format details.
+     * @param rows The number of rows in the matrix.
+     * @param cols The number of columns in the matrix.
+     * @return A 2D array of doubles initialized with {@link Double#NEGATIVE_INFINITY}.
      */
-    @SuppressWarnings("DuplicatedCode")
-    public static ArrayList<Triple<Integer, String, String>> getVariantsOfAlignedSequences(String targetSequence,
-                                                                                           String querySequence) {
-        ArrayList<Triple<Integer, String, String>> variants = new ArrayList<>((int) Math.ceil(targetSequence.length() * 0.5));
-        StringBuilder variantBuilder = new StringBuilder();
-        StringBuilder referenceBuilder = new StringBuilder();
-        char[] targetSequenceArray = targetSequence.toCharArray();
-        char[] querySequenceArray = querySequence.toCharArray();
-        char targetContent;
-        char queryContent;
-        int variantStart = 0;
-        int lastNonGapPosition = 0;
-        int alignmentLength = targetSequence.length();
-        boolean isSubstitution = false;
-        boolean isInsertion = false;
-        boolean isDeletion = false;
-        boolean ambiguousSwitch = false;
-        for (int i = 0; i < alignmentLength; i++) {
-            targetContent = targetSequenceArray[i];
-            queryContent = querySequenceArray[i];
-            if (targetContent == queryContent) {
-                // CASE: Match.
-                if (isSubstitution || isInsertion || isDeletion) {
-                    variants.add(Triple.of(variantStart, referenceBuilder.toString(), variantBuilder.toString()));
-                    referenceBuilder.setLength(0);
-                    variantBuilder.setLength(0);
-                }
-                ambiguousSwitch = false;
-                isSubstitution = false;
-                isInsertion = false;
-                isDeletion = false;
-                lastNonGapPosition = i;
-            } else if (targetContent == Constants.DELETION_OR_GAP_CHAR) {
-                // CASE: Insertion (in variant).
-                if (isDeletion) {
-                    if (!ambiguousSwitch)
-                        Logger.logWarning("Ambiguous Deletion to Insertion switch in aligned sequences ..." + referenceBuilder + targetContent + "...\t..." + variantBuilder + queryContent + "...; Variant will be skipped.");
-                    ambiguousSwitch = true;
-                } else {
-                    if (!isInsertion && !isSubstitution) {
-                        variantStart = lastNonGapPosition;
-                        referenceBuilder.append(targetSequenceArray[lastNonGapPosition]);
-                        variantBuilder.append(querySequenceArray[lastNonGapPosition]);
-                    }
-                    referenceBuilder.append(Constants.DELETION_OR_GAP_CHAR);
-                    variantBuilder.append(queryContent);
-                    isSubstitution = false;
-                    isInsertion = true;
-                }
-            } else if (queryContent == Constants.DELETION_OR_GAP_CHAR) {
-                // CASE: Deletion (in variant).
-                if (isInsertion) {
-                    if (!ambiguousSwitch)
-                        Logger.logWarning("Ambiguous Insertion to Deletion switch in aligned sequences ..." + referenceBuilder + targetContent + "...\t..." + variantBuilder + queryContent + "...; Variant will be skipped.");
-                    ambiguousSwitch = true;
-                } else {
-                    if (!isDeletion && !isSubstitution) {
-                        variantStart = lastNonGapPosition;
-                        referenceBuilder.append(targetSequenceArray[lastNonGapPosition]);
-                        variantBuilder.append(querySequenceArray[lastNonGapPosition]);
-                    }
-                    referenceBuilder.append(targetContent);
-                    variantBuilder.append(Constants.DELETION_OR_GAP_CHAR);
-                    isSubstitution = false;
-                    isDeletion = true;
-                }
-            } else {
-                // CASE: Mismatch/Substitution.
-                if (isSubstitution || isInsertion || isDeletion) {
-                    variants.add(Triple.of(variantStart, referenceBuilder.toString(), variantBuilder.toString()));
-                    referenceBuilder.setLength(0);
-                    variantBuilder.setLength(0);
-                }
-                ambiguousSwitch = false;
-                isSubstitution = true;
-                isInsertion = false;
-                isDeletion = false;
-                lastNonGapPosition = i;
-                variantStart = lastNonGapPosition;
-                variantBuilder.append(queryContent);
-                referenceBuilder.append(targetContent);
-            }
-        }
-        if (isSubstitution || isInsertion || isDeletion) {
-            variants.add(Triple.of(variantStart, referenceBuilder.toString(), variantBuilder.toString()));
-            variantBuilder.setLength(0);
-            referenceBuilder.setLength(0);
-        }
-        variants.trimToSize();
-        return variants;
+    private static double[][] initializeMatrix(int rows, int cols) {
+        double[][] matrix = new double[rows][cols];
+        Arrays.stream(matrix).forEach(row -> Arrays.fill(row, Double.NEGATIVE_INFINITY));
+        return matrix;
+    }
+
+    /**
+     * Pads a string with gap characters to reach a specified length.
+     * <p>
+     * This method appends gap characters (defined by {@link Constants#gapString})
+     * to the input string until it reaches the desired length. If the input string
+     * is already equal to or longer than the specified length, no padding is added.
+     * </p>
+     *
+     * @param s      The input string to be padded.
+     * @param length The desired length of the resulting string.
+     * @return The padded string, or the original string if no padding is needed.
+     */
+    public static String padGaps(String s, int length) {
+        return s + Constants.gapString.repeat(Math.max(0, length - s.length()));
+    }
+
+    /**
+     * Removes all gap characters from the input string.
+     * <p>
+     * This method replaces all occurrences of the gap character (defined by {@link Constants#gapString})
+     * in the input string with an empty string (defined by {@link Constants#EMPTY}).
+     * </p>
+     *
+     * @param s The input string from which gaps should be removed.
+     * @return A new string with all gap characters removed.
+     */
+    public static String stripGaps(String s) {
+        return s.replaceAll(Constants.gapString, Constants.EMPTY);
     }
 
     /**
      * Enum to store different modes to handle prefix gaps for global sequence alignment.
      */
-    public enum GLOBAL_SEQUENCE_ALIGNMENT_MARGIN_GAP_MODES {
+    public enum MarginalGaps {
         /**
-         * Gaps at the end are not penalized.
+         * Gaps at the ends of a sequence are not penalized.
          */
         FREE,
         /**
-         * Gaps at the end are penalized normally.
+         * Gaps at the end of a sequence are penalized normally.
          */
         PENALIZE,
         /**
-         * Gaps at the end are not allowed.
+         * Gaps at the end of a sequence are not allowed.
          */
         FORBID
+    }
+
+    /**
+     * Integrates variants into a reference sequence for a given feature.
+     * <p>
+     * This method processes a reference sequence from a specified contig and feature, integrating
+     * variants provided in a map. Variants can include single nucleotide variants (SNVs),
+     * insertions, and deletions. The resulting sequence can optionally have gaps stripped.
+     * <p>
+     * Upstream deletions are handled by skipping affected positions and logging a warning.
+     *
+     * @param contig    The {@link Contig} object containing the reference sequence.
+     * @param feature   The {@link Feature} object specifying the region of interest.
+     * @param variants  A {@link NavigableMap} mapping positions to variant strings.
+     * @param stripGaps A boolean indicating whether to remove gaps from the resulting sequence.
+     * @return A {@link String} representing the updated sequence with integrated variants.
+     * @throws IOException              If an error occurs while accessing the contig sequence.
+     * @throws IllegalArgumentException If the contig does not have a sequence or the feature is incompatible.
+     */
+    public static String integrateVariants(Contig contig, Feature feature, NavigableMap<Integer, String> variants, boolean stripGaps) throws IOException {
+        // Validate contig and feature compatibility.
+        if (!contig.hasSequence()) {
+            throw new IllegalArgumentException("Contig %s does not have a sequence.".formatted(contig.name));
+        }
+        if (!Objects.equals(feature.contig, contig.name)) {
+            throw new IllegalArgumentException("Contig %s is not the parent of feature %s.".formatted(feature.name, contig.name));
+        }
+
+        // Initialize variables for processing.
+        char[] referenceChars = contig.getSubsequence(feature.start, feature.end).toCharArray();
+        StringBuilder result = new StringBuilder(referenceChars.length);
+        int deletionCount = 0;
+
+        // Iterate through the reference sequence positions.
+        for (int pos = feature.start, idx = 0; idx < referenceChars.length; pos++, idx++) {
+            if (variants.containsKey(pos)) {
+                String variant = variants.get(pos);
+
+                // Handle upstream deletions.
+                if (deletionCount > 0) {
+                    result.append(Constants.gapString);
+                    deletionCount--;
+                    Logging.logWarning("Variant %s at position %d skipped due to upstream deletion.".formatted(variant, pos));
+                    continue;
+                }
+
+                // Process variant types.
+                switch (contig.getVariantInformation(pos, variant).type) {
+                    case SNV, INSERTION -> result.append(variant);
+                    case DELETION -> {
+                        result.append(variant.charAt(0));
+                        deletionCount += variant.length() - 1;
+                    }
+                }
+            } else {
+                // Handle gaps from deletions or append reference character.
+                if (deletionCount > 0) {
+                    result.append(Constants.gapString);
+                    deletionCount--;
+                } else {
+                    result.append(referenceChars[idx]);
+                }
+            }
+        }
+
+        // Return the final sequence, optionally stripping gaps.
+        return stripGaps ? stripGaps(result.toString()) : result.toString();
+    }
+
+    /**
+     * Translates a DNA sequence into an amino-acid sequence. The translation is always performed in the 1-frame.
+     * Utilizes the <a href="https://github.com/biojava/biojava">BioJava library</a> for translation.
+     *
+     * @param sequence The DNA sequence to translate.
+     * @param reverse  Whether to translate the reverse complement of the sequence.
+     * @return The translated amino-acid sequence.
+     * @throws MusialException If an error occurs during translation.
+     */
+    public static String translateSequence(String sequence, boolean reverse) throws MusialException {
+        if (sequence.isEmpty()) return Constants.EMPTY;
+        String cachedTranslationKey = "%s-%s".formatted(reverse ? "rev" : "fwd", sequence);
+        // Check if the translation result is already cached.
+        if (translationCache.containsKey(cachedTranslationKey.hashCode())) {
+            return translationCache.get(cachedTranslationKey.hashCode());
+        }
+        try {
+            // Define ambiguity compound sets. See: https://github.com/biojava/biojava-tutorial/blob/master/core/translating.md
+            AmbiguityDNACompoundSet ambiguityDNACompoundSet = AmbiguityDNACompoundSet.getDNACompoundSet();
+            CompoundSet<NucleotideCompound> nucleotideCompoundSet = AmbiguityRNACompoundSet.getRNACompoundSet();
+            // Initialize the transcription engine. See: https://github.com/biojava/biojava-tutorial/blob/master/core/translating.md
+            TranscriptionEngine engine = new
+                    TranscriptionEngine.Builder().dnaCompounds(ambiguityDNACompoundSet).rnaCompounds(nucleotideCompoundSet).build();
+            // Initialize the DNA sequence.
+            Sequence<NucleotideCompound> dna = new DNASequence(sequence);
+            String translatedSequence;
+            if (reverse)
+                translatedSequence = engine.multipleFrameTranslation(dna, Frame.REVERSED_ONE).get(Frame.REVERSED_ONE).getSequenceAsString();
+            else
+                translatedSequence = engine.multipleFrameTranslation(dna, Frame.ONE).get(Frame.ONE).getSequenceAsString();
+            // Cache the translation result.
+            translationCache.put(cachedTranslationKey.hashCode(), translatedSequence);
+            return translatedSequence;
+        } catch (Exception e) {
+            throw new MusialException("org.biojava.nbio.core.sequence.DNASequence: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Transforms two sequences into canonical VCF variants.
+     * <p>
+     * The specified reference and alternative are expected to be aligned sequences. Variants are formatted as triples of relative position,
+     * reference-, and variant content. The relative position is the 0-based position of the variant in the reference sequence without gaps.
+     *
+     * @param reference   {@link String} representation of the reference sequence.
+     * @param alternative {@link String} representation of the variant/alternative sequence.
+     * @return {@link ArrayList} containing derived variants, c.f. method description for format details.
+     */
+    public static ArrayList<Triple<Integer, String, String>> getCanonicalVariants(String reference, String alternative) {
+        if (reference.length() != alternative.length()) {
+            throw new IllegalArgumentException("Reference and alternative sequence lengths do not match.");
+        }
+        ArrayList<Triple<Integer, String, String>> variants = new ArrayList<>();
+        StringBuilder referenceBuilder = new StringBuilder();
+        StringBuilder alternativeBuilder = new StringBuilder();
+        char[] referenceChars = reference.toCharArray();
+        char[] alternativeChars = alternative.toCharArray();
+        int relativeStartPosition = 0;
+        int noInsertions = 0;
+        int lastNonGapIndex = 0;
+        boolean isSubstitution = false, isInsertion = false, isDeletion = false, ambiguousSwitch = false;
+        for (int i = 0; i < reference.length(); i++) {
+            if (referenceChars[i] == alternativeChars[i]) { // Match:
+                if (isSubstitution || isInsertion || isDeletion) {
+                    variants.add(Triple.of(relativeStartPosition, referenceBuilder.toString(), alternativeBuilder.toString()));
+                    referenceBuilder.setLength(0);
+                    alternativeBuilder.setLength(0);
+                }
+                isSubstitution = isInsertion = isDeletion = ambiguousSwitch = false;
+                lastNonGapIndex = i;
+            } else if (referenceChars[i] == Constants.gapChar) { // Insertion:
+                if (isDeletion) {
+                    if (!ambiguousSwitch) Logging.logWarning("Ambiguous deletion to insertion switch; Variant skipped.");
+                    ambiguousSwitch = true;
+                } else {
+                    if (!isInsertion && !isSubstitution) {
+                        relativeStartPosition = lastNonGapIndex - noInsertions;
+                        referenceBuilder.append(referenceChars[lastNonGapIndex]);
+                        alternativeBuilder.append(alternativeChars[lastNonGapIndex]);
+                    }
+                    referenceBuilder.append(Constants.gapChar);
+                    alternativeBuilder.append(alternativeChars[i]);
+                    isSubstitution = false;
+                    isInsertion = true;
+                }
+                noInsertions++;
+            } else if (alternativeChars[i] == Constants.gapChar) { // Deletion
+                if (isInsertion) {
+                    if (!ambiguousSwitch) Logging.logWarning("Ambiguous insertion to deletion switch; Variant will be skipped.");
+                    ambiguousSwitch = true;
+                } else {
+                    if (!isDeletion && !isSubstitution) {
+                        relativeStartPosition = lastNonGapIndex - noInsertions;
+                        referenceBuilder.append(referenceChars[lastNonGapIndex]);
+                        alternativeBuilder.append(alternativeChars[lastNonGapIndex]);
+                    }
+                    referenceBuilder.append(referenceChars[i]);
+                    alternativeBuilder.append(Constants.gapChar);
+                    isSubstitution = false;
+                    isDeletion = true;
+                }
+            } else { // Substitution
+                if (isSubstitution || isInsertion || isDeletion) {
+                    variants.add(Triple.of(relativeStartPosition, referenceBuilder.toString(), alternativeBuilder.toString()));
+                    referenceBuilder.setLength(0);
+                    alternativeBuilder.setLength(0);
+                }
+                isSubstitution = true;
+                isInsertion = isDeletion = ambiguousSwitch = false;
+                lastNonGapIndex = i;
+                relativeStartPosition = lastNonGapIndex - noInsertions;
+                referenceBuilder.append(referenceChars[i]);
+                alternativeBuilder.append(alternativeChars[i]);
+            }
+        }
+        if (isSubstitution || isInsertion || isDeletion) {
+            variants.add(Triple.of(relativeStartPosition, referenceBuilder.toString(), alternativeBuilder.toString()));
+        }
+        return variants;
     }
 }

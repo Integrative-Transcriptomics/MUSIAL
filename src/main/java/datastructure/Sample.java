@@ -1,246 +1,209 @@
 package datastructure;
 
-import exceptions.MusialException;
-import htsjdk.samtools.util.Tuple;
-import htsjdk.tribble.index.IndexFactory;
-import htsjdk.tribble.index.tabix.TabixIndex;
-import htsjdk.variant.vcf.VCFCodec;
-import htsjdk.variant.vcf.VCFFileReader;
-import main.Constants;
+import utility.Constants;
 
-import java.io.File;
-import java.nio.file.Path;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.regex.Pattern;
 
 /**
- * Representation of a sample, i.e., variant calls from a single biological sample.
- *
- * @author Simon Hackl
+ * Represents a sample containing variant calls from a single biological sample.
+ * <p>
+ * This class extends {@link Attributable} to inherit functionality for managing attributes.
+ * It provides fields and methods to store and manipulate variant calls, alleles, and other
+ * sample-specific data. Each instance of this class is uniquely identified by its {@code name}.
+ * </p>
  */
-@SuppressWarnings("unused")
-public final class Sample extends InfoContainer {
+public class Sample extends Attributable {
 
     /**
-     * Internal name of the sample.
+     * The name or internal identifier of this sample.
+     * <p>
+     * This field uniquely identifies the sample within the context of the application.
+     * It is a final field, meaning its value is immutable once assigned during the
+     * construction of the {@link Sample} instance.
+     * </p>
      */
     public final String name;
-    /**
-     * .vcf file that is associated with this sample. No permanent storage in MUSIAL session.
-     */
-    public transient final File vcfFile;
-    /**
-     * {@link HashMap} that assigns features to alleles (names).
-     */
-    private final LinkedHashMap<String, String> allele;
-    /**
-     * {@link HashMap} that assigns features to proteoforms (names).
-     */
-    private final LinkedHashMap<String, String> proteoform;
-    /**
-     * Hierarchical map structure to store variant calls wrt. features.
-     * <ul>
-     *     <li>First level: A {@link Feature#name}.</li>
-     *     <li>Second level: Position on feature.</li>
-     *     <li>Third level: {@code CALL;DP;ALT:AD,...} with {@code CALL} as one of N (ambiguous), ? (no coverage), or the index of the alternative call. {@code DP, AD} as defined in VCF specification (<a href="https://samtools.github.io/hts-specs/VCFv4.2.pdf">samtools.github.io/hts-specs/VCFv4.2.pdf</a>}).</li>
-     * </ul>
-     */
-    private final LinkedHashMap<String, LinkedHashMap<Integer, String>> calls;
-    /**
-     * {@link VCFFileReader} instance pointing to the vcf file of this sample. No permanent storage in MUSIAL session.
-     */
-    public transient VCFFileReader vcfFileReader;
 
     /**
-     * Constructor of {@link Sample}.
-     *
-     * @param vcfFile    {@link File} instances pointing to the .vcf file of this sample.
-     * @param name       {@link String} representing the sample name.
-     * @param noFeatures {@link Integer} indicating the expected no. features to store information on with this sample instance.
-     */
-    public Sample(File vcfFile, String name, int noFeatures) {
-        super();
-        this.vcfFile = vcfFile;
-        this.name = name;
-        this.allele = new LinkedHashMap<>(noFeatures);
-        this.proteoform = new LinkedHashMap<>(noFeatures);
-        this.calls = new LinkedHashMap<>(noFeatures);
-    }
-
-    /**
-     * Initialize a {@link VCFFileReader} instance pointing to the .vcf file associated with this instance.
+     * Hierarchical map structure to store variant calls.
      * <p>
-     * Validate that a .tbi index of the .vcf file is present and generates one, if not.
-     *
-     * @throws MusialException When the initialization of the {@link VCFFileReader} instance fails.
+     * This map organizes variant calls in a hierarchical structure:
+     * <ul>
+     *     <li>First level: The key is the name of the contig ({@link Contig#name}).</li>
+     *     <li>Second level: The key is the position of the variant on the contig.</li>
+     *     <li>Third level: The value is a string representing the variant call, formatted as:
+     *         {@code CALL_INDEX;DP;GQ;REF_0:ALT_0:AD_0:PL_0,...}.
+     *         <ul>
+     *             <li>{@code CALL_INDEX}: Indicates the numeric index of the alternative allele with an
+     *             optional prefix character of either {@code f} (low frequency) or {@code x} (low coverage).</li>
+     *             <li>{@code DP}: The read depth at the variant site.</li>
+     *             <li>{@code GQ}: The genotype quality score.</li>
+     *             <li>{@code REF_0:.:AD_0:PL_0}: The reference allele, a placeholder (`.`), the allele depth, and the phred-scaled likelihood.</li>
+     *             <li>{@code REF_1:ALT_1:AD_1:PL_1,...}: One or more alternate alleles, each with their respective
+     *             reference allele, alternate allele, allele depth, and phred-scaled likelihoods.</li>
+     *         </ul>
+     *         The format follows the <a href="https://samtools.github.io/hts-specs/VCFv4.2.pdf">VCFv4.2</a> specification.
+     *     </li>
+     * </ul>
+     * </p>
      */
-    public void imputeVcfFileReader() throws MusialException {
-        try {
-            // Check for the existence of a `.tbi.gz` index file of the input `.vcf` file.
-            if (!new File(this.vcfFile.getAbsolutePath() + ".tbi").exists()) {
-                // If none is present, an index is created and written to the same directory as the input `.vcf` file.
-                TabixIndex tabixIndex = IndexFactory.createTabixIndex(
-                        this.vcfFile,
-                        new VCFCodec(),
-                        null
-                );
-                tabixIndex.write(Path.of(this.vcfFile.getAbsolutePath() + ".tbi"));
-            }
-            // VCFFileReader can now be initialized.
-            this.vcfFileReader = new VCFFileReader(
-                    this.vcfFile,
-                    new File(this.vcfFile.getAbsolutePath() + ".tbi")
-            );
-        } catch (Exception e) {
-            throw new MusialException("Failed to initialize .vcf file reader for sample " + this.name + "; " + e.getMessage());
-        }
+    protected final HashMap<String, TreeMap<Integer, String>> variantCalls = new HashMap<>(2);
+
+    /**
+     * A map that assigns features to their corresponding alleles.
+     * <p>
+     * This {@link Map} stores the relationship between feature names and their associated allele identifiers.
+     * The keys represent the names of the features, and the values represent the unique identifiers of the alleles.
+     * This structure is used to track which allele is associated with each feature in the sample.
+     * </p>
+     */
+    protected final Map<String, String> alleles;
+
+    /**
+     * Regular expression pattern to match variant call strings.
+     * <p>
+     * This pattern is designed to parse variant call strings that conform to the VCF specification.
+     * The expected format includes fields separated by semicolons (`;`), with the following structure:
+     * <ul>
+     *   <li>{@code CALL_INDEX}: An optional prefix indicating the call index, which can be `f` (low frequency),
+     *       `x` (low coverage), or a numeric index of the alternative allele.</li>
+     *   <li>{@code DP}: The read depth at the variant site.</li>
+     *   <li>{@code GQ}: The genotype quality score.</li>
+     *   <li>{@code REF_0:.:AD_0:PL_0}: The reference allele, a placeholder (`.`), the allele depth, and the phred-scaled likelihood.</li>
+     *   <li>{@code REF_1:ALT_1:AD_1:PL_1,...}: One or more alternate alleles, each with their respective
+     *       reference allele, alternate allele, allele depth, and phred-scaled likelihoods.</li>
+     * </ul>
+     * </p>
+     *
+     * <pre>
+     * Example match: {@code 1;13;99;TTC:.:0:585,TTC:T--:13:0}
+     * </pre>
+     */
+    public static final Pattern variantCallPattern =
+            Pattern.compile("([fx]?[0-9]+);[0-9]+;[0-9]+;([ACGTN-]+:(.|[ACGTN*-]+):[0-9]+:[0-9]+(,[ACGTN-]+:(.|[ACGTN*-]+):[0-9]+:[0-9]+)*)");
+
+    /**
+     * Constructs a new {@link Sample} instance with the specified name and initial capacity for the alleles map.
+     * <p>
+     * This constructor initializes a {@link Sample} object with the given name and allocates a {@link HashMap}
+     * for the {@link #alleles} field with the specified initial capacity. The {@link #name} field is set to the
+     * provided name, and the superclass constructor is invoked to initialize inherited properties.
+     * </p>
+     *
+     * @param name     The name of the sample, used as its unique identifier.
+     * @param capacity The expected initial capacity of the {@link #alleles} map.
+     */
+    protected Sample(String name, int capacity) {
+        super();
+        this.name = name;
+        this.alleles = new HashMap<>(capacity);
     }
 
     /**
-     * Closes and removes the {@link VCFFileReader} of this instance, if imputed.
+     * Associates a specific allele with a feature in this sample.
+     * <p>
+     * This method updates the {@link #alleles} map by setting the sequence type (allele)
+     * for the specified feature. The feature is identified by its name, and the allele
+     * is identified by its unique identifier.
+     * </p>
+     *
+     * @param featureName The name of the feature ({@link Feature#name}) to associate with the allele.
+     * @param alleleUid   The unique identifier of the allele ({@link SequenceType#name}) to set for the feature.
      */
-    public void killVcfFileReader() {
-        if (this.vcfFileReader != null) {
-            this.vcfFileReader.close();
-            this.vcfFileReader = null;
-        }
+    protected void setAllele(String featureName, String alleleUid) {
+        this.alleles.put(featureName, alleleUid);
     }
 
     /**
-     * Sets the allele allocation of this sample for feature {@code featureName} to {@code alleleName}.
+     * Retrieves the allele identifier for the specified feature in this sample.
+     * <p>
+     * This method looks up the allele identifier associated with the given feature name
+     * in the {@link #alleles} map. If no allele is set for the specified feature, the method
+     * returns the default reference value defined in {@link Constants#synonymous}.
+     * </p>
      *
-     * @param featureName {@link Feature#name}.
-     * @param alleleName  {@link Form#name}.
-     */
-    public void setAllele(String featureName, String alleleName) {
-        this.allele.put(featureName, alleleName);
-    }
-
-    /**
-     * Returns the value set for {@code featureName} in {@link #allele} or {@code null} if not set.
-     *
-     * @param featureName {@link Feature#name} to retrieve {@link Form#name} associated with this sample for.
-     * @return {@link Form#name}.
+     * @param featureName The name of the feature ({@link Feature#name}) to retrieve the associated allele identifier for.
+     * @return The allele identifier ({@link Feature.Allele#_uid}) associated with the feature, or the reference value if not set.
      */
     public String getAllele(String featureName) {
-        return this.allele.getOrDefault(featureName, null);
+        return this.alleles.getOrDefault(featureName, Constants.synonymous);
     }
 
     /**
-     * Sets the proteoform allocation of this sample for feature {@code featureName} to {@code alleleName}.
+     * Retrieves the entries of the alleles map for this sample.
+     * <p>
+     * This method returns a collection view of the mappings contained in the {@link #alleles} map.
+     * Each entry in the collection represents a feature name and its associated allele identifier.
+     * Modifications to the returned collection will reflect in the underlying map.
+     * </p>
      *
-     * @param featureName    {@link FeatureCoding#name}.
-     * @param proteoformName {@link Form#name}.
+     * @return A {@link Collection} of {@link Map.Entry} objects representing the entries in the {@link #alleles} map.
      */
-    public void setProteoform(String featureName, String proteoformName) {
-        this.proteoform.put(featureName, proteoformName);
+    public Collection<Map.Entry<String, String>> getAlleles() {
+        return this.alleles.entrySet();
     }
 
     /**
-     * Returns the value set for {@code featureName} in {@link #proteoform} or {@code null} if not set.
+     * Retrieves the variant calls for the specified contig in this sample.
+     * <p>
+     * This method returns a {@link TreeMap} containing the variant calls for the given contig.
+     * The keys in the map represent the positions of the variants on the contig, and the values
+     * are the corresponding variant call strings. If no variant calls exist for the specified
+     * contig, an empty {@link TreeMap} is returned.
+     * </p>
      *
-     * @param featureName {@link FeatureCoding#name}.
-     * @return {@link Form#name}
+     * @param contig The name of the contig to retrieve the variant calls for.
+     * @return A {@link TreeMap} where the keys are variant positions and the values are variant call strings.
      */
-    public String getProteoform(String featureName) {
-        return this.proteoform.getOrDefault(featureName, null);
+    public TreeMap<Integer, String> getVariantCalls(String contig) {
+        return this.variantCalls.getOrDefault(contig, new TreeMap<>());
     }
 
     /**
-     * Adds a variant call for the specified feature at the given position.
+     * Extracts the reference base character from the starting position of a variant call string.
+     * <p>
+     * This method processes a variant call string formatted as per the VCF specification and retrieves
+     * the reference base character from the starting position. The call string is expected to follow
+     * the structure defined in {@link Sample#variantCallPattern}, where fields are separated by semicolons,
+     * commas, and colons.
+     * </p>
      *
-     * @param featureName The name of the feature.
-     * @param pos         The position of the variant call.
-     * @param call        A {@link Tuple} representing the primary variant call.
-     * @param calls       A {@link List} of {@link Tuple}s representing additional variant calls.
+     * <pre>
+     * Example call string: {@code 1;13;99;TTC:.:0:585,TTC:T--:13:0}
+     * </pre>
+     *
+     * @param call The variant call string to process.
+     * @return The reference base character from the starting position of the specified call.
+     * @throws ArrayIndexOutOfBoundsException If the call string does not conform to the expected format.
      */
-    public void addVariantCall(String featureName, int pos, Tuple<String, Integer> call, List<Tuple<String, Integer>> calls) {
-        this.calls.putIfAbsent(featureName, new LinkedHashMap<>(50, 50));
-        this.calls.get(featureName).put(
-                pos,
-                call.a + Constants.ENTRY_SEPARATOR + call.b + Constants.ENTRY_SEPARATOR + calls.stream().map(c -> c.a + Constants.FIELD_SEPARATOR + c.b).collect(Collectors.joining(","))
+    public static String getReferenceOfCall(String call) {
+        return call.split(Constants.SEMICOLON)[3].split(Constants.COMMA)[0].split(Constants.COLON)[0].substring(0, 1);
+    }
+
+    /**
+     * Converts this sample to its string representation.
+     * <p>
+     * This method generates a string representation of the sample, including its name and attributes.
+     * The attributes are formatted as key-value pairs separated by an equals sign (`=`) and delimited
+     * by semicolons (`;`). If the last character of the generated string is a semicolon, it is removed
+     * to ensure proper formatting.
+     * </p>
+     *
+     * @return A {@link String} representing the sample, including its name and attributes.
+     */
+    public String toString() {
+        StringBuilder sb = new StringBuilder(name).append("\t");
+        this.getAttributes().forEach((key, value) ->
+                sb.append(key).append(Constants.EQUAL).append(value).append(Constants.SEMICOLON)
         );
-    }
-
-    /**
-     * Retrieves the variant calls associated with the specified feature.
-     *
-     * @param featureName The name of the feature.
-     * @return A {@link LinkedHashMap} containing variant calls mapped by their positions.
-     */
-    public LinkedHashMap<Integer, String> getVariantCalls(String featureName) {
-        LinkedHashMap<Integer, String> c = this.calls.getOrDefault(featureName, new LinkedHashMap<>());
-        LinkedHashMap<Integer, String> r = new LinkedHashMap<>(c.size());
-        for (Integer position : c.keySet()) {
-            r.put(position, getCallAt(featureName, position));
+        if (sb.charAt(sb.length() - 1) == Constants.SEMICOLON.charAt(0)) {
+            sb.setLength(sb.length() - 1);
         }
-        return r;
-    }
-
-    /**
-     * Retrieves the variant call at the specified position for the given feature.
-     *
-     * @param featureName The name of the feature.
-     * @param position    The position of the variant call.
-     * @return The variant call at the specified position, or {@link Constants#CALL_INFO_NO_VARIANT} if not present.
-     */
-    public String getCallAt(String featureName, int position) {
-        if (!this.calls.containsKey(featureName) || !this.calls.get(featureName).containsKey(position)) {
-            return Constants.CALL_INFO_NO_VARIANT;
-        } else {
-            String[] fields = this.calls.get(featureName).get(position).split(Constants.ENTRY_SEPARATOR);
-            ArrayList<String> callContents = (ArrayList<String>) Arrays.stream(fields[2].split(",")).map(c -> c.split(Constants.FIELD_SEPARATOR)[0]).toList();
-            if (fields[0].equals(Constants.CALL_INFO_NO_INFO)) {
-                return Constants.CALL_INFO_NO_INFO.repeat(callContents.get(0).length());
-            } else {
-                return callContents.get(Integer.parseInt(fields[0]));
-            }
-        }
-    }
-
-    /**
-     * Retrieves the string representation of the variant call at the specified position for the given feature.
-     *
-     * @param featureName The name of the feature.
-     * @param position    The position of the variant call.
-     * @return The string representation of the variant call at the specified position, or {@link Constants#CALL_INFO_NO_VARIANT} if not present.
-     */
-    public String getCallVariantsStringAt(String featureName, int position) {
-        if (!this.calls.containsKey(featureName) || !this.calls.get(featureName).containsKey(position)) {
-            return Constants.CALL_INFO_NO_VARIANT;
-        } else {
-            return this.calls.get(featureName).get(position);
-        }
-    }
-
-    /**
-     * Checks if the variant call at the specified position for the given feature is a reference call.
-     *
-     * @param featureName The name of the feature.
-     * @param position    The position of the variant call.
-     * @return {@code true} if the variant call at the specified position is a reference call, otherwise {@code false}.
-     */
-    public boolean isReferenceCallAt(String featureName, int position) {
-        if (!this.calls.containsKey(featureName) || !this.calls.get(featureName).containsKey(position)) {
-            return false;
-        } else {
-            return this.calls.get(featureName).get(position).split(Constants.ENTRY_SEPARATOR)[0].equals("0");
-        }
-    }
-
-    /**
-     * Checks if the variant call at the specified position for the given feature is ambiguous.
-     *
-     * @param featureName The name of the feature.
-     * @param position    The position of the variant call.
-     * @return {@code true} if the variant call at the specified position is ambiguous, otherwise {@code false}.
-     */
-    public boolean isAmbiguousCallAt(String featureName, int position) {
-        if (!this.calls.containsKey(featureName) || !this.calls.get(featureName).containsKey(position)) {
-            return false;
-        } else {
-            return this.calls.get(featureName).get(position).split(Constants.ENTRY_SEPARATOR)[0].equals(Constants.CALL_INFO_NO_INFO) || this.calls.get(featureName).get(position).split(Constants.ENTRY_SEPARATOR)[0].equals(Constants.CALL_INFO_REJECTED);
-        }
+        return sb.toString();
     }
 
 }
