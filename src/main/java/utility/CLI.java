@@ -96,12 +96,12 @@ public final class CLI {
         if (Arrays.stream(args).anyMatch(arg -> arg.equals("-h") || arg.equals("--help"))) {
             String helpText = """
 
-                    MUSIAL aggregates variant calls from multiple samples of one prokaryotic species and provides an interface to compute a comprehensive overview as well as genome, gene and protein sequence alignments.
+                    MUSIAL aggregates and analyzes variant calls from multiple samples of a prokaryotic species and provides an interface to generate comprehensive statistics and alignments at the genome, gene and protein level.
 
                     Available tasks are:
-                    \033[47m\033[1;30m build    \033[0m : Build a local database file (storage) in JSON format from variant calls. This is mandatory to execute other tasks.
-                    \033[47m\033[1;30m expand   \033[0m : Expand (or preview) an existing storage with sample data from variant call files.
-                    \033[47m\033[1;30m view     \033[0m : View the content, i.e., entries (features, samples or variants) and their attributes, of a MUSIAL storage file.
+                    \033[47m\033[1;30m build    \033[0m : Build a local database file (storage) in JSON format from variant calls; the mandatory input for other tasks.
+                    \033[47m\033[1;30m expand   \033[0m : Expand an existing storage file from variant call files.
+                    \033[47m\033[1;30m view     \033[0m : View the content - features, samples or variants - and their attributes, of a MUSIAL storage file.
                     \033[47m\033[1;30m sequence \033[0m : Export sequences of features from a MUSIAL storage file.
 
                     Call `java -jar %s-%s.jar <task> [-h|--help]` for more information.
