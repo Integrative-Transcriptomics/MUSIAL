@@ -11,5 +11,4 @@ doc/*
 build/*
 deprecated/*
 releases/*
-media/*
 src/main/resources/snpEff/*
