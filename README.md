@@ -87,7 +87,7 @@ To provide user-friendly access to its functionalities, MUSIAL is available via 
 
 ## 🔨 Build
 
-MUSIAL `v2.4` is built with `JDK 21.0.6` and `Gradle 8.2.1`. If you want to compile the source code, run `gradle clean build` in the root directory of the project.
+MUSIAL `v2.4` is built with `JDK 21.0.6` and `Gradle 8.2.1`. If you want to compile the source code, run `gradle clean build` in the root directory of the project. The JavaDoc of the software is available at [https://integrative-transcriptomics.github.io/MUSIAL/javadoc/](https://integrative-transcriptomics.github.io/MUSIAL/javadoc/).
 
 ## 🙋 Need Help?
 
