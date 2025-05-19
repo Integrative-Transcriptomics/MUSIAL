@@ -24,15 +24,6 @@ import java.util.*;
  * sequence translation, and other related operations. It includes methods for
  * handling nucleotide and protein sequences, as well as utilities for working
  * with gaps and variants.
- * </p>
- *
- * <p>
- * Example usage:
- * <pre>
- * Tuple<String, String> alignment = SequenceOperations.globalNucleotideSequenceAlignment(
- *     "ACTG", "ACG", 5, 2, MARGINAL_GAPS.FREE, MARGINAL_GAPS.FREE, null);
- * </pre>
- * </p>
  */
 public final class SequenceOperations {
 
@@ -43,7 +34,6 @@ public final class SequenceOperations {
      * to improve performance by avoiding redundant translations. The key is the hash code
      * of the translation request (including sequence and direction), and the value is the
      * translated amino acid sequence.
-     * </p>
      */
     private final static HashMap<Integer, String> translationCache = new HashMap<>();
 
@@ -52,8 +42,6 @@ public final class SequenceOperations {
      * <p>
      * This method aligns two nucleotide sequences using a gap-affine Needleman-Wunsch algorithm.
      * It utilizes a predefined scoring matrix for nucleotide matches, mismatches, and gaps.
-     * </p>
-     *
      * <p>
      * The scoring matrix is defined as follows:
      * <ul>
@@ -61,7 +49,6 @@ public final class SequenceOperations {
      *   <li>Mismatch: -1</li>
      *   <li>Gap: -1</li>
      * </ul>
-     * </p>
      *
      * @param sequenceA        The first nucleotide sequence to align.
      * @param sequenceB        The second nucleotide sequence to align.
@@ -98,8 +85,6 @@ public final class SequenceOperations {
      * <p>
      * This method aligns two protein sequences using a gap-affine Needleman-Wunsch algorithm.
      * It utilizes the BLOSUM80 scoring matrix for amino acid matches, mismatches, and gaps.
-     * </p>
-     *
      * <p>
      * The scoring matrix is defined as follows:
      * <ul>
@@ -107,7 +92,6 @@ public final class SequenceOperations {
      *   <li>Mismatch: Based on BLOSUM80 values.</li>
      *   <li>Gap penalties: Defined by the gap open and gap extend penalties.</li>
      * </ul>
-     * </p>
      *
      * @param sequenceA        The first protein sequence to align.
      * @param sequenceB        The second protein sequence to align.
@@ -185,8 +169,6 @@ public final class SequenceOperations {
      * <p>
      * This method aligns two sequences using a scoring matrix and gap penalties. It supports banded alignment
      * for performance optimization and handles marginal gaps based on the specified modes.
-     * </p>
-     *
      * <p>
      * The alignment matrices are structured as follows:
      * <ul>
@@ -194,7 +176,6 @@ public final class SequenceOperations {
      *   <li>The x-axis corresponds to the second sequence (sequenceX).</li>
      *   <li>Insertions are traced back by walking vertically, and deletions are traced back by walking horizontally.</li>
      * </ul>
-     * </p>
      *
      * @param sequenceY        The first sequence to align.
      * @param sequenceX        The second sequence to align.
@@ -374,7 +355,6 @@ public final class SequenceOperations {
      * This method creates a 2D array of doubles with the given dimensions and fills
      * each cell with {@link Double#NEGATIVE_INFINITY}. It uses Java Streams to iterate
      * over the rows and apply the fill operation.
-     * </p>
      *
      * @param rows The number of rows in the matrix.
      * @param cols The number of columns in the matrix.
@@ -392,7 +372,6 @@ public final class SequenceOperations {
      * This method appends gap characters (defined by {@link Constants#gapString})
      * to the input string until it reaches the desired length. If the input string
      * is already equal to or longer than the specified length, no padding is added.
-     * </p>
      *
      * @param s      The input string to be padded.
      * @param length The desired length of the resulting string.
@@ -407,7 +386,6 @@ public final class SequenceOperations {
      * <p>
      * This method replaces all occurrences of the gap character (defined by {@link Constants#gapString})
      * in the input string with an empty string (defined by {@link Constants#EMPTY}).
-     * </p>
      *
      * @param s The input string from which gaps should be removed.
      * @return A new string with all gap characters removed.

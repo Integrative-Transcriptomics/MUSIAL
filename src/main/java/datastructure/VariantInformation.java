@@ -1,6 +1,7 @@
 package datastructure;
 
 import utility.Constants;
+import utility.Validation;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -25,12 +26,16 @@ public class VariantInformation extends Attributable {
     public final String reference;
 
     /**
-     * Occurrences of this variant in samples and alleles.
+     * A mapping of occurrences of this variant in samples and alleles.
      * <p>
+     * The `occurrence` map is structured as follows:
      * <ul>
-     *     <li>The first layer is either {@link Constants#$Attributable_samplesOccurrence} or a {@link Feature#name}.</li>
-     *     <li>The second layer is a set of {@link Sample#name} or {@link SequenceType#name}.</li>
+     *     <li>The key is either {@link Constants#$Attributable_samplesOccurrence} (representing sample occurrences)
+     *         or the name of a {@link Feature} (representing feature occurrences).</li>
+     *     <li>The value is a {@link HashSet} containing names of {@link Sample} or {@link SequenceType}
+     *         associated with the key.</li>
      * </ul>
+     * This structure allows efficient tracking of where the variant occurs in terms of samples and features.
      */
     protected final HashMap<String, HashSet<String>> occurrence = new HashMap<>(2);
 
@@ -42,7 +47,20 @@ public class VariantInformation extends Attributable {
     /**
      * Enum representing the type of variant.
      */
-    public enum Type {SNV, INSERTION, DELETION}
+    public enum Type {
+        /**
+         * Single Nucleotide Variant.
+         */
+        SNV,
+        /**
+         * An insertion of one or more nucleotides
+         */
+        INSERTION,
+        /**
+         * A deletion of one or more nucleotides
+         */
+        DELETION
+    }
 
     /**
      * Constructor for {@link VariantInformation}.
@@ -94,7 +112,6 @@ public class VariantInformation extends Attributable {
      * <p>
      * A substitution is defined as a single base from the set of valid nucleotide symbols
      * defined in {@link Constants#baseSymbols}.
-     * </p>
      *
      * @param alt The alternative base content to check.
      * @return {@code true} if the alternative content represents a substitution, {@code false} otherwise.
@@ -104,8 +121,7 @@ public class VariantInformation extends Attributable {
     }
 
     /**
-     * Determines whether a variant is an insertion.
-     * <p>
+     * Determines whether a variant is an insertion, i.e.,
      * <ul>
      *     <li>either the alternative base content is a string of any length of {@link Constants#baseSymbols}
      *     and the reference base content is a single base of {@link Constants#baseSymbols} followed by {@link Constants#gapString}s
@@ -138,7 +154,6 @@ public class VariantInformation extends Attributable {
      * This method checks if the alternative base content represents an insertion.
      * An insertion is defined as a string of at least two consecutive bases
      * from the set of valid nucleotide symbols defined in {@link Constants#baseSymbols}.
-     * </p>
      *
      * @param alt The alternative base content to check.
      * @return {@code true} if the alternative content represents an insertion, {@code false} otherwise.
@@ -148,8 +163,7 @@ public class VariantInformation extends Attributable {
     }
 
     /**
-     * Determines whether a variant is a deletion.
-     * <p>
+     * Determines whether a variant is a deletion, i.e.,
      * <ul>
      *     <li>either the reference base content is a string of any length of {@link Constants#baseSymbols}
      *     and the alternative base content is a single base of {@link Constants#baseSymbols} followed by {@link Constants#gapString}s
@@ -183,7 +197,6 @@ public class VariantInformation extends Attributable {
      * A deletion is defined as a string that starts with a valid nucleotide base
      * (from {@link Constants#baseSymbols}) followed by one or more gap symbols
      * (defined in {@link Constants#gapString}).
-     * </p>
      *
      * @param alt The alternative base content to check.
      * @return {@code true} if the alternative content represents a deletion, {@code false} otherwise.

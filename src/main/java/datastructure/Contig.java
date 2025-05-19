@@ -14,11 +14,9 @@ import java.util.stream.Collectors;
  * This class models a segment of a reference sequence, which can represent a complete genome,
  * a plasmid, a single contig, or a scaffold. It extends the {@link Attributable} class to
  * inherit functionality for managing attributes associated with the contig.
- * </p>
  * <p>
  * Each instance of this class is uniquely identified by its {@code name} and contains
  * information about its nucleotide sequence, variants, and other relevant properties.
- * </p>
  */
 public class Contig extends Attributable {
 
@@ -28,7 +26,6 @@ public class Contig extends Attributable {
      * This field uniquely identifies the contig within the context of the application.
      * It is a final field, meaning its value is immutable once assigned during the
      * construction of the {@link Contig} instance.
-     * </p>
      */
     public final String name;
 
@@ -38,10 +35,8 @@ public class Contig extends Attributable {
      * This field stores the nucleotide sequence of the contig. The sequence is expected to be
      * stored as a GZIP-compressed string to optimize storage. It may be empty or null if no
      * sequence is available for the contig.
-     * </p>
      * <p>
      * <b>Note:</b> The sequence is not validated against the variants stored in the {@code variants} map.
-     * </p>
      */
     protected final String sequence;
 
@@ -55,11 +50,9 @@ public class Contig extends Attributable {
      *     <li>The third level (value: {@link VariantInformation}) contains additional information about the variant,
      *         such as associations with {@link SequenceType}s or {@link Sample}s.</li>
      * </ul>
-     * </p>
      * <p>
      * This structure allows storage and retrieval of variant data, enabling queries by position,
      * alternative content, and associated metadata.
-     * </p>
      */
     protected final TreeMap<Integer, Map<String, VariantInformation>> variants;
 
@@ -69,11 +62,9 @@ public class Contig extends Attributable {
      * This field is a transient {@link HashMap} used to cache subsequences of the contig's sequence.
      * The keys in the map are {@link Tuple} objects representing the start and end positions of the subsequence,
      * and the values are the corresponding subsequences as {@link String}.
-     * </p>
      * <p>
      * The cache is transient because it is not intended to be serialized, as it is dynamically populated
      * during runtime to optimize performance by avoiding redundant sequence decompression or retrieval.
-     * </p>
      */
     protected transient HashMap<Tuple<Integer, Integer>, String> sequenceCache;
 
@@ -84,7 +75,6 @@ public class Contig extends Attributable {
      * initializes the {@link #variants} map to store variant information and the {@link #sequenceCache}
      * map to cache subsequences for optimized retrieval. The sequence is expected to be stored
      * as a GZIP-compressed string to reduce storage requirements.
-     * </p>
      *
      * @param name     The name or identifier of the contig.
      * @param sequence The nucleotide sequence of the contig, stored as a GZIP-compressed string.
@@ -103,7 +93,6 @@ public class Contig extends Attributable {
      * This method determines whether the contig has a stored sequence by checking
      * if the {@code sequence} field is not empty. A non-empty sequence indicates
      * that the contig has an associated nucleotide sequence.
-     * </p>
      *
      * @return {@code true} if the contig has a sequence (i.e., the sequence length is not zero),
      * {@code false} otherwise.
@@ -117,7 +106,6 @@ public class Contig extends Attributable {
      * <p>
      * This method decompresses the GZIP-compressed sequence stored in the {@code sequence} field
      * and returns it as a string. If no sequence is stored, it returns an empty string.
-     * </p>
      *
      * @return The decompressed nucleotide sequence of this contig, or an empty string if no sequence is stored.
      * @throws IOException If an error occurs during the decompression of the sequence.
@@ -136,12 +124,9 @@ public class Contig extends Attributable {
      * specified start and end positions. The subsequence is cached to avoid redundant decompression
      * and substring operations for the same range. If the subsequence is already cached, it is
      * retrieved directly from the cache. Otherwise, it is computed, stored in the cache, and returned.
-     * </p>
-     *
      * <p>
      * The start and end positions are 1-based indices, meaning the first nucleotide in the sequence
      * is at position 1. If no sequence is stored for the contig, the method returns an empty string.
-     * </p>
      *
      * @param start The 1-based indexed start position of the subsequence (inclusive).
      * @param end   The 1-based indexed end position of the subsequence (exclusive).
@@ -169,7 +154,6 @@ public class Contig extends Attributable {
      * This method iterates through the hierarchical map of variants stored in the {@code variants} field.
      * It computes the total count by summing up the sizes of all inner maps, where each inner map represents
      * the alternative sequences for a specific position on the contig.
-     * </p>
      *
      * @return The total number of variants located on this contig.
      */
@@ -184,7 +168,6 @@ public class Contig extends Attributable {
      * for a variant located at the specified position with the given alternative bases. The returned
      * {@link VariantInformation} contains details about the variant, including its occurrences in
      * samples and features, as well as any associated attributes.
-     * </p>
      *
      * @param position         The 1-based position of the variant on the contig.
      * @param alternativeBases The alternative base sequence of the variant.
@@ -203,14 +186,11 @@ public class Contig extends Attributable {
      *   <li>The position of the variant (field {@code a} of the tuple).</li>
      *   <li>The alternate allele of the variant (field {@code b} of the tuple).</li>
      * </ul>
-     * </p>
-     *
      * <p>
      * For each variant, the method retrieves the associated {@link VariantInformation} using
      * the position and alternate allele. It then checks if the {@code Constants.EFFECTS} attribute
      * is present. If the attribute is found, its value (a comma-separated string of effects) is split
      * into individual effects, which are trimmed and aggregated into a {@link Set} to ensure uniqueness.
-     * </p>
      *
      * @param variants A list of {@link Tuple} objects representing the variants. Each tuple contains:
      *                 <ul>
@@ -236,7 +216,6 @@ public class Contig extends Attributable {
      *   <li>The position of the variant on the contig.</li>
      *   <li>The alternative base sequence of the variant.</li>
      * </ul>
-     * </p>
      *
      * @return An {@link ArrayList} of {@link Tuple} objects, where each tuple contains
      * the position and alternative base sequence of a variant.
@@ -261,7 +240,6 @@ public class Contig extends Attributable {
      *   <li>The position of the variant on the contig.</li>
      *   <li>The alternative base sequence of the variant.</li>
      * </ul>
-     * </p>
      *
      * @param start The 1-based indexed inclusive start position of the range.
      * @param end   The 1-based indexed inclusive end position of the range.
@@ -289,7 +267,6 @@ public class Contig extends Attributable {
      *   <li>The position of the variant on the contig.</li>
      *   <li>The alternative base sequence of the variant.</li>
      * </ul>
-     * </p>
      *
      * @param feature    The feature to filter variants by.
      * @param alleleUids A set of allele unique identifiers to filter variants by.
@@ -320,7 +297,6 @@ public class Contig extends Attributable {
      *   <li>The position of the variant on the contig.</li>
      *   <li>The alternative base sequence of the variant.</li>
      * </ul>
-     * </p>
      *
      * @param sampleName The name of the sample to filter variants by.
      * @return An {@link ArrayList} of {@link Tuple} objects, where each tuple contains
@@ -349,7 +325,6 @@ public class Contig extends Attributable {
      *   <li>The position of the variant on the contig.</li>
      *   <li>The alternative base sequence of the variant.</li>
      * </ul>
-     * </p>
      *
      * @param sampleName The name of the sample to filter variants by.
      * @param start      The 1-based indexed inclusive start position of the location range.

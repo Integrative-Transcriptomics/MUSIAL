@@ -80,11 +80,9 @@ public final class Musial {
      * This constant specifies the default file extension for storage files
      * created or used by the MUSIAL application. It is marked as `transient`
      * to indicate that it should not be serialized as part of the class state.
-     * </p>
      * <p>
      * The extension should either be `.json` or `.json.gz` depending on the
      * compression method used. For production, use `.json.gz` for compressed files.
-     * </p>
      */
     private static final String storageExtension = ".json";
 
@@ -119,7 +117,6 @@ public final class Musial {
      * <p>
      * This method initializes the program, determines the task to execute based on the provided arguments,
      * and executes the corresponding functionality. It handles errors gracefully and logs relevant information.
-     * </p>
      *
      * @param args Command-line arguments specifying the task and its parameters.
      *             <ul>
@@ -378,7 +375,6 @@ public final class Musial {
      * <p>
      * Supports filtering and formatting the output for different content types such as features, alleles, samples, and variants,
      * as well as sequence types and variant calls per sample in a matrix format.
-     * </p>
      */
     public static class View {
 
@@ -388,7 +384,6 @@ public final class Musial {
          * This class provides functionality to manage rows and columns, add entries, and generate
          * a string representation of the table. It supports sorting of row identifiers using a
          * custom comparator and allows specifying default content for missing entries.
-         * </p>
          */
         private static class Table {
 
@@ -499,7 +494,6 @@ public final class Musial {
          *     <li><b>variant</b>: Represents genomic variants.</li>
          *     <li><b>call</b>: Represents variant calls for samples.</li>
          * </ul>
-         * </p>
          */
         public static final Set<String> content = Set.of(
                 "feature",
@@ -516,7 +510,6 @@ public final class Musial {
          * This method reads the storage file, applies filters for features, samples, and positions,
          * and generates a table for the specified content type. The table can be displayed on the console
          * or written to a file.
-         * </p>
          *
          * @throws IOException     If an I/O error occurs during file operations.
          * @throws MusialException If an error specific to MUSIAL occurs.
@@ -605,7 +598,6 @@ public final class Musial {
          * This method creates a table with rows representing features and columns representing
          * various attributes of each feature. The table can be filtered to include only specific
          * features based on the provided set of feature names.
-         * </p>
          *
          * @param storage The {@link Storage} instance containing the features to be included in the table.
          * @param include A set of feature names to include in the table. If empty, all features are included.
@@ -645,7 +637,6 @@ public final class Musial {
          * <p>
          * This method creates a table with rows representing alleles and proteoforms associated with features.
          * The table can be filtered to include only specific features and samples based on the provided sets.
-         * </p>
          *
          * @param storage         The {@link Storage} instance containing the features and alleles to be included in the table.
          * @param includeFeatures A set of feature names to include in the table. If empty, all features are included.
@@ -710,7 +701,6 @@ public final class Musial {
          * This method creates a table with rows representing samples and columns representing
          * various attributes of each sample. The table can be filtered to include only specific
          * samples based on the provided set of sample names.
-         * </p>
          *
          * @param storage The {@link Storage} instance containing the samples to be included in the table.
          * @param include A set of sample names to include in the table. If empty, all samples are included.
@@ -743,7 +733,6 @@ public final class Musial {
          * <p>
          * This method creates a table with rows representing alleles and proteoforms associated with features.
          * The table can be filtered to include only specific samples and features based on the provided sets.
-         * </p>
          *
          * @param storage         The {@link Storage} instance containing the samples and features to be included in the table.
          * @param includedSamples A set of sample names to include in the table. If empty, all samples are included.
@@ -788,7 +777,6 @@ public final class Musial {
          * This method creates a table with rows representing variants and columns representing
          * various attributes of each variant. The table can be filtered to include only specific
          * positions, samples, and features based on the provided sets.
-         * </p>
          *
          * @param storage          The {@link Storage} instance containing the variants to be included in the table.
          * @param includePositions A set of positions to include in the table. If empty, all positions are included.
@@ -847,7 +835,6 @@ public final class Musial {
          * This method creates a table with rows representing variant calls and columns representing
          * the contig, position, reference, and sample-specific call information. The table can be
          * filtered to include only specific samples and positions based on the provided sets.
-         * </p>
          *
          * @param storage           The {@link Storage} instance containing the variant calls to be included in the table.
          * @param includedSamples   A set of sample names to include in the table. If empty, all samples are included.
@@ -891,7 +878,6 @@ public final class Musial {
      * in the MUSIAL application.
      * <p>
      * It supports exporting sequences in FASTA format with options for alignment, merging, and including conserved reference content.
-     * </p>
      */
     private static class Sequence {
 
@@ -901,7 +887,6 @@ public final class Musial {
          * This method validates the output directory, reads the storage file, and exports
          * nucleotide or amino acid sequences for the specified features and samples based
          * on the provided parameters. The sequences are written to the specified output directory.
-         * </p>
          *
          * @throws IOException     If an I/O error occurs during file operations.
          * @throws MusialException If a MUSIAL-specific error occurs, such as missing parameters or invalid paths.
@@ -973,7 +958,6 @@ public final class Musial {
          * This method processes variants, resolves reference sequences, and generates
          * nucleotide sequences for alleles based on the provided parameters. The sequences
          * are written to a FASTA file in the specified output directory.
-         * </p>
          *
          * @param feature     The genomic feature for which sequences are exported.
          * @param contig      The contig containing the feature and its variants.
@@ -983,7 +967,6 @@ public final class Musial {
          * @param strip       If true, un-aligns sequences by removing gaps.
          * @param reference   If true, includes the reference sequence in the output.
          * @throws IOException If an I/O error occurs during file writing.
-         * @noinspection DuplicatedCode
          */
         private static void exportNtSequences(Feature feature, Contig contig, Set<String> sampleNames,
                                               boolean conserved, boolean merge, boolean strip, boolean reference) throws IOException {
@@ -1146,7 +1129,6 @@ public final class Musial {
          * This method processes variants, resolves reference sequences, and generates
          * amino acid sequences for proteoforms based on the provided parameters. The sequences
          * are written to a FASTA file in the specified output directory.
-         * </p>
          *
          * @param feature     The genomic feature for which sequences are exported.
          * @param contig      The contig containing the feature and its variants.
@@ -1157,7 +1139,6 @@ public final class Musial {
          * @param reference   If true, includes the reference sequence in the output.
          * @throws IOException     If an I/O error occurs during file writing.
          * @throws MusialException If a MUSIAL-specific error occurs.
-         * @noinspection DuplicatedCode
          */
         private static void exportAaSequences(Feature feature, Contig contig, Set<String> sampleNames,
                                               boolean conserved, boolean merge, boolean strip, boolean reference) throws IOException, MusialException {

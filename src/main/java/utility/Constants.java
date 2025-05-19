@@ -11,7 +11,6 @@ import java.util.Arrays;
  * The constants include symbols, sequence types, and other project-specific
  * values. All fields are declared as {@code static final} to indicate that
  * they are constants and cannot be modified.
- * </p>
  */
 public final class Constants {
 
@@ -65,7 +64,6 @@ public final class Constants {
      * <p>
      * This constant is used in scenarios where a specific nucleotide cannot be determined
      * and is represented by the character 'N'.
-     * </p>
      */
     public final static String anyNucleotide = "N";
 
@@ -75,7 +73,6 @@ public final class Constants {
      * This constant is used to denote the stop codon, which is represented
      * by the character '*'. The stop codon signals the termination of
      * translation in a nucleotide sequence.
-     * </p>
      */
     public final static String stopCodon = "*";
 
@@ -84,7 +81,6 @@ public final class Constants {
      * <p>
      * This constant is used to mark variant calls with insufficient read depth,
      * represented by the prefix 'x'.
-     * </p>
      */
     public final static String lowCoverageCallPrefix = "x";
 
@@ -93,7 +89,6 @@ public final class Constants {
      * <p>
      * This constant is used to mark variant calls with low allele frequency,
      * represented by the prefix 'f'.
-     * </p>
      */
     public final static String lowFrequencyCallPrefix = "f";
 
@@ -138,7 +133,6 @@ public final class Constants {
      *     <li>{@link datastructure.Feature.Proteoform} data structures to store or retrieve
      *     the effects derived in the constructor of the class.</li>
      * </ul>
-     * </p>
      */
     public final static String $SequenceType_effects = "so_effects";
 
@@ -149,7 +143,6 @@ public final class Constants {
      * the net shift value associated with a specific sequence type. The net shift
      * typically represents the cumulative effect of insertions and deletions
      * on the sequence length.
-     * </p>
      */
     public final static String $SequenceType_sequenceLengthVariation = "sequence_length_variation";
 

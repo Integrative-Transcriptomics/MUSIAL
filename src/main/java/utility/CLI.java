@@ -29,13 +29,10 @@ import java.util.Objects;
  * This final class provides functionality to handle command-line arguments for various tasks
  * (e.g., build, update, view, sequence) in the MUSIAL application. It defines options, parses
  * arguments, validates them, and stores the parsed parameters for further processing.
- * </p>
- *
  * <p>
  * The CLI class supports displaying help messages, validating input files, and managing task-specific
  * logic through nested task classes. It ensures proper error handling and user guidance for invalid
  * or incomplete arguments.
- * </p>
  */
 public final class CLI {
 
@@ -45,7 +42,6 @@ public final class CLI {
      * This {@link HashMap} holds the validated and parsed parameters from the command-line arguments.
      * The keys represent parameter names, and the values represent their corresponding values.
      * The content of this map depends on the task being executed (e.g., build, update, view, sequence).
-     * </p>
      */
     public static HashMap<String, Object> parameters = new HashMap<>();
 
@@ -56,7 +52,6 @@ public final class CLI {
      * available for the application. It includes options specific to the tasks
      * (e.g., build, update, view, sequence) and is populated during the initialization
      * of the {@link CLI} instance.
-     * </p>
      */
     private static final Options options = new Options();
 
@@ -66,10 +61,24 @@ public final class CLI {
      * This {@link CommandLine} object holds the arguments passed to the application
      * after being parsed and validated. It is used to access the values of the
      * specified options and arguments for further processing.
-     * </p>
      */
     private static CommandLine arguments;
 
+    /**
+     * Parses the command-line arguments and executes the corresponding task.
+     * <p>
+     * This method performs the following steps:
+     * <ul>
+     *   <li>Determines the task to execute (e.g., BUILD, EXPAND, VIEW, SEQUENCE) and initializes the options for that task.</li>
+     *   <li>Checks if the help argument (`-h` or `--help`) is provided and displays the help message if true.</li>
+     *   <li>Parses the command-line arguments using the specified options and validates them.</li>
+     *   <li>Transfers the parsed arguments to the appropriate task-specific logic for further processing.</li>
+     * </ul>
+     * If an error occurs during parsing or validation, a {@link MusialException} is thrown.
+     *
+     * @param args An array of {@link String} representing the command-line arguments.
+     * @throws MusialException If an error occurs during argument parsing or validation.
+     */
     public static void parse(String[] args) throws MusialException {
         // Fill options dependent on task to execute.
         switch (Musial.task) {
@@ -148,7 +157,6 @@ public final class CLI {
      * This method checks if the command-line arguments do not include the help option (`-h` or `--help`).
      * If the task is unrecognized, it prints an error message with the unrecognized task and instructions
      * on how to access the help message. The program then terminates with a call to {@link System#exit(int)}.
-     * </p>
      *
      * @param args An array of {@link String} representing the command-line arguments.
      */
@@ -168,15 +176,10 @@ public final class CLI {
      *   <li>{@code options()}: Defines the command-line options specific to a task.</li>
      *   <li>{@code transfer()}: Validates the parsed command-line arguments for the task.</li>
      * </ul>
-     * </p>
-     *
      * <p>
      * Implementing classes should provide concrete implementations for these methods
      * to handle task-specific logic for CLI parsing. This is intended to only comprise
      * syntax parsing and no validation logic.
-     * </p>
-     *
-     * @noinspection unused
      */
     private interface Task {
 
@@ -200,7 +203,6 @@ public final class CLI {
      * <p>
      * This class defines the command-line options and validation logic for the Build task.
      * It allows users to specify a JSON file containing the task parameters for MUSIAL.
-     * </p>
      */
     private static class Build implements Task {
 
@@ -209,10 +211,8 @@ public final class CLI {
          * <p>
          * This method adds the following option:
          * <ul>
-         *   <li>`-P` or `--parameters`: Path to a `.json` file specifying the build task parameters for MUSIAL.</li>
+         *   <li>`-C` or `--configuration`: Path to a `.json` file specifying the build task parameters for MUSIAL.</li>
          * </ul>
-         * The `-P` option is required.
-         * </p>
          */
         private static void options() {
             options.addOption(Option.builder("C")
@@ -233,7 +233,6 @@ public final class CLI {
          * </ul>
          * If the validation fails, a {@link MusialException} is thrown with the validation report.
          * If parsing fails, a {@link MusialException} is thrown with the error details.
-         * </p>
          *
          * @throws IOException         If an I/O error occurs while reading the schema or the parameters file.
          * @throws MusialException     If the validation fails or the file cannot be parsed.
@@ -268,7 +267,6 @@ public final class CLI {
      * This class defines the command-line options and validation logic for the Expand task.
      * It allows users to specify input files, variant call files, sample annotations, and other options
      * for updating a MUSIAL storage file.
-     * </p>
      */
     private static class Expand implements Task {
 
@@ -283,7 +281,6 @@ public final class CLI {
          *   <li>`-o` or `--output`: Path to write the output file (default is to overwrite the input file).</li>
          *   <li>`-p` or `--preview`: Reports novel entries without writing the expanded storage to a file.</li>
          * </ul>
-         * </p>
          */
         private static void options() {
             options.addOption(Option.builder("I")
@@ -315,9 +312,9 @@ public final class CLI {
         }
 
         /**
-         * Transfers the command-line arguments for the update task.
+         * Transfers the command-line arguments for the expand task.
          */
-        private static void transfer() throws IOException {
+        private static void transfer() {
             parameters = new HashMap<>();
             parameters.put("input", arguments.getOptionValue("I"));
             parameters.put("vcfInput", Arrays.asList(arguments.getOptionValues("V")));
@@ -334,7 +331,6 @@ public final class CLI {
      * This class defines the command-line options and validation logic for the view task.
      * It allows users to specify input files, content types, filters, and output paths
      * for viewing the content of a MUSIAL storage file.
-     * </p>
      */
     private static class View implements Task {
 
@@ -348,7 +344,6 @@ public final class CLI {
          *   <li>`-f` or `--filter`: List of feature/sample names or positions to filter the output (default is no filters).</li>
          *   <li>`-o` or `--output`: Path to write the output file (default is stdout).</li>
          * </ul>
-         * </p>
          */
         private static void options() {
             options.addOption(Option.builder("I")
@@ -398,7 +393,6 @@ public final class CLI {
      * This class defines the command-line options and validation logic for the sequence export task.
      * It allows users to specify input files, features, content types, samples, and other options
      * for exporting sequences from a MUSIAL storage file.
-     * </p>
      */
     private static class Sequence implements Task {
 
@@ -416,7 +410,6 @@ public final class CLI {
          *   <li>`-k` or `--conserved`: Exports conserved sites.</li>
          *   <li>`-o` or `--output`: Path to a directory to write the output (default is the input storage directory).</li>
          * </ul>
-         * </p>
          */
         private static void options() {
             options.addOption(Option.builder("I")

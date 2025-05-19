@@ -48,12 +48,12 @@ import java.util.zip.GZIPOutputStream;
  * It provides methods for adding, retrieving, and processing genomic information, as well as handling variant calls and annotations.
  * The class is structured to support efficient storage and manipulation of data, leveraging Java collections and utility classes.
  * It integrates external tools like SnpEff for annotation and ensures data integrity through validation and compliance with Sequence Ontology rules.
- * </p>
+ * <p>
  * <b>Core Data Structures:</b>
  * <ul>
- * <li>Contigs: Stored in a `Map<String, Contig>`, contigs represent chromosomes or plasmids. Each contig can store its sequence and associated variants.</li>
- * <li>Features: Stored in a `Map<String, Feature>`, features represent genomic elements like genes or mRNA. These are validated and processed using Sequence Ontology (SO) terms.</li>
- * <li>Samples: Stored in a `Map<String, Sample>`, samples represent variant calls from distinct biological samples. Metadata and variant calls are associated with each sample.</li>
+ * <li>Contigs: Stored in a `Map (String, {@link Contig})`, contigs represent chromosomes or plasmids. Each contig can store its sequence and associated variants.</li>
+ * <li>Features: Stored in a `Map (String, {@link Feature})`, features represent genomic elements like genes or mRNA. These are validated and processed using Sequence Ontology (SO) terms.</li>
+ * <li>Samples: Stored in a `Map (String, {@link Sample}), samples represent variant calls from distinct biological samples. Metadata and variant calls are associated with each sample.</li>
  * </ul>
  * <b>Key Functionalities:</b>
  * <ul>
@@ -71,7 +71,6 @@ public class Storage {
      * This record encapsulates various parameters that control the behavior of the storage system,
      * including thresholds for coverage and frequency, as well as exclusions for specific positions
      * and variants. These parameters are immutable once set.
-     * </p>
      *
      * @param minimalCoverage         The minimal coverage of a variant call to be accepted. Must be greater than or equal to 0.
      *                                This ensures that only variant calls with sufficient read depth are considered.
@@ -106,7 +105,6 @@ public class Storage {
      * This field holds an instance of {@link Parameters}, which contains the configuration
      * for the storage system. The parameters are immutable and define the behavior of the
      * storage, such as thresholds and exclusions.
-     * </p>
      */
     private final Parameters parameters;
 
@@ -148,6 +146,9 @@ public class Storage {
      */
     private transient ReferenceSequenceFile reference = null;
 
+    /**
+     * Transient accessor to the VCF handler.
+     */
     private transient VcfHandler vcfHandler = new VcfHandler();
 
     /**
@@ -175,16 +176,14 @@ public class Storage {
      * This class provides methods to load storage from command line interface (CLI) parameters,
      * files, and to save storage to files. It also handles the initialization of transient properties
      * and manages the loading of reference sequences, features, and sample information.
-     * </p>
      */
-    public static class Factory {
+    public static final class Factory {
 
         /**
          * Initializes a {@link Storage} from CLI parameters.
          * <p>
          * This method initializes a new {@link Storage} instance using parameters from the command line interface (CLI).
          * It also loads reference sequences, features, and sample information from the CLI parameters.
-         * </p>
          *
          * @return A {@link Storage} object representing the loaded data.
          * @throws MusialException If an error occurs while loading or validating the data.
@@ -208,7 +207,6 @@ public class Storage {
          * <p>
          * This method loads the storage from a specified file in JSON format. It handles both compressed
          * and uncompressed files. The method also initializes transient properties after loading.
-         * </p>
          *
          * @param file The file to load the storage from.
          * @return A {@link Storage} object representing the loaded data.
@@ -234,36 +232,35 @@ public class Storage {
         }
 
         /**
- * Writes the given `Storage` object to a file in JSON format.
- * <p>
- * This method ensures that the file has the correct extension (`.json` or `.json.gz` for GZIP-compressed files),
- * converts the `Storage` object to a JSON string, and writes it to the specified file. If the file path ends
- * with `.gz`, the JSON data is compressed using GZIP before writing.
- * </p>
- *
- * @param storage The `Storage` object to be serialized and written to the file.
- * @param file    The `File` object representing the target file.
- * @throws IOException If an error occurs during file operations, such as writing or compression.
- */
-public static void toFile(Storage storage, File file) throws IOException {
-    // Ensure the file has the correct extension
-    if (!file.getAbsolutePath().endsWith(".json")) {
-        file = new File(file.getAbsolutePath() + (file.getAbsolutePath().endsWith(".gz") ? ".json.gz" : ".json"));
-    }
+         * Writes the given `Storage` object to a file in JSON format.
+         * <p>
+         * This method ensures that the file has the correct extension (`.json` or `.json.gz` for GZIP-compressed files),
+         * converts the `Storage` object to a JSON string, and writes it to the specified file. If the file path ends
+         * with `.gz`, the JSON data is compressed using GZIP before writing.
+         *
+         * @param storage The `Storage` object to be serialized and written to the file.
+         * @param file    The `File` object representing the target file.
+         * @throws IOException If an error occurs during file operations, such as writing or compression.
+         */
+        public static void toFile(Storage storage, File file) throws IOException {
+            // Ensure the file has the correct extension
+            if (!file.getAbsolutePath().endsWith(".json")) {
+                file = new File(file.getAbsolutePath() + (file.getAbsolutePath().endsWith(".gz") ? ".json.gz" : ".json"));
+            }
 
-    // Convert the storage object to a JSON string
-    String jsonData = new GsonBuilder().setPrettyPrinting().create().toJson(storage, Storage.class);
+            // Convert the storage object to a JSON string
+            String jsonData = new GsonBuilder().setPrettyPrinting().create().toJson(storage, Storage.class);
 
-    // Write the JSON data to the file, using GZIP if necessary
-    try (Writer writer = file.getAbsolutePath().endsWith(".gz")
-            ? new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(file)))
-            : new FileWriter(file, StandardCharsets.UTF_8)) {
-        writer.write(jsonData);
-    } catch (IOException e) {
-        // Throw a new IOException with a detailed error message if writing fails
-        throw new IOException(String.format("Failed to write MUSIAL storage to file %s; %s.", file.getAbsolutePath(), e.getMessage()));
-    }
-}
+            // Write the JSON data to the file, using GZIP if necessary
+            try (Writer writer = file.getAbsolutePath().endsWith(".gz")
+                    ? new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(file)))
+                    : new FileWriter(file, StandardCharsets.UTF_8)) {
+                writer.write(jsonData);
+            } catch (IOException e) {
+                // Throw a new IOException with a detailed error message if writing fails
+                throw new IOException(String.format("Failed to write MUSIAL storage to file %s; %s.", file.getAbsolutePath(), e.getMessage()));
+            }
+        }
 
         /**
          * Sets sample information in the storage from a specified file.
@@ -272,7 +269,6 @@ public static void toFile(Storage storage, File file) throws IOException {
          * in the provided `Storage` instance. The file is expected to be in a format that can be parsed
          * into a nested map structure, where the outer map keys represent sample names and the inner map
          * contains attribute-value pairs for each sample.
-         * </p>
          *
          * @param storage The {@link Storage} instance where the sample information will be stored.
          * @param file    The {@link File} object representing the input file containing sample metadata.
@@ -289,7 +285,6 @@ public static void toFile(Storage storage, File file) throws IOException {
          * This method processes a list of file paths, adding valid VCF files or directories containing VCF files
          * to the storage's `vcfFiles` list. It supports both uncompressed `.vcf` files and compressed `.vcf.gz` files.
          * If no valid VCF files are found, an exception is thrown.
-         * </p>
          *
          * @param storage The {@link Storage} instance where the VCF files will be stored.
          * @param paths   A list of file paths to process. Each path can be a file or a directory.
@@ -329,9 +324,9 @@ public static void toFile(Storage storage, File file) throws IOException {
          * This method loads parameters from the command line interface (CLI) and validates them. It checks for
          * the presence of required parameters and sets default values for optional ones. The method also handles
          * exceptions related to invalid parameter values.
-         * </p>
          *
          * @return A {@link Parameters} object containing the loaded and validated parameters.
+         * @throws IOException If an error occurs while reading or validating the parameters for excluded positions/variants.
          */
         private static Parameters parametersFromCLI() throws IOException {
             double minimalCoverage = 3.0; // Default value
@@ -407,11 +402,9 @@ public static void toFile(Storage storage, File file) throws IOException {
          * This method reads a file containing excluded positions and populates a map where the key is the contig name
          * and the value is a set of excluded positions. The file is expected to have rows with at least three columns:
          * the contig name, the start position, and the end position. The positions are inclusive.
-         * </p>
          * <p>
          * If the file path is null, blank, or the file is invalid, the method returns an empty map.
          * If a line has fewer than three columns, an IOException is thrown.
-         * </p>
          *
          * @return A map where the key is the contig name and the value is a set of excluded positions.
          * @throws IOException If the file is invalid or a line has fewer than three columns.
@@ -468,10 +461,8 @@ public static void toFile(Storage storage, File file) throws IOException {
          * This method reads a file containing excluded variants and populates a map where the key is the contig name
          * and the value is a set of excluded variants. Each excluded variant is represented as a string in the format:
          * "position:reference:alternate".
-         * </p>
          * <p>
          * If the file path is null, blank, or the file is invalid, the method returns an empty map.
-         * </p>
          *
          * @return A map where the key is the contig name and the value is a set of excluded variants.
          * @throws IOException If the file is invalid or cannot be read.
@@ -529,10 +520,10 @@ public static void toFile(Storage storage, File file) throws IOException {
          * This method loads sample information from the command line interface (CLI) parameters. See the
          * {@link #setSampleInformation} and {@link #setVcfFiles} methods for details on
          * how the sample information is loaded.
-         * </p>
          *
          * @param storage The {@link Storage} instance to load sample information into.
-         * @throws IOException If an error occurs while reading the sample metadata file or VCF files.
+         * @throws IOException     If an error occurs while reading the sample metadata file or VCF files.
+         * @throws MusialException If an error occurs while validating the sample information or VCF files.
          */
         private static void samplesFromCLI(Storage storage) throws IOException, MusialException {
             // Parse sample metadata file if available.
@@ -556,10 +547,10 @@ public static void toFile(Storage storage, File file) throws IOException {
          * This method loads the reference sequence from the command line interface (CLI) parameters. It checks
          * if the reference sequence file is specified and validates its accessibility. If the file is valid,
          * it creates an {@link IndexedFastaSequenceFile} instance and sets it as the reference for the storage.
-         * </p>
          *
          * @param storage The {@link Storage} instance to load the reference into.
          * @throws MusialException If an error occurs while loading or parsing the reference sequence.
+         * @throws IOException     If an error occurs while reading the reference file or creating the index.
          */
         private static void referenceFromCLI(Storage storage) throws MusialException, IOException {
             String path = (String) CLI.parameters.get("reference");
@@ -581,10 +572,10 @@ public static void toFile(Storage storage, File file) throws IOException {
          * <p>
          * This method loads features from the command line interface (CLI) parameters. It supports loading
          * and validating reference features from a file.
-         * </p>
          *
          * @param storage The {@link Storage} instance to load features into.
          * @throws MusialException If an error occurs while loading or parsing the features.
+         * @throws IOException     If an error occurs while reading the feature file or parsing the data.
          */
         private static void featuresFromCLI(Storage storage) throws MusialException, IOException {
             // Reference annotation requires a reference sequence.
@@ -706,7 +697,6 @@ public static void toFile(Storage storage, File file) throws IOException {
      * This constructor initializes the {@link Storage} object with the provided configuration
      * parameters. It also initializes empty containers for contigs, features, and samples
      * using {@link LinkedTreeMap}, ensuring that the data is stored in a sorted and efficient manner.
-     * </p>
      *
      * @param parameters The {@link Parameters} object containing the configuration for the storage.
      *                   This includes thresholds, exclusions, and other settings for managing
@@ -730,6 +720,8 @@ public static void toFile(Storage storage, File file) throws IOException {
     }
 
     /**
+     * Return whether {@link #reference} is set.
+     *
      * @return Get the reference sequence.
      */
     public boolean hasReference() {
@@ -737,6 +729,8 @@ public static void toFile(Storage storage, File file) throws IOException {
     }
 
     /**
+     * Retrieves the minimum coverage parameter.
+     *
      * @return Get the minimum coverage parameter.
      */
     public double minimumCoverage() {
@@ -744,6 +738,8 @@ public static void toFile(Storage storage, File file) throws IOException {
     }
 
     /**
+     * Retrieves the minimum frequency parameter.
+     *
      * @return Get the minimum frequency parameter.
      */
     public double minimumFrequency() {
@@ -808,7 +804,6 @@ public static void toFile(Storage storage, File file) throws IOException {
      * This method returns the value of the `processedGenotypes` field from the `VcfHandler` class.
      * The field keeps track of the total number of genotype records that have been processed
      * during the analysis of VCF files.
-     * </p>
      *
      * @return The total number of processed genotype records as a {@code long}.
      */
@@ -822,7 +817,6 @@ public static void toFile(Storage storage, File file) throws IOException {
      * This method compresses the provided sequence using GZIP and calculates its length.
      * If the sequence is null or empty, it assigns an empty string as the compressed sequence
      * and sets the length to 0. The contig is then added to the storage with its attributes.
-     * </p>
      *
      * @param name     The name of the contig to add.
      * @param sequence The sequence of the contig. Can be null or empty.
@@ -850,7 +844,6 @@ public static void toFile(Storage storage, File file) throws IOException {
      * This method searches for a contig in the storage by its name. If the contig exists,
      * it returns the corresponding {@link Contig} object. If the contig does not exist,
      * it returns {@code null}.
-     * </p>
      *
      * @param name The name of the contig to retrieve.
      * @return The {@link Contig} object associated with the specified name, or {@code null} if no such contig exists.
@@ -874,7 +867,6 @@ public static void toFile(Storage storage, File file) throws IOException {
      * <p>
      * This method iterates through all contigs in the storage and checks if all of them have
      * a sequence that is not empty.
-     * </p>
      *
      * @return {@code true} if any contig has an empty sequence, {@code false} otherwise.
      */
@@ -883,6 +875,8 @@ public static void toFile(Storage storage, File file) throws IOException {
     }
 
     /**
+     * Returns a collection view of the contigs stored in the storage.
+     *
      * @return Collection of stored {@link #contigs}.
      */
     public Collection<Contig> getContigs() {
@@ -890,6 +884,8 @@ public static void toFile(Storage storage, File file) throws IOException {
     }
 
     /**
+     * Returns the total number of variants stored.
+     *
      * @return Number of all stored {@link Contig#variants} across all {@link #contigs}.
      */
     public long getVariantsCount() {
@@ -902,7 +898,6 @@ public static void toFile(Storage storage, File file) throws IOException {
      * This method verifies whether the `novelVariants` list contains any entries.
      * Novel variants are those that have been identified during variant call processing
      * but are not yet annotated or processed further.
-     * </p>
      *
      * @return {@code true} if there are novel variants in the storage, {@code false} otherwise.
      */
@@ -921,7 +916,9 @@ public static void toFile(Storage storage, File file) throws IOException {
     }
 
     /**
-     * @return Collection of {@link #features).
+     * Returns a collection view of the features stored in the storage.
+     *
+     * @return Collection of {@link #features}.
      */
     public Collection<Feature> getFeatures() {
         return this.features.values();
@@ -948,6 +945,8 @@ public static void toFile(Storage storage, File file) throws IOException {
     }
 
     /**
+     * Returns a collection view of the samples stored in the storage.
+     *
      * @return Collection of {@link #samples}.
      */
     public Collection<Sample> getSamples() {
@@ -960,7 +959,6 @@ public static void toFile(Storage storage, File file) throws IOException {
      * This method filters the samples stored in the `samples` map and returns only those samples
      * whose names are present as keys in the `vcfAnalysis.records` map. These samples are considered
      * to have associated variant records and require updates.
-     * </p>
      *
      * @return A collection of {@link Sample} objects that need to be updated.
      */
@@ -1024,7 +1022,6 @@ public static void toFile(Storage storage, File file) throws IOException {
      * This method invokes the SnpEff analysis process to annotate novel variants stored in the `Storage` instance.
      * It delegates the annotation task to the `runSnpEffAnalysis` method of the `VcfHandler` class.
      * The results of the annotation are integrated back into the storage.
-     * </p>
      *
      * @throws IOException     If an error occurs during file operations required for the SnpEff analysis.
      * @throws MusialException If the SnpEff annotation process encounters an error.
@@ -1040,13 +1037,10 @@ public static void toFile(Storage storage, File file) throws IOException {
      * For each feature, it retrieves the associated contig and filters the variants for the sample
      * within the feature's start and end positions. The filtered variants are reduced to a map
      * containing the variant positions and their corresponding alternative allele base strings.
-     * </p>
-     *
      * <p>
      * If the filtered variants are not empty, the method updates the allele for the feature using
      * the contig, variants, and sample. If the feature is coding and the contig has a sequence,
      * the proteoform for the feature is also updated.
-     * </p>
      *
      * @throws IOException     If an error occurs during sequence processing.
      * @throws MusialException If an error occurs during allele or proteoform updates.
@@ -1076,7 +1070,6 @@ public static void toFile(Storage storage, File file) throws IOException {
      *   <li>Updates variant frequency for each contig and aggregates substitution and indel counts per sample.</li>
      *   <li>Calculates and updates allelic frequencies, reference frequencies, and proteoform statistics for each feature.</li>
      * </ul>
-     * </p>
      */
     public void updateStatistics() {
         // Initialize decimal formats for frequency and general statistics.
@@ -1212,7 +1205,6 @@ public static void toFile(Storage storage, File file) throws IOException {
      * <p>
      * This method initializes transient properties such as {@link #novelVariants}, {@link #sampleInfo},
      * and {@link #vcfFiles}. It also ensures that the contigs have their sequence caches initialized.
-     * </p>
      */
     private void setTransientProperties() {
         if (this.vcfHandler == null)
@@ -1252,7 +1244,6 @@ public static void toFile(Storage storage, File file) throws IOException {
      * This method extracts the necessary details from the provided {@link FeatureI} object, such as
      * the sequence name, start and end positions, strand, and type, and delegates the processing
      * to the overloaded {@code transferFeatureInformation} method.
-     * </p>
      *
      * @param featureI   The {@link FeatureI} object containing the feature information to transfer.
      * @param name       The name of the feature.
@@ -1271,7 +1262,6 @@ public static void toFile(Storage storage, File file) throws IOException {
      * for the feature. If a feature with the same UID already exists, it validates compatibility with the parent feature
      * and updates the "children" attribute if applicable. Otherwise, it creates a new feature and adds it to the storage.
      * Processed attributes are removed from the attributes map, and the remaining attributes are extended for the feature.
-     * </p>
      *
      * @param name       The name of the feature.
      * @param chrom      The chromosome or contig name where the feature is located.
@@ -1485,6 +1475,7 @@ public static void toFile(Storage storage, File file) throws IOException {
      * <p>
      * This procedure is used to correct, for example, missing mRNA children of a gene, if a CDS child is present.
      *
+     * @param children   A sorted map of child features, where the key is the source type and the value is a list of position ranges.
      * @param feature    The {@link Feature} object whose children are being processed.
      * @param sourceType The type of the source (e.g., "CDS") to derive ranges from.
      * @param targetType The type of the target (e.g., "mRNA") to impute.
@@ -1516,7 +1507,6 @@ public static void toFile(Storage storage, File file) throws IOException {
      * This method iterates through the entries in the `sampleInfo` map. For each entry, it checks if a sample
      * with the corresponding name exists in the `samples` map. If the sample exists, it adds any attributes
      * from the `sampleInfo` entry that are not already present in the sample.
-     * </p>
      */
     private void transferSampleAttributes() {
         for (Map.Entry<String, Map<String, String>> entry : this.sampleInfo.entrySet()) {
@@ -1532,7 +1522,6 @@ public static void toFile(Storage storage, File file) throws IOException {
      * This method creates a new {@link Sample} object with the given name and the current number of features.
      * It then adds the sample to the {@link #samples} map. If there is any sample-specific metadata available
      * in {@link #sampleInfo}, it is added to the sample as attributes.
-     * </p>
      *
      * @param name The name of the sample to add.
      */
@@ -1550,7 +1539,6 @@ public static void toFile(Storage storage, File file) throws IOException {
      * For each sample, it removes the sample's occurrences from the contig's variants and
      * the feature's alleles. If a variant or allele no longer has any occurrences after
      * removal, it is deleted from the storage.
-     * </p>
      *
      * @param samples A collection of {@link Sample} objects whose occurrences are to be removed.
      */
@@ -1585,7 +1573,6 @@ public static void toFile(Storage storage, File file) throws IOException {
      * determines the best allele based on phred-scaled likelihoods (PL) or allele depth (AD), and builds
      * a variant call string. The method also handles exclusions for low frequency, low coverage, and specific
      * variants, and skips passing reference calls.
-     * </p>
      */
     public void transferSampleInformation() {
         // Iterate over each sample in the variant records.
@@ -1653,7 +1640,6 @@ public static void toFile(Storage storage, File file) throws IOException {
      * deletions, insertions, and mixed InDels. It ensures that variants are stored in a canonical format
      * and accounts for the effects of upstream deletions on downstream variants. Variants are added to
      * the contig's variant map, and warnings are logged for conflicts or unhandled cases.
-     * </p>
      */
     public void transferVariantsInformation() {
         for (Sample sample : getSamplesToUpdate()) {
@@ -1827,7 +1813,6 @@ public static void toFile(Storage storage, File file) throws IOException {
      * annotated for the given position and checks if the contig, sample, and features exist in the storage. If valid,
      * the variant is added to the contig's variant map, and its occurrences in the sample and features are updated.
      * If the variant is novel, it is added to the `novelVariants` list.
-     * </p>
      *
      * @param contigName         The name of the contig to which the variant belongs.
      * @param sampleName         The name of the sample associated with the variant.
@@ -1928,7 +1913,6 @@ public static void toFile(Storage storage, File file) throws IOException {
          * This field is used to keep track of the number of genotype records that have been processed
          * during the analysis of VCF files. It is initialized to 0 and can be incremented as records
          * are processed.
-         * </p>
          */
         private long processedGenotypes = 0; // Counter for processed records.
 
@@ -1984,12 +1968,7 @@ public static void toFile(Storage storage, File file) throws IOException {
                                         continue;
                                     }
                                     // Transfer valid genotype information to the storage.
-                                    try {
-                                        transferGenotype(record, genotype);
-                                    } catch (IOException e) {
-                                        // This scenario should not occur as any added contigs do not have a sequence.
-                                        throw new RuntimeException(e);
-                                    }
+                                    transferGenotype(record, genotype);
                                 }
                             });
                 }
@@ -2003,7 +1982,6 @@ public static void toFile(Storage storage, File file) throws IOException {
          * where the key is the contig name and the value is the maximum end position observed for that
          * contig. If a contig already exists in the map, the method updates its value to the maximum
          * of the current value and the new interval's end position.
-         * </p>
          *
          * @return A {@link HashMap} where the keys are contig names and the values are the maximum end positions.
          * @throws IOException If an error occurs while reading the VCF files.
@@ -2033,12 +2011,11 @@ public static void toFile(Storage storage, File file) throws IOException {
          * This method processes a genotype from a VCF record, ensuring that the associated contig and sample
          * exist in the storage. It extracts reference and alternative alleles, computes phred-scaled likelihoods (PL),
          * and updates the storage with allele information for the given sample, contig, and position.
-         * </p>
          *
          * @param context  The {@link VariantContext} object containing the variant information.
          * @param genotype The {@link Genotype} object representing the sample's genotype for the variant.
          */
-        private void transferGenotype(VariantContext context, Genotype genotype) throws IOException {
+        private void transferGenotype(VariantContext context, Genotype genotype) {
             // Extract sample name and ensure contig and sample exist in storage.
             // TODO: Sample names in the VCF can have a "$" suffix to be merged within one sample in musial.
             String sampleName = genotype.getSampleName().split("\\$")[0];

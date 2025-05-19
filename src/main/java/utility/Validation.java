@@ -9,17 +9,8 @@ import java.io.IOException;
  * This class provides static methods to validate strings and file objects.
  * It includes methods to check if a string represents a percentage or a positive double,
  * and methods to validate file and directory objects.
- * </p>
- *
- * <p>
- * Example usage:
- * <pre>
- * boolean isValidPercentage = Validation.isPercentage("0.5");
- * boolean isValidFile = Validation.isFile(new File("path/to/file"));
- * </pre>
- * </p>
  */
-public class Validation {
+public final class Validation {
 
     /**
      * Checks if a {@link String} represents a percentage value.
@@ -27,7 +18,6 @@ public class Validation {
      * This method attempts to parse the input string as a double and checks if the value
      * lies within the range [0.0, 1.0], inclusive. If the parsing fails or the value is
      * out of range, the method returns false.
-     * </p>
      *
      * @param s The {@link String} to validate as a percentage.
      * @return {@code true} if the string represents a valid percentage, {@code false} otherwise.
@@ -47,7 +37,6 @@ public class Validation {
      * This method attempts to parse the input string as a double and checks if the value
      * is greater than 0.0. If the parsing fails or the value is not positive, the method
      * returns false.
-     * </p>
      *
      * @param s The {@link String} to validate as a positive double.
      * @return {@code true} if the string represents a positive double, {@code false} otherwise.
@@ -70,7 +59,6 @@ public class Validation {
      *   <li>Can be read by the application.</li>
      *   <li>Is not empty.</li>
      * </ul>
-     * </p>
      *
      * @param file The {@link File} object to validate.
      * @throws IOException If the file is not valid; i.e., one of the conditions is not met.
@@ -96,7 +84,6 @@ public class Validation {
      *   <li>Exists in the file system.</li>
      *   <li>Can be read by the application.</li>
      * </ul>
-     * </p>
      *
      * @param directory The {@link File} object to validate.
      * @throws IOException If the file is not valid; i.e., one of the conditions is not met.

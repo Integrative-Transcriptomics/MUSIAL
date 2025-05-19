@@ -14,7 +14,6 @@ import java.util.regex.Pattern;
  * This class extends {@link Attributable} to inherit functionality for managing attributes.
  * It provides fields and methods to store and manipulate variant calls, alleles, and other
  * sample-specific data. Each instance of this class is uniquely identified by its {@code name}.
- * </p>
  */
 public class Sample extends Attributable {
 
@@ -24,7 +23,6 @@ public class Sample extends Attributable {
      * This field uniquely identifies the sample within the context of the application.
      * It is a final field, meaning its value is immutable once assigned during the
      * construction of the {@link Sample} instance.
-     * </p>
      */
     public final String name;
 
@@ -49,7 +47,6 @@ public class Sample extends Attributable {
      *         The format follows the <a href="https://samtools.github.io/hts-specs/VCFv4.2.pdf">VCFv4.2</a> specification.
      *     </li>
      * </ul>
-     * </p>
      */
     protected final HashMap<String, TreeMap<Integer, String>> variantCalls = new HashMap<>(2);
 
@@ -59,7 +56,6 @@ public class Sample extends Attributable {
      * This {@link Map} stores the relationship between feature names and their associated allele identifiers.
      * The keys represent the names of the features, and the values represent the unique identifiers of the alleles.
      * This structure is used to track which allele is associated with each feature in the sample.
-     * </p>
      */
     protected final Map<String, String> alleles;
 
@@ -77,7 +73,6 @@ public class Sample extends Attributable {
      *   <li>{@code REF_1:ALT_1:AD_1:PL_1,...}: One or more alternate alleles, each with their respective
      *       reference allele, alternate allele, allele depth, and phred-scaled likelihoods.</li>
      * </ul>
-     * </p>
      *
      * <pre>
      * Example match: {@code 1;13;99;TTC:.:0:585,TTC:T--:13:0}
@@ -92,7 +87,6 @@ public class Sample extends Attributable {
      * This constructor initializes a {@link Sample} object with the given name and allocates a {@link HashMap}
      * for the {@link #alleles} field with the specified initial capacity. The {@link #name} field is set to the
      * provided name, and the superclass constructor is invoked to initialize inherited properties.
-     * </p>
      *
      * @param name     The name of the sample, used as its unique identifier.
      * @param capacity The expected initial capacity of the {@link #alleles} map.
@@ -109,7 +103,6 @@ public class Sample extends Attributable {
      * This method updates the {@link #alleles} map by setting the sequence type (allele)
      * for the specified feature. The feature is identified by its name, and the allele
      * is identified by its unique identifier.
-     * </p>
      *
      * @param featureName The name of the feature ({@link Feature#name}) to associate with the allele.
      * @param alleleUid   The unique identifier of the allele ({@link SequenceType#name}) to set for the feature.
@@ -124,7 +117,6 @@ public class Sample extends Attributable {
      * This method looks up the allele identifier associated with the given feature name
      * in the {@link #alleles} map. If no allele is set for the specified feature, the method
      * returns the default reference value defined in {@link Constants#synonymous}.
-     * </p>
      *
      * @param featureName The name of the feature ({@link Feature#name}) to retrieve the associated allele identifier for.
      * @return The allele identifier ({@link Feature.Allele#_uid}) associated with the feature, or the reference value if not set.
@@ -139,7 +131,6 @@ public class Sample extends Attributable {
      * This method returns a collection view of the mappings contained in the {@link #alleles} map.
      * Each entry in the collection represents a feature name and its associated allele identifier.
      * Modifications to the returned collection will reflect in the underlying map.
-     * </p>
      *
      * @return A {@link Collection} of {@link Map.Entry} objects representing the entries in the {@link #alleles} map.
      */
@@ -154,7 +145,6 @@ public class Sample extends Attributable {
      * The keys in the map represent the positions of the variants on the contig, and the values
      * are the corresponding variant call strings. If no variant calls exist for the specified
      * contig, an empty {@link TreeMap} is returned.
-     * </p>
      *
      * @param contig The name of the contig to retrieve the variant calls for.
      * @return A {@link TreeMap} where the keys are variant positions and the values are variant call strings.
@@ -170,7 +160,6 @@ public class Sample extends Attributable {
      * the reference base character from the starting position. The call string is expected to follow
      * the structure defined in {@link Sample#variantCallPattern}, where fields are separated by semicolons,
      * commas, and colons.
-     * </p>
      *
      * <pre>
      * Example call string: {@code 1;13;99;TTC:.:0:585,TTC:T--:13:0}
@@ -191,7 +180,6 @@ public class Sample extends Attributable {
      * The attributes are formatted as key-value pairs separated by an equals sign (`=`) and delimited
      * by semicolons (`;`). If the last character of the generated string is a semicolon, it is removed
      * to ensure proper formatting.
-     * </p>
      *
      * @return A {@link String} representing the sample, including its name and attributes.
      */

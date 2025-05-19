@@ -12,8 +12,6 @@ import java.util.stream.Collectors;
  * This class extends {@link Attributable} to manage metadata.
  * <p>
  * This class is extended by the {@link Feature.Allele} and {@link Feature.Proteoform} classes.
- *
- * @noinspection unused
  */
 public class SequenceType extends Attributable {
 
@@ -23,7 +21,6 @@ public class SequenceType extends Attributable {
      * This field stores a human-readable name for the sequence type. It is optional and can be
      * set to provide additional context or description for the sequence type. If not set, the
      * sequence type is identified solely by its unique identifier (_uid).
-     * </p>
      */
     protected String name;
 
@@ -34,7 +31,6 @@ public class SequenceType extends Attributable {
      * It is assigned during the construction of the {@link SequenceType} instance and cannot
      * be modified afterward. The identifier is used to uniquely distinguish this entity
      * from other sequence types.
-     * </p>
      */
     public final String _uid;
 
@@ -44,7 +40,6 @@ public class SequenceType extends Attributable {
      * This field stores a map of variants associated with this sequence type. The map is ordered
      * and navigable, with the keys representing the positions of the variants and the values
      * representing the alternate alleles. All variants must be represented in their canonical form.
-     * </p>
      */
     protected final NavigableMap<Integer, String> variants;
 
@@ -53,7 +48,6 @@ public class SequenceType extends Attributable {
      * <p>
      * This field stores unique identifiers of entities where this sequence type occurs.
      * It is used to track and manage the presence of this sequence type across different contexts.
-     * </p>
      */
     protected final HashSet<String> occurrence = new HashSet<>();
 
@@ -66,14 +60,12 @@ public class SequenceType extends Attributable {
      *   <li>The position of the variant (field {@code a} of the tuple).</li>
      *   <li>The alternate allele of the variant (field {@code b} of the tuple).</li>
      * </ul>
-     * </p>
      *
      * <p>
      * The constructor populates the {@code variants} field, which is a {@link TreeMap}, by iterating
      * through the provided list of tuples. The positions and alternate alleles are extracted from
      * each tuple and added to the map, ensuring that the variants are stored in a sorted order
      * based on their positions.
-     * </p>
      *
      * @param uid      The unique identifier for this sequence type.
      * @param variants A list of {@link Tuple} objects representing the variants associated
@@ -140,7 +132,6 @@ public class SequenceType extends Attributable {
      * This method joins all unique identifiers stored in the {@code occurrence} set
      * into a single string, separated by commas. It uses the delimiter defined in
      * {@link Constants#COMMA}.
-     * </p>
      *
      * @return A {@link String} representation of the occurrences, separated by commas.
      */
@@ -154,7 +145,6 @@ public class SequenceType extends Attributable {
      * This method looks up the variant at the given position in the {@code variants} map.
      * If a variant exists at the specified position, it returns the corresponding alternate allele.
      * If no variant is found, it returns {@code null}.
-     * </p>
      *
      * @param position The position to retrieve the variant for.
      * @return The alternate allele at the specified position, or {@code null} if no variant is present.
@@ -170,7 +160,6 @@ public class SequenceType extends Attributable {
      * with the keys representing the positions of the variants and the values representing the
      * alternate base sequences. The returned map is immutable and reflects the canonical form
      * of the variants.
-     * </p>
      *
      * @return A {@link NavigableMap} of variants, where the keys are positions and the values are
      * the alternate base sequences.
@@ -205,7 +194,6 @@ public class SequenceType extends Attributable {
      * <p>
      * This method uses {@link #variantsAsString(Map)} to convert the variants map
      * into a string representation in the format {@code (POS0)(ALT0).(POS1)(ALT1)...}.
-     * </p>
      *
      * @return A {@link String} representation of the variants in the format
      * {@code (POS0)(ALT0).(POS1)(ALT1)...}.
@@ -223,7 +211,6 @@ public class SequenceType extends Attributable {
      *   <li>The attributes of this sequence type, formatted using {@link Attributable#attributesAsString()}.</li>
      *   <li>The variants associated with this sequence type, formatted using {@link #variantsAsString()}.</li>
      * </ul>
-     * </p>
      *
      * @return A {@link String} representing this sequence type in the format {@code identifier    attributes  variants}.
      */
@@ -239,7 +226,6 @@ public class SequenceType extends Attributable {
      * This method takes a map of variants, where the keys are positions and the values are
      * alternate alleles. It converts the map into a string representation in the format
      * {@code (POS0)(ALT0).(POS1)(ALT1)...}.
-     * </p>
      *
      * @param variants A map of variants, where the keys are positions and the values are alternate alleles.
      * @return A {@link String} representation of the variants in the format {@code (POS0)(ALT0).(POS1)(ALT1)...}..
@@ -256,7 +242,6 @@ public class SequenceType extends Attributable {
      * This method takes a list of {@link Tuple} objects, where each tuple contains a position
      * and an alternate allele. It converts the list into a string representation in the format
      * {@code (POS0)(ALT0).(POS1)(ALT1)...}.
-     * </p>
      *
      * @param variants A list of {@link Tuple} objects representing the variants.
      * @return A {@link String} representation of the variants in the format {@code (POS0)(ALT0).(POS1)(ALT1)...}.
@@ -278,7 +263,6 @@ public class SequenceType extends Attributable {
      *   <li>If the variant is a deletion, its length (number of bases minus one) is subtracted from the net shift.</li>
      *   <li>Other types of variants do not affect the net shift.</li>
      * </ul>
-     * </p>
      *
      * @param variants A list of {@link Tuple} objects, where each tuple contains:
      *                 <ul>
@@ -305,7 +289,6 @@ public class SequenceType extends Attributable {
      *   <li>{@code allelic_frequency}: The allelic frequency of the sequence type.</li>
      *   <li>{@code so_effects}: Sequence ontology effects associated with the sequence type.</li>
      * </ul>
-     * </p>
      *
      * @param featureName        The name of the feature to include in the FASTA header.
      * @param sequenceIdentifier The identifier of the sequence to include in the FASTA header.

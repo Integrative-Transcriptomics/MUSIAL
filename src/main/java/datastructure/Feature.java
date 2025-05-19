@@ -21,11 +21,9 @@ import static utility.Constants.TAB;
  * This class models a genomic feature, such as a gene, exon, or coding sequence (CDS),
  * that is analyzed in the context of genomic data processing. It extends the {@link Attributable}
  * class to inherit functionality for managing attributes associated with the feature.
- * </p>
  * <p>
  * Each instance of this class is uniquely identified by its {@code name} and contains
  * information about its type, location on the reference genome, and other relevant properties.
- * </p>
  */
 public class Feature extends Attributable {
 
@@ -35,11 +33,9 @@ public class Feature extends Attributable {
      * This field specifies the type of the feature, such as "gene", "exon", or "CDS".
      * The type is defined according to the GFF3 specification and provides information
      * about the biological or functional classification of the feature.
-     * </p>
      * <p>
      * For more details, refer to the GFF3 specification:
      * <a href="https://gmod.org/wiki/GFF3">https://gmod.org/wiki/GFF3</a>.
-     * </p>
      */
     public final String type;
 
@@ -49,7 +45,6 @@ public class Feature extends Attributable {
      * This field uniquely identifies the feature within the context of the analysis.
      * It is a final field, meaning its value is immutable once assigned during the
      * construction of the {@link Feature} instance.
-     * </p>
      */
     public final String name;
 
@@ -85,7 +80,6 @@ public class Feature extends Attributable {
      * a genomic feature. This class extends {@link SequenceType} and provides
      * functionality for managing alleles, including their unique identifiers,
      * variants, and attributes.
-     * </p>
      */
     public class Allele extends SequenceType {
 
@@ -117,7 +111,6 @@ public class Feature extends Attributable {
      * from the genomic feature. This class extends {@link SequenceType} and provides
      * functionality for managing proteoforms, including their unique identifiers,
      * variants, and attributes.
-     * </p>
      */
     public class Proteoform extends SequenceType {
 
@@ -149,12 +142,10 @@ public class Feature extends Attributable {
      * specific sequence variations of the feature. The keys in the map are unique
      * identifiers for the alleles, and the values are the corresponding {@link Allele}
      * instances.
-     * </p>
      * <p>
      * Alleles are used to track and manage sequence variations resulting from genomic
      * changes. Each allele is linked to its unique identifier and contains information
      * about its sequence and attributes.
-     * </p>
      */
     protected final HashMap<String, Allele> alleles = new HashMap<>();
 
@@ -165,11 +156,9 @@ public class Feature extends Attributable {
      * specific sequence variants of proteins derived from the feature. The keys in the map
      * are unique identifiers for the proteoforms, and the values are the corresponding
      * {@link Proteoform} instances.
-     * </p>
      * <p>
      * Proteoforms are only relevant for coding features and are used to track and manage
      * protein sequence variations resulting from genomic changes.
-     * </p>
      */
     protected final HashMap<String, Proteoform> proteoforms = new HashMap<>();
 
@@ -179,7 +168,6 @@ public class Feature extends Attributable {
      * This constructor initializes a genomic feature with its name, location, strand orientation,
      * type, and unique identifier. The feature's start and end positions are converted to integers
      * to ensure proper indexing. The {@link Attributable} superclass is also initialized.
-     * </p>
      *
      * @param name   The name of the feature, used as its internal identifier.
      * @param contig The name of the reference location (e.g., contig, chromosome, plasmid) where the feature is located.
@@ -302,9 +290,8 @@ public class Feature extends Attributable {
      * @throws MusialException          If an error occurs during sequence alignment or translation.
      * @throws IllegalArgumentException If the allele does not exist, the contig does not match the feature's contig,
      *                                  the contig lacks a sequence, the feature is not coding, or the variants map is empty.
-     * @noinspection UnusedReturnValue
      */
-    protected String updateProteoform(Contig contig, String alleleUid) throws IOException, MusialException {
+    protected void updateProteoform(Contig contig, String alleleUid) throws IOException, MusialException {
         // Check if the allele UID is valid.
         Allele allele = getAllele(alleleUid);
         if (allele == null)
@@ -403,8 +390,6 @@ public class Feature extends Attributable {
 
         // Associate the allele with the proteoform.
         allele.setAttribute(Constants.$Allele_proteoform, proteoformUid);
-
-        return proteoformUid;
     }
 
     /**

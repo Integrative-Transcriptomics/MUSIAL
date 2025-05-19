@@ -30,11 +30,8 @@ import java.util.zip.GZIPOutputStream;
  * This final class provides static methods for various file and data handling operations,
  * such as reading, writing, compressing, and hashing files and strings. It also includes
  * methods for generating specific file formats like VCF, FASTA, and GFF.
- * </p>
- *
  * <p>
  * The class is designed to be non-instantiable and serves as a collection of utility methods.
- * </p>
  */
 public final class IO {
 
@@ -43,7 +40,6 @@ public final class IO {
      * <p>
      * This method uses a {@link Scanner} to read the file with UTF-8 encoding. Each line is trimmed
      * to remove leading and trailing whitespace, and empty lines are excluded from the result.
-     * </p>
      *
      * @param file The {@link File} object representing the file to read.
      * @return An {@link ArrayList} containing the non-empty, trimmed lines from the file.
@@ -68,7 +64,6 @@ public final class IO {
      * This method ensures that the parent directories of the target file are created if they do not exist.
      * It then writes the provided content to the file using UTF-8 encoding. If the file already exists,
      * its content is overwritten.
-     * </p>
      *
      * @param path    The {@link Path} where the file will be written.
      * @param content The {@link String} content to write to the file.
@@ -86,7 +81,6 @@ public final class IO {
      * This method reads a tabular file where the first row contains headers and each subsequent row contains data.
      * The first column is treated as the key for the outer map, and the remaining columns are stored in an inner map
      * with their corresponding headers as keys. The file can use tab or comma as delimiters.
-     * </p>
      *
      * @param file The {@link File} object representing the tabular file to read.
      * @return A {@link HashMap} where the outer map's key is the first column's value, and the value is another
@@ -123,7 +117,6 @@ public final class IO {
      * non-skipped line for the presence of either a tab character or a comma. If a tab is found, it returns
      * the tab separator; if a comma is found, it returns the comma separator. If neither is found, it returns
      * an empty string.
-     * </p>
      *
      * @param content A {@link List} of {@link String} objects representing the content to analyze.
      * @return A {@link String} representing the detected separator: either a tab, a comma, or an empty string
@@ -145,8 +138,6 @@ public final class IO {
      * This method constructs a VCF file content as a {@link String} from a list of variants.
      * The VCF content includes the file format, source, and a header line, followed by the variant data.
      * Each variant is represented by its chromosome, position, reference base, and alternate base.
-     * </p>
-     *
      * <p>
      * The generated VCF content follows the VCFv4.3 specification and includes the following fields:
      * <ul>
@@ -159,7 +150,6 @@ public final class IO {
      *   <li>FILTER: Filter status (set to ".")</li>
      *   <li>INFO: Additional information (empty)</li>
      * </ul>
-     * </p>
      *
      * @param variants A list of {@link Tuple} objects, where each tuple contains:
      *                 <ul>
@@ -192,7 +182,6 @@ public final class IO {
      * This method constructs a FASTA file content as a {@link String} by iterating over the contigs
      * in the provided {@link Storage} object. Each contig's name is used as the header (prefixed with '>'),
      * and its sequence is split into lines of 80 characters for proper FASTA formatting.
-     * </p>
      *
      * @param storage The {@link Storage} object containing the contigs and their sequences.
      * @return A {@link String} representing the content of the reference FASTA file.
@@ -217,8 +206,6 @@ public final class IO {
      * in the provided {@link Storage} object. The GFF content includes the version, processor information,
      * and the feature data. Each feature is converted to its GFF string representation using the
      * {@link Feature#toGffString()} method.
-     * </p>
-     *
      * <p>
      * The generated GFF content follows the GFF3 specification and includes the following:
      * <ul>
@@ -226,7 +213,6 @@ public final class IO {
      *   <li>##processor: Includes the software name and version used to generate the file.</li>
      *   <li>Feature data: Each feature is represented in GFF format.</li>
      * </ul>
-     * </p>
      *
      * @param storage The {@link Storage} object containing the features to include in the GFF file.
      * @return A {@link String} representing the GFF file content.
@@ -260,7 +246,6 @@ public final class IO {
      * This method retrieves a resource as an {@link InputStream} from the application's classpath
      * using the specified resource path. The resource is then copied to the target file path,
      * overwriting any existing file at the target location.
-     * </p>
      *
      * @param resourceName The path to the resource within the application's classpath.
      * @param targetPath   The file path where the resource should be copied.
@@ -280,7 +265,6 @@ public final class IO {
      * This method compresses the input string using the GZIP algorithm and then encodes
      * the compressed byte array into a Base64 string. The method ensures proper resource
      * management by using a try-with-resources block for the output streams.
-     * </p>
      *
      * @param content The {@link String} to be compressed.
      * @return A Base64-encoded {@link String} representing the GZIP-compressed content.
@@ -301,7 +285,6 @@ public final class IO {
      * This method decodes the input string from Base64, decompresses the resulting GZIP-compressed data,
      * and returns the decompressed content as a string. It uses a buffer to read the decompressed data
      * in chunks and appends it to a {@link StringBuilder}.
-     * </p>
      *
      * @param content The Base64-encoded GZIP-compressed string to decompress.
      * @return A {@link String} containing the decompressed content.
@@ -326,7 +309,6 @@ public final class IO {
      * This method computes the MD5 hash of the input string and returns it as a hexadecimal string.
      * It uses the {@link org.apache.commons.codec.digest.DigestUtils#md5Hex(String)} method from the
      * Apache Commons Codec library to perform the hashing.
-     * </p>
      *
      * @param content The {@link String} to hash.
      * @return A {@link String} representing the MD5 hash of the input content in hexadecimal format.

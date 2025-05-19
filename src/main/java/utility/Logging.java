@@ -28,7 +28,7 @@ public final class Logging {
      * <p>
      * This method displays the software name, version, and license in a formatted manner.
      * The output is styled using ANSI escape codes for background and text color.
-     * </p>
+     * <p>
      * Note: The software information is retrieved from the {@link Musial} class.
      */
     public static void printSoftwareInfo() {

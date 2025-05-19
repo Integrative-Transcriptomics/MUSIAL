@@ -15,8 +15,6 @@ import java.util.stream.Collectors;
  * as key-value pairs in a {@link TreeMap}, allowing efficient retrieval, addition, extension, and removal
  * of attributes. It also supports operations like checking for the existence of attributes and converting
  * attributes to a string representation.
- *
- * @noinspection unused
  */
 public class Attributable {
 
