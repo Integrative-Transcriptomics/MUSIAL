@@ -573,7 +573,7 @@ public class Feature extends Attributable {
         getChildren().forEach((childType, locations) -> locations.forEach(location ->
                 contentBuilder.append(String.join(TAB,
                                 contig, Musial.softwareName, childType, String.valueOf(location.a), String.valueOf(location.b),
-                                DOT, String.valueOf(strand), DOT, getChildIdAndParent(childType, id)))
+                                DOT, String.valueOf(strand), DOT, constructChildId(childType, id)))
                         .append(Constants.lineSeparator)
         ));
 
@@ -596,7 +596,7 @@ public class Feature extends Attributable {
      * @param parentId  The ID of the parent feature.
      * @return A formatted string containing the ID and Parent attributes for the child feature.
      */
-    private String getChildIdAndParent(String childType, String parentId) {
+    private String constructChildId(String childType, String parentId) {
         return switch (childType) {
             case "CDS" -> "ID=cds-%s;Parent=transcript-%s".formatted(_uid, _uid);
             case "exon" -> "ID=exon-%s;Parent=transcript-%s".formatted(_uid, _uid);
