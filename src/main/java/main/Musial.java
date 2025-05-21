@@ -84,7 +84,7 @@ public final class Musial {
      * The extension should either be `.json` or `.json.gz` depending on the
      * compression method used. For production, use `.json.gz` for compressed files.
      */
-    private static final String storageExtension = ".json";
+    public static final String storageExtension = ".json.gz";
 
     /**
      * {@link Enum} specifying tasks of MUSIAL to choose from.
