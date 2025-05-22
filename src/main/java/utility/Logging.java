@@ -199,14 +199,14 @@ public final class Logging {
     public static String getTimestamp() {
         return new SimpleDateFormat("dd-MM-yy HH:mm").format(new Date());
     }
-
+    
     /**
-     * Returns the current timestamp formatted as a string.
+     * Returns the current date formatted as a string.
      * <p>
-     * This method retrieves the current date, formats it using the specified date format,
-     * and returns it as a string.
+     * This method retrieves the current date, formats it using the pattern "dd-MM-yy",
+     * and returns it as a string. The format includes the day, month, and year in a two-digit format.
      *
-     * @return The current timestamp formatted as a string.
+     * @return The current date formatted as "dd-MM-yy".
      */
     public static String getDate() {
         return new SimpleDateFormat("dd-MM-yy").format(new Date());
