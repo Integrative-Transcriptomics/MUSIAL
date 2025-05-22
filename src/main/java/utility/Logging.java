@@ -1,7 +1,6 @@
 package utility;
 
 import main.Musial;
-import org.tribuo.clustering.hdbscan.HdbscanTrainer;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -31,6 +30,18 @@ public final class Logging {
      */
     public static Logger logger = Logger.getLogger(Musial.class.getName());
 
+    /**
+     * Initializes the logging system with a specified logging level.
+     * <p>
+     * This method configures the logger to use a custom `ConsoleHandler` with a formatter
+     * that styles log messages using ANSI escape codes for different log levels (INFO, CONFIG, WARNING, SEVERE).
+     * It also disables the default parent handlers to prevent duplicate logging.
+     * <p>
+     * The logging level can be adjusted by passing a `Level` parameter, which determines
+     * the minimum severity of messages that will be logged.
+     *
+     * @param level The logging level to set for the logger (e.g., Level.INFO, Level.WARNING).
+     */
     public static void init(Level level) {
         // Turn off the default logger handlers.
         logger.setUseParentHandlers(false);
@@ -38,23 +49,34 @@ public final class Logging {
         // Create ConsoleHandler with custom Formatter.
         ConsoleHandler ch = new ConsoleHandler();
         ch.setFormatter(new Formatter() {
+            /**
+             * Formats a log record with a custom prefix based on its severity level.
+             * <p>
+             * The prefix is styled using ANSI escape codes for visual emphasis.
+             * The formatted message includes the timestamp and the log message.
+             *
+             * @param record The log record to format.
+             * @return The formatted log message as a string.
+             */
             public String format(LogRecord record) {
                 String prefix;
                 switch (record.getLevel().getName()) {
                     case "INFO" -> prefix = "\033[0;34mINFO\033[0m    ";
                     case "CONFIG" -> prefix = "\033[0;94mCONFIG\033[0m  ";
-                    case "SEVERE" -> prefix = "\033[1;91mSEVERE\033[0m  ";
-                    case "WARNING" -> prefix = "\033[1;33mWARNING\033[0m ";
-                    default -> prefix = "\033LOG[0m     "; // Default
+                    case "WARNING" -> prefix = "\033[0;33mWARNING\033[0m ";
+                    case "SEVERE" -> prefix = "\033[0;93mSEVERE\033[0m  ";
+                    default -> prefix = "LOG     "; // Default
                 }
                 prefix += "%s ".formatted(getTimestamp());
                 return prefix + record.getMessage() + System.lineSeparator();
             }
         });
 
-        // you can also adjust the level if you like
+        // Set the handler's logging level to ALL to capture all messages.
         ch.setLevel(Level.ALL);
         logger.addHandler(ch);
+
+        // Set the logger's logging level to the specified level.
         logger.setLevel(level);
     }
 
@@ -73,8 +95,9 @@ public final class Logging {
     /**
      * Logs an informational message to the console with a timestamp.
      * <p>
-     * This method formats the message with a timestamp and a "STATUS" label styled using ANSI escape codes.
-     * The formatted message is then printed to the console.
+     * This method logs messages at the INFO level, which is typically used for general informational
+     * messages that highlight the progress of the application at a coarse-grained level.
+     * The message is automatically formatted and logged using the application's logger.
      *
      * @param msg The informational message to be logged.
      */
@@ -85,8 +108,9 @@ public final class Logging {
     /**
      * Logs a message indicating completion with a timestamp.
      * <p>
-     * This method formats the message with a timestamp and a "DONE" label styled using ANSI escape codes.
-     * The formatted message is then printed to the console.
+     * This method logs messages at the INFO level, indicating that a specific task or operation
+     * has been successfully completed. The message is formatted with a "DONE" label styled using
+     * ANSI escape codes for visual emphasis.
      *
      * @param msg The message indicating completion to be logged.
      */
@@ -110,8 +134,9 @@ public final class Logging {
     /**
      * Logs an error message to the console with a timestamp.
      * <p>
-     * This method formats the message with a timestamp and an "ERROR" label styled using ANSI escape codes.
-     * The formatted message is then printed to the console.
+     * This method logs messages at the SEVERE level, which is typically used for critical error messages
+     * that indicate a failure in the application. The message is automatically formatted and logged
+     * using the application's logger.
      *
      * @param msg The error message to be logged.
      */
@@ -120,10 +145,24 @@ public final class Logging {
     }
 
     /**
+     * Logs a critical exit message to the console with a timestamp.
+     * <p>
+     * This method is used to log messages indicating a critical application exit.
+     * The message is formatted with a timestamp and an "EXIT" label styled using ANSI escape codes
+     * for visual emphasis. The log level is set to SEVERE, which is the highest level of logging severity.
+     *
+     * @param msg The exit message to be logged.
+     */
+    public static void logExit(String msg) {
+        logger.log(Level.SEVERE, "%s %s".formatted("\033[1;91mEXIT\033[0m", msg));
+    }
+
+    /**
      * Logs a warning message to the console with a timestamp.
      * <p>
-     * This method formats the message with a timestamp and a "WARNING" label styled using ANSI escape codes.
-     * The formatted message is then printed to the console.
+     * This method logs messages at the WARNING level, which is typically used to indicate
+     * potential issues or situations that require attention but are not critical errors.
+     * The message is automatically formatted and logged using the application's logger.
      *
      * @param msg The warning message to be logged.
      */
@@ -134,10 +173,13 @@ public final class Logging {
     /**
      * Logs a warning message to the console with a timestamp, but only once for each unique key.
      * <p>
-     * This method checks if the warning message with the specified key has already been logged.
-     * If not, it logs the message and adds the key to the set of logged warnings.
+     * This method ensures that a warning message associated with a specific key is logged only once.
+     * It uses a set (`logDump`) to track keys of already logged warnings. If the key is not present
+     * in the set, the warning message is logged, and the key is added to the set.
+     * <p>
+     * This is useful for avoiding repetitive logging of the same warning message.
      *
-     * @param key The unique key for the warning message.
+     * @param key The unique key identifying the warning message.
      * @param msg The warning message to be logged.
      */
     public static void logWarningOnce(String key, String msg) {

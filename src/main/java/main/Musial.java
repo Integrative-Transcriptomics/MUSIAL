@@ -163,7 +163,10 @@ public final class Musial {
             }
         } catch (Exception e) {
             // Log the error message and stack trace, then exit with an error code.
-            Logging.logSevere(e.getMessage());
+            if (e.getClass().equals(MusialException.class))
+                Logging.logExit("An internal error has occurred.");
+            else
+                Logging.logExit("An abnormal error has occurred.");
             e.printStackTrace();
             System.exit(-1);
         }
@@ -568,19 +571,22 @@ public final class Musial {
             // Handle the case where no entries match the filters.
             if (table.identifiers.isEmpty()) {
                 Logging.logWarning("No entries to view. Check your filter parameter.");
+                // Log the completion of the task with the execution time.
+                Logging.logDone("Execution time %.2f seconds.".formatted((System.currentTimeMillis() - startTime) / 1000.0));
             }
             // Output the table to the console if "stdout" is specified.
             else if ("stdout".equals(output)) {
+                // Log the completion of the task with the execution time.
+                Logging.logDone("Execution time %.2f seconds.".formatted((System.currentTimeMillis() - startTime) / 1000.0));
                 System.out.println(table);
             }
             // Write the table to the specified file.
             else {
                 IO.writeFile(outputFile.toPath(), table.toString());
                 Logging.logInfo("Write results to %s.".formatted(output));
+                // Log the completion of the task with the execution time.
+                Logging.logDone("Execution time %.2f seconds.".formatted((System.currentTimeMillis() - startTime) / 1000.0));
             }
-
-            // Log the completion of the task with the execution time.
-            Logging.logDone("Execution time %.2f seconds.".formatted((System.currentTimeMillis() - startTime) / 1000.0));
         }
 
         /**
