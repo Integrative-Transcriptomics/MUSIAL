@@ -22,19 +22,6 @@ import java.util.stream.IntStream;
 public final class Musial {
 
     /**
-     * Original system output stream.
-     */
-    public static final PrintStream originalSysOut = System.out;
-
-    /**
-     * Alternative empty output stream to ignore logging.
-     */
-    public static final PrintStream emptySysOut = new PrintStream(new OutputStream() {
-        public void write(int b) {
-        }
-    });
-
-    /**
      * Unique run ID of this program instance; generated from the current date and time.
      */
     public static final String runId = IO.md5Hash(Logging.getTimestamp());
