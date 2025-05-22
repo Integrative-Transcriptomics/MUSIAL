@@ -800,7 +800,7 @@ public final class Musial {
 
                             // Check if the variant is associated with any of the included samples.
                             boolean hasSample = includeSamples.isEmpty() || includeSamples.stream().anyMatch(
-                                    sample -> variantInfo.hasOccurrence(Constants.$Attributable_samplesOccurrence, sample));
+                                    sample -> variantInfo.hasOccurrence(Attributable.sampleOccurrence, sample));
 
                             // If the variant matches the feature and sample filters, add it to the table.
                             if (hasFeature && hasSample) {
