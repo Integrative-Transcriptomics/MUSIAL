@@ -322,6 +322,6 @@ public class SequenceType extends Attributable {
         properties.add("[so_effects=%s]".formatted(getAttributeOrDefault(Constants.$SequenceType_effects, "NaN")));
 
         // Construct and return the FASTA header, appending properties if they exist.
-        return ">%s %s\n".formatted(sequenceId, String.join(" ", properties));
+        return ">%s %s".formatted(sequenceId, String.join(" ", properties));
     }
 }
