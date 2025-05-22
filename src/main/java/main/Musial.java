@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -113,6 +114,9 @@ public final class Musial {
      */
     public static void main(String[] args) {
         try {
+            // Initialize the logging system.
+            Logging.init(Level.CONFIG);
+
             // Record the start time of the program.
             startTime = System.currentTimeMillis();
 
@@ -159,7 +163,7 @@ public final class Musial {
             }
         } catch (Exception e) {
             // Log the error message and stack trace, then exit with an error code.
-            Logging.logError(e.getMessage());
+            Logging.logSevere(e.getMessage());
             e.printStackTrace();
             System.exit(-1);
         }
@@ -259,7 +263,7 @@ public final class Musial {
             update(storage);
 
             // Write the storage data to the specified output file.
-            Logging.logInfo("Write storage to file " + CLI.parameters.get("output"));
+            Logging.logInfo("Write storage to file: " + CLI.parameters.get("output"));
             Storage.Factory.serialize(storage, outputFile);
 
             // Log summary information about the storage and execution time.
@@ -339,7 +343,7 @@ public final class Musial {
 
             // Write the updated storage to the specified output file, if the write flag is enabled.
             if (write) {
-                Logging.logInfo("Write storage to file " + outputFile);
+                Logging.logInfo("Write storage to file: " + outputFile);
                 Storage.Factory.serialize(storage, outputFile);
             }
 

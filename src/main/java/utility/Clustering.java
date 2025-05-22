@@ -1,6 +1,5 @@
 package utility;
 
-import htsjdk.samtools.util.Tuple;
 import main.Musial;
 import org.tribuo.MutableDataset;
 import org.tribuo.clustering.ClusterID;
@@ -13,6 +12,8 @@ import org.tribuo.math.neighbour.NeighboursQueryFactoryType;
 import org.tribuo.provenance.SimpleDataSourceProvenance;
 
 import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Provides functionality for clustering data using the HDBSCAN algorithm (see <a href="https://tribuo.org/">https://tribuo.org/</a>).
@@ -105,32 +106,19 @@ public final class Clustering {
     }
 
     /**
-     * Adds a sample to the dataset for clustering.
+     * Checks if the dataset contains any samples.
      *
-     * @param label    The label of the sample.
-     * @param variants A list of feature position-value tuples.
+     * @return {@code true} if the dataset has at least one sample, {@code false} otherwise.
      */
-    public static void addToDataset(String label, List<Tuple<Integer, String>> variants) {
-        if (variants.isEmpty()) return;
-
-        // Generate feature names by combining positions and values.
-        String[] featureNames = variants.stream()
-                .map(variant -> variant.a + variant.b)
-                .toArray(String[]::new);
-
-        // Initialize feature values to 1.0.
-        double[] featureValues = new double[variants.size()];
-        Arrays.fill(featureValues, 1.0);
-
-        // Add the sample to the dataset and store its label.
-        dataset.add(new ArrayExample<>(factory.getUnknownOutput(), featureNames, featureValues));
-        names.add(label);
+    public static boolean hasData() {
+        return dataset.size() > 0;
     }
 
     /**
      * Trains the HDBSCAN model using the current dataset.
      */
     public static void train() {
+        Logger.getLogger(HdbscanTrainer.class.getName()).setLevel(Level.OFF);
         model = trainer.train(dataset);
     }
 

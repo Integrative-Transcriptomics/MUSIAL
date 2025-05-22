@@ -452,7 +452,7 @@ public final class SequenceOperations {
                 if (deletionCount > 0) {
                     result.append(Constants.gapString);
                     deletionCount--;
-                    Logging.logWarning("Variant %s at position %d skipped due to upstream deletion.".formatted(variant, pos));
+                    Logging.logWarning("Skip variant %s at position %d due to upstream deletion.".formatted(variant, pos));
                     continue;
                 }
 
@@ -551,7 +551,8 @@ public final class SequenceOperations {
                 lastNonGapIndex = i;
             } else if (referenceChars[i] == Constants.gapChar) { // Insertion:
                 if (isDeletion) {
-                    if (!ambiguousSwitch) Logging.logWarning("Ambiguous deletion to insertion switch; Variant skipped.");
+                    if (!ambiguousSwitch) Logging.logWarning("Skip variant %s > %s due to ambiguous deletion to insertion switch."
+                            .formatted(reference, alternative));
                     ambiguousSwitch = true;
                 } else {
                     if (!isInsertion && !isSubstitution) {
@@ -567,7 +568,8 @@ public final class SequenceOperations {
                 noInsertions++;
             } else if (alternativeChars[i] == Constants.gapChar) { // Deletion
                 if (isInsertion) {
-                    if (!ambiguousSwitch) Logging.logWarning("Ambiguous insertion to deletion switch; Variant will be skipped.");
+                    if (!ambiguousSwitch) Logging.logWarning("Skip variant %s > %s due to ambiguous deletion to insertion switch."
+                            .formatted(reference, alternative));
                     ambiguousSwitch = true;
                 } else {
                     if (!isDeletion && !isSubstitution) {

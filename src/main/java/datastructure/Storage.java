@@ -338,7 +338,7 @@ public class Storage {
                     Logging.logWarning("Invalid value for `minimalCoverage`; expected a positive integer. Defaulting to 3.");
                 }
             } else {
-                Logging.logWarning("No value for `minimalCoverage` specified; defaulting to 3.");
+                Logging.logConfig("No value for `minimalCoverage` specified; defaulting to 3.");
             }
 
             double minimalFrequency = 0.65; // Default value
@@ -350,7 +350,7 @@ public class Storage {
                     Logging.logWarning("Invalid value for `minimalFrequency`; expected a percentage between 0.0 and 1.0. Defaulting to 0.65.");
                 }
             } else {
-                Logging.logWarning("No value for `minimalFrequency` specified; defaulting to 0.65.");
+                Logging.logConfig("No value for `minimalFrequency` specified; defaulting to 0.65.");
             }
 
             boolean storeFiltered = true; // Default value
@@ -362,7 +362,7 @@ public class Storage {
                     Logging.logWarning("Invalid value for `storeFiltered`; expected `true` or `false`. Defaulting to true.");
                 }
             } else {
-                Logging.logWarning("No value for `storeFiltered` specified; defaulting to true.");
+                Logging.logConfig("No value for `storeFiltered` specified; defaulting to true.");
             }
 
             boolean skipSnpEff = false; // Default value
@@ -374,7 +374,7 @@ public class Storage {
                     Logging.logWarning("Invalid value for `skipSnpEff`; expected `true` or `false`. Defaulting to false.");
                 }
             } else {
-                Logging.logWarning("No value for `skipSnpEff` specified; defaulting to false.");
+                Logging.logConfig("No value for `skipSnpEff` specified; defaulting to false.");
             }
 
             boolean skipProteoformInference = true; // Default value
@@ -386,7 +386,7 @@ public class Storage {
                     Logging.logWarning("Invalid value for `skipProteoformInference`; expected `true` or `false`. Defaulting to true.");
                 }
             } else {
-                Logging.logWarning("No value for `skipProteoformInference` specified; defaulting to true.");
+                Logging.logConfig("No value for `skipProteoformInference` specified; defaulting to true.");
             }
 
             Map<String, Set<Integer>> excludedPositions = excludedPositionsFromCLI();
@@ -448,7 +448,7 @@ public class Storage {
             }
 
             if (!excludedPositions.isEmpty()) {
-                Logging.logInfo("Set %d positions as excluded.".formatted(excludedPositions.values().stream().mapToInt(Set::size).sum()));
+                Logging.logConfig("Set %d positions as excluded.".formatted(excludedPositions.values().stream().mapToInt(Set::size).sum()));
             }
 
             // Return the populated map of excluded positions.
@@ -507,7 +507,7 @@ public class Storage {
             }
 
             if (!excludedVariants.isEmpty()) {
-                Logging.logInfo("Set %d variants as excluded.".formatted(excludedVariants.values().stream().mapToInt(Set::size).sum()));
+                Logging.logConfig("Set %d variants as excluded.".formatted(excludedVariants.values().stream().mapToInt(Set::size).sum()));
             }
 
             // Return the populated map of excluded variants.
@@ -656,7 +656,7 @@ public class Storage {
             }
 
             if (!CLI.parameters.containsKey("features") && !featureList.isEmpty()) {
-                Logging.logInfo("No explicit features are specified; read all annotated features from file %s."
+                Logging.logConfig("No explicit features are specified; read all annotated features from file %s."
                         .formatted(CLI.parameters.get("annotation")));
                 for (FeatureI featureI : featureList) {
                     if (!"region".equals(featureI.type())) {
@@ -670,7 +670,7 @@ public class Storage {
 
             // Parse features from reference sequence if none are available
             if (storage.features.isEmpty() && storage.hasReference()) {
-                Logging.logWarning("No features were specified; one feature of type region per reference contig is derived.");
+                Logging.logConfig("No features were specified; one feature of type region per reference contig is derived.");
                 ReferenceSequence entry = storage.reference.nextSequence();
                 while (entry != null) {
                     Map<String, String> attributes = new HashMap<>(1);
@@ -989,7 +989,7 @@ public class Storage {
         vcfHandler.clearRecords(); // Clear existing variant records.
 
         if (this.features.isEmpty()) {
-            Logging.logWarning("No features available; infer features from variant calls.");
+            Logging.logConfig("No features available; infer features from variant calls.");
             for (Map.Entry<String, Integer> entry : vcfHandler.inferContigs().entrySet()) {
                 addContig(entry.getKey(), Constants.EMPTY);
                 String id = "%s:%d..%d".formatted(entry.getKey(), 1, entry.getValue());
@@ -1066,19 +1066,22 @@ public class Storage {
             feature.getAlleles().forEach(allele ->
                     Clustering.addToDataset(allele._uid, allele.getVariants())
             );
-            // Train the clustering model.
-            Clustering.train();
 
-            // Process clustering results for alleles.
-            Clustering.getClusteringResult().forEach(entry -> {
-                // Retrieve the allele by its name and update its attributes with clustering results.
-                Feature.Allele allele = feature.getAllele(entry.name());
-                allele.setAttribute(Constants.$SequenceType_clusterLabel, String.valueOf(entry.label()));
-                allele.setAttribute(Constants.$SequenceType_clusterIndex, String.valueOf(entry.idx()));
-                allele.setAttribute(Constants.$SequenceType_clusterOutlierScore, String.format(Locale.US, "%.3f", entry.outlierScore()));
-                // Update the allele's name to include clustering information.
-                allele.setName("%s.a%s.%s".formatted(feature.name, entry.label(), entry.idx()));
-            });
+            if (Clustering.hasData()) {
+                // Train the clustering model.
+                Clustering.train();
+
+                // Process clustering results for alleles.
+                Clustering.getClusteringResult().forEach(entry -> {
+                    // Retrieve the allele by its name and update its attributes with clustering results.
+                    Feature.Allele allele = feature.getAllele(entry.name());
+                    allele.setAttribute(Constants.$SequenceType_clusterLabel, String.valueOf(entry.label()));
+                    allele.setAttribute(Constants.$SequenceType_clusterIndex, String.valueOf(entry.idx()));
+                    allele.setAttribute(Constants.$SequenceType_clusterOutlierScore, String.format(Locale.US, "%.3f", entry.outlierScore()));
+                    // Update the allele's name to include clustering information.
+                    allele.setName("%s.a%s.%s".formatted(feature.name, entry.label(), entry.idx()));
+                });
+            }
 
             // If the feature is coding, process proteoforms.
             if (feature.isCoding() && runProteoformInference()) {
@@ -1087,19 +1090,22 @@ public class Storage {
                 feature.getProteoforms().forEach(proteoform ->
                         Clustering.addToDataset(proteoform._uid, proteoform.getVariants())
                 );
-                // Train the clustering model.
-                Clustering.train();
 
-                // Process clustering results for proteoforms.
-                Clustering.getClusteringResult().forEach(entry -> {
-                    // Retrieve the proteoform by its name and update its attributes with clustering results.
-                    Feature.Proteoform proteoform = feature.getProteoform(entry.name());
-                    proteoform.setAttribute(Constants.$SequenceType_clusterLabel, String.valueOf(entry.label()));
-                    proteoform.setAttribute(Constants.$SequenceType_clusterIndex, String.valueOf(entry.idx()));
-                    proteoform.setAttribute(Constants.$SequenceType_clusterOutlierScore, String.format(Locale.US, "%.3f", entry.outlierScore()));
-                    // Update the proteoform's name to include clustering information.
-                    proteoform.setName("%s.p%s.%s".formatted(feature.name, entry.label(), entry.idx()));
-                });
+                if (Clustering.hasData()) {
+                    // Train the clustering model.
+                    Clustering.train();
+
+                    // Process clustering results for proteoforms.
+                    Clustering.getClusteringResult().forEach(entry -> {
+                        // Retrieve the proteoform by its name and update its attributes with clustering results.
+                        Feature.Proteoform proteoform = feature.getProteoform(entry.name());
+                        proteoform.setAttribute(Constants.$SequenceType_clusterLabel, String.valueOf(entry.label()));
+                        proteoform.setAttribute(Constants.$SequenceType_clusterIndex, String.valueOf(entry.idx()));
+                        proteoform.setAttribute(Constants.$SequenceType_clusterOutlierScore, String.format(Locale.US, "%.3f", entry.outlierScore()));
+                        // Update the proteoform's name to include clustering information.
+                        proteoform.setName("%s.p%s.%s".formatted(feature.name, entry.label(), entry.idx()));
+                    });
+                }
             }
         }
     }
@@ -1318,29 +1324,29 @@ public class Storage {
     private void addFeature(String name, String chrom, Number start, Number end, char strand, String type, Map<String, String> attributes) {
         // Validate the feature type against the Sequence Ontology (SO) map.
         if (!SO.containsKey(type)) {
-            if (Logging.logDump.add("INVALID_FEATURE_TYPE_%s".formatted(type))) {
-                Logging.logError("Features of type %s are currently not supported and will be ignored (%s)."
-                        .formatted(type, name));
-            }
+            Logging.logWarningOnce(
+                    "INVALID_FEATURE_TYPE_%s".formatted(type),
+                    "Features of type %s are currently not supported and will be ignored (%s).".formatted(type, name)
+            );
             return;
         }
 
         // Validate the feature location.
         if ((int) start >= (int) end || (int) start < 1) {
-            Logging.logError("Feature %s has an invalid location (%s:%d..%d) and will be ignored."
+            Logging.logWarning("Feature %s has an invalid location (%s:%d..%d) and will be ignored."
                     .formatted(name, chrom, (int) start, (int) end));
             return;
         }
 
         // Validate the compatibility with stored contigs.
         if (!this.hasContig(chrom)) {
-            Logging.logError("Feature %s specifies an unknown parent locus (%s) and will be ignored."
+            Logging.logWarning("Feature %s specifies an unknown parent locus (%s) and will be ignored."
                     .formatted(name, chrom));
             return;
         } else {
             int chromLength = Integer.parseInt(this.getContig(chrom).getAttribute(Constants.$Contig_length));
             if (chromLength != 0 && chromLength < (int) end) {
-                Logging.logError("Feature %s specifies a location (%s:%d..%d) that exceeds the length of its parent locus (%s)."
+                Logging.logWarning("Feature %s specifies a location (%s:%d..%d) that exceeds the length of its parent locus (%s)."
                         .formatted(name, chrom, (int) start, (int) end, chromLength));
                 return;
             }
@@ -1366,7 +1372,7 @@ public class Storage {
             // Validate compatibility with the parent feature if the "Parent" attribute is present.
             if (attributes.containsKey("Parent") && attributes.get("Parent").matches("^.*-%s$".formatted(uid))) {
                 if ((int) start < feature.start || (int) end > feature.end || !feature.contig.equals(chrom) || feature.strand != strand) {
-                    Logging.logError("Feature update failed; feature %s with UID %s has an incompatible location with its parent feature %s."
+                    Logging.logWarning("Feature update failed; feature %s with UID %s has an incompatible location with its parent feature %s."
                             .formatted(feature.name, feature._uid, name));
                     return;
                 }
@@ -1378,7 +1384,7 @@ public class Storage {
                     feature.extendAttribute("children", "%s:%d:%d".formatted(type, (int) start, (int) end));
                 }
             } else {
-                Logging.logError("Feature update failed; feature %s with UID %s already exists, but is not the parent of feature %s."
+                Logging.logWarning("Feature update failed; feature %s with UID %s already exists, but is not the parent of feature %s."
                         .formatted(feature.name, feature._uid, name));
                 return;
             }
@@ -1573,39 +1579,6 @@ public class Storage {
         if (!hasSample(name)) {
             this.samples.put(name, new Sample(name, features.size())); // Create and add a new sample to the map.
             this.samples.get(name).addAttributesIfAbsent(this.sampleInfo.getOrDefault(name, Collections.emptyMap())); // Add metadata if available.
-        }
-    }
-
-    /**
-     * Removes the occurrences of the specified samples from the storage.
-     * <p>
-     * This method iterates through all contigs and samples provided in the input collection.
-     * For each sample, it removes the sample's occurrences from the contig's variants and
-     * the feature's alleles. If a variant or allele no longer has any occurrences after
-     * removal, it is deleted from the storage.
-     *
-     * @param samples A collection of {@link Sample} objects whose occurrences are to be removed.
-     */
-    public void removeSampleOccurrence(Collection<Sample> samples) {
-        for (Contig contig : contigs.values()) {
-            for (Sample sample : samples) {
-                // Remove the sample's occurrences from the contig's variants.
-                contig.getVariantsBySample(sample.name).forEach(variant -> {
-                    VariantInformation variantInformation = contig.getVariantInformation(variant.a, variant.b);
-                    variantInformation.occurrence.get(Constants.$Attributable_samplesOccurrence).remove(sample.name);
-                    if (variantInformation.occurrence.get(Constants.$Attributable_samplesOccurrence).isEmpty())
-                        contig.variants.get(variant.a).remove(variant.b);
-                    if (contig.variants.get(variant.a).isEmpty())
-                        contig.variants.remove(variant.a);
-                });
-
-                // Remove the sample's occurrences from the feature's alleles.
-                for (Map.Entry<String, String> e : sample.getAlleles()) {
-                    features.get(e.getKey()).alleles.get(e.getValue()).occurrence.remove(sample.name);
-                    if (features.get(e.getKey()).alleles.get(e.getValue()).occurrence.isEmpty())
-                        features.get(e.getKey()).alleles.remove(e.getValue());
-                }
-            }
         }
     }
 
@@ -1999,14 +1972,14 @@ public class Storage {
                                     }
                                     // Log an error and skip if alternative calls lack AD or DP attributes.
                                     if (genotype.hasAltAllele() && !(genotype.hasAD() && genotype.hasDP())) {
-                                        Logging.logError(String.format("VCF record analysis failed; AD and DP genotype attributes are required to process alternative calls."
+                                        Logging.logWarning(String.format("VCF record analysis failed; AD and DP genotype attributes are required to process alternative calls."
                                                         + " At least one is missing in file %s at position %s for genotype %s and the variant will be skipped.",
                                                 vcfFile.getAbsolutePath(), record.getStart(), genotype.getSampleName()));
                                         continue;
                                     }
                                     // Log an error and skip if reference calls lack the DP attribute.
                                     if (genotype.isHomRef() && !genotype.hasDP()) {
-                                        Logging.logError(String.format("VCF record analysis failed; DP genotype attribute is required to process reference calls."
+                                        Logging.logWarning(String.format("VCF record analysis failed; DP genotype attribute is required to process reference calls."
                                                         + " The attribute is missing in file %s at position %s for genotype %s and the variant will be skipped.",
                                                 vcfFile.getAbsolutePath(), record.getStart(), genotype.getSampleName()));
                                         continue;
@@ -2267,13 +2240,13 @@ public class Storage {
             } finally {
                 File buildErrorFile = new File(temp + "/snpEff.build.err");
                 if (buildErrorFile.exists() && buildErrorFile.length() != 0) {
-                    Logging.logError("SnpEff `build` has raised an error or warning; a copy of the log file is in the output directory - the annotations may be incorrect.");
+                    Logging.logSevere("SnpEff `build` has raised an error or warning; a copy of the log file is in the output directory - the annotations may be incorrect.");
                     FileUtils.copyFile(buildErrorFile, new File(Musial.outputDirectory.getAbsolutePath()
                             + "/musial_snpeff_build_%s.error".formatted(Musial.runId)));
                 }
                 File annErrorFile = new File(temp + "/snpEff.ann.err");
                 if (annErrorFile.exists() && annErrorFile.length() != 0) {
-                    Logging.logError("SnpEff `ann` has raised an error or warning; a copy of the log file is in the output directory - the annotations may be incorrect.");
+                    Logging.logSevere("SnpEff `ann` has raised an error or warning; a copy of the log file is in the output directory - the annotations may be incorrect.");
                     FileUtils.copyFile(annErrorFile, new File(Musial.outputDirectory.getAbsolutePath()
                             + "/musial_snpeff_ann_%s.error".formatted(Musial.runId)));
                 }
