@@ -112,6 +112,18 @@ public class Attributable {
     }
 
     /**
+     * Retrieves the value of an attribute associated with this entity. If the attribute does not exist,
+     * the specified default value is returned.
+     *
+     * @param key   The key of the attribute to retrieve.
+     * @param value The default value to return if the attribute does not exist.
+     * @return The value of the attribute, or the specified default value if the attribute does not exist.
+     */
+    public String getAttributeOrDefault(String key, String value) {
+        return this.attributes.getOrDefault(key, value);
+    }
+
+    /**
      * Retrieves the value of an attribute as a collection of strings.
      * <p>
      * The attribute value is split into individual elements using the comma (`,`) as a delimiter.
