@@ -30,8 +30,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -1122,10 +1120,6 @@ public class Storage {
      * </ul>
      */
     public void updateStatistics() {
-        // Initialize decimal formats for frequency and general statistics.
-        DecimalFormat frequencyFormat = new DecimalFormat("0.##E0", DecimalFormatSymbols.getInstance(Locale.US));
-        DecimalFormat decimalFormat = new DecimalFormat("##.#", DecimalFormatSymbols.getInstance(Locale.US));
-
         // Count the number of coding features in the storage.
         float noCodingFeatures = features.values().stream().filter(Feature::isCoding).count();
 
@@ -1155,31 +1149,35 @@ public class Storage {
             }
 
             // Update sample attributes with calculated statistics.
-            sample.setAttribute("#calls", String.valueOf(totalCalls));
-            sample.setAttribute("#filtered", String.valueOf(filteredCalls));
-            sample.setAttribute("mean_coverage", decimalFormat.format(coverages.stream().mapToInt(Integer::intValue).average().orElse(0)));
-            sample.setAttribute("mean_quality", decimalFormat.format(qualities.stream().mapToInt(Integer::intValue).average().orElse(0)));
-            sample.setAttribute("reference_frequency", frequencyFormat.format(1 - (sample.alleles.size() / (float) features.size())));
+            sample.setAttribute(Constants.$Sample_numberOfCalls, String.valueOf(totalCalls));
+            sample.setAttribute(Constants.$Sample_numberOfFiltered, String.valueOf(filteredCalls));
+            sample.setAttribute(Constants.$Sample_meanCoverage,
+                    IO.formatNumber(coverages.stream().mapToInt(Integer::intValue).average().orElse(0))
+            );
+            sample.setAttribute(Constants.$Sample_meanQuality,
+                    IO.formatNumber(qualities.stream().mapToInt(Integer::intValue).average().orElse(0))
+            );
+            sample.setAttribute(Constants.$Attributable_frequencyReference,
+                    IO.formatFrequency(1 - (sample.alleles.size() / (float) features.size())));
 
             // Calculate proteoform statistics for coding features if proteoform inference is not skipped.
             if (!parameters.skipProteoformInference()) {
-                int disrupted = 0, modified = 0;
-                for (var alleleEntry : sample.alleles.entrySet()) {
-                    Feature feature = getFeature(alleleEntry.getKey());
+                int disrupted = 0;
+                for (var entry : sample.alleles.entrySet()) {
+                    Feature feature = getFeature(entry.getKey());
                     if (feature.isCoding()) {
-                        String proteoformUid = feature.getAllele(alleleEntry.getValue()).getAttribute(Constants.$Allele_proteoform);
-                        if (!Objects.equals(proteoformUid, Constants.synonymous)) {
-                            Collection<String> effects = feature.getProteoform(proteoformUid).getAttributeAsCollection(Constants.$SequenceType_effects);
+                        String proteoformUid = feature.getAllele(entry.getValue()).getAttribute(Constants.$Allele_proteoform);
+                        if (!Constants.synonymous.equals(proteoformUid)) {
+                            var effects = feature.getProteoform(proteoformUid).getAttributeAsCollection(Constants.$SequenceType_effects);
                             if (effects.contains("start_lost") || effects.contains("stop_gained")) {
                                 disrupted++;
-                            } else {
-                                modified++;
                             }
                         }
                     }
                 }
-                sample.setAttribute("proteoform_disrupted_frequency", frequencyFormat.format(disrupted / noCodingFeatures));
-                sample.setAttribute("proteoform_modified_frequency", frequencyFormat.format(modified / noCodingFeatures));
+                sample.setAttribute(Constants.$Attributable_frequencyDisrupted,
+                        IO.formatFrequency(disrupted / noCodingFeatures)
+                );
             }
         }
 
@@ -1187,7 +1185,9 @@ public class Storage {
         for (Contig contig : contigs.values()) {
             contig.variants.forEach((position, innerMap) -> innerMap.forEach((altBases, variantInfo) -> {
                 int sampleCount = variantInfo.getSampleOccurrence().size();
-                variantInfo.setAttribute("variant_frequency", frequencyFormat.format((float) sampleCount / samples.size()));
+                variantInfo.setAttribute(Constants.$VariantInformation_frequency,
+                        IO.formatFrequency(sampleCount / (float) samples.size())
+                );
 
                 variantInfo.getSampleOccurrence().forEach(sampleName -> {
                     Map<String, Integer> targetMap = switch (variantInfo.type) {
@@ -1200,8 +1200,10 @@ public class Storage {
         }
 
         // Update sample attributes with aggregated substitution and indel counts.
-        perSampleSubstitutions.forEach((sample, count) -> samples.get(sample).setAttribute("#substitutions", String.valueOf(count)));
-        perSampleInDels.forEach((sample, count) -> samples.get(sample).setAttribute("#indels", String.valueOf(count)));
+        perSampleSubstitutions.forEach((sample, count) -> samples.get(sample)
+                .setAttribute(Constants.$Sample_numberOfSubstitutions, String.valueOf(count)));
+        perSampleInDels.forEach((sample, count) -> samples.get(sample)
+                .setAttribute(Constants.$Sample_numberOfIndels, String.valueOf(count)));
 
         // Initialize a map to store proteoform occurrences for each feature.
         Map<String, Integer> perProteoformOccurrence = new HashMap<>();
@@ -1209,13 +1211,15 @@ public class Storage {
         // Iterate over each feature to calculate and update feature-specific statistics.
         for (Feature feature : features.values()) {
             float nonReferenceOccurrence = 0;
-            int proteoformsModified = 0, proteoformsDisrupted = 0;
+            int disrupted = 0;
             perProteoformOccurrence.clear();
 
             // Process alleles for the feature to calculate allelic frequencies and proteoform statistics.
             for (SequenceType allele : feature.getAlleles()) {
                 int alleleOccurrence = allele.getOccurrence().size();
-                allele.setAttribute("allelic_frequency", frequencyFormat.format(alleleOccurrence / (float) samples.size()));
+                allele.setAttribute(Constants.$SequenceType_frequency,
+                        IO.formatFrequency(alleleOccurrence / (float) samples.size())
+                );
                 nonReferenceOccurrence += alleleOccurrence;
 
                 if (!parameters.skipProteoformInference() && feature.isCoding()) {
@@ -1223,9 +1227,7 @@ public class Storage {
                     if (!Objects.equals(proteoformUid, Constants.synonymous)) {
                         Collection<String> effects = feature.getProteoform(proteoformUid).getAttributeAsCollection(Constants.$SequenceType_effects);
                         if (effects.contains("start_lost") || effects.contains("stop_gained")) {
-                            proteoformsDisrupted++;
-                        } else {
-                            proteoformsModified++;
+                            disrupted++;
                         }
                         perProteoformOccurrence.merge(proteoformUid, alleleOccurrence, Integer::sum);
                     }
@@ -1233,18 +1235,21 @@ public class Storage {
             }
 
             // Update feature attributes with calculated statistics.
-            feature.setAttribute("reference_frequency", frequencyFormat.format(1 - (nonReferenceOccurrence / samples.size())));
-            feature.setAttribute("#alleles", decimalFormat.format(feature.alleles.size()));
+            feature.setAttribute(Constants.$Attributable_frequencyReference,
+                    IO.formatFrequency(1 - (nonReferenceOccurrence / samples.size()))
+            );
+            feature.setAttribute(Constants.$Feature_numberOfAlleles, String.valueOf(feature.alleles.size()));
 
             if (!parameters.skipProteoformInference() && feature.isCoding()) {
                 int proteoformCount = feature.getProteoforms().size();
-                float productDisruptedFrequency = proteoformCount == 0 ? 0 : proteoformsDisrupted / (float) proteoformCount;
-                float productModifiedFrequency = proteoformCount == 0 ? 0 : proteoformsModified / (float) proteoformCount;
-                feature.setAttribute("product_disrupted_frequency", frequencyFormat.format(productDisruptedFrequency));
-                feature.setAttribute("product_modified_frequency", frequencyFormat.format(productModifiedFrequency));
-                feature.setAttribute("#proteoforms", decimalFormat.format(feature.proteoforms.size()));
+                float disruptedFrequency = proteoformCount == 0 ? 0 : disrupted / (float) proteoformCount;
+                feature.setAttribute(Constants.$Attributable_frequencyDisrupted,
+                        IO.formatFrequency(disruptedFrequency)
+                );
+                feature.setAttribute(Constants.$Feature_numberOfProteoforms, String.valueOf(feature.proteoforms.size()));
                 perProteoformOccurrence.forEach((proteoformUid, count) ->
-                        feature.getProteoform(proteoformUid).setAttribute("allelic_frequency", frequencyFormat.format(count / (float) samples.size()))
+                        feature.getProteoform(proteoformUid).setAttribute(Constants.$SequenceType_frequency,
+                                IO.formatFrequency(count / (float) samples.size()))
                 );
             }
         }
