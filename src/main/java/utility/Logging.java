@@ -199,7 +199,7 @@ public final class Logging {
     public static String getTimestamp() {
         return new SimpleDateFormat("dd-MM-yy HH:mm").format(new Date());
     }
-    
+
     /**
      * Returns the current date formatted as a string.
      * <p>
