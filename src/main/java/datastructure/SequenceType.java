@@ -117,6 +117,15 @@ public class SequenceType extends Attributable {
     }
 
     /**
+     * Retrieves the count of occurrences of this sequence type.
+     *
+     * @return The number of unique identifiers associated with this sequence type.
+     */
+    public int getCount() {
+        return this.occurrence.size();
+    }
+
+    /**
      * Checks if this sequence type is associated with an entity by its {@code identifier}.
      *
      * @param identifier Unique identifier to check for.

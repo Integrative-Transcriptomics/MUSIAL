@@ -653,7 +653,7 @@ public final class Musial {
                         Set<String> includeAlleles = new HashSet<>();
 
                         // Process each allele of the feature.
-                        feature.getAlleles().forEach(allele -> {
+                        feature.getAlleles(true).forEach(allele -> {
                             // Check if the allele should be included based on the includeSamples set.
                             if (includeSamples.isEmpty() || includeSamples.stream().anyMatch(allele::hasOccurrence)) {
                                 includeAlleles.add(allele._uid);
@@ -673,7 +673,7 @@ public final class Musial {
 
                         // Process proteoforms if proteoform inference is not skipped and the feature is coding.
                         if (storage.runProteoformInference() && feature.isCoding()) {
-                            feature.getProteoforms().forEach(proteoform -> {
+                            feature.getProteoforms(true).forEach(proteoform -> {
                                 // Check if the proteoform should be included based on the included alleles.
                                 if (includeAlleles.stream().anyMatch(proteoform::hasOccurrence)) {
                                     // Create a list of tuples representing the proteoform's attributes.
@@ -732,18 +732,18 @@ public final class Musial {
          * The table can be filtered to include only specific samples and features based on the provided sets.
          *
          * @param storage         The {@link Storage} instance containing the samples and features to be included in the table.
-         * @param includedSamples A set of sample names to include in the table. If empty, all samples are included.
+         * @param includeSamples A set of sample names to include in the table. If empty, all samples are included.
          * @param includeFeatures A set of feature names to include in the table. If empty, all features are included.
          * @return A {@link Table} object containing the sequence type information.
          */
-        private static Table typeMatrix(Storage storage, Set<String> includedSamples, Set<String> includeFeatures) {
+        private static Table typeMatrix(Storage storage, Set<String> includeSamples, Set<String> includeFeatures) {
             // Initialize the table with the header "name   type" and a comparator for sorting by feature start position.
             Table table = new Table("name\ttype", includeFeatures.isEmpty() ? storage.getFeatures().size() : includeFeatures.size(),
                     Comparator.comparingInt(i -> storage.getFeature(i.split(Constants.TAB)[0]).start), Constants.synonymous);
 
             // Stream through the samples in the storage, filtering based on the includedSamples set.
             storage.getSamples().stream()
-                    .filter(sample -> includedSamples.isEmpty() || includedSamples.contains(sample.name))
+                    .filter(sample -> includeSamples.isEmpty() || includeSamples.contains(sample.name))
                     .forEach(sample ->
                             // Stream through the alleles of the sample, filtering based on the includeFeatures set.
                             sample.getAlleles().stream()
@@ -976,7 +976,7 @@ public final class Musial {
             }
 
             // Collect allele UIDs that match the provided sample names.
-            final Set<String> alleleUids = feature.getAlleles().stream()
+            final Set<String> alleleUids = feature.getAlleles(true).stream()
                     .filter(allele -> sampleNames.stream().anyMatch(allele::hasOccurrence))
                     .map(allele -> allele._uid)
                     .collect(Collectors.toSet());
@@ -1147,7 +1147,7 @@ public final class Musial {
             }
 
             // Collect proteoform UIDs that match the provided sample names, excluding synonymous proteoforms.
-            final List<String> proteoformUids = feature.getAlleles().stream()
+            final List<String> proteoformUids = feature.getAlleles(true).stream()
                     .filter(allele -> sampleNames.stream().anyMatch(allele::hasOccurrence))
                     .map(allele -> allele.getAttribute(Constants.$Allele_proteoform))
                     .collect(Collectors.toList());

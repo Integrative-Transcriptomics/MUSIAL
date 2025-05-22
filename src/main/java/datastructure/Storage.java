@@ -1061,7 +1061,7 @@ public class Storage {
         for (Feature feature : getFeatures()) {
             // Reset clustering and add alleles to the dataset.
             Clustering.reset();
-            feature.getAlleles().forEach(allele ->
+            feature.getAlleles(false).forEach(allele ->
                     Clustering.addToDataset(allele._uid, allele.getVariants())
             );
 
@@ -1085,7 +1085,7 @@ public class Storage {
             if (feature.isCoding() && runProteoformInference()) {
                 // Reset clustering and add proteoforms to the dataset.
                 Clustering.reset();
-                feature.getProteoforms().forEach(proteoform ->
+                feature.getProteoforms(false).forEach(proteoform ->
                         Clustering.addToDataset(proteoform._uid, proteoform.getVariants())
                 );
 
@@ -1158,7 +1158,7 @@ public class Storage {
                     IO.formatNumber(qualities.stream().mapToInt(Integer::intValue).average().orElse(0))
             );
             sample.setAttribute(Constants.$Attributable_frequencyReference,
-                    IO.formatFrequency(1 - (sample.alleles.size() / (float) features.size())));
+                    IO.formatFrequency(1 - (sample.getAlleleCount() / (float) features.size())));
 
             // Calculate proteoform statistics for coding features if proteoform inference is not skipped.
             if (!parameters.skipProteoformInference()) {
@@ -1215,8 +1215,8 @@ public class Storage {
             perProteoformOccurrence.clear();
 
             // Process alleles for the feature to calculate allelic frequencies and proteoform statistics.
-            for (SequenceType allele : feature.getAlleles()) {
-                int alleleOccurrence = allele.getOccurrence().size();
+            for (SequenceType allele : feature.getAlleles(false)) {
+                int alleleOccurrence = allele.getCount();
                 allele.setAttribute(Constants.$SequenceType_frequency,
                         IO.formatFrequency(alleleOccurrence / (float) samples.size())
                 );
@@ -1238,15 +1238,15 @@ public class Storage {
             feature.setAttribute(Constants.$Attributable_frequencyReference,
                     IO.formatFrequency(1 - (nonReferenceOccurrence / samples.size()))
             );
-            feature.setAttribute(Constants.$Feature_numberOfAlleles, String.valueOf(feature.alleles.size()));
+            feature.setAttribute(Constants.$Feature_numberOfAlleles, String.valueOf(feature.getAlleleCount()));
 
             if (!parameters.skipProteoformInference() && feature.isCoding()) {
-                int proteoformCount = feature.getProteoforms().size();
+                int proteoformCount = feature.getProteoformCount();
                 float disruptedFrequency = proteoformCount == 0 ? 0 : disrupted / (float) proteoformCount;
                 feature.setAttribute(Constants.$Attributable_frequencyDisrupted,
                         IO.formatFrequency(disruptedFrequency)
                 );
-                feature.setAttribute(Constants.$Feature_numberOfProteoforms, String.valueOf(feature.proteoforms.size()));
+                feature.setAttribute(Constants.$Feature_numberOfProteoforms, String.valueOf(feature.getProteoformCount()));
                 perProteoformOccurrence.forEach((proteoformUid, count) ->
                         feature.getProteoform(proteoformUid).setAttribute(Constants.$SequenceType_frequency,
                                 IO.formatFrequency(count / (float) samples.size()))

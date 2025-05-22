@@ -139,6 +139,19 @@ public class Sample extends Attributable {
     }
 
     /**
+     * Retrieves the number of alleles in this sample.
+     * <p>
+     * This method returns the size of the {@link #alleles} map, which represents the number
+     * of unique alleles associated with features in this sample. This corresponds to the
+     * number of non-reference alleles present in the sample.
+     *
+     * @return The number of alleles in this sample.
+     */
+    public int getAlleleCount() {
+        return this.alleles.size();
+    }
+
+    /**
      * Retrieves the variant calls for the specified contig in this sample.
      * <p>
      * This method returns a {@link TreeMap} containing the variant calls for the given contig.
