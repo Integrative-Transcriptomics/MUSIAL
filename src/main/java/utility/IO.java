@@ -20,6 +20,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.*;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -34,6 +36,53 @@ import java.util.zip.GZIPOutputStream;
  * The class is designed to be non-instantiable and serves as a collection of utility methods.
  */
 public final class IO {
+
+    /**
+     * A DecimalFormat instance for formatting frequencies in scientific notation.
+     * <p>
+     * The format uses one digit before the decimal point and two digits after,
+     * followed by an exponent (e.g., "1.23E4"). The locale is set to US for consistent
+     * decimal and grouping symbols.
+     */
+    private static final DecimalFormat frequencyFormat = new DecimalFormat(".00E0", DecimalFormatSymbols.getInstance(Locale.US));
+
+    /**
+     * A DecimalFormat instance for formatting numbers with up to three decimal places.
+     * <p>
+     * The format uses up to two digits before the decimal point and three digits after
+     * (e.g., "12.345"). The locale is set to US for consistent decimal and grouping symbols.
+     */
+    private static final DecimalFormat decimalFormat = new DecimalFormat("##.###", DecimalFormatSymbols.getInstance(Locale.US));
+
+    /**
+     * Formats a frequency value into scientific notation.
+     * <p>
+     * This method formats the given frequency value using the {@link #frequencyFormat}.
+     * If the formatted value equals ".10E1", it is replaced with "1.00E0" for consistency.
+     *
+     * @param value The frequency value to format.
+     * @return A {@link String} representing the formatted frequency in scientific notation.
+     */
+    public static String formatFrequency(double value) {
+        String formattedValue = frequencyFormat.format(value);
+        if (formattedValue.equals(".10E1"))
+            return "1.00E0";
+        else
+            return formattedValue;
+    }
+
+    /**
+     * Formats a number to three decimal places.
+     * <p>
+     * This method formats the given number using the {@link #decimalFormat}.
+     * The result is a string representation of the number with up to three decimal places.
+     *
+     * @param value The number to format.
+     * @return A {@link String} representing the formatted number.
+     */
+    public static String formatNumber(double value) {
+        return decimalFormat.format(value);
+    }
 
     /**
      * Reads the content of a file line by line and returns a list of non-empty, trimmed lines.
