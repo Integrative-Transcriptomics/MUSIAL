@@ -19,6 +19,10 @@ import java.util.stream.Collectors;
 public class Attributable {
 
     /**
+     * Key used to represent the occurrence of samples in classes that extend {@link Attributable}.
+     */
+    public final static String sampleOccurrence = "sample";
+    /**
      * Attributes associated with this entity, stored as key-value pairs.
      */
     private final TreeMap<String, String> attributes = new TreeMap<>();
