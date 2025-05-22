@@ -66,7 +66,9 @@ public final class IO {
     public static String formatFrequency(double value) {
         String formattedValue = frequencyFormat.format(value);
         if (formattedValue.equals(".10E1"))
-            return "1.00E0";
+            return "1.00";
+        else if (formattedValue.equals(".00E0"))
+            return "0.00";
         else
             return formattedValue;
     }
