@@ -212,7 +212,7 @@ public class Storage {
          * @return A {@link Storage} object representing the loaded data.
          * @throws IOException If an error occurs while reading the file or parsing the JSON data.
          */
-        public static Storage fromFile(File file) throws IOException {
+        public static Storage deserialize(File file) throws IOException {
             Validation.checkFile(file);
 
             Function<BufferedReader, Storage> storageFromReader = reader ->
@@ -242,9 +242,9 @@ public class Storage {
          * @param file    The `File` object representing the target file.
          * @throws IOException If an error occurs during file operations, such as writing or compression.
          */
-        public static void toFile(Storage storage, File file) throws IOException {
+        public static void serialize(Storage storage, File file) throws IOException {
             // Ensure the file has the correct extension
-            if (!file.getAbsolutePath().endsWith(".json") || !file.getAbsolutePath().endsWith(".json.gz")) {
+            if (!(file.getAbsolutePath().endsWith(".json") || file.getAbsolutePath().endsWith(".json.gz"))) {
                 file = new File(file.getAbsolutePath() + Musial.storageExtension);
             }
 
@@ -595,15 +595,7 @@ public class Storage {
                 if (path != null && !path.isBlank()) {
                     File file = new File(path);
                     Validation.checkFile(file);
-                    try {
-                        System.setOut(Musial.emptySysOut);
-                        featureList = GFF3Reader.read(file.getCanonicalPath());
-                    } catch (IOException e) {
-                        throw new MusialException("Failed to parse reference annotated from file %s; %s"
-                                .formatted(file.getAbsolutePath(), e.getMessage()));
-                    } finally {
-                        System.setOut(Musial.originalSysOut);
-                    }
+                    featureList = GFF3Reader.read(file.getCanonicalPath());
                 }
             }
 

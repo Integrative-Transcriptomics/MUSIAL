@@ -273,7 +273,7 @@ public final class Musial {
 
             // Write the storage data to the specified output file.
             Logging.logInfo("Write storage to file " + CLI.parameters.get("output"));
-            Storage.Factory.toFile(storage, outputFile);
+            Storage.Factory.serialize(storage, outputFile);
 
             // Log summary information about the storage and execution time.
             Logging.logDone(
@@ -299,7 +299,7 @@ public final class Musial {
             // Log and start the storage reading process.
             Logging.logInfo("Read storage.");
             File inputFile = new File((String) CLI.parameters.get("input"));
-            Storage storage = Storage.Factory.fromFile(inputFile);
+            Storage storage = Storage.Factory.deserialize(inputFile);
 
             // Record the original sample count and variant count for logging purposes.
             int originalSampleCount = storage.getSamples().size();
@@ -353,7 +353,7 @@ public final class Musial {
             // Write the updated storage to the specified output file, if the write flag is enabled.
             if (write) {
                 Logging.logInfo("Write storage to file " + outputFile);
-                Storage.Factory.toFile(storage, outputFile);
+                Storage.Factory.serialize(storage, outputFile);
             }
 
             // Log summary information about the expanded storage and execution time.
@@ -518,7 +518,7 @@ public final class Musial {
             // Log and start the storage reading process.
             Logging.logInfo("Read storage.");
             File inputFile = new File((String) CLI.parameters.get("input"));
-            Storage storage = Storage.Factory.fromFile(inputFile);
+            Storage storage = Storage.Factory.deserialize(inputFile);
 
             // Retrieve and validate the content type to view.
             String content = ((String) CLI.parameters.get("content")).toLowerCase();
@@ -895,7 +895,7 @@ public final class Musial {
             // Log and start the storage reading process.
             Logging.logInfo("Read storage.");
             File inputFile = new File((String) CLI.parameters.get("input"));
-            Storage storage = Storage.Factory.fromFile(inputFile);
+            Storage storage = Storage.Factory.deserialize(inputFile);
 
             // Validate the output file parameter.
             String output = (String) CLI.parameters.get("output");
