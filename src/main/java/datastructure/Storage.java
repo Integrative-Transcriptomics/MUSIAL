@@ -1033,21 +1033,73 @@ public class Storage {
      * If the filtered variants are not empty, the method updates the allele for the feature using
      * the contig, variants, and sample. If the feature is coding and the contig has a sequence,
      * the proteoform for the feature is also updated.
+     * <p>
+     * Finally, the method performs HDBSCAN clustering for alleles and proteoforms per feature,
+     * updating their attributes with the clustering results.
      *
      * @throws IOException     If an error occurs during sequence processing.
      * @throws MusialException If an error occurs during allele or proteoform updates.
      */
     public void updateSequenceTypes() throws IOException, MusialException {
+        // Iterate through all samples that need to be updated.
         for (Sample sample : getSamplesToUpdate()) {
+            // Iterate through all features in the storage.
             for (Feature feature : getFeatures()) {
+                // Retrieve the contig associated with the feature.
                 Contig contig = getContig(feature.contig);
-                // Reduce the variant information to the position and alternative allele base string.
+                // Filter variants for the sample within the feature's start and end positions.
                 ArrayList<Tuple<Integer, String>> variants = contig.getVariantsBySampleAndLocation(sample.name, feature.start, feature.end);
-                if (variants.isEmpty()) continue;
+                if (variants.isEmpty()) continue; // Skip if no variants are found.
+                // Update allele information for the feature with respect to the sample.
                 String alleleUid = feature.updateAllele(contig, variants, sample);
+                // If the feature is coding and the contig has a sequence, update the proteoform.
                 if (feature.isCoding() && contig.hasSequence() && runProteoformInference()) {
                     feature.updateProteoform(contig, alleleUid);
                 }
+            }
+        }
+
+        // Perform clustering for alleles and proteoforms per feature.
+        for (Feature feature : getFeatures()) {
+            // Reset clustering and add alleles to the dataset.
+            Clustering.reset();
+            feature.getAlleles().forEach(allele ->
+                    Clustering.addToDataset(allele._uid, allele.getVariants())
+            );
+            // Train the clustering model.
+            Clustering.train();
+
+            // Process clustering results for alleles.
+            Clustering.getClusteringResult().forEach(entry -> {
+                // Retrieve the allele by its name and update its attributes with clustering results.
+                Feature.Allele allele = feature.getAllele(entry.name());
+                allele.setAttribute(Constants.$SequenceType_clusterLabel, String.valueOf(entry.label()));
+                allele.setAttribute(Constants.$SequenceType_clusterIndex, String.valueOf(entry.idx()));
+                allele.setAttribute(Constants.$SequenceType_clusterOutlierScore, String.format(Locale.US, "%.3f", entry.outlierScore()));
+                // Update the allele's name to include clustering information.
+                allele.setName("%s.a%s.%s".formatted(feature.name, entry.label(), entry.idx()));
+            });
+
+            // If the feature is coding, process proteoforms.
+            if (feature.isCoding() && runProteoformInference()) {
+                // Reset clustering and add proteoforms to the dataset.
+                Clustering.reset();
+                feature.getProteoforms().forEach(proteoform ->
+                        Clustering.addToDataset(proteoform._uid, proteoform.getVariants())
+                );
+                // Train the clustering model.
+                Clustering.train();
+
+                // Process clustering results for proteoforms.
+                Clustering.getClusteringResult().forEach(entry -> {
+                    // Retrieve the proteoform by its name and update its attributes with clustering results.
+                    Feature.Proteoform proteoform = feature.getProteoform(entry.name());
+                    proteoform.setAttribute(Constants.$SequenceType_clusterLabel, String.valueOf(entry.label()));
+                    proteoform.setAttribute(Constants.$SequenceType_clusterIndex, String.valueOf(entry.idx()));
+                    proteoform.setAttribute(Constants.$SequenceType_clusterOutlierScore, String.format(Locale.US, "%.3f", entry.outlierScore()));
+                    // Update the proteoform's name to include clustering information.
+                    proteoform.setName("%s.p%s.%s".formatted(feature.name, entry.label(), entry.idx()));
+                });
             }
         }
     }

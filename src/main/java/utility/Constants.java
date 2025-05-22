@@ -146,6 +146,12 @@ public final class Constants {
      */
     public final static String $SequenceType_sequenceLengthVariation = "sequence_length_variation";
 
+    public final static String $SequenceType_clusterLabel = "cluster_label";
+
+    public final static String $SequenceType_clusterIndex = "cluster_index";
+
+    public final static String $SequenceType_clusterOutlierScore = "cluster_outlier_score";
+
     /**
      * Key used to represent the proteoform of an allele.
      */
