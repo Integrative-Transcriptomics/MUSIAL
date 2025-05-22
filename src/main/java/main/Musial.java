@@ -653,7 +653,7 @@ public final class Musial {
                         Set<String> includeAlleles = new HashSet<>();
 
                         // Process each allele of the feature.
-                        feature.getAlleles(true).forEach(allele -> {
+                        feature.getAlleles().forEach(allele -> {
                             // Check if the allele should be included based on the includeSamples set.
                             if (includeSamples.isEmpty() || includeSamples.stream().anyMatch(allele::hasOccurrence)) {
                                 includeAlleles.add(allele._uid);
@@ -673,7 +673,7 @@ public final class Musial {
 
                         // Process proteoforms if proteoform inference is not skipped and the feature is coding.
                         if (storage.runProteoformInference() && feature.isCoding()) {
-                            feature.getProteoforms(true).forEach(proteoform -> {
+                            feature.getProteoforms().forEach(proteoform -> {
                                 // Check if the proteoform should be included based on the included alleles.
                                 if (includeAlleles.stream().anyMatch(proteoform::hasOccurrence)) {
                                     // Create a list of tuples representing the proteoform's attributes.
@@ -976,7 +976,7 @@ public final class Musial {
             }
 
             // Collect allele UIDs that match the provided sample names.
-            final Set<String> alleleUids = feature.getAlleles(true).stream()
+            final Set<String> alleleUids = feature.getAlleles().stream()
                     .filter(allele -> sampleNames.stream().anyMatch(allele::hasOccurrence))
                     .map(allele -> allele._uid)
                     .collect(Collectors.toSet());
@@ -1147,7 +1147,7 @@ public final class Musial {
             }
 
             // Collect proteoform UIDs that match the provided sample names, excluding synonymous proteoforms.
-            final List<String> proteoformUids = feature.getAlleles(true).stream()
+            final List<String> proteoformUids = feature.getAlleles().stream()
                     .filter(allele -> sampleNames.stream().anyMatch(allele::hasOccurrence))
                     .map(allele -> allele.getAttribute(Constants.$Allele_proteoform))
                     .collect(Collectors.toList());

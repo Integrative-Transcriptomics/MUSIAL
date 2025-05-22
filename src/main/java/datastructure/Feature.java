@@ -269,16 +269,11 @@ public class Feature extends Attributable {
      * <p>
      * This method returns a collection of {@link Allele} objects that are associated
      * with this feature. The alleles are stored as values in the internal map of alleles.
-     * The collection can be sorted based on the count of occurrences if specified.
      *
-     * @param sort A boolean flag indicating whether to sort the alleles by their count of occurrences.
      * @return A {@link Collection} of {@link Allele} objects associated with this feature.
      */
-    public Collection<Allele> getAlleles(boolean sort) {
-        if (sort)
-            return this.alleles.values().stream().sorted(Comparator.comparingInt(SequenceType::getCount)).collect(Collectors.toList());
-        else
-            return this.alleles.values();
+    public Collection<Allele> getAlleles() {
+        return this.alleles.values();
     }
 
     /**
@@ -427,16 +422,11 @@ public class Feature extends Attributable {
      * <p>
      * This method returns a collection of {@link Proteoform} objects that are associated
      * with this feature. The proteoforms are stored as values in the internal map of alleles.
-     * The collection can be sorted based on the count of occurrences if specified.
      *
-     * @param sort A boolean flag indicating whether to sort the proteoforms by their count of occurrences.
      * @return A {@link Collection} of {@link Proteoform} objects associated with this feature.
      */
-    public Collection<Proteoform> getProteoforms(boolean sort) {
-        if (sort)
-            return this.proteoforms.values().stream().sorted(Comparator.comparingInt(SequenceType::getCount)).collect(Collectors.toList());
-        else
-            return this.proteoforms.values();
+    public Collection<Proteoform> getProteoforms() {
+        return this.proteoforms.values();
     }
 
     /**

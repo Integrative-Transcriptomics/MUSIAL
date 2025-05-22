@@ -1061,7 +1061,7 @@ public class Storage {
         for (Feature feature : getFeatures()) {
             // Reset clustering and add alleles to the dataset.
             Clustering.reset();
-            feature.getAlleles(false).forEach(allele ->
+            feature.getAlleles().forEach(allele ->
                     Clustering.addToDataset(allele._uid, allele.getVariants())
             );
 
@@ -1085,7 +1085,7 @@ public class Storage {
             if (feature.isCoding() && runProteoformInference()) {
                 // Reset clustering and add proteoforms to the dataset.
                 Clustering.reset();
-                feature.getProteoforms(false).forEach(proteoform ->
+                feature.getProteoforms().forEach(proteoform ->
                         Clustering.addToDataset(proteoform._uid, proteoform.getVariants())
                 );
 
@@ -1215,7 +1215,7 @@ public class Storage {
             perProteoformOccurrence.clear();
 
             // Process alleles for the feature to calculate allelic frequencies and proteoform statistics.
-            for (SequenceType allele : feature.getAlleles(false)) {
+            for (SequenceType allele : feature.getAlleles()) {
                 int alleleOccurrence = allele.getCount();
                 allele.setAttribute(Constants.$SequenceType_frequency,
                         IO.formatFrequency(alleleOccurrence / (float) samples.size())
