@@ -5,7 +5,6 @@ import utility.Constants;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.stream.Collectors;
 
 /**
  * Stores information associated with a nucleotide variant.
@@ -301,15 +300,6 @@ public class VariantInformation extends Attributable {
      */
     public Collection<String> getSampleOccurrence() {
         return this.occurrence.get(Attributable.sampleOccurrence);
-    }
-
-    /**
-     * Retrieves the features associated with this variant.
-     *
-     * @return A {@link Collection} of feature names.
-     */
-    public Collection<String> getFeatureOccurrence() {
-        return this.occurrence.keySet().stream().filter(key -> !key.equals(Attributable.sampleOccurrence)).collect(Collectors.toSet());
     }
 
     /**
