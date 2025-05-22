@@ -1062,7 +1062,7 @@ public class Storage {
             // Reset clustering and add alleles to the dataset.
             Clustering.reset();
             feature.getAlleles().forEach(allele ->
-                    Clustering.addToDataset(allele._uid, allele.getVariants())
+                    Clustering.addToDataset(allele.uid, allele.getVariants())
             );
 
             if (Clustering.hasData()) {
@@ -1086,7 +1086,7 @@ public class Storage {
                 // Reset clustering and add proteoforms to the dataset.
                 Clustering.reset();
                 feature.getProteoforms().forEach(proteoform ->
-                        Clustering.addToDataset(proteoform._uid, proteoform.getVariants())
+                        Clustering.addToDataset(proteoform.uid, proteoform.getVariants())
                 );
 
                 if (Clustering.hasData()) {
@@ -1368,7 +1368,7 @@ public class Storage {
         }
 
         // Check if a feature with the same UID already exists.
-        Optional<Feature> optionalFeature = this.features.values().stream().filter(feature -> feature._uid.equals(uid)).findFirst();
+        Optional<Feature> optionalFeature = this.features.values().stream().filter(feature -> feature.uid.equals(uid)).findFirst();
         Feature feature;
 
         if (optionalFeature.isPresent()) {
@@ -1378,7 +1378,7 @@ public class Storage {
             if (attributes.containsKey("Parent") && attributes.get("Parent").matches("^.*-%s$".formatted(uid))) {
                 if ((int) start < feature.start || (int) end > feature.end || !feature.contig.equals(chrom) || feature.strand != strand) {
                     Logging.logWarning("Feature update failed; feature %s with UID %s has an incompatible location with its parent feature %s."
-                            .formatted(feature.name, feature._uid, name));
+                            .formatted(feature.name, feature.uid, name));
                     return;
                 }
 
@@ -1390,7 +1390,7 @@ public class Storage {
                 }
             } else {
                 Logging.logWarning("Feature update failed; feature %s with UID %s already exists, but is not the parent of feature %s."
-                        .formatted(feature.name, feature._uid, name));
+                        .formatted(feature.name, feature.uid, name));
                 return;
             }
         } else {
@@ -1514,7 +1514,7 @@ public class Storage {
         children.put(feature.type, Collections.singletonList(new Tuple<>(feature.start, feature.end)));
 
         // Create a new feature with the updated type, location, and attributes.
-        Feature updatedFeature = new Feature(feature.name, feature.contig, start, end, feature.strand, "gene", feature._uid);
+        Feature updatedFeature = new Feature(feature.name, feature.contig, start, end, feature.strand, "gene", feature.uid);
         updatedFeature.setAttributes(feature.getAttributes());
         updatedFeature.setChildren(children);
 

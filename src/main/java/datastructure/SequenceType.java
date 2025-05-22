@@ -20,7 +20,7 @@ public class SequenceType extends Attributable {
      * <p>
      * This field stores a human-readable name for the sequence type. It is optional and can be
      * set to provide additional context or description for the sequence type. If not set, the
-     * sequence type is identified solely by its unique identifier (_uid).
+     * sequence type is identified solely by its unique identifier (uid).
      */
     protected String name;
 
@@ -32,7 +32,7 @@ public class SequenceType extends Attributable {
      * be modified afterward. The identifier is used to uniquely distinguish this entity
      * from other sequence types.
      */
-    public final String _uid;
+    public final String uid;
 
     /**
      * Variants defining this entity.
@@ -73,7 +73,7 @@ public class SequenceType extends Attributable {
      */
     public SequenceType(String uid, List<Tuple<Integer, String>> variants) {
         super();
-        this._uid = uid;
+        this.uid = uid;
         this.variants = new TreeMap<>();
         for (Tuple<Integer, String> variant : variants) {
             this.variants.put(variant.a, variant.b);
@@ -112,7 +112,7 @@ public class SequenceType extends Attributable {
      *
      * @return A set of unique identifiers associated with this sequence type.
      */
-    public HashSet<String> getOccurrence() {
+    public Set<String> getOccurrence() {
         return this.occurrence;
     }
 
@@ -188,14 +188,19 @@ public class SequenceType extends Attributable {
     }
 
     /**
-     * Checks if this sequence type has a specific variant at the specified position.
+     * Retrieves the name of this sequence type or its unique identifier (uid), if no name is set.
+     * <p>
+     * This method checks if the {@code name} field is set for the sequence type. If the {@code name}
+     * is {@code null}, it returns the unique identifier {@code uid}. Otherwise, it returns the
+     * {@code name}.
+     * <p>
+     * This should be used for obtaining a human-readable identifier for the sequence type in the
+     * context of logging or reporting.
      *
-     * @param position The position to check for a variant.
-     * @param content  The content of the variant to check for.
-     * @return {@code true} if the specified variant exists at the position, {@code false} otherwise.
+     * @return The name of this sequence type if it is set, or the unique identifier {@code uid} if the name is not set.
      */
-    public boolean hasVariant(int position, String content) {
-        return Objects.equals(getVariant(position), content);
+    public String getNameOrUid() {
+        return Objects.isNull(name) ? uid : name;
     }
 
     /**
@@ -216,7 +221,7 @@ public class SequenceType extends Attributable {
      * <p>
      * The string representation includes:
      * <ul>
-     *   <li>The identifier, which is either the {@code name} (if set) or the unique identifier {@code _uid}.</li>
+     *   <li>The identifier, which is either the {@code name} (if set) or the unique identifier {@code uid}.</li>
      *   <li>The attributes of this sequence type, formatted using {@link Attributable#attributesAsString()}.</li>
      *   <li>The variants associated with this sequence type, formatted using {@link #variantsAsString()}.</li>
      * </ul>
@@ -224,9 +229,10 @@ public class SequenceType extends Attributable {
      * @return A {@link String} representing this sequence type in the format {@code identifier    attributes  variants}.
      */
     public String toString() {
-        return (Objects.isNull(name) ? "%s\t".formatted(_uid) : "%s\t".formatted(name)) +
-                this.attributesAsString() + "\t" +
-                this.variantsAsString();
+        return "%s\t%s\t%s".formatted(
+                getNameOrUid(),
+                this.attributesAsString(),
+                this.variantsAsString());
     }
 
     /**
@@ -280,7 +286,7 @@ public class SequenceType extends Attributable {
      *                 </ul>
      * @return The net shift in sequence length as an {@code int}.
      */
-    public static int computeLengthVariation(List<Tuple<Integer, String>> variants) {
+    protected static int computeLengthVariation(List<Tuple<Integer, String>> variants) {
         return variants.stream().mapToInt(variant -> {
             int length = variant.b.length() - 1;
             return VariantInformation.isInsertion(variant.b) ? length :
@@ -291,34 +297,31 @@ public class SequenceType extends Attributable {
     /**
      * Generates a FASTA header for the sequence type.
      * <p>
-     * This method constructs a FASTA header string for the sequence type using the provided feature name
-     * and sequence identifier. The header includes an identifier in the format {@code lcl|<featureName>_<sequenceIdentifier>}.
-     * Additionally, it appends optional properties to the header if they are present as attributes:
+     * This method constructs a FASTA header string for the sequence type using the provided sequence identifier.
+     * The header includes the identifier in the format {@code >sequenceId} followed by optional properties.
+     * <p>
+     * Optional properties are appended to the header if they are present as attributes:
      * <ul>
-     *   <li>{@code allelic_frequency}: The allelic frequency of the sequence type.</li>
-     *   <li>{@code so_effects}: Sequence ontology effects associated with the sequence type.</li>
+     *   <li>{@code allelic_frequency}: The allelic frequency of the sequence type, retrieved from its attributes.</li>
+     *   <li>{@code so_effects}: Sequence ontology effects associated with the sequence type, retrieved from its attributes.</li>
      * </ul>
+     * <p>
+     * If the attributes are not set, default values ("NaN") are used for the properties.
      *
-     * @param featureName        The name of the feature to include in the FASTA header.
-     * @param sequenceIdentifier The identifier of the sequence to include in the FASTA header.
+     * @param sequenceId The identifier for the sequence, used as the primary part of the FASTA header.
      * @return A {@link String} representing the FASTA header, including the identifier and optional properties.
      */
-    public String getFastaHeader(String featureName, String sequenceIdentifier) {
-        // Construct the identifier for the FASTA header in the format "lcl|<featureName>_<sequenceIdentifier>"
-        String id = "lcl|%s_%s".formatted(featureName, sequenceIdentifier);
-
-        // Initialize a collection to store optional properties for the FASTA header
+    public String getFastaHeader(String sequenceId) {
+        // Initialize a collection to store optional properties for the FASTA header.
         Collection<String> properties = new HashSet<>();
 
-        // Add the "allelic_frequency" property if it exists and is not empty
-        if (hasAttribute("allelic_frequency") && !getAttribute("allelic_frequency").isEmpty())
-            properties.add("allelic_frequency=%s".formatted(getAttribute("allelic_frequency")));
+        // Add the "allelic_frequency" property if it exists, or use "NaN" as the default value.
+        properties.add("[allelic_frequency=%s]".formatted(getAttributeOrDefault(Constants.$SequenceType_frequency, "NaN")));
 
-        // Add the "so_effects" property if it exists and is not empty
-        if (hasAttribute(Constants.$SequenceType_effects) && !getAttribute(Constants.$SequenceType_effects).isEmpty())
-            properties.add("so_effects=%s".formatted(getAttribute(Constants.$SequenceType_effects)));
+        // Add the "so_effects" property if it exists, or use "NaN" as the default value.
+        properties.add("[so_effects=%s]".formatted(getAttributeOrDefault(Constants.$SequenceType_effects, "NaN")));
 
-        // Construct and return the FASTA header, appending properties if they exist
-        return ">%s%s\n".formatted(id, properties.isEmpty() ? Constants.EMPTY : " " + String.join(" ", properties));
+        // Construct and return the FASTA header, appending properties if they exist.
+        return ">%s %s\n".formatted(sequenceId, String.join(" ", properties));
     }
 }

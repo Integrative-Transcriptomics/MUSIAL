@@ -71,7 +71,7 @@ public class Feature extends Attributable {
     /**
      * Unique identifier of this feature.
      */
-    public final String _uid;
+    public final String uid;
 
     /**
      * Represents an allele associated with a genomic feature.
@@ -186,7 +186,7 @@ public class Feature extends Attributable {
         this.start = start.intValue();
         this.end = end.intValue();
         this.strand = strand;
-        this._uid = uid;
+        this.uid = uid;
     }
 
     /**
@@ -210,7 +210,7 @@ public class Feature extends Attributable {
      */
     protected String updateAllele(Contig contig, ArrayList<Tuple<Integer, String>> variants, Sample sample) {
         // Generate a unique identifier (UID) for the allele based on the variants.
-        String uid = IO.md5Hash(SequenceType.variantsAsString(variants));
+        String uid = "%s.%s".formatted(this.name, IO.md5Hash(SequenceType.variantsAsString(variants)));
         Allele allele;
 
         // Check if the allele already exists in the feature.
@@ -243,10 +243,10 @@ public class Feature extends Attributable {
         allele.addOccurrence(sample.name);
 
         // Add the allele (occurrence) to the sample.
-        sample.setAllele(this.name, allele._uid);
+        sample.setAllele(this.name, allele.uid);
 
         // Add the allele occurrence to each variant.
-        variants.forEach(variant -> contig.getVariantInformation(variant.a, variant.b).addAlleleOccurrence(this.name, allele._uid));
+        variants.forEach(variant -> contig.getVariantInformation(variant.a, variant.b).addAlleleOccurrence(this.name, allele.uid));
 
         return uid;
     }
@@ -342,7 +342,7 @@ public class Feature extends Attributable {
             proteoformUid = Constants.synonymous;
         } else {
             Proteoform proteoform;
-            proteoformUid = IO.md5Hash(proteoformSequence);
+            proteoformUid = "%s.%s".formatted(this.name, IO.md5Hash(proteoformSequence));
 
             // Check if the proteoform already exists in the feature.
             if (this.proteoforms.containsKey(proteoformUid)) {
@@ -575,7 +575,7 @@ public class Feature extends Attributable {
         StringBuilder contentBuilder = new StringBuilder();
 
         // Determine GFF3 conforming ID attribute.
-        String id = type.contains("gene") ? "gene-%s".formatted(_uid) : "%s-%s".formatted(type, _uid);
+        String id = type.contains("gene") ? "gene-%s".formatted(uid) : "%s-%s".formatted(type, uid);
         if (!type.contains("gene")) {
             Logging.logWarning("Feature %s type is not a gene; This may conflict with the GFF3 definition.".formatted(name));
         }
@@ -622,11 +622,11 @@ public class Feature extends Attributable {
      */
     private String constructChildId(String childType, String parentId) {
         return switch (childType) {
-            case "CDS" -> "ID=cds-%s;Parent=transcript-%s".formatted(_uid, _uid);
-            case "exon" -> "ID=exon-%s;Parent=transcript-%s".formatted(_uid, _uid);
+            case "CDS" -> "ID=cds-%s;Parent=transcript-%s".formatted(uid, uid);
+            case "exon" -> "ID=exon-%s;Parent=transcript-%s".formatted(uid, uid);
             default -> childType.contains("RNA")
-                    ? "ID=transcript-%s;Parent=%s".formatted(_uid, parentId)
-                    : "ID=%s-%s;Parent=%s".formatted(childType, _uid, parentId);
+                    ? "ID=transcript-%s;Parent=%s".formatted(uid, parentId)
+                    : "ID=%s-%s;Parent=%s".formatted(childType, uid, parentId);
         };
     }
 
