@@ -659,7 +659,7 @@ public final class Musial {
 
                 return 0;
             };
-            Table table = new Table("feature\ttype\tuid", storage.getFeatures().size(), comparator, Constants.EMPTY);
+            Table table = new Table("feature\ttype\tid", storage.getFeatures().size(), comparator, Constants.EMPTY);
 
             // Stream through the features in the storage, filtering based on the includeFeatures set.
             storage.getFeatures().stream()
@@ -1059,10 +1059,10 @@ public final class Musial {
             };
 
             // Write the sequences to a FASTA file.
-            String fileName = String.format("%s%s%s%s_%s.fasta",
+            String fileName = String.format("%s%s%s%s_%s.fna",
                     feature.name,
-                    merge ? "_allele" : "_sample",
-                    conserved ? "_all" : "_variant",
+                    conserved ? "_allSites" : "_variantSites",
+                    merge ? "_merged" : "_perSample",
                     strip ? "" : "_aligned",
                     runId
             );
@@ -1130,7 +1130,8 @@ public final class Musial {
                         dump.accept(allele.getFastaHeader(allele.getNameOrUid()));
                     } else {
                         for (String sampleName : allele.getOccurrence()) {
-                            dump.accept(">%s [allele=%s]".formatted(sampleName, allele.getNameOrUid()));
+                            if (sampleNames.isEmpty() || sampleNames.contains(sampleName))
+                                dump.accept(">%s [allele=%s]".formatted(sampleName, allele.getNameOrUid()));
                         }
                     }
                 }
@@ -1224,7 +1225,7 @@ public final class Musial {
             }
 
             // StringBuilder to construct the sequence content.
-            StringBuilder content = new StringBuilder(conserved ? Math.ceilDiv((feature.end - feature.start + 1), 3) : variants.size());
+            StringBuilder content = new StringBuilder(conserved ? referenceContent.length : variants.size());
 
             // Function to resolve reference content for a given position.
             Consumer<Integer> resolveReference = position -> {
@@ -1238,10 +1239,10 @@ public final class Musial {
             };
 
             // Write the sequences to a FASTA file.
-            String fileName = String.format("%s%s%s%s_%s.fasta",
+            String fileName = String.format("%s%s%s%s_%s.faa",
                     feature.name,
-                    merge ? "_proteoform" : "_sample",
-                    conserved ? "_all" : "_variant",
+                    conserved ? "_allSites" : "_variantSites",
+                    merge ? "_merged" : "_perSample",
                     strip ? "" : "_aligned",
                     runId
             );
@@ -1259,7 +1260,7 @@ public final class Musial {
 
                 // Write the reference sequence if requested.
                 if (reference) {
-                    IntStream.rangeClosed(feature.start, feature.end).forEach(resolveReference::accept);
+                    IntStream.rangeClosed(1, referenceContent.length).forEach(resolveReference::accept);
                     dump.accept(">reference [allelic_frequency=%s]".formatted(feature.getAttribute(Constants.$Attributable_frequencyReference)));
                 }
 
@@ -1305,7 +1306,8 @@ public final class Musial {
                     } else {
                         for (String alleleUid : proteoform.getOccurrence()) {
                             for (String sampleName : feature.getAllele(alleleUid).getOccurrence()) {
-                                dump.accept(">%s [proteoform=%s]".formatted(sampleName, proteoform.getNameOrUid()));
+                                if (sampleNames.isEmpty() || sampleNames.contains(sampleName))
+                                    dump.accept(">%s [proteoform=%s]".formatted(sampleName, proteoform.getNameOrUid()));
                             }
                         }
                     }
