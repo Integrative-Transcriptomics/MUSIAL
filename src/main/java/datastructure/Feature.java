@@ -252,16 +252,27 @@ public class Feature extends Attributable {
     }
 
     /**
-     * Retrieves an allele associated with this feature by its unique identifier.
+     * Retrieves an allele associated with this feature by its unique identifier (uid) or name.
      * <p>
      * This method searches for an {@link Allele} in the internal map of alleles using the provided
-     * unique identifier (UID). If the UID is not found, the method returns {@code null}.
+     * unique identifier (UID). If the UID is not found, it attempts to find an allele by matching
+     * the provided UID with the name of the allele. If no match is found, the method returns {@code null}.
      *
-     * @param uid The unique identifier of the allele to retrieve.
-     * @return The {@link Allele} object associated with the given UID, or {@code null} if not found.
+     * @param uid The unique identifier or name of the allele to retrieve.
+     *            <ul>
+     *              <li>If the UID matches a key in the `alleles` map, the corresponding allele is returned.</li>
+     *              <li>If the UID matches the name of an allele, that allele is returned.</li>
+     *              <li>If no match is found, {@code null} is returned.</li>
+     *            </ul>
+     * @return The {@link Allele} object associated with the given UID or name, or {@code null} if not found.
      */
     public Allele getAllele(String uid) {
-        return this.alleles.getOrDefault(uid, null);
+        // Check if the UID exists as a key in the alleles map.
+        return alleles.containsKey(uid)
+                // If the UID exists, return the corresponding Allele object.
+                ? alleles.get(uid)
+                // Otherwise, search for an Allele whose name matches the UID.
+                : alleles.values().stream().filter(allele -> allele.name.equals(uid)).findFirst().orElse(null);
     }
 
     /**
@@ -408,13 +419,24 @@ public class Feature extends Attributable {
      * Retrieves a proteoform associated with this feature by its unique identifier.
      * <p>
      * This method searches for a {@link Proteoform} in the internal map of proteoforms using the provided
-     * unique identifier (UID). If the UID is not found, the method returns {@code null}.
+     * unique identifier (UID). If the UID is not found, it attempts to find a proteoform by matching
+     * the provided UID with the name of the proteoform. If no match is found, the method returns {@code null}.
      *
-     * @param uid The unique identifier of the proteoform to retrieve.
-     * @return The {@link Proteoform} object associated with the given UID, or {@code null} if not found.
+     * @param uid The unique identifier or name of the proteoform to retrieve.
+     *            <ul>
+     *              <li>If the UID matches a key in the `proteoforms` map, the corresponding proteoform is returned.</li>
+     *              <li>If the UID matches the name of a proteoform, that proteoform is returned.</li>
+     *              <li>If no match is found, {@code null} is returned.</li>
+     *            </ul>
+     * @return The {@link Proteoform} object associated with the given UID or name, or {@code null} if not found.
      */
     public Proteoform getProteoform(String uid) {
-        return this.proteoforms.getOrDefault(uid, null);
+        // Check if the UID exists as a key in the proteoforms map.
+        return proteoforms.containsKey(uid)
+                // If the UID exists, return the corresponding Proteoform object.
+                ? proteoforms.get(uid)
+                // Otherwise, search for a Proteoform whose name matches the UID.
+                : proteoforms.values().stream().filter(proteoform -> proteoform.name.equals(uid)).findFirst().orElse(null);
     }
 
     /**
