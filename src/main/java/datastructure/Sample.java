@@ -112,20 +112,6 @@ public class Sample extends Attributable {
     }
 
     /**
-     * Retrieves the allele identifier for the specified feature in this sample.
-     * <p>
-     * This method looks up the allele identifier associated with the given feature name
-     * in the {@link #alleles} map. If no allele is set for the specified feature, the method
-     * returns the default reference value defined in {@link Constants#synonymous}.
-     *
-     * @param featureName The name of the feature ({@link Feature#name}) to retrieve the associated allele identifier for.
-     * @return The allele identifier ({@link Feature.Allele#_uid}) associated with the feature, or the reference value if not set.
-     */
-    public String getAllele(String featureName) {
-        return this.alleles.getOrDefault(featureName, Constants.synonymous);
-    }
-
-    /**
      * Retrieves the entries of the alleles map for this sample.
      * <p>
      * This method returns a collection view of the mappings contained in the {@link #alleles} map.
@@ -136,6 +122,19 @@ public class Sample extends Attributable {
      */
     public Collection<Map.Entry<String, String>> getAlleles() {
         return this.alleles.entrySet();
+    }
+
+    /**
+     * Retrieves the number of alleles in this sample.
+     * <p>
+     * This method returns the size of the {@link #alleles} map, which represents the number
+     * of unique alleles associated with features in this sample. This corresponds to the
+     * number of non-reference alleles present in the sample.
+     *
+     * @return The number of alleles in this sample.
+     */
+    public int getAlleleCount() {
+        return this.alleles.size();
     }
 
     /**

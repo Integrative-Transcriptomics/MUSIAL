@@ -306,7 +306,7 @@ public class Contig extends Attributable {
         ArrayList<Tuple<Integer, String>> sampleVariants = new ArrayList<>();
         this.variants.forEach((position, innerMap) ->
                 innerMap.entrySet().stream()
-                        .filter(e -> e.getValue().hasOccurrence(Constants.$Attributable_samplesOccurrence, sampleName))
+                        .filter(e -> e.getValue().hasOccurrence(Attributable.sampleOccurrence, sampleName))
                         .findFirst()
                         .ifPresent(e -> sampleVariants.add(new Tuple<>(position, e.getKey())))
         );
@@ -337,7 +337,7 @@ public class Contig extends Attributable {
         ArrayList<Tuple<Integer, String>> sampleVariants = new ArrayList<>();
         this.variants.subMap(start, end + 1).forEach((position, innerMap) ->
                 innerMap.entrySet().stream()
-                        .filter(e -> e.getValue().hasOccurrence(Constants.$Attributable_samplesOccurrence, sampleName))
+                        .filter(e -> e.getValue().hasOccurrence(Attributable.sampleOccurrence, sampleName))
                         .findFirst()
                         .ifPresent(e -> sampleVariants.add(new Tuple<>(position, e.getKey())))
         );

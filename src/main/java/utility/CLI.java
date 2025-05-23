@@ -381,7 +381,7 @@ public final class CLI {
                     ? new HashSet<>(Arrays.asList(arguments.getOptionValues("f")))
                     : new HashSet<>());
             parameters.put("output", arguments.hasOption("o")
-                    ? arguments.getOptionValues("o")
+                    ? arguments.getOptionValue("o")
                     : "stdout");
         }
 

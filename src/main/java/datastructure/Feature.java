@@ -71,7 +71,7 @@ public class Feature extends Attributable {
     /**
      * Unique identifier of this feature.
      */
-    public final String _uid;
+    public final String uid;
 
     /**
      * Represents an allele associated with a genomic feature.
@@ -186,7 +186,7 @@ public class Feature extends Attributable {
         this.start = start.intValue();
         this.end = end.intValue();
         this.strand = strand;
-        this._uid = uid;
+        this.uid = uid;
     }
 
     /**
@@ -210,7 +210,7 @@ public class Feature extends Attributable {
      */
     protected String updateAllele(Contig contig, ArrayList<Tuple<Integer, String>> variants, Sample sample) {
         // Generate a unique identifier (UID) for the allele based on the variants.
-        String uid = IO.md5Hash(SequenceType.variantsAsString(variants));
+        String uid = "%s.%s".formatted(this.name, IO.md5Hash(SequenceType.variantsAsString(variants)));
         Allele allele;
 
         // Check if the allele already exists in the feature.
@@ -243,25 +243,36 @@ public class Feature extends Attributable {
         allele.addOccurrence(sample.name);
 
         // Add the allele (occurrence) to the sample.
-        sample.setAllele(this.name, allele._uid);
+        sample.setAllele(this.name, allele.uid);
 
         // Add the allele occurrence to each variant.
-        variants.forEach(variant -> contig.getVariantInformation(variant.a, variant.b).addAlleleOccurrence(this.name, allele._uid));
+        variants.forEach(variant -> contig.getVariantInformation(variant.a, variant.b).addAlleleOccurrence(this.name, allele.uid));
 
         return uid;
     }
 
     /**
-     * Retrieves an allele associated with this feature by its unique identifier.
+     * Retrieves an allele associated with this feature by its unique identifier (uid) or name.
      * <p>
      * This method searches for an {@link Allele} in the internal map of alleles using the provided
-     * unique identifier (UID). If the UID is not found, the method returns {@code null}.
+     * unique identifier (UID). If the UID is not found, it attempts to find an allele by matching
+     * the provided UID with the name of the allele. If no match is found, the method returns {@code null}.
      *
-     * @param uid The unique identifier of the allele to retrieve.
-     * @return The {@link Allele} object associated with the given UID, or {@code null} if not found.
+     * @param uid The unique identifier or name of the allele to retrieve.
+     *            <ul>
+     *              <li>If the UID matches a key in the `alleles` map, the corresponding allele is returned.</li>
+     *              <li>If the UID matches the name of an allele, that allele is returned.</li>
+     *              <li>If no match is found, {@code null} is returned.</li>
+     *            </ul>
+     * @return The {@link Allele} object associated with the given UID or name, or {@code null} if not found.
      */
     public Allele getAllele(String uid) {
-        return this.alleles.getOrDefault(uid, null);
+        // Check if the UID exists as a key in the alleles map.
+        return alleles.containsKey(uid)
+                // If the UID exists, return the corresponding Allele object.
+                ? alleles.get(uid)
+                // Otherwise, search for an Allele whose name matches the UID.
+                : alleles.values().stream().filter(allele -> allele.name.equals(uid)).findFirst().orElse(null);
     }
 
     /**
@@ -274,6 +285,18 @@ public class Feature extends Attributable {
      */
     public Collection<Allele> getAlleles() {
         return this.alleles.values();
+    }
+
+    /**
+     * Retrieves the number of alleles associated with this feature.
+     * <p>
+     * This method returns the size of the internal map of alleles, which represents
+     * the total number of unique alleles associated with this feature.
+     *
+     * @return The number of alleles associated with this feature.
+     */
+    public int getAlleleCount() {
+        return this.alleles.size();
     }
 
     /**
@@ -330,7 +353,7 @@ public class Feature extends Attributable {
             proteoformUid = Constants.synonymous;
         } else {
             Proteoform proteoform;
-            proteoformUid = IO.md5Hash(proteoformSequence);
+            proteoformUid = "%s.%s".formatted(this.name, IO.md5Hash(proteoformSequence));
 
             // Check if the proteoform already exists in the feature.
             if (this.proteoforms.containsKey(proteoformUid)) {
@@ -396,13 +419,24 @@ public class Feature extends Attributable {
      * Retrieves a proteoform associated with this feature by its unique identifier.
      * <p>
      * This method searches for a {@link Proteoform} in the internal map of proteoforms using the provided
-     * unique identifier (UID). If the UID is not found, the method returns {@code null}.
+     * unique identifier (UID). If the UID is not found, it attempts to find a proteoform by matching
+     * the provided UID with the name of the proteoform. If no match is found, the method returns {@code null}.
      *
-     * @param uid The unique identifier of the proteoform to retrieve.
-     * @return The {@link Proteoform} object associated with the given UID, or {@code null} if not found.
+     * @param uid The unique identifier or name of the proteoform to retrieve.
+     *            <ul>
+     *              <li>If the UID matches a key in the `proteoforms` map, the corresponding proteoform is returned.</li>
+     *              <li>If the UID matches the name of a proteoform, that proteoform is returned.</li>
+     *              <li>If no match is found, {@code null} is returned.</li>
+     *            </ul>
+     * @return The {@link Proteoform} object associated with the given UID or name, or {@code null} if not found.
      */
     public Proteoform getProteoform(String uid) {
-        return this.proteoforms.getOrDefault(uid, null);
+        // Check if the UID exists as a key in the proteoforms map.
+        return proteoforms.containsKey(uid)
+                // If the UID exists, return the corresponding Proteoform object.
+                ? proteoforms.get(uid)
+                // Otherwise, search for a Proteoform whose name matches the UID.
+                : proteoforms.values().stream().filter(proteoform -> proteoform.name.equals(uid)).findFirst().orElse(null);
     }
 
     /**
@@ -415,6 +449,18 @@ public class Feature extends Attributable {
      */
     public Collection<Proteoform> getProteoforms() {
         return this.proteoforms.values();
+    }
+
+    /**
+     * Retrieves the number of proteoforms associated with this feature.
+     * <p>
+     * This method returns the size of the internal map of proteoforms, which represents
+     * the total number of unique proteoforms associated with this feature.
+     *
+     * @return The number of proteoforms associated with this feature.
+     */
+    public int getProteoformCount() {
+        return this.proteoforms.size();
     }
 
     /**
@@ -551,7 +597,7 @@ public class Feature extends Attributable {
         StringBuilder contentBuilder = new StringBuilder();
 
         // Determine GFF3 conforming ID attribute.
-        String id = type.contains("gene") ? "gene-%s".formatted(_uid) : "%s-%s".formatted(type, _uid);
+        String id = type.contains("gene") ? "gene-%s".formatted(uid) : "%s-%s".formatted(type, uid);
         if (!type.contains("gene")) {
             Logging.logWarning("Feature %s type is not a gene; This may conflict with the GFF3 definition.".formatted(name));
         }
@@ -573,7 +619,7 @@ public class Feature extends Attributable {
         getChildren().forEach((childType, locations) -> locations.forEach(location ->
                 contentBuilder.append(String.join(TAB,
                                 contig, Musial.softwareName, childType, String.valueOf(location.a), String.valueOf(location.b),
-                                DOT, String.valueOf(strand), DOT, getChildIdAndParent(childType, id)))
+                                DOT, String.valueOf(strand), DOT, constructChildId(childType, id)))
                         .append(Constants.lineSeparator)
         ));
 
@@ -596,13 +642,13 @@ public class Feature extends Attributable {
      * @param parentId  The ID of the parent feature.
      * @return A formatted string containing the ID and Parent attributes for the child feature.
      */
-    private String getChildIdAndParent(String childType, String parentId) {
+    private String constructChildId(String childType, String parentId) {
         return switch (childType) {
-            case "CDS" -> "ID=cds-%s;Parent=transcript-%s".formatted(_uid, _uid);
-            case "exon" -> "ID=exon-%s;Parent=transcript-%s".formatted(_uid, _uid);
+            case "CDS" -> "ID=cds-%s;Parent=transcript-%s".formatted(uid, uid);
+            case "exon" -> "ID=exon-%s;Parent=transcript-%s".formatted(uid, uid);
             default -> childType.contains("RNA")
-                    ? "ID=transcript-%s;Parent=%s".formatted(_uid, parentId)
-                    : "ID=%s-%s;Parent=%s".formatted(childType, _uid, parentId);
+                    ? "ID=transcript-%s;Parent=%s".formatted(uid, parentId)
+                    : "ID=%s-%s;Parent=%s".formatted(childType, uid, parentId);
         };
     }
 

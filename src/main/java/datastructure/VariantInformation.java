@@ -1,12 +1,10 @@
 package datastructure;
 
 import utility.Constants;
-import utility.Validation;
 
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.stream.Collectors;
 
 /**
  * Stores information associated with a nucleotide variant.
@@ -30,7 +28,7 @@ public class VariantInformation extends Attributable {
      * <p>
      * The `occurrence` map is structured as follows:
      * <ul>
-     *     <li>The key is either {@link Constants#$Attributable_samplesOccurrence} (representing sample occurrences)
+     *     <li>The key is either {@link Attributable#sampleOccurrence} (representing sample occurrences)
      *         or the name of a {@link Feature} (representing feature occurrences).</li>
      *     <li>The value is a {@link HashSet} containing names of {@link Sample} or {@link SequenceType}
      *         associated with the key.</li>
@@ -91,7 +89,7 @@ public class VariantInformation extends Attributable {
             );
         }
         this.reference = referenceContent;
-        this.occurrence.put(Constants.$Attributable_samplesOccurrence, new HashSet<>());
+        this.occurrence.put(Attributable.sampleOccurrence, new HashSet<>());
     }
 
     /**
@@ -251,7 +249,7 @@ public class VariantInformation extends Attributable {
      * @param name The name of the sample to add.
      */
     protected void addSampleOccurrence(String name) {
-        this.occurrence.get(Constants.$Attributable_samplesOccurrence).add(name);
+        this.occurrence.get(Attributable.sampleOccurrence).add(name);
     }
 
     /**
@@ -301,16 +299,7 @@ public class VariantInformation extends Attributable {
      * @return A {@link Collection} of sample names.
      */
     public Collection<String> getSampleOccurrence() {
-        return this.occurrence.get(Constants.$Attributable_samplesOccurrence);
-    }
-
-    /**
-     * Retrieves the features associated with this variant.
-     *
-     * @return A {@link Collection} of feature names.
-     */
-    public Collection<String> getFeatureOccurrence() {
-        return this.occurrence.keySet().stream().filter(key -> !key.equals(Constants.$Attributable_samplesOccurrence)).collect(Collectors.toSet());
+        return this.occurrence.get(Attributable.sampleOccurrence);
     }
 
     /**

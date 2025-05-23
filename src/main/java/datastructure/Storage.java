@@ -30,8 +30,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -212,7 +210,7 @@ public class Storage {
          * @return A {@link Storage} object representing the loaded data.
          * @throws IOException If an error occurs while reading the file or parsing the JSON data.
          */
-        public static Storage fromFile(File file) throws IOException {
+        public static Storage deserialize(File file) throws IOException {
             Validation.checkFile(file);
 
             Function<BufferedReader, Storage> storageFromReader = reader ->
@@ -242,10 +240,10 @@ public class Storage {
          * @param file    The `File` object representing the target file.
          * @throws IOException If an error occurs during file operations, such as writing or compression.
          */
-        public static void toFile(Storage storage, File file) throws IOException {
+        public static void serialize(Storage storage, File file) throws IOException {
             // Ensure the file has the correct extension
-            if (!file.getAbsolutePath().endsWith(".json")) {
-                file = new File(file.getAbsolutePath() + (file.getAbsolutePath().endsWith(".gz") ? ".json.gz" : ".json"));
+            if (!(file.getAbsolutePath().endsWith(".json") || file.getAbsolutePath().endsWith(".json.gz"))) {
+                file = new File(file.getAbsolutePath() + Musial.storageExtension);
             }
 
             // Convert the storage object to a JSON string
@@ -338,7 +336,7 @@ public class Storage {
                     Logging.logWarning("Invalid value for `minimalCoverage`; expected a positive integer. Defaulting to 3.");
                 }
             } else {
-                Logging.logWarning("No value for `minimalCoverage` specified; defaulting to 3.");
+                Logging.logConfig("No value for `minimalCoverage` specified; defaulting to 3.");
             }
 
             double minimalFrequency = 0.65; // Default value
@@ -350,7 +348,7 @@ public class Storage {
                     Logging.logWarning("Invalid value for `minimalFrequency`; expected a percentage between 0.0 and 1.0. Defaulting to 0.65.");
                 }
             } else {
-                Logging.logWarning("No value for `minimalFrequency` specified; defaulting to 0.65.");
+                Logging.logConfig("No value for `minimalFrequency` specified; defaulting to 0.65.");
             }
 
             boolean storeFiltered = true; // Default value
@@ -362,7 +360,7 @@ public class Storage {
                     Logging.logWarning("Invalid value for `storeFiltered`; expected `true` or `false`. Defaulting to true.");
                 }
             } else {
-                Logging.logWarning("No value for `storeFiltered` specified; defaulting to true.");
+                Logging.logConfig("No value for `storeFiltered` specified; defaulting to true.");
             }
 
             boolean skipSnpEff = false; // Default value
@@ -374,7 +372,7 @@ public class Storage {
                     Logging.logWarning("Invalid value for `skipSnpEff`; expected `true` or `false`. Defaulting to false.");
                 }
             } else {
-                Logging.logWarning("No value for `skipSnpEff` specified; defaulting to false.");
+                Logging.logConfig("No value for `skipSnpEff` specified; defaulting to false.");
             }
 
             boolean skipProteoformInference = true; // Default value
@@ -386,7 +384,7 @@ public class Storage {
                     Logging.logWarning("Invalid value for `skipProteoformInference`; expected `true` or `false`. Defaulting to true.");
                 }
             } else {
-                Logging.logWarning("No value for `skipProteoformInference` specified; defaulting to true.");
+                Logging.logConfig("No value for `skipProteoformInference` specified; defaulting to true.");
             }
 
             Map<String, Set<Integer>> excludedPositions = excludedPositionsFromCLI();
@@ -448,7 +446,7 @@ public class Storage {
             }
 
             if (!excludedPositions.isEmpty()) {
-                Logging.logInfo("Set %d positions as excluded.".formatted(excludedPositions.values().stream().mapToInt(Set::size).sum()));
+                Logging.logConfig("Set %d positions as excluded.".formatted(excludedPositions.values().stream().mapToInt(Set::size).sum()));
             }
 
             // Return the populated map of excluded positions.
@@ -507,7 +505,7 @@ public class Storage {
             }
 
             if (!excludedVariants.isEmpty()) {
-                Logging.logInfo("Set %d variants as excluded.".formatted(excludedVariants.values().stream().mapToInt(Set::size).sum()));
+                Logging.logConfig("Set %d variants as excluded.".formatted(excludedVariants.values().stream().mapToInt(Set::size).sum()));
             }
 
             // Return the populated map of excluded variants.
@@ -595,15 +593,7 @@ public class Storage {
                 if (path != null && !path.isBlank()) {
                     File file = new File(path);
                     Validation.checkFile(file);
-                    try {
-                        System.setOut(Musial.emptySysOut);
-                        featureList = GFF3Reader.read(file.getCanonicalPath());
-                    } catch (IOException e) {
-                        throw new MusialException("Failed to parse reference annotated from file %s; %s"
-                                .formatted(file.getAbsolutePath(), e.getMessage()));
-                    } finally {
-                        System.setOut(Musial.originalSysOut);
-                    }
+                    featureList = GFF3Reader.read(file.getCanonicalPath());
                 }
             }
 
@@ -664,7 +654,7 @@ public class Storage {
             }
 
             if (!CLI.parameters.containsKey("features") && !featureList.isEmpty()) {
-                Logging.logInfo("No explicit features are specified; read all annotated features from file %s."
+                Logging.logConfig("No explicit features are specified; read all annotated features from file %s."
                         .formatted(CLI.parameters.get("annotation")));
                 for (FeatureI featureI : featureList) {
                     if (!"region".equals(featureI.type())) {
@@ -678,7 +668,7 @@ public class Storage {
 
             // Parse features from reference sequence if none are available
             if (storage.features.isEmpty() && storage.hasReference()) {
-                Logging.logWarning("No features were specified; one feature of type region per reference contig is derived.");
+                Logging.logConfig("No features were specified; one feature of type region per reference contig is derived.");
                 ReferenceSequence entry = storage.reference.nextSequence();
                 while (entry != null) {
                     Map<String, String> attributes = new HashMap<>(1);
@@ -997,7 +987,7 @@ public class Storage {
         vcfHandler.clearRecords(); // Clear existing variant records.
 
         if (this.features.isEmpty()) {
-            Logging.logWarning("No features available; infer features from variant calls.");
+            Logging.logConfig("No features available; infer features from variant calls.");
             for (Map.Entry<String, Integer> entry : vcfHandler.inferContigs().entrySet()) {
                 addContig(entry.getKey(), Constants.EMPTY);
                 String id = "%s:%d..%d".formatted(entry.getKey(), 1, entry.getValue());
@@ -1041,20 +1031,78 @@ public class Storage {
      * If the filtered variants are not empty, the method updates the allele for the feature using
      * the contig, variants, and sample. If the feature is coding and the contig has a sequence,
      * the proteoform for the feature is also updated.
+     * <p>
+     * Finally, the method performs HDBSCAN clustering for alleles and proteoforms per feature,
+     * updating their attributes with the clustering results.
      *
      * @throws IOException     If an error occurs during sequence processing.
      * @throws MusialException If an error occurs during allele or proteoform updates.
      */
     public void updateSequenceTypes() throws IOException, MusialException {
+        // Iterate through all samples that need to be updated.
         for (Sample sample : getSamplesToUpdate()) {
+            // Iterate through all features in the storage.
             for (Feature feature : getFeatures()) {
+                // Retrieve the contig associated with the feature.
                 Contig contig = getContig(feature.contig);
-                // Reduce the variant information to the position and alternative allele base string.
+                // Filter variants for the sample within the feature's start and end positions.
                 ArrayList<Tuple<Integer, String>> variants = contig.getVariantsBySampleAndLocation(sample.name, feature.start, feature.end);
-                if (variants.isEmpty()) continue;
+                if (variants.isEmpty()) continue; // Skip if no variants are found.
+                // Update allele information for the feature with respect to the sample.
                 String alleleUid = feature.updateAllele(contig, variants, sample);
+                // If the feature is coding and the contig has a sequence, update the proteoform.
                 if (feature.isCoding() && contig.hasSequence() && runProteoformInference()) {
                     feature.updateProteoform(contig, alleleUid);
+                }
+            }
+        }
+
+        // Perform clustering for alleles and proteoforms per feature.
+        for (Feature feature : getFeatures()) {
+            // Reset clustering and add alleles to the dataset.
+            Clustering.reset();
+            feature.getAlleles().forEach(allele ->
+                    Clustering.addToDataset(allele.uid, allele.getVariants())
+            );
+
+            if (Clustering.hasData()) {
+                // Train the clustering model.
+                Clustering.train();
+
+                // Process clustering results for alleles.
+                Clustering.getClusteringResult().forEach(entry -> {
+                    // Retrieve the allele by its name and update its attributes with clustering results.
+                    Feature.Allele allele = feature.getAllele(entry.name());
+                    allele.setAttribute(Constants.$SequenceType_clusterLabel, String.valueOf(entry.label()));
+                    allele.setAttribute(Constants.$SequenceType_clusterIndex, String.valueOf(entry.idx()));
+                    allele.setAttribute(Constants.$SequenceType_clusterOutlierScore, String.format(Locale.US, "%.3f", entry.outlierScore()));
+                    // Update the allele's name to include clustering information.
+                    allele.setName("%s.a%s.%s".formatted(feature.name, entry.label(), entry.idx()));
+                });
+            }
+
+            // If the feature is coding, process proteoforms.
+            if (feature.isCoding() && runProteoformInference()) {
+                // Reset clustering and add proteoforms to the dataset.
+                Clustering.reset();
+                feature.getProteoforms().forEach(proteoform ->
+                        Clustering.addToDataset(proteoform.uid, proteoform.getVariants())
+                );
+
+                if (Clustering.hasData()) {
+                    // Train the clustering model.
+                    Clustering.train();
+
+                    // Process clustering results for proteoforms.
+                    Clustering.getClusteringResult().forEach(entry -> {
+                        // Retrieve the proteoform by its name and update its attributes with clustering results.
+                        Feature.Proteoform proteoform = feature.getProteoform(entry.name());
+                        proteoform.setAttribute(Constants.$SequenceType_clusterLabel, String.valueOf(entry.label()));
+                        proteoform.setAttribute(Constants.$SequenceType_clusterIndex, String.valueOf(entry.idx()));
+                        proteoform.setAttribute(Constants.$SequenceType_clusterOutlierScore, String.format(Locale.US, "%.3f", entry.outlierScore()));
+                        // Update the proteoform's name to include clustering information.
+                        proteoform.setName("%s.p%s.%s".formatted(feature.name, entry.label(), entry.idx()));
+                    });
                 }
             }
         }
@@ -1072,10 +1120,6 @@ public class Storage {
      * </ul>
      */
     public void updateStatistics() {
-        // Initialize decimal formats for frequency and general statistics.
-        DecimalFormat frequencyFormat = new DecimalFormat("0.##E0", DecimalFormatSymbols.getInstance(Locale.US));
-        DecimalFormat decimalFormat = new DecimalFormat("##.#", DecimalFormatSymbols.getInstance(Locale.US));
-
         // Count the number of coding features in the storage.
         float noCodingFeatures = features.values().stream().filter(Feature::isCoding).count();
 
@@ -1105,31 +1149,35 @@ public class Storage {
             }
 
             // Update sample attributes with calculated statistics.
-            sample.setAttribute("#calls", String.valueOf(totalCalls));
-            sample.setAttribute("#filtered", String.valueOf(filteredCalls));
-            sample.setAttribute("mean_coverage", decimalFormat.format(coverages.stream().mapToInt(Integer::intValue).average().orElse(0)));
-            sample.setAttribute("mean_quality", decimalFormat.format(qualities.stream().mapToInt(Integer::intValue).average().orElse(0)));
-            sample.setAttribute("reference_frequency", frequencyFormat.format(1 - (sample.alleles.size() / (float) features.size())));
+            sample.setAttribute(Constants.$Sample_numberOfCalls, String.valueOf(totalCalls));
+            sample.setAttribute(Constants.$Sample_numberOfFiltered, String.valueOf(filteredCalls));
+            sample.setAttribute(Constants.$Sample_meanCoverage,
+                    IO.formatNumber(coverages.stream().mapToInt(Integer::intValue).average().orElse(0))
+            );
+            sample.setAttribute(Constants.$Sample_meanQuality,
+                    IO.formatNumber(qualities.stream().mapToInt(Integer::intValue).average().orElse(0))
+            );
+            sample.setAttribute(Constants.$Attributable_frequencyReference,
+                    IO.formatFrequency(1 - (sample.getAlleleCount() / (float) features.size())));
 
             // Calculate proteoform statistics for coding features if proteoform inference is not skipped.
             if (!parameters.skipProteoformInference()) {
-                int disrupted = 0, modified = 0;
-                for (var alleleEntry : sample.alleles.entrySet()) {
-                    Feature feature = getFeature(alleleEntry.getKey());
+                int disrupted = 0;
+                for (var entry : sample.alleles.entrySet()) {
+                    Feature feature = getFeature(entry.getKey());
                     if (feature.isCoding()) {
-                        String proteoformUid = feature.getAllele(alleleEntry.getValue()).getAttribute(Constants.$Allele_proteoform);
-                        if (!Objects.equals(proteoformUid, Constants.synonymous)) {
-                            Collection<String> effects = feature.getProteoform(proteoformUid).getAttributeAsCollection(Constants.$SequenceType_effects);
+                        String proteoformUid = feature.getAllele(entry.getValue()).getAttribute(Constants.$Allele_proteoform);
+                        if (!Constants.synonymous.equals(proteoformUid)) {
+                            var effects = feature.getProteoform(proteoformUid).getAttributeAsCollection(Constants.$SequenceType_effects);
                             if (effects.contains("start_lost") || effects.contains("stop_gained")) {
                                 disrupted++;
-                            } else {
-                                modified++;
                             }
                         }
                     }
                 }
-                sample.setAttribute("proteoform_disrupted_frequency", frequencyFormat.format(disrupted / noCodingFeatures));
-                sample.setAttribute("proteoform_modified_frequency", frequencyFormat.format(modified / noCodingFeatures));
+                sample.setAttribute(Constants.$Attributable_frequencyDisrupted,
+                        IO.formatFrequency(disrupted / noCodingFeatures)
+                );
             }
         }
 
@@ -1137,7 +1185,9 @@ public class Storage {
         for (Contig contig : contigs.values()) {
             contig.variants.forEach((position, innerMap) -> innerMap.forEach((altBases, variantInfo) -> {
                 int sampleCount = variantInfo.getSampleOccurrence().size();
-                variantInfo.setAttribute("variant_frequency", frequencyFormat.format((float) sampleCount / samples.size()));
+                variantInfo.setAttribute(Constants.$VariantInformation_frequency,
+                        IO.formatFrequency(sampleCount / (float) samples.size())
+                );
 
                 variantInfo.getSampleOccurrence().forEach(sampleName -> {
                     Map<String, Integer> targetMap = switch (variantInfo.type) {
@@ -1150,8 +1200,10 @@ public class Storage {
         }
 
         // Update sample attributes with aggregated substitution and indel counts.
-        perSampleSubstitutions.forEach((sample, count) -> samples.get(sample).setAttribute("#substitutions", String.valueOf(count)));
-        perSampleInDels.forEach((sample, count) -> samples.get(sample).setAttribute("#indels", String.valueOf(count)));
+        perSampleSubstitutions.forEach((sample, count) -> samples.get(sample)
+                .setAttribute(Constants.$Sample_numberOfSubstitutions, String.valueOf(count)));
+        perSampleInDels.forEach((sample, count) -> samples.get(sample)
+                .setAttribute(Constants.$Sample_numberOfIndels, String.valueOf(count)));
 
         // Initialize a map to store proteoform occurrences for each feature.
         Map<String, Integer> perProteoformOccurrence = new HashMap<>();
@@ -1159,13 +1211,15 @@ public class Storage {
         // Iterate over each feature to calculate and update feature-specific statistics.
         for (Feature feature : features.values()) {
             float nonReferenceOccurrence = 0;
-            int proteoformsModified = 0, proteoformsDisrupted = 0;
+            int disrupted = 0;
             perProteoformOccurrence.clear();
 
             // Process alleles for the feature to calculate allelic frequencies and proteoform statistics.
             for (SequenceType allele : feature.getAlleles()) {
-                int alleleOccurrence = allele.getOccurrence().size();
-                allele.setAttribute("allelic_frequency", frequencyFormat.format(alleleOccurrence / (float) samples.size()));
+                int alleleOccurrence = allele.getCount();
+                allele.setAttribute(Constants.$SequenceType_frequency,
+                        IO.formatFrequency(alleleOccurrence / (float) samples.size())
+                );
                 nonReferenceOccurrence += alleleOccurrence;
 
                 if (!parameters.skipProteoformInference() && feature.isCoding()) {
@@ -1173,9 +1227,7 @@ public class Storage {
                     if (!Objects.equals(proteoformUid, Constants.synonymous)) {
                         Collection<String> effects = feature.getProteoform(proteoformUid).getAttributeAsCollection(Constants.$SequenceType_effects);
                         if (effects.contains("start_lost") || effects.contains("stop_gained")) {
-                            proteoformsDisrupted++;
-                        } else {
-                            proteoformsModified++;
+                            disrupted++;
                         }
                         perProteoformOccurrence.merge(proteoformUid, alleleOccurrence, Integer::sum);
                     }
@@ -1183,18 +1235,21 @@ public class Storage {
             }
 
             // Update feature attributes with calculated statistics.
-            feature.setAttribute("reference_frequency", frequencyFormat.format(1 - (nonReferenceOccurrence / samples.size())));
-            feature.setAttribute("#alleles", decimalFormat.format(feature.alleles.size()));
+            feature.setAttribute(Constants.$Attributable_frequencyReference,
+                    IO.formatFrequency(1 - (nonReferenceOccurrence / samples.size()))
+            );
+            feature.setAttribute(Constants.$Feature_numberOfAlleles, String.valueOf(feature.getAlleleCount()));
 
             if (!parameters.skipProteoformInference() && feature.isCoding()) {
-                int proteoformCount = feature.getProteoforms().size();
-                float productDisruptedFrequency = proteoformCount == 0 ? 0 : proteoformsDisrupted / (float) proteoformCount;
-                float productModifiedFrequency = proteoformCount == 0 ? 0 : proteoformsModified / (float) proteoformCount;
-                feature.setAttribute("product_disrupted_frequency", frequencyFormat.format(productDisruptedFrequency));
-                feature.setAttribute("product_modified_frequency", frequencyFormat.format(productModifiedFrequency));
-                feature.setAttribute("#proteoforms", decimalFormat.format(feature.proteoforms.size()));
+                int proteoformCount = feature.getProteoformCount();
+                float disruptedFrequency = proteoformCount == 0 ? 0 : disrupted / (float) proteoformCount;
+                feature.setAttribute(Constants.$Attributable_frequencyDisrupted,
+                        IO.formatFrequency(disruptedFrequency)
+                );
+                feature.setAttribute(Constants.$Feature_numberOfProteoforms, String.valueOf(feature.getProteoformCount()));
                 perProteoformOccurrence.forEach((proteoformUid, count) ->
-                        feature.getProteoform(proteoformUid).setAttribute("allelic_frequency", frequencyFormat.format(count / (float) samples.size()))
+                        feature.getProteoform(proteoformUid).setAttribute(Constants.$SequenceType_frequency,
+                                IO.formatFrequency(count / (float) samples.size()))
                 );
             }
         }
@@ -1274,29 +1329,29 @@ public class Storage {
     private void addFeature(String name, String chrom, Number start, Number end, char strand, String type, Map<String, String> attributes) {
         // Validate the feature type against the Sequence Ontology (SO) map.
         if (!SO.containsKey(type)) {
-            if (Logging.logDump.add("INVALID_FEATURE_TYPE_%s".formatted(type))) {
-                Logging.logError("Features of type %s are currently not supported and will be ignored (%s)."
-                        .formatted(type, name));
-            }
+            Logging.logWarningOnce(
+                    "INVALID_FEATURE_TYPE_%s".formatted(type),
+                    "Features of type %s are currently not supported and will be ignored (%s).".formatted(type, name)
+            );
             return;
         }
 
         // Validate the feature location.
         if ((int) start >= (int) end || (int) start < 1) {
-            Logging.logError("Feature %s has an invalid location (%s:%d..%d) and will be ignored."
+            Logging.logWarning("Feature %s has an invalid location (%s:%d..%d) and will be ignored."
                     .formatted(name, chrom, (int) start, (int) end));
             return;
         }
 
         // Validate the compatibility with stored contigs.
         if (!this.hasContig(chrom)) {
-            Logging.logError("Feature %s specifies an unknown parent locus (%s) and will be ignored."
+            Logging.logWarning("Feature %s specifies an unknown parent locus (%s) and will be ignored."
                     .formatted(name, chrom));
             return;
         } else {
             int chromLength = Integer.parseInt(this.getContig(chrom).getAttribute(Constants.$Contig_length));
             if (chromLength != 0 && chromLength < (int) end) {
-                Logging.logError("Feature %s specifies a location (%s:%d..%d) that exceeds the length of its parent locus (%s)."
+                Logging.logWarning("Feature %s specifies a location (%s:%d..%d) that exceeds the length of its parent locus (%s)."
                         .formatted(name, chrom, (int) start, (int) end, chromLength));
                 return;
             }
@@ -1313,7 +1368,7 @@ public class Storage {
         }
 
         // Check if a feature with the same UID already exists.
-        Optional<Feature> optionalFeature = this.features.values().stream().filter(feature -> feature._uid.equals(uid)).findFirst();
+        Optional<Feature> optionalFeature = this.features.values().stream().filter(feature -> feature.uid.equals(uid)).findFirst();
         Feature feature;
 
         if (optionalFeature.isPresent()) {
@@ -1322,8 +1377,8 @@ public class Storage {
             // Validate compatibility with the parent feature if the "Parent" attribute is present.
             if (attributes.containsKey("Parent") && attributes.get("Parent").matches("^.*-%s$".formatted(uid))) {
                 if ((int) start < feature.start || (int) end > feature.end || !feature.contig.equals(chrom) || feature.strand != strand) {
-                    Logging.logError("Feature update failed; feature %s with UID %s has an incompatible location with its parent feature %s."
-                            .formatted(feature.name, feature._uid, name));
+                    Logging.logWarning("Feature update failed; feature %s with UID %s has an incompatible location with its parent feature %s."
+                            .formatted(feature.name, feature.uid, name));
                     return;
                 }
 
@@ -1334,8 +1389,8 @@ public class Storage {
                     feature.extendAttribute("children", "%s:%d:%d".formatted(type, (int) start, (int) end));
                 }
             } else {
-                Logging.logError("Feature update failed; feature %s with UID %s already exists, but is not the parent of feature %s."
-                        .formatted(feature.name, feature._uid, name));
+                Logging.logWarning("Feature update failed; feature %s with UID %s already exists, but is not the parent of feature %s."
+                        .formatted(feature.name, feature.uid, name));
                 return;
             }
         } else {
@@ -1459,7 +1514,7 @@ public class Storage {
         children.put(feature.type, Collections.singletonList(new Tuple<>(feature.start, feature.end)));
 
         // Create a new feature with the updated type, location, and attributes.
-        Feature updatedFeature = new Feature(feature.name, feature.contig, start, end, feature.strand, "gene", feature._uid);
+        Feature updatedFeature = new Feature(feature.name, feature.contig, start, end, feature.strand, "gene", feature.uid);
         updatedFeature.setAttributes(feature.getAttributes());
         updatedFeature.setChildren(children);
 
@@ -1529,39 +1584,6 @@ public class Storage {
         if (!hasSample(name)) {
             this.samples.put(name, new Sample(name, features.size())); // Create and add a new sample to the map.
             this.samples.get(name).addAttributesIfAbsent(this.sampleInfo.getOrDefault(name, Collections.emptyMap())); // Add metadata if available.
-        }
-    }
-
-    /**
-     * Removes the occurrences of the specified samples from the storage.
-     * <p>
-     * This method iterates through all contigs and samples provided in the input collection.
-     * For each sample, it removes the sample's occurrences from the contig's variants and
-     * the feature's alleles. If a variant or allele no longer has any occurrences after
-     * removal, it is deleted from the storage.
-     *
-     * @param samples A collection of {@link Sample} objects whose occurrences are to be removed.
-     */
-    public void removeSampleOccurrence(Collection<Sample> samples) {
-        for (Contig contig : contigs.values()) {
-            for (Sample sample : samples) {
-                // Remove the sample's occurrences from the contig's variants.
-                contig.getVariantsBySample(sample.name).forEach(variant -> {
-                    VariantInformation variantInformation = contig.getVariantInformation(variant.a, variant.b);
-                    variantInformation.occurrence.get(Constants.$Attributable_samplesOccurrence).remove(sample.name);
-                    if (variantInformation.occurrence.get(Constants.$Attributable_samplesOccurrence).isEmpty())
-                        contig.variants.get(variant.a).remove(variant.b);
-                    if (contig.variants.get(variant.a).isEmpty())
-                        contig.variants.remove(variant.a);
-                });
-
-                // Remove the sample's occurrences from the feature's alleles.
-                for (Map.Entry<String, String> e : sample.getAlleles()) {
-                    features.get(e.getKey()).alleles.get(e.getValue()).occurrence.remove(sample.name);
-                    if (features.get(e.getKey()).alleles.get(e.getValue()).occurrence.isEmpty())
-                        features.get(e.getKey()).alleles.remove(e.getValue());
-                }
-            }
         }
     }
 
@@ -1955,14 +1977,14 @@ public class Storage {
                                     }
                                     // Log an error and skip if alternative calls lack AD or DP attributes.
                                     if (genotype.hasAltAllele() && !(genotype.hasAD() && genotype.hasDP())) {
-                                        Logging.logError(String.format("VCF record analysis failed; AD and DP genotype attributes are required to process alternative calls."
+                                        Logging.logWarning(String.format("VCF record analysis failed; AD and DP genotype attributes are required to process alternative calls."
                                                         + " At least one is missing in file %s at position %s for genotype %s and the variant will be skipped.",
                                                 vcfFile.getAbsolutePath(), record.getStart(), genotype.getSampleName()));
                                         continue;
                                     }
                                     // Log an error and skip if reference calls lack the DP attribute.
                                     if (genotype.isHomRef() && !genotype.hasDP()) {
-                                        Logging.logError(String.format("VCF record analysis failed; DP genotype attribute is required to process reference calls."
+                                        Logging.logWarning(String.format("VCF record analysis failed; DP genotype attribute is required to process reference calls."
                                                         + " The attribute is missing in file %s at position %s for genotype %s and the variant will be skipped.",
                                                 vcfFile.getAbsolutePath(), record.getStart(), genotype.getSampleName()));
                                         continue;
@@ -2223,13 +2245,13 @@ public class Storage {
             } finally {
                 File buildErrorFile = new File(temp + "/snpEff.build.err");
                 if (buildErrorFile.exists() && buildErrorFile.length() != 0) {
-                    Logging.logError("SnpEff `build` has raised an error or warning; a copy of the log file is in the output directory - the annotations may be incorrect.");
+                    Logging.logSevere("SnpEff `build` has raised an error or warning; a copy of the log file is in the output directory - the annotations may be incorrect.");
                     FileUtils.copyFile(buildErrorFile, new File(Musial.outputDirectory.getAbsolutePath()
                             + "/musial_snpeff_build_%s.error".formatted(Musial.runId)));
                 }
                 File annErrorFile = new File(temp + "/snpEff.ann.err");
                 if (annErrorFile.exists() && annErrorFile.length() != 0) {
-                    Logging.logError("SnpEff `ann` has raised an error or warning; a copy of the log file is in the output directory - the annotations may be incorrect.");
+                    Logging.logSevere("SnpEff `ann` has raised an error or warning; a copy of the log file is in the output directory - the annotations may be incorrect.");
                     FileUtils.copyFile(annErrorFile, new File(Musial.outputDirectory.getAbsolutePath()
                             + "/musial_snpeff_ann_%s.error".formatted(Musial.runId)));
                 }

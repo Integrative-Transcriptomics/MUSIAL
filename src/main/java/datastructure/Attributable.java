@@ -19,6 +19,10 @@ import java.util.stream.Collectors;
 public class Attributable {
 
     /**
+     * Key used to represent the occurrence of samples in classes that extend {@link Attributable}.
+     */
+    public final static String sampleOccurrence = "sample";
+    /**
      * Attributes associated with this entity, stored as key-value pairs.
      */
     private final TreeMap<String, String> attributes = new TreeMap<>();
@@ -105,6 +109,18 @@ public class Attributable {
      */
     public String getAttribute(String key) {
         return this.attributes.getOrDefault(key, Constants.EMPTY);
+    }
+
+    /**
+     * Retrieves the value of an attribute associated with this entity. If the attribute does not exist,
+     * the specified default value is returned.
+     *
+     * @param key   The key of the attribute to retrieve.
+     * @param value The default value to return if the attribute does not exist.
+     * @return The value of the attribute, or the specified default value if the attribute does not exist.
+     */
+    public String getAttributeOrDefault(String key, String value) {
+        return this.attributes.getOrDefault(key, value);
     }
 
     /**
