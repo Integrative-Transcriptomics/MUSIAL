@@ -114,20 +114,20 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Field</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color"><code>final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color"><code><a href="#_uid" class="member-name-link">_uid</a></code></div>
+<div class="col-first even-row-color"><code>protected <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second even-row-color"><code><a href="#name" class="member-name-link">name</a></code></div>
 <div class="col-last even-row-color">
-<div class="block">The unique identifier of this entity.</div>
-</div>
-<div class="col-first odd-row-color"><code>protected <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second odd-row-color"><code><a href="#name" class="member-name-link">name</a></code></div>
-<div class="col-last odd-row-color">
 <div class="block">Optional name to describe this sequence type.</div>
 </div>
-<div class="col-first even-row-color"><code>protected final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/HashSet.html" title="class or interface in java.util" class="external-link">HashSet</a><wbr>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</code></div>
-<div class="col-second even-row-color"><code><a href="#occurrence" class="member-name-link">occurrence</a></code></div>
-<div class="col-last even-row-color">
+<div class="col-first odd-row-color"><code>protected final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/HashSet.html" title="class or interface in java.util" class="external-link">HashSet</a><wbr>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</code></div>
+<div class="col-second odd-row-color"><code><a href="#occurrence" class="member-name-link">occurrence</a></code></div>
+<div class="col-last odd-row-color">
 <div class="block">A set representing the occurrences of this sequence type.</div>
+</div>
+<div class="col-first even-row-color"><code>final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second even-row-color"><code><a href="#uid" class="member-name-link">uid</a></code></div>
+<div class="col-last even-row-color">
+<div class="block">The unique identifier of this entity.</div>
 </div>
 <div class="col-first odd-row-color"><code>protected final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/NavigableMap.html" title="class or interface in java.util" class="external-link">NavigableMap</a><wbr>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</code></div>
 <div class="col-second odd-row-color"><code><a href="#variants" class="member-name-link">variants</a></code></div>
@@ -135,6 +135,9 @@ loadScripts(document, 'script');</script>
 <div class="block">Variants defining this entity.</div>
 </div>
 </div>
+<div class="inherited-list">
+<h3 id="fields-inherited-from-class-datastructure.Attributable">Fields inherited from class&nbsp;datastructure.<a href="Attributable.html" title="class in datastructure">Attributable</a></h3>
+<code><a href="Attributable.html#sampleOccurrence">sampleOccurrence</a></code></div>
 </section>
 </li>
 <!-- ======== CONSTRUCTOR SUMMARY ======== -->
@@ -169,23 +172,32 @@ loadScripts(document, 'script');</script>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Adds an occurrence to this sequence type.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static int</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>protected static int</code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#computeLengthVariation(java.util.List)" class="member-name-link">computeLengthVariation</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;htsjdk.samtools.util.Tuple&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&gt;&nbsp;variants)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
 <div class="block">Computes the net shift in sequence length caused by variants.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getFastaHeader(java.lang.String,java.lang.String)" class="member-name-link">getFastaHeader</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;featureName,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;sequenceIdentifier)</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>int</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getCount()" class="member-name-link">getCount</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Generates a FASTA header for the sequence type.</div>
+<div class="block">Retrieves the count of occurrences of this sequence type.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getName()" class="member-name-link">getName</a>()</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getFastaHeader(java.lang.String)" class="member-name-link">getFastaHeader</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;sequenceId)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Generates a FASTA header for the sequence type.</div>
+</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getName()" class="member-name-link">getName</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Retrieves the name of this sequence type.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/HashSet.html" title="class or interface in java.util" class="external-link">HashSet</a><wbr>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getNameOrUid()" class="member-name-link">getNameOrUid</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Retrieves the name of this sequence type or its unique identifier (uid), if no name is set.</div>
+</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a><wbr>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getOccurrence()" class="member-name-link">getOccurrence</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Retrieves the entities (by their unique identifiers) associated with this sequence type.</div>
@@ -210,40 +222,34 @@ loadScripts(document, 'script');</script>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Checks if this sequence type has a variant at the specified position.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>boolean</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#hasVariant(int,java.lang.String)" class="member-name-link">hasVariant</a><wbr>(int&nbsp;position,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;content)</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#occurrenceAsString()" class="member-name-link">occurrenceAsString</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Checks if this sequence type has a specific variant at the specified position.</div>
-</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#occurrenceAsString()" class="member-name-link">occurrenceAsString</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Converts the occurrences of this sequence type to a comma-separated string.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>protected void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setName(java.lang.String)" class="member-name-link">setName</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;name)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>protected void</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setName(java.lang.String)" class="member-name-link">setName</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;name)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Sets the name of this sequence type.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#toString()" class="member-name-link">toString</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#toString()" class="member-name-link">toString</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns a string representation of this sequence type in the format <code>identifier    attributes  variants</code>.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#variantsAsString()" class="member-name-link">variantsAsString</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#variantsAsString()" class="member-name-link">variantsAsString</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Converts the variants of this sequence type to a string representation.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#variantsAsString(java.util.List)" class="member-name-link">variantsAsString</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;htsjdk.samtools.util.Tuple&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&gt;&nbsp;variants)</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#variantsAsString(java.util.List)" class="member-name-link">variantsAsString</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;htsjdk.samtools.util.Tuple&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&gt;&nbsp;variants)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
 <div class="block">Converts a list of variants to a string representation.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#variantsAsString(java.util.Map)" class="member-name-link">variantsAsString</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;variants)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#variantsAsString(java.util.Map)" class="member-name-link">variantsAsString</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;variants)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
 <div class="block">Converts a map of variants to a string representation.</div>
 </div>
 </div>
@@ -251,7 +257,7 @@ loadScripts(document, 'script');</script>
 </div>
 <div class="inherited-list">
 <h3 id="methods-inherited-from-class-datastructure.Attributable">Methods inherited from class&nbsp;datastructure.<a href="Attributable.html" title="class in datastructure">Attributable</a></h3>
-<code><a href="Attributable.html#addAttributeIfAbsent(java.lang.String,java.lang.String)">addAttributeIfAbsent</a>, <a href="Attributable.html#addAttributesIfAbsent(java.util.Map)">addAttributesIfAbsent</a>, <a href="Attributable.html#attributesAsString()">attributesAsString</a>, <a href="Attributable.html#attributesAsString(java.util.Collection)">attributesAsString</a>, <a href="Attributable.html#clearAttributes()">clearAttributes</a>, <a href="Attributable.html#extendAttribute(java.lang.String,java.lang.String)">extendAttribute</a>, <a href="Attributable.html#extendAttributes(java.util.Map)">extendAttributes</a>, <a href="Attributable.html#getAttribute(java.lang.String)">getAttribute</a>, <a href="Attributable.html#getAttributeAsCollection(java.lang.String)">getAttributeAsCollection</a>, <a href="Attributable.html#getAttributes()">getAttributes</a>, <a href="Attributable.html#hasAttribute(java.lang.String)">hasAttribute</a>, <a href="Attributable.html#hasAttributes()">hasAttributes</a>, <a href="Attributable.html#removeAttribute(java.lang.String)">removeAttribute</a>, <a href="Attributable.html#setAttribute(java.lang.String,java.lang.String)">setAttribute</a>, <a href="Attributable.html#setAttributes(java.util.Map)">setAttributes</a></code></div>
+<code><a href="Attributable.html#addAttributeIfAbsent(java.lang.String,java.lang.String)">addAttributeIfAbsent</a>, <a href="Attributable.html#addAttributesIfAbsent(java.util.Map)">addAttributesIfAbsent</a>, <a href="Attributable.html#attributesAsString()">attributesAsString</a>, <a href="Attributable.html#attributesAsString(java.util.Collection)">attributesAsString</a>, <a href="Attributable.html#clearAttributes()">clearAttributes</a>, <a href="Attributable.html#extendAttribute(java.lang.String,java.lang.String)">extendAttribute</a>, <a href="Attributable.html#extendAttributes(java.util.Map)">extendAttributes</a>, <a href="Attributable.html#getAttribute(java.lang.String)">getAttribute</a>, <a href="Attributable.html#getAttributeAsCollection(java.lang.String)">getAttributeAsCollection</a>, <a href="Attributable.html#getAttributeOrDefault(java.lang.String,java.lang.String)">getAttributeOrDefault</a>, <a href="Attributable.html#getAttributes()">getAttributes</a>, <a href="Attributable.html#hasAttribute(java.lang.String)">hasAttribute</a>, <a href="Attributable.html#hasAttributes()">hasAttributes</a>, <a href="Attributable.html#removeAttribute(java.lang.String)">removeAttribute</a>, <a href="Attributable.html#setAttribute(java.lang.String,java.lang.String)">setAttribute</a>, <a href="Attributable.html#setAttributes(java.util.Map)">setAttributes</a></code></div>
 <div class="inherited-list">
 <h3 id="methods-inherited-from-class-java.lang.Object">Methods inherited from class&nbsp;java.lang.<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a></h3>
 <code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html#clone()" title="class or interface in java.lang" class="external-link">clone</a>, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html#equals(java.lang.Object)" title="class or interface in java.lang" class="external-link">equals</a>, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html#finalize()" title="class or interface in java.lang" class="external-link">finalize</a>, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html#getClass()" title="class or interface in java.lang" class="external-link">getClass</a>, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html#hashCode()" title="class or interface in java.lang" class="external-link">hashCode</a>, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html#notify()" title="class or interface in java.lang" class="external-link">notify</a>, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html#notifyAll()" title="class or interface in java.lang" class="external-link">notifyAll</a>, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html#wait()" title="class or interface in java.lang" class="external-link">wait</a>, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html#wait(long)" title="class or interface in java.lang" class="external-link">wait</a>, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html#wait(long,int)" title="class or interface in java.lang" class="external-link">wait</a></code></div>
@@ -274,13 +280,13 @@ loadScripts(document, 'script');</script>
  <p>
  This field stores a human-readable name for the sequence type. It is optional and can be
  set to provide additional context or description for the sequence type. If not set, the
- sequence type is identified solely by its unique identifier (_uid).</div>
+ sequence type is identified solely by its unique identifier (uid).</div>
 </section>
 </li>
 <li>
-<section class="detail" id="_uid">
-<h3>_uid</h3>
-<div class="member-signature"><span class="modifiers">public final</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">_uid</span></div>
+<section class="detail" id="uid">
+<h3>uid</h3>
+<div class="member-signature"><span class="modifiers">public final</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">uid</span></div>
 <div class="block">The unique identifier of this entity.
  <p>
  This field serves as a final and immutable unique identifier for the sequence type.
@@ -389,11 +395,22 @@ loadScripts(document, 'script');</script>
 <li>
 <section class="detail" id="getOccurrence()">
 <h3>getOccurrence</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/HashSet.html" title="class or interface in java.util" class="external-link">HashSet</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</span>&nbsp;<span class="element-name">getOccurrence</span>()</div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</span>&nbsp;<span class="element-name">getOccurrence</span>()</div>
 <div class="block">Retrieves the entities (by their unique identifiers) associated with this sequence type.</div>
 <dl class="notes">
 <dt>Returns:</dt>
 <dd>A set of unique identifiers associated with this sequence type.</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="getCount()">
+<h3>getCount</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">int</span>&nbsp;<span class="element-name">getCount</span>()</div>
+<div class="block">Retrieves the count of occurrences of this sequence type.</div>
+<dl class="notes">
+<dt>Returns:</dt>
+<dd>The number of unique identifiers associated with this sequence type.</dd>
 </dl>
 </section>
 </li>
@@ -473,17 +490,20 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="hasVariant(int,java.lang.String)">
-<h3>hasVariant</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">boolean</span>&nbsp;<span class="element-name">hasVariant</span><wbr><span class="parameters">(int&nbsp;position,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;content)</span></div>
-<div class="block">Checks if this sequence type has a specific variant at the specified position.</div>
+<section class="detail" id="getNameOrUid()">
+<h3>getNameOrUid</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">getNameOrUid</span>()</div>
+<div class="block">Retrieves the name of this sequence type or its unique identifier (uid), if no name is set.
+ <p>
+ This method checks if the <code>name</code> field is set for the sequence type. If the <code>name</code>
+ is <code>null</code>, it returns the unique identifier <code>uid</code>. Otherwise, it returns the
+ <code>name</code>.
+ <p>
+ This should be used for obtaining a human-readable identifier for the sequence type in the
+ context of logging or reporting.</div>
 <dl class="notes">
-<dt>Parameters:</dt>
-<dd><code>position</code> - The position to check for a variant.</dd>
-<dd><code>content</code> - The content of the variant to check for.</dd>
 <dt>Returns:</dt>
-<dd><code>true</code> if the specified variant exists at the position, <code>false</code> otherwise.</dd>
+<dd>The name of this sequence type if it is set, or the unique identifier <code>uid</code> if the name is not set.</dd>
 </dl>
 </section>
 </li>
@@ -510,7 +530,7 @@ loadScripts(document, 'script');</script>
  <p>
  The string representation includes:
  <ul>
-   <li>The identifier, which is either the <code>name</code> (if set) or the unique identifier <code>_uid</code>.</li>
+   <li>The identifier, which is either the <code>name</code> (if set) or the unique identifier <code>uid</code>.</li>
    <li>The attributes of this sequence type, formatted using <a href="Attributable.html#attributesAsString()"><code>Attributable.attributesAsString()</code></a>.</li>
    <li>The variants associated with this sequence type, formatted using <a href="#variantsAsString()"><code>variantsAsString()</code></a>.</li>
  </ul></div>
@@ -559,7 +579,7 @@ loadScripts(document, 'script');</script>
 <li>
 <section class="detail" id="computeLengthVariation(java.util.List)">
 <h3>computeLengthVariation</h3>
-<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">int</span>&nbsp;<span class="element-name">computeLengthVariation</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;htsjdk.samtools.util.Tuple&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&gt;&nbsp;variants)</span></div>
+<div class="member-signature"><span class="modifiers">protected static</span>&nbsp;<span class="return-type">int</span>&nbsp;<span class="element-name">computeLengthVariation</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;htsjdk.samtools.util.Tuple&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&gt;&nbsp;variants)</span></div>
 <div class="block">Computes the net shift in sequence length caused by variants.
  <p>
  This method calculates the cumulative effect of insertions and deletions
@@ -583,23 +603,24 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="getFastaHeader(java.lang.String,java.lang.String)">
+<section class="detail" id="getFastaHeader(java.lang.String)">
 <h3>getFastaHeader</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">getFastaHeader</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;featureName,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;sequenceIdentifier)</span></div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">getFastaHeader</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;sequenceId)</span></div>
 <div class="block">Generates a FASTA header for the sequence type.
  <p>
- This method constructs a FASTA header string for the sequence type using the provided feature name
- and sequence identifier. The header includes an identifier in the format <code>lcl|&lt;featureName&gt;_&lt;sequenceIdentifier&gt;</code>.
- Additionally, it appends optional properties to the header if they are present as attributes:
+ This method constructs a FASTA header string for the sequence type using the provided sequence identifier.
+ The header includes the identifier in the format <code>&gt;sequenceId</code> followed by optional properties.
+ <p>
+ Optional properties are appended to the header if they are present as attributes:
  <ul>
-   <li><code>allelic_frequency</code>: The allelic frequency of the sequence type.</li>
-   <li><code>so_effects</code>: Sequence ontology effects associated with the sequence type.</li>
- </ul></div>
+   <li><code>allelic_frequency</code>: The allelic frequency of the sequence type, retrieved from its attributes.</li>
+   <li><code>so_effects</code>: Sequence ontology effects associated with the sequence type, retrieved from its attributes.</li>
+ </ul>
+ <p>
+ If the attributes are not set, default values ("NaN") are used for the properties.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
-<dd><code>featureName</code> - The name of the feature to include in the FASTA header.</dd>
-<dd><code>sequenceIdentifier</code> - The identifier of the sequence to include in the FASTA header.</dd>
+<dd><code>sequenceId</code> - The identifier for the sequence, used as the primary part of the FASTA header.</dd>
 <dt>Returns:</dt>
 <dd>A <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link"><code>String</code></a> representing the FASTA header, including the identifier and optional properties.</dd>
 </dl>

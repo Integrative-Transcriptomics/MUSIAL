@@ -113,6 +113,11 @@ loadScripts(document, 'script');</script>
 <div class="col-last even-row-color">
 <div class="block">Set to keep track of logged warnings to avoid duplicate messages.</div>
 </div>
+<div class="col-first odd-row-color"><code>static <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.logging/java/util/logging/Logger.html" title="class or interface in java.util.logging" class="external-link">Logger</a></code></div>
+<div class="col-second odd-row-color"><code><a href="#logger" class="member-name-link">logger</a></code></div>
+<div class="col-last odd-row-color">
+<div class="block">Logger instance for the application.</div>
+</div>
 </div>
 </section>
 </li>
@@ -143,7 +148,7 @@ loadScripts(document, 'script');</script>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#getDate()" class="member-name-link">getDate</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
-<div class="block">Returns the current timestamp formatted as a string.</div>
+<div class="block">Returns the current date formatted as a string.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#getTimestamp()" class="member-name-link">getTimestamp</a>()</code></div>
@@ -151,14 +156,24 @@ loadScripts(document, 'script');</script>
 <div class="block">Returns the current timestamp formatted as a string.</div>
 </div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#init(java.util.logging.Level)" class="member-name-link">init</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.logging/java/util/logging/Level.html" title="class or interface in java.util.logging" class="external-link">Level</a>&nbsp;level)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
+<div class="block">Initializes the logging system with a specified logging level.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#logConfig(java.lang.String)" class="member-name-link">logConfig</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;msg)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
+<div class="block">Logs a configuration message to the console with a timestamp.</div>
+</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#logDone(java.lang.String)" class="member-name-link">logDone</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;msg)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
 <div class="block">Logs a message indicating completion with a timestamp.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#logError(java.lang.String)" class="member-name-link">logError</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;msg)</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#logExit(java.lang.String)" class="member-name-link">logExit</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;msg)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
-<div class="block">Logs an error message to the console with a timestamp.</div>
+<div class="block">Logs a critical exit message to the console with a timestamp.</div>
 </div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#logInfo(java.lang.String)" class="member-name-link">logInfo</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;msg)</code></div>
@@ -166,19 +181,24 @@ loadScripts(document, 'script');</script>
 <div class="block">Logs an informational message to the console with a timestamp.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#logWarning(java.lang.String)" class="member-name-link">logWarning</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;msg)</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#logSevere(java.lang.String)" class="member-name-link">logSevere</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;msg)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
-<div class="block">Logs a warning message to the console with a timestamp.</div>
+<div class="block">Logs an error message to the console with a timestamp.</div>
 </div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#logWarningOnce(java.lang.String,java.lang.String)" class="member-name-link">logWarningOnce</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;key,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;msg)</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#logWarning(java.lang.String)" class="member-name-link">logWarning</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;msg)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
-<div class="block">Logs a warning message to the console with a timestamp, but only once for each unique key.</div>
+<div class="block">Logs a warning message to the console with a timestamp.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#printSoftwareInfo()" class="member-name-link">printSoftwareInfo</a>()</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#logWarningOnce(java.lang.String,java.lang.String)" class="member-name-link">logWarningOnce</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;key,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;msg)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
+<div class="block">Logs a warning message to the console with a timestamp, but only once for each unique key.</div>
+</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static void</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#printSoftwareInfo()" class="member-name-link">printSoftwareInfo</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
 <div class="block">Prints the software information to the console.</div>
 </div>
 </div>
@@ -205,6 +225,16 @@ loadScripts(document, 'script');</script>
 <div class="block">Set to keep track of logged warnings to avoid duplicate messages.</div>
 </section>
 </li>
+<li>
+<section class="detail" id="logger">
+<h3>logger</h3>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.logging/java/util/logging/Logger.html" title="class or interface in java.util.logging" class="external-link">Logger</a></span>&nbsp;<span class="element-name">logger</span></div>
+<div class="block">Logger instance for the application.
+ <p>
+ This logger is used to log messages for the application. It is configured to use the name of the
+ <a href="../main/Musial.html" title="class in main"><code>Musial</code></a> class as its identifier, which helps in categorizing and filtering log messages.</div>
+</section>
+</li>
 </ul>
 </section>
 </li>
@@ -228,6 +258,24 @@ loadScripts(document, 'script');</script>
 <h2>Method Details</h2>
 <ul class="member-list">
 <li>
+<section class="detail" id="init(java.util.logging.Level)">
+<h3>init</h3>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">init</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.logging/java/util/logging/Level.html" title="class or interface in java.util.logging" class="external-link">Level</a>&nbsp;level)</span></div>
+<div class="block">Initializes the logging system with a specified logging level.
+ <p>
+ This method configures the logger to use a custom `ConsoleHandler` with a formatter
+ that styles log messages using ANSI escape codes for different log levels (INFO, CONFIG, WARNING, SEVERE).
+ It also disables the default parent handlers to prevent duplicate logging.
+ <p>
+ The logging level can be adjusted by passing a `Level` parameter, which determines
+ the minimum severity of messages that will be logged.</div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>level</code> - The logging level to set for the logger (e.g., Level.INFO, Level.WARNING).</dd>
+</dl>
+</section>
+</li>
+<li>
 <section class="detail" id="printSoftwareInfo()">
 <h3>printSoftwareInfo</h3>
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">printSoftwareInfo</span>()</div>
@@ -245,8 +293,9 @@ loadScripts(document, 'script');</script>
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">logInfo</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;msg)</span></div>
 <div class="block">Logs an informational message to the console with a timestamp.
  <p>
- This method formats the message with a timestamp and a "STATUS" label styled using ANSI escape codes.
- The formatted message is then printed to the console.</div>
+ This method logs messages at the INFO level, which is typically used for general informational
+ messages that highlight the progress of the application at a coarse-grained level.
+ The message is automatically formatted and logged using the application's logger.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>msg</code> - The informational message to be logged.</dd>
@@ -259,8 +308,9 @@ loadScripts(document, 'script');</script>
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">logDone</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;msg)</span></div>
 <div class="block">Logs a message indicating completion with a timestamp.
  <p>
- This method formats the message with a timestamp and a "DONE" label styled using ANSI escape codes.
- The formatted message is then printed to the console.</div>
+ This method logs messages at the INFO level, indicating that a specific task or operation
+ has been successfully completed. The message is formatted with a "DONE" label styled using
+ ANSI escape codes for visual emphasis.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>msg</code> - The message indicating completion to be logged.</dd>
@@ -268,16 +318,47 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="logError(java.lang.String)">
-<h3>logError</h3>
-<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">logError</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;msg)</span></div>
+<section class="detail" id="logConfig(java.lang.String)">
+<h3>logConfig</h3>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">logConfig</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;msg)</span></div>
+<div class="block">Logs a configuration message to the console with a timestamp.
+ <p>
+ This method logs messages at the CONFIG level, which is typically used for static configuration
+ information or messages that help in understanding the application's setup. The message is
+ automatically formatted with a timestamp and logged using the application's logger.</div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>msg</code> - The configuration message to be logged.</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="logSevere(java.lang.String)">
+<h3>logSevere</h3>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">logSevere</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;msg)</span></div>
 <div class="block">Logs an error message to the console with a timestamp.
  <p>
- This method formats the message with a timestamp and an "ERROR" label styled using ANSI escape codes.
- The formatted message is then printed to the console.</div>
+ This method logs messages at the SEVERE level, which is typically used for critical error messages
+ that indicate a failure in the application. The message is automatically formatted and logged
+ using the application's logger.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>msg</code> - The error message to be logged.</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="logExit(java.lang.String)">
+<h3>logExit</h3>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">logExit</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;msg)</span></div>
+<div class="block">Logs a critical exit message to the console with a timestamp.
+ <p>
+ This method is used to log messages indicating a critical application exit.
+ The message is formatted with a timestamp and an "EXIT" label styled using ANSI escape codes
+ for visual emphasis. The log level is set to SEVERE, which is the highest level of logging severity.</div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>msg</code> - The exit message to be logged.</dd>
 </dl>
 </section>
 </li>
@@ -287,8 +368,9 @@ loadScripts(document, 'script');</script>
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">logWarning</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;msg)</span></div>
 <div class="block">Logs a warning message to the console with a timestamp.
  <p>
- This method formats the message with a timestamp and a "WARNING" label styled using ANSI escape codes.
- The formatted message is then printed to the console.</div>
+ This method logs messages at the WARNING level, which is typically used to indicate
+ potential issues or situations that require attention but are not critical errors.
+ The message is automatically formatted and logged using the application's logger.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>msg</code> - The warning message to be logged.</dd>
@@ -302,11 +384,14 @@ loadScripts(document, 'script');</script>
  <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;msg)</span></div>
 <div class="block">Logs a warning message to the console with a timestamp, but only once for each unique key.
  <p>
- This method checks if the warning message with the specified key has already been logged.
- If not, it logs the message and adds the key to the set of logged warnings.</div>
+ This method ensures that a warning message associated with a specific key is logged only once.
+ It uses a set (`logDump`) to track keys of already logged warnings. If the key is not present
+ in the set, the warning message is logged, and the key is added to the set.
+ <p>
+ This is useful for avoiding repetitive logging of the same warning message.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
-<dd><code>key</code> - The unique key for the warning message.</dd>
+<dd><code>key</code> - The unique key identifying the warning message.</dd>
 <dd><code>msg</code> - The warning message to be logged.</dd>
 </dl>
 </section>
@@ -329,13 +414,13 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="getDate()">
 <h3>getDate</h3>
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">getDate</span>()</div>
-<div class="block">Returns the current timestamp formatted as a string.
+<div class="block">Returns the current date formatted as a string.
  <p>
- This method retrieves the current date, formats it using the specified date format,
- and returns it as a string.</div>
+ This method retrieves the current date, formats it using the pattern "dd-MM-yy",
+ and returns it as a string. The format includes the day, month, and year in a two-digit format.</div>
 <dl class="notes">
 <dt>Returns:</dt>
-<dd>The current timestamp formatted as a string.</dd>
+<dd>The current date formatted as "dd-MM-yy".</dd>
 </dl>
 </section>
 </li>

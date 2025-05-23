@@ -132,16 +132,6 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Field</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color"><code>static final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/io/PrintStream.html" title="class or interface in java.io" class="external-link">PrintStream</a></code></div>
-<div class="col-second even-row-color"><code><a href="#emptySysOut" class="member-name-link">emptySysOut</a></code></div>
-<div class="col-last even-row-color">
-<div class="block">Alternative empty output stream to ignore logging.</div>
-</div>
-<div class="col-first odd-row-color"><code>static final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/io/PrintStream.html" title="class or interface in java.io" class="external-link">PrintStream</a></code></div>
-<div class="col-second odd-row-color"><code><a href="#originalSysOut" class="member-name-link">originalSysOut</a></code></div>
-<div class="col-last odd-row-color">
-<div class="block">Original system output stream.</div>
-</div>
 <div class="col-first even-row-color"><code>static <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/io/File.html" title="class or interface in java.io" class="external-link">File</a></code></div>
 <div class="col-second even-row-color"><code><a href="#outputDirectory" class="member-name-link">outputDirectory</a></code></div>
 <div class="col-last even-row-color">
@@ -177,9 +167,14 @@ loadScripts(document, 'script');</script>
 <div class="col-last even-row-color">
 <div class="block">Start time of the program.</div>
 </div>
-<div class="col-first odd-row-color"><code>static <a href="Musial.Task.html" title="enum class in main">Musial.Task</a></code></div>
-<div class="col-second odd-row-color"><code><a href="#task" class="member-name-link">task</a></code></div>
+<div class="col-first odd-row-color"><code>static final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second odd-row-color"><code><a href="#storageExtension" class="member-name-link">storageExtension</a></code></div>
 <div class="col-last odd-row-color">
+<div class="block">File extension used for MUSIAL storage files.</div>
+</div>
+<div class="col-first even-row-color"><code>static <a href="Musial.Task.html" title="enum class in main">Musial.Task</a></code></div>
+<div class="col-second even-row-color"><code><a href="#task" class="member-name-link">task</a></code></div>
+<div class="col-last even-row-color">
 <div class="block">Specifies the task to execute.</div>
 </div>
 </div>
@@ -231,20 +226,6 @@ loadScripts(document, 'script');</script>
 <section class="field-details" id="field-detail">
 <h2>Field Details</h2>
 <ul class="member-list">
-<li>
-<section class="detail" id="originalSysOut">
-<h3>originalSysOut</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/io/PrintStream.html" title="class or interface in java.io" class="external-link">PrintStream</a></span>&nbsp;<span class="element-name">originalSysOut</span></div>
-<div class="block">Original system output stream.</div>
-</section>
-</li>
-<li>
-<section class="detail" id="emptySysOut">
-<h3>emptySysOut</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/io/PrintStream.html" title="class or interface in java.io" class="external-link">PrintStream</a></span>&nbsp;<span class="element-name">emptySysOut</span></div>
-<div class="block">Alternative empty output stream to ignore logging.</div>
-</section>
-</li>
 <li>
 <section class="detail" id="runId">
 <h3>runId</h3>
@@ -299,6 +280,28 @@ loadScripts(document, 'script');</script>
 <h3>startTime</h3>
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type">long</span>&nbsp;<span class="element-name">startTime</span></div>
 <div class="block">Start time of the program.</div>
+</section>
+</li>
+<li>
+<section class="detail" id="storageExtension">
+<h3>storageExtension</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">storageExtension</span></div>
+<div class="block">File extension used for MUSIAL storage files.
+ <p>
+ This constant specifies the default file extension for storage files
+ created or used by the MUSIAL application. It is marked as `transient`
+ to indicate that it should not be serialized as part of the class state.
+ <p>
+ The extension should either be `.json` or `.json.gz` depending on the
+ compression method used. For production, use `.json.gz` for compressed files.</div>
+<dl class="notes">
+<dt>See Also:</dt>
+<dd>
+<ul class="tag-list">
+<li><a href="../constant-values.html#main.Musial.storageExtension">Constant Field Values</a></li>
+</ul>
+</dd>
+</dl>
 </section>
 </li>
 </ul>

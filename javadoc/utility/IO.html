@@ -137,6 +137,16 @@ loadScripts(document, 'script');</script>
 <div class="block">Detects the separator used in a list of strings.</div>
 </div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#formatFrequency(double)" class="member-name-link">formatFrequency</a><wbr>(double&nbsp;value)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
+<div class="block">Formats a frequency value into scientific notation.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#formatNumber(double)" class="member-name-link">formatNumber</a><wbr>(double&nbsp;value)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
+<div class="block">Formats a number to three decimal places.</div>
+</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#generateGffContent(datastructure.Storage)" class="member-name-link">generateGffContent</a><wbr>(<a href="../datastructure/Storage.html" title="class in datastructure">Storage</a>&nbsp;storage)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
 <div class="block">Generates the content of a GFF (General Feature Format) file from the given <a href="../datastructure/Storage.html" title="class in datastructure"><code>Storage</code></a> object.</div>
@@ -218,6 +228,38 @@ loadScripts(document, 'script');</script>
 <section class="method-details" id="method-detail">
 <h2>Method Details</h2>
 <ul class="member-list">
+<li>
+<section class="detail" id="formatFrequency(double)">
+<h3>formatFrequency</h3>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">formatFrequency</span><wbr><span class="parameters">(double&nbsp;value)</span></div>
+<div class="block">Formats a frequency value into scientific notation.
+ <p>
+ This method formats the given frequency value using the <code>frequencyFormat</code>.
+ If the formatted value equals ".10E1", it is replaced with "1.00E0" for consistency.</div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>value</code> - The frequency value to format.</dd>
+<dt>Returns:</dt>
+<dd>A <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link"><code>String</code></a> representing the formatted frequency in scientific notation.</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="formatNumber(double)">
+<h3>formatNumber</h3>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">formatNumber</span><wbr><span class="parameters">(double&nbsp;value)</span></div>
+<div class="block">Formats a number to three decimal places.
+ <p>
+ This method formats the given number using the <code>decimalFormat</code>.
+ The result is a string representation of the number with up to three decimal places.</div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>value</code> - The number to format.</dd>
+<dt>Returns:</dt>
+<dd>A <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link"><code>String</code></a> representing the formatted number.</dd>
+</dl>
+</section>
+</li>
 <li>
 <section class="detail" id="readFile(java.io.File)">
 <h3>readFile</h3>
