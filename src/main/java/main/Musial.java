@@ -166,7 +166,7 @@ public final class Musial {
             if (e.getClass().equals(MusialException.class))
                 Logging.logExit("An internal error has occurred.");
             else
-                Logging.logExit("An abnormal error has occurred.");
+                Logging.logExit("An unexpected error has occurred.");
             e.printStackTrace();
             System.exit(-1);
         }
@@ -246,7 +246,7 @@ public final class Musial {
             // Ensure the output path is a file, not a directory.
             File outputFile = new File(outputPath);
             if (outputFile.isDirectory()) {
-                outputPath += File.separator + "musial_storage_" + Logging.getDate().hashCode() + storageExtension;
+                outputPath += File.separator + "musial_storage_%s_%s".formatted(runId, storageExtension);
                 outputFile = new File(outputPath);
             }
 
@@ -315,9 +315,7 @@ public final class Musial {
                 if (outputFile.isDirectory()) {
                     outputFile = new File(outputFile.getAbsolutePath()
                             + File.separator
-                            + "musial_storage_"
-                            + Logging.getTimestamp().hashCode()
-                            + storageExtension
+                            + "musial_storage_%s_%s".formatted(runId, storageExtension)
                     );
                 }
             }
@@ -540,9 +538,7 @@ public final class Musial {
                 if (outputFile.isDirectory()) {
                     outputFile = new File(outputFile.getAbsolutePath()
                             + File.separator
-                            + "musial_view_%s_".formatted(content)
-                            + Logging.getTimestamp().hashCode()
-                            + ".tsv"
+                            + "musial_view_%s_%s.tsv".formatted(content, runId)
                     );
                 }
 
@@ -641,50 +637,69 @@ public final class Musial {
          * @return A {@link Table} object containing the allele and proteoform information.
          */
         private static Table alleleTable(Storage storage, Set<String> includeFeatures, Set<String> includeSamples) {
-            // Initialize the table with the header "feature    type    uid" and a comparator for sorting by feature start position.
-            Table table = new Table("feature\ttype\tuid", storage.getFeatures().size(),
-                    Comparator.comparingInt(i -> storage.getFeature(i.split(Constants.TAB)[0]).start), Constants.EMPTY);
+            // Initialize the table with the header "feature    type    uid".
+            // The comparator is used to sort the rows based on feature start position.
+            Comparator<String> comparator = (r1, r2) -> {
+                String[] parts1 = r1.split(Constants.TAB);
+                String[] parts2 = r2.split(Constants.TAB);
+
+                // Extract feature, type, and UID for both rows
+                String feature1 = parts1[0], feature2 = parts2[0];
+                String type1 = parts1[1], type2 = parts2[1];
+
+                // Compare features
+                if (!feature1.equals(feature2)) {
+                    return Integer.compare(storage.getFeature(feature1).start, storage.getFeature(feature2).start);
+                }
+
+                // Compare types
+                if (!type1.equals(type2)) {
+                    return type1.compareTo(type2); // Alleles first, then proteoforms
+                }
+
+                return 0;
+            };
+            Table table = new Table("feature\ttype\tuid", storage.getFeatures().size(), comparator, Constants.EMPTY);
 
             // Stream through the features in the storage, filtering based on the includeFeatures set.
             storage.getFeatures().stream()
                     .filter(feature -> includeFeatures.isEmpty() || includeFeatures.contains(feature.name))
                     .forEach(feature -> {
-                        // Set to track included alleles for the current feature.
-                        Set<String> includeAlleles = new HashSet<>();
+                        // Track proteoform uids of associated alleles.
+                        Set<String> proteoformUids = new HashSet<>();
 
                         // Process each allele of the feature.
                         feature.getAlleles().forEach(allele -> {
-                            // Check if the allele should be included based on the includeSamples set.
+                            // Check if the allele should be included based on the includeSamples parameter
                             if (includeSamples.isEmpty() || includeSamples.stream().anyMatch(allele::hasOccurrence)) {
-                                includeAlleles.add(allele._uid);
-
                                 // Create a list of tuples representing the allele's attributes.
-                                List<Tuple<String, String>> items = new ArrayList<>(allele.getAttributes().entrySet().stream()
-                                        .map(entry -> new Tuple<>(entry.getKey(), entry.getValue()))
-                                        .toList());
-
-                                // Add the occurrence information of the allele to the list.
-                                items.add(new Tuple<>("samples", allele.occurrenceAsString()));
-
+                                // Valid proteoform UIDs are used to map to proteoform names.
+                                List<Tuple<String, String>> items = new ArrayList<>();
+                                for (Map.Entry<String, String> attribute : allele.getAttributes().entrySet()) {
+                                    String key = attribute.getKey(), value = attribute.getValue();
+                                    if (key.equals(Constants.$Allele_proteoform) && !value.equals(Constants.synonymous)) {
+                                        proteoformUids.add(attribute.getValue());
+                                        value = feature.getProteoform(value).getNameOrUid();
+                                    }
+                                    items.add(new Tuple<>(key, value));
+                                }
                                 // Add the allele's information to the table.
-                                table.addContent("%s\tallele\t%s".formatted(feature.name, allele._uid), items);
+                                table.addContent("%s\tallele\t%s".formatted(feature.name, allele.getNameOrUid()), items);
                             }
                         });
 
                         // Process proteoforms if proteoform inference is not skipped and the feature is coding.
-                        if (storage.runProteoformInference() && feature.isCoding()) {
-                            feature.getProteoforms().forEach(proteoform -> {
-                                // Check if the proteoform should be included based on the included alleles.
-                                if (includeAlleles.stream().anyMatch(proteoform::hasOccurrence)) {
-                                    // Create a list of tuples representing the proteoform's attributes.
-                                    List<Tuple<String, String>> items = proteoform.getAttributes().entrySet().stream()
-                                            .map(entry -> new Tuple<>(entry.getKey(), entry.getValue()))
-                                            .toList();
+                        if (feature.isCoding() && storage.runProteoformInference() && !proteoformUids.isEmpty()) {
+                            for (String uid : proteoformUids) {
+                                // Create a list of tuples representing the proteoform's attributes.
+                                Feature.Proteoform proteoform = feature.getProteoform(uid);
+                                List<Tuple<String, String>> items = new ArrayList<>(proteoform.getAttributes().entrySet().stream()
+                                        .map(entry -> new Tuple<>(entry.getKey(), entry.getValue()))
+                                        .toList());
 
-                                    // Add the proteoform's information to the table.
-                                    table.addContent("%s\tproteoform\t%s".formatted(feature.name, proteoform._uid), items);
-                                }
-                            });
+                                // Add the proteoform's information to the table.
+                                table.addContent("%s\tproteoform\t%s".formatted(feature.name, proteoform.getNameOrUid()), items);
+                            }
                         }
                     });
 
@@ -732,7 +747,7 @@ public final class Musial {
          * The table can be filtered to include only specific samples and features based on the provided sets.
          *
          * @param storage         The {@link Storage} instance containing the samples and features to be included in the table.
-         * @param includeSamples A set of sample names to include in the table. If empty, all samples are included.
+         * @param includeSamples  A set of sample names to include in the table. If empty, all samples are included.
          * @param includeFeatures A set of feature names to include in the table. If empty, all features are included.
          * @return A {@link Table} object containing the sequence type information.
          */
@@ -747,19 +762,21 @@ public final class Musial {
                     .forEach(sample ->
                             // Stream through the alleles of the sample, filtering based on the includeFeatures set.
                             sample.getAlleles().stream()
-                                    .filter(allele -> includeFeatures.isEmpty() || includeFeatures.contains(allele.getKey()))
-                                    .forEach(allele -> {
-                                        // Add the allele information to the table.
-                                        List<Tuple<String, String>> items = List.of(new Tuple<>(sample.name, allele.getValue()));
-                                        table.addContent(allele.getKey() + "\tallele", items);
+                                    .filter(entry -> includeFeatures.isEmpty() || includeFeatures.contains(entry.getKey()))
+                                    .forEach(entry -> {
+                                        // Retrieve the feature and allele information.
+                                        Feature feature = storage.getFeature(entry.getKey());
+                                        String alleleUid = entry.getValue();
+                                        String alleleName = feature.getAllele(alleleUid).getNameOrUid();
 
-                                        // Retrieve the feature associated with the allele.
-                                        Feature feature = storage.getFeature(allele.getKey());
+                                        // Add allele information to the table.
+                                        table.addContent("%s\tallele".formatted(feature.name), List.of(new Tuple<>(sample.name, alleleName)));
 
-                                        // Add proteoform information if the feature is coding and proteoform inference is not skipped.
+                                        // Add proteoform information if applicable.
                                         if (feature.isCoding() && storage.runProteoformInference()) {
-                                            items = List.of(new Tuple<>(sample.name, feature.getAllele(allele.getValue()).getAttribute(Constants.$Allele_proteoform)));
-                                            table.addContent(allele.getKey() + "\tproteoform", items);
+                                            String proteoformUid = feature.getAllele(alleleUid).getAttributeOrDefault(Constants.$Allele_proteoform, Constants.synonymous);
+                                            String proteoformName = proteoformUid.equals(Constants.synonymous) ? Constants.synonymous : feature.getProteoform(proteoformUid).getNameOrUid();
+                                            table.addContent("%s\tproteoform".formatted(feature.name), List.of(new Tuple<>(sample.name, proteoformName)));
                                         }
                                     })
                     );
@@ -978,7 +995,7 @@ public final class Musial {
             // Collect allele UIDs that match the provided sample names.
             final Set<String> alleleUids = feature.getAlleles().stream()
                     .filter(allele -> sampleNames.stream().anyMatch(allele::hasOccurrence))
-                    .map(allele -> allele._uid)
+                    .map(allele -> allele.uid)
                     .collect(Collectors.toSet());
             if (alleleUids.isEmpty()) {
                 Logging.logWarning("Skipping feature %s: Only sequence type is the reference sequence."
@@ -1042,19 +1059,19 @@ public final class Musial {
             };
 
             // Write the sequences to a FASTA file.
-            String fileName = String.format("%s_c%d_m%d_x%d_r%d.fasta",
+            String fileName = String.format("%s%s%s%s_%s.fasta",
                     feature.name,
-                    conserved ? 1 : 0,
-                    merge ? 1 : 0,
-                    strip ? 1 : 0,
-                    reference ? 1 : 0
+                    merge ? "_allele" : "_sample",
+                    conserved ? "_all" : "_variant",
+                    strip ? "" : "_aligned",
+                    runId
             );
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputDirectory + File.separator + fileName, StandardCharsets.UTF_8))) {
                 // Function to write a sequence to the file with a given header.
                 Consumer<String> dump = header -> {
                     try {
                         String sequence = strip ? content.toString().replaceAll(Constants.gapString, Constants.EMPTY) : content.toString();
-                        writer.write("%s%s\n".formatted(header, String.join("\n", Splitter.fixedLength(80).split(sequence))));
+                        writer.write("%s\n%s\n".formatted(header, String.join("\n", Splitter.fixedLength(80).split(sequence))));
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
@@ -1063,7 +1080,7 @@ public final class Musial {
                 // Write the reference sequence if requested.
                 if (reference) {
                     IntStream.rangeClosed(feature.start, feature.end).forEach(resolveReference::accept);
-                    dump.accept(">reference allelic_frequency=%s\n".formatted(feature.getAttribute("reference_frequency")));
+                    dump.accept(">reference [allelic_frequency=%s]".formatted(feature.getAttribute(Constants.$Attributable_frequencyReference)));
                 }
 
                 // Write sequences for each allele.
@@ -1110,10 +1127,10 @@ public final class Musial {
                         }
                     }
                     if (merge) {
-                        dump.accept(allele.getFastaHeader(feature.name, alleleUid));
+                        dump.accept(allele.getFastaHeader(allele.getNameOrUid()));
                     } else {
                         for (String sampleName : allele.getOccurrence()) {
-                            allele.getFastaHeader(feature.name, sampleName);
+                            dump.accept(">%s [allele=%s]".formatted(sampleName, allele.getNameOrUid()));
                         }
                     }
                 }
@@ -1221,12 +1238,12 @@ public final class Musial {
             };
 
             // Write the sequences to a FASTA file.
-            String fileName = String.format("%s_c%d_m%d_x%d_r%d.fasta",
+            String fileName = String.format("%s%s%s%s_%s.fasta",
                     feature.name,
-                    conserved ? 1 : 0,
-                    merge ? 1 : 0,
-                    strip ? 1 : 0,
-                    reference ? 1 : 0
+                    merge ? "_proteoform" : "_sample",
+                    conserved ? "_all" : "_variant",
+                    strip ? "" : "_aligned",
+                    runId
             );
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputDirectory + File.separator + fileName, StandardCharsets.UTF_8))) {
 
@@ -1234,7 +1251,7 @@ public final class Musial {
                 Consumer<String> dump = header -> {
                     try {
                         String sequence = strip ? content.toString().replaceAll(Constants.gapString, Constants.EMPTY) : content.toString();
-                        writer.write("%s%s\n".formatted(header, String.join("\n", Splitter.fixedLength(80).split(sequence))));
+                        writer.write("%s\n%s\n".formatted(header, String.join("\n", Splitter.fixedLength(80).split(sequence))));
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
@@ -1243,7 +1260,7 @@ public final class Musial {
                 // Write the reference sequence if requested.
                 if (reference) {
                     IntStream.rangeClosed(feature.start, feature.end).forEach(resolveReference::accept);
-                    dump.accept(">reference allelic_frequency=%s\n".formatted(feature.getAttribute("reference_frequency")));
+                    dump.accept(">reference [allelic_frequency=%s]".formatted(feature.getAttribute(Constants.$Attributable_frequencyReference)));
                 }
 
                 // Write sequences for each proteoform.
@@ -1284,11 +1301,11 @@ public final class Musial {
                         }
                     }
                     if (merge) {
-                        dump.accept(proteoform.getFastaHeader(feature.name, proteoformUid));
+                        dump.accept(proteoform.getFastaHeader(proteoform.getNameOrUid()));
                     } else {
                         for (String alleleUid : proteoform.getOccurrence()) {
                             for (String sampleName : feature.getAllele(alleleUid).getOccurrence()) {
-                                proteoform.getFastaHeader(feature.name, sampleName);
+                                dump.accept(">%s [proteoform=%s]".formatted(sampleName, proteoform.getNameOrUid()));
                             }
                         }
                     }
