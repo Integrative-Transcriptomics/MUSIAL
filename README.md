@@ -83,7 +83,7 @@ Further details on the use of the software and internal workflows can be found i
 
 ## 🌐 Web Interface
 
-To provide user-friendly access to its functionalities, MUSIAL is available via a web interface at https://musial-tuevis.cs.uni-tuebingen.de/; currently running version `v2.3.8`.
+To provide user-friendly access to its functionalities, MUSIAL is available via a web interface at https://musial-tuevis.cs.uni-tuebingen.de/ currently running version `v2.3.10`. The code is deposited in the `web` branch.
 
 ## 🔨 Build
 
