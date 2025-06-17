@@ -14,7 +14,7 @@ MUSIAL enables a comprehensive assessment of variability within a species at the
 - **Projection to genomic features (genes) facilitates allele- and proteoform-specific information** that supports the characterization of individual samples.
 - **VCF based sequence reconstruction** at nucleotide and protein sequence level and tabular reports on sample, feature and variant statistics.
 
-## 🔧 Usage
+## 📖 Usage
 
 An executable `jar` file (`Java 21`) is available from the [Releases](https://github.com/Integrative-Transcriptomics/MUSIAL/releases) section.
 MUSIAL operates on a modular, task-based architecture that is primarily initiated by the `build` task, which creates a JSON file (_storage_) as its primary output; this is then used as input for all other tasks.
