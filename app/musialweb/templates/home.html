@@ -1,0 +1,461 @@
+{% extends 'index.html' %} {% block style %}
+<link
+  href="https://unpkg.com/tabulator-tables@6.2/dist/css/tabulator.min.css"
+  rel="stylesheet"
+/>
+<link
+  href="https://unpkg.com/tabulator-tables@6.2/dist/css/tabulator_materialize.min.css"
+  rel="stylesheet"
+/>
+<link
+  rel="stylesheet"
+  type="text/css"
+  href="{{url_for('static', filename='css/musial.web.home.css')}}"
+/>
+{% endblock %} {% block script %}
+<script
+  type="text/javascript"
+  src="https://unpkg.com/tabulator-tables@6.2/dist/js/tabulator.min.js"
+></script>
+<script
+  type="text/javascript"
+  src="{{url_for('static', filename='js/papaparse.min.js')}}"
+></script>
+{% endblock %} {% block content %}
+<div id="home-main">
+  <div id="home-info" class="home-panel">
+    <h5>MUSIAL: Multi Sample Variant Analysis</h5>
+    <p class="text-just text-light pl-2 pr-20">
+      <strong>MUSIAL</strong> is a web platform that computes
+      <strong>prokaryotic genome, gene</strong> and
+      <strong>protein sequence alignments</strong> from
+      <strong>variant call datasets (using both SNVs and Indels)</strong>
+      derived from multiple samples of one species. Scientists can
+      <strong>assess the variability of a species</strong> on the genome, gene,
+      and protein sequence level, e.g., study which positions in the species
+      exhibit large or no variability, identify genes with large variability,
+      which samples agree on which proteoforms, etc. The platform is designed to
+      support the detection of features of interest for downstream analyses. It
+      provides multiple <strong>data export options</strong> for
+      <strong>FASTA</strong> and <strong>tabular formats</strong> as well as
+      diverse <strong>visual analytics features</strong>.
+    </p>
+    <hr />
+    <h5><i class="fa-solid fa-person-chalkboard"></i> Usage Instruction</h5>
+    <p class="text-just text-light pl-2 pr-20">
+      <i class="fa-solid fa-circle-1"></i> Start a new session by providing the
+      required input or re-upload a previously saved session using the input
+      forms on this page. Alternatively, you can
+      <span
+        style="
+          cursor: pointer;
+          text-decoration: underline;
+          font-weight: bolder;
+          font-family: monospace;
+          color: #de3c4b;
+        "
+        onclick="exampleSession()"
+        ><b>start an example session</b></span
+      >
+      to familiarize yourself with the functions of MUSIAL.<br />
+    </p>
+    <p class="text-just text-light pl-2 pr-20">
+      <i class="fa-solid fa-circle-2"></i> After successful processing, you will
+      be redirected to the results page. Choose between a sample-, feature- or
+      variant-oriented views to explore your data interactively.
+    </p>
+    <p class="text-just text-light pl-2 pr-20">
+      <i class="fa-solid fa-circle-3"></i> Download your session data to
+      continue later or share it with your colleagues. MUSIAL offers the
+      download of (optionally aligned) sequence data and tabular formats.
+    </p>
+  </div>
+
+  <div id="home-inputs" class="home-panel">
+    <!-- General Description -->
+    <h5>
+      <i class="fa-solid fa-pen-field"></i>
+      Input Forms: New Session
+    </h5>
+    <p class="text-just text-light pl-2 pr-20">
+      You can start a new session by providing the necessary input files in the
+      input forms below. Mandatory inputs are highlighted. For more information
+      on the required formats, click on the labels above the input fields. After
+      filling in the necessary information, you can submit the request to the
+      server by clicking the submit button at the end of the form. The server
+      will process the input data and redirect you to the results page.
+    </p>
+
+    <hr />
+    <!-- Reference Sequence Input -->
+    <div>
+      <h3 class="p-2 text-left">
+        <small><i class="fa-solid fa-dna"></i> Reference Sequence</small>
+      </h3>
+      <div>
+        <div class="home-input-info-tag mb-2 pl-2 pr-20">
+          <b id="collapse§reference-sequence" class="pointable"
+            >Reference Sequence .fasta, .fas, .fa, .fna, .ffn, .faa, .mpfa, .frn
+            <span class="text-red">(Mandatory)</span></b
+          >
+          <div
+            data-role="collapse"
+            data-toggle-element="#collapse§reference-sequence"
+            data-collapsed="true"
+          >
+            <br />
+            <a
+              href="https://www.ncbi.nlm.nih.gov/genbank/fastaformat/"
+              target="_blank"
+              >FASTA</a
+            >
+            format file containing one or more entries to use as the reference
+            sequence for the analysis. Ensure that the sequence identifier
+            (SeqID) is unique for each entry and matches the identifiers in the
+            used variant call (.vcf) and generic feature format (.gff) files.
+            <b>Format example:</b>
+            <p class="format">
+              >NC_000962.3 [organism=Mycobacterium tuberculosis] [strain=H37Rv]
+              <br />TTGACCGATGACCCCGGTTCAGGCTTCACCACAGTGTGGAACGCGGTCGTCTCCGAACTTAACGGCG...
+            </p>
+          </div>
+        </div>
+        <input
+          id="home-input§reference-sequence"
+          type="file"
+          data-role="file"
+          accept=".fasta,.fas,.fa,.fna,.ffn,.faa,.mpfa,.frn"
+        />
+        <div class="home-input-info-tag mt-4 mb-2 pl-2 pr-20">
+          <b id="collapse§excluded-positions" class="pointable"
+            >Excluded Positions</b
+          >
+          <div
+            data-role="collapse"
+            data-toggle-element="#collapse§excluded-positions"
+            data-collapsed="true"
+          >
+            <br />
+            Positions to be excluded from the analysis. Entries can be added in
+            the input field by pressing enter. <b>Format example:</b>
+            <p class="format"><code>NC_000962.3 1473246,12468-13016</code></p>
+          </div>
+        </div>
+        <input
+          id="home-input§excluded-positions"
+          type="text"
+          data-role="taginput"
+          data-tag-trigger="Enter"
+          data-on-before-tag-add="inputReferenceSequence.validateExcludePosition"
+          data-on-tag="inputReferenceSequence.setExcludePosition"
+        />
+
+        <div class="home-input-info-tag mt-4 mb-2 pl-2 pr-20">
+          <b id="collapse§excluded-variants" class="pointable"
+            >Excluded Variants</b
+          >
+          <div
+            data-role="collapse"
+            data-toggle-element="#collapse§excluded-variants"
+            data-collapsed="true"
+          >
+            <br />
+            Variants at positions to be excluded from the analysis. Entries can
+            be added in the input field by pressing enter. The variant is
+            matched with the ALT field in the sample VCF files.
+            <b>Format example:</b>
+            <p class="format"><code>NC_000962.3 1473246:A,1473246:GT</code></p>
+          </div>
+        </div>
+        <input
+          id="home-input§excluded-variants"
+          type="text"
+          data-role="taginput"
+          data-tag-trigger="Enter"
+          data-on-before-tag-add="inputReferenceSequence.validateExcludeVariant"
+          data-on-tag="inputReferenceSequence.setExcludeVariant"
+        />
+      </div>
+    </div>
+
+    <hr />
+    <!-- Genomic Features Input -->
+    <div>
+      <h3 class="p-2 text-left">
+        <small
+          ><i class="fa-solid fa-magnifying-glass"></i> Genomic Features</small
+        >
+      </h3>
+      <div class="home-input-info-tag mb-2 pl-2 pr-20">
+        <b id="collapse§features" class="pointable"
+          >Reference Sequence Annotation .gff3
+          <span class="text-red">(Mandatory)</span></b
+        >
+        <div
+          data-role="collapse"
+          data-toggle-element="#collapse§features"
+          data-collapsed="true"
+        >
+          <br />
+          <a
+            href="https://www.ensembl.org/info/website/upload/gff.html?redirect=no"
+            target="_blank"
+            >GFF</a
+          >
+          format file, describing features of the provided reference sequence.
+          Ensure that the seqname cell entries match the SeqID values of the
+          provided reference sequence. <b>Format example:</b>
+          <p class="format">
+            CP004010.2 Genbank CDS 4 1398 . + 0
+            ID=cds-AGN75228.1;Parent=gene-TPANIC_0001;Name=AGN75228.1;gbkey=CDS;gene=dnaA;locus_tag=TPANIC_0001;product=DNA-directed
+            DNA replication initiator protein
+          </p>
+        </div>
+      </div>
+      <input
+        id="home-input§features"
+        type="file"
+        data-role="file"
+        accept=".gff3"
+      />
+      <!-- Feature meta information processing is currently not supported.
+
+        <div class="home-input-info-tag mt-4 mb-2  pl-2 pr-20">
+          <b id="collapse§features-meta" class="pointable"
+            >Features Meta Information .csv, .tsv</b
+          >
+          <div
+            data-role="collapse"
+            data-toggle-element="#collapse§features-meta"
+            data-collapsed="true"
+          >
+            <br />
+            <a href="https://docs.fileformat.com/spreadsheet/tsv/" target="_blank"
+              >TSV</a
+            >
+            like format file containing meta information to be added to
+            gene/feature entries. Column names and cell values can be arbitrary;
+            the first column must contain gene identifiers that match a specified
+            gene to analyze.
+            <b>Format example:</b>
+            <p class="format">
+              name product molecular_function amr_relation
+              <br />
+              katG Catalase-peroxidase antioxidant activity,oxidoreductase
+              activity isoniazid
+            </p>
+          </div>
+        </div>
+        <input
+          id="home-input§features-meta"
+          type="file"
+          data-role="file"
+          class="mt-4"
+          accept=".csv,.tsv"
+        />
+      -->
+      <div class="home-input-info-tag mt-4 mb-2 pl-2 pr-20">
+        <b id="collapse§features-table" class="pointable">Selection Table</b>
+        <div
+          data-role="collapse"
+          data-toggle-element="#collapse§features-table"
+          data-collapsed="true"
+        >
+          <br />
+          The selection table will be filled after uploading the reference
+          sequence annotation file. MUSIAL is primarily designed to analyze a
+          subset of the features, i.e. genes, on the provided reference
+          sequence;
+          <b class="text-red"
+            >Select the features to be analyzed by clicking on them</b
+          >. The first column coding-sequence (CDS) yields interactive cells
+          that can be clicked to mark or unmark the corresponding feature for
+          proteoform analysis. The text entered in the Search Keyword input is
+          applied as a filter to all columns in an or logic.
+        </div>
+      </div>
+      <textarea
+        class="input-small"
+        id="home-input§features-search"
+        type="text"
+        data-prepend="Search Keyword"
+        data-role="textarea"
+      ></textarea>
+      <div class="mt-4 mb-2" id="home-input§features-tabulator"></div>
+    </div>
+
+    <hr />
+    <!-- Variant Calls Input -->
+    <div>
+      <h3 class="p-2 text-left">
+        <small><i class="fa-solid fa-bacteria"></i> Samples</small>
+      </h3>
+      <div class="home-input-info-tag mb-2 pl-2 pr-20">
+        <b id="collapse§samples" class="pointable"
+          >Variant Calls .vcf <span class="text-red">(Mandatory)</span></b
+        >
+        <div
+          data-role="collapse"
+          data-toggle-element="#collapse§samples"
+          data-collapsed="true"
+        >
+          <br />
+          File(s) in
+          <a
+            href="https://gatk.broadinstitute.org/hc/en-us/articles/360035531692-VCF-Variant-Call-Format"
+            target="_blank"
+            >VCF</a
+          >
+          format, each containing variant calls for exactly one biological
+          sample with ploidity one. Ensure that the CHROM column's row values
+          match any SeqID of the provided reference seuqence file. Filenames
+          will be used as internal sample names. <b>Format example:</b>
+          <p class="format">
+            #CHROM POS ID REF ALT QUAL FILTER INFO FORMAT ERR017782
+            <br />
+            NC_000962.3 1534 . T C 1000 .
+            AC=1;AF=1.00;AN=1;DP=38;ExcessHet=0.0000;FS=0.000;MLEAC=2;MLEAF=1.00;MQ=60.00;QD=34.79;SOR=1.542
+            GT:AD:DP:GQ:PL 1:033:33:99:1162,0
+          </p>
+        </div>
+      </div>
+      <input
+        id="home-input§samples"
+        type="file"
+        data-role="file"
+        accept=".vcf"
+        multiple
+      />
+      <div class="home-input-info-tag mt-4 mb-2 pl-2 pr-20">
+        <b id="collapse§samples-meta" class="pointable"
+          >Sample Meta Information .csv, .tsv</b
+        >
+        <div
+          data-role="collapse"
+          data-toggle-element="#collapse§samples-meta"
+          data-collapsed="true"
+        >
+          <br />
+          <a href="https://docs.fileformat.com/spreadsheet/tsv/" target="_blank"
+            >TSV</a
+          >
+          like format file containing meta information to be added to samples.
+          Column names and cell values can be arbitrary; the first column must
+          contain sample names that match a provided variant call file name.
+          <b>Format example:</b>
+          <p class="format">
+            name strain date country region lineage
+            <br />
+            ERR970409 G04126 1970-01-02 South Africa Africa D
+            <br />
+            ERR234106 G00883 1970-01-02 Germany Europe L6
+          </p>
+        </div>
+      </div>
+      <input
+        id="home-input§samples-meta"
+        type="file"
+        data-role="file"
+        accept=".csv,.tsv"
+      />
+    </div>
+
+    <hr />
+    <!-- Variant Call Filters -->
+    <div>
+      <h3 class="p-2 text-left">
+        <small
+          ><i class="fa-solid fa-sliders"></i> Variant Call Filter
+          Parameters</small
+        >
+      </h3>
+      <div class="home-input-info-tag mb-2 pl-2 pr-20">
+        <b>Minimal Variant Call Position Coverage</b>; Minimal number of total
+        reads, independent of the reflected allele, to cover a variant call
+        position to accept. <b>Requires a positive integer.</b>
+      </div>
+      <input
+        id="home-input§call-coverage"
+        type="text"
+        data-role="input"
+        data-default-value="5"
+      />
+      <div class="home-input-info-tag mt-4 mb-2 pl-2 pr-20">
+        <b>Minimal Variant Call Frequency</b>; Minimal allele frequency (in %,
+        wrt. reads) of an allele at a variant call position to accept.
+        <b>Integer between 0 and 100.</b>
+      </div>
+      <input
+        id="home-input§call-frequency"
+        type="text"
+        data-role="input"
+        data-default-value="90"
+      />
+    </div>
+
+    <br />
+    <div>
+      <button
+        onclick="submit()"
+        id="home-input§submit"
+        class="p-1 text-cap"
+        disabled
+      >
+        submit request to server
+      </button>
+      <span
+        ><sup class="text-red"
+          >*Mandatory fields must be filled in and at least one feature must be
+          selected in the Selection Table.</sup
+        ></span
+      >
+    </div>
+  </div>
+
+  <div id="home-reupload" class="home-panel">
+    <!-- General Description -->
+    <h5>
+      <i class="fa-solid fa-file-zipper"></i>
+      Re-Upload Session
+    </h5>
+    <p class="text-just text-light pl-2 pr-20">
+      You can re-upload a previously saved session by selecting the
+      corresponding .zlib file below. This will redirect you to the MUSIAL
+      results page. Note that the exact state of the results page is not saved,
+      only the processed data. The session data can be downloaded from the
+      results page once a submission has been successfully processed.
+    </p>
+
+    <hr />
+    <!-- Session Input -->
+    <div>
+      <div class="home-input-info-tag mb-2 p-2">
+        <b>MUSIL Session .zlib</b>
+      </div>
+      <input
+        id="home-input§session"
+        type="file"
+        data-role="file"
+        accept=".zlib"
+      />
+    </div>
+
+    <br />
+    <div>
+      <button
+        onclick="reloadSession()"
+        id="home-input§submit"
+        class="p-1 text-cap"
+      >
+        reload session
+      </button>
+    </div>
+  </div>
+</div>
+<!-- Include .home.js script at the end; This ensures that all DOM elements are initialized already. -->
+<script
+  type="text/javascript"
+  src="{{url_for('static', filename='js/musial.web.home.js')}}"
+  onload="init();"
+></script>
+{% endblock %}

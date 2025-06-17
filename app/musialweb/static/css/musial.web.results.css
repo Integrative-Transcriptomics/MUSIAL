@@ -1,0 +1,120 @@
+#results-main {
+  background-color: var(--background-color-3);
+  position: absolute;
+  top: 5vh;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding-bottom: 2vh;
+  height: fit-content;
+}
+
+#results-control {
+  box-shadow: 2px 2px 4px var(--color-3);
+  border-radius: 2px;
+}
+
+#results-download {
+  box-shadow: 2px 2px 4px var(--color-3);
+  border-radius: 2px;
+}
+
+#results-charts {
+  box-shadow: 2px 2px 4px var(--color-3);
+  border-radius: 2px;
+}
+
+#results-charts§echart {
+  width: auto;
+  height: 60vh;
+  min-height: 30vh;
+}
+
+#results-table {
+  box-shadow: 2px 2px 4px var(--color-3);
+  border-radius: 2px;
+}
+
+#results-table§histogram {
+  background-color: transparent;
+  width: auto;
+  height: 25vh;
+  min-height: 25vh;
+}
+
+#results-table§correlation-result {
+  width: 60em;
+}
+
+.results-segment-title {
+  font-family: monospace;
+  font-size: large;
+  font-weight: lighter;
+  color: var(--text-color);
+}
+
+.toolbar .text-cap {
+  color: var(--text-color) !important;
+  font-weight: lighter;
+  min-width: fit-content;
+}
+
+.results-apply-button {
+  background-color: var(--highlight-2);
+  color: var(--background-color-2);
+}
+
+.results-apply-button:hover {
+  background-color: var(--highlight-4);
+  transition: 0.1s;
+}
+
+.results-control-button {
+  background-color: var(--color-1);
+  color: var(--background-color-1);
+}
+
+.results-control-button:hover {
+  background-color: var(--color-2);
+  transition: 0.1s;
+}
+
+.results-chart-control-select {
+  background-color: var(--background-color-1);
+  border: 0px;
+}
+
+.results-chart-control-button {
+  background-color: var(--background-color-2);
+  padding-top: 0px !important;
+  padding-bottom: 0px !important;
+  border: 0px;
+}
+
+.results-chart-control-button:hover {
+  background-color: var(--color-4);
+  transition: 0.1s;
+}
+
+.selected-category {
+  background-color: var(--highlight-3) !important;
+}
+
+.toolbar {
+  background-color: var(--background-color-2);
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.swal2-style {
+  font-family: monospace;
+  font-size: smaller;
+}
+
+.tabulator-tooltip {
+  font-family: monospace;
+  font-size: smaller;
+  height: fit-content !important;
+  max-height: 10vh;
+  background-color: var(--background-color-3);
+}

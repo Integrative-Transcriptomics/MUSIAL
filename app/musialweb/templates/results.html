@@ -1,0 +1,362 @@
+{% extends 'index.html' %} {% block style %}
+<link
+  href="https://unpkg.com/tabulator-tables@6.2/dist/css/tabulator.min.css"
+  rel="stylesheet"
+/>
+<link
+  href="https://unpkg.com/tabulator-tables@6.2/dist/css/tabulator_materialize.min.css"
+  rel="stylesheet"
+/>
+<link
+  rel="stylesheet"
+  type="text/css"
+  href="{{url_for('static', filename='css/musial.web.results.css')}}"
+/>
+{% endblock %} {% block script %}
+<script
+  type="text/javascript"
+  src="https://cdn.jsdelivr.net/npm/mathjs@12.0.0/lib/browser/math.min.js"
+></script>
+<script
+  type="text/javascript"
+  src="https://unpkg.com/tabulator-tables@6.2/dist/js/tabulator.min.js"
+></script>
+<script
+  type="text/javascript"
+  src=" https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js "
+></script>
+{% endblock %} {% block content %}
+<div id="results-main" class="pt-8 pr-10 pb-8 pl-10">
+  <!-- Controls segment. -->
+  <div class="results-segment-title">Select Record Type (to Display)</div>
+  <div id="results-control" class="pt-1 pr-2 pb-2 pl-1">
+    <div class="toolbar w-100" data-role="buttongroup">
+      <button
+        id="results-control§show-samples"
+        class="button small rounded results-control-button text-upper mr-6"
+        onclick="displayRecords('samples')"
+        data-role="hint"
+        data-hint-text="Display sample records."
+        data-hint-position="top"
+      >
+        samples
+      </button>
+      <button
+        id="results-control§show-features"
+        class="button small rounded results-control-button text-upper mr-6"
+        onclick="displayRecords('features')"
+        data-role="hint"
+        data-hint-text="Display feature records."
+        data-hint-position="top"
+      >
+        features
+      </button>
+      <button
+        id="results-control§show-nucleotide_variants"
+        class="button small rounded results-control-button text-upper mr-6"
+        onclick="displayRecords('nucleotide_variants')"
+        data-role="hint"
+        data-hint-text="Display nucleotide variant records."
+        data-hint-position="top"
+      >
+        nucleotide variants
+      </button>
+      <button
+        id="results-control§show-aminoacid_variants"
+        class="button small rounded results-control-button text-upper mr-8"
+        onclick="displayRecords('aminoacid_variants')"
+        data-role="hint"
+        data-hint-text="Display aminoacid variant records."
+        data-hint-position="top"
+      >
+        aminoacid variants
+      </button>
+    </div>
+  </div>
+
+  <!-- Downloads segment. -->
+  <div class="results-segment-title mt-4">Download/Export Data</div>
+  <div id="results-download" class="pt-1 pr-2 pb-2 pl-1">
+    <div class="toolbar w-100" data-role="buttongroup">
+      <button
+        id="results-control§download-table"
+        class="button small rounded results-control-button text-upper mr-4"
+        onclick="TABLE.saveCsv()"
+        data-role="hint"
+        data-hint-text="Download the displayed table in CSV format."
+        data-hint-position="top"
+      >
+        Table
+      </button>
+      <button
+        id="results-control§download-session"
+        class="button small rounded results-control-button text-upper mr-4"
+        onclick="sendRequestDownloadSession()"
+        data-role="hint"
+        data-hint-text="Download binary session data in .zlib format."
+        data-hint-position="top"
+      >
+        Session
+      </button>
+      <button
+        id="results-control§download-sequences"
+        class="button small rounded results-control-button text-upper mr-4"
+        onclick="new SequenceDownloadPopup()"
+        data-role="hint"
+        data-hint-text="Download sequences in FASTA format (opens a popup for more options)."
+        data-hint-position="top"
+      >
+        Sequences
+      </button>
+      <button
+        id="results-control§download-variants"
+        class="button small rounded results-control-button text-upper mr-4"
+        onclick="new VariantsDownloadPopup()"
+        data-role="hint"
+        data-hint-text="Download variants data in TSV format (opens a popup for more options)."
+        data-hint-position="top"
+      >
+        Variants
+      </button>
+      <button
+        id="results-control§download-sequence-typing"
+        class="button small rounded results-control-button text-upper"
+        onclick="sendRequestDownloadSequenceTyping()"
+        data-role="hint"
+        data-hint-text="Download (allele) sequence typing in TSV format based on analyzed features."
+        data-hint-position="top"
+      >
+        Sequence Typing
+      </button>
+    </div>
+  </div>
+
+  <!-- Figures segment. -->
+  <div class="results-segment-title mt-4">
+    <i
+      id="results-charts§toggle-switch"
+      class="fa-duotone fa-solid fa-up-right-and-down-left-from-center"
+      style="cursor: pointer"
+    ></i>
+    Dashboard
+  </div>
+  <div
+    id="results-charts"
+    class="pt-1 pr-2 pb-2 pl-1"
+    data-role="collapse"
+    data-toggle-element="#results-charts§toggle-switch"
+    data-collapsed="false"
+  >
+    <div
+      id="results-chart§control-samples"
+      class="chartcontrol toolbar w-100"
+      data-role="buttongroup"
+      style="display: none"
+    >
+      <small style="font-family: monospace"
+        ><i class="fa-duotone fa-solid fa-circle-info"></i> <b>Left:</b> No.
+        variants per sample per feature (clustered by similarity) and total
+        variants per sample. <b>Right:</b> tSNE embedding of samples wrt. their
+        distance to all samples; Color by
+        <select
+          id="results-chart§control-samples§color"
+          class="results-chart-control-select"
+          onchange="refreshDashboard('samples')"
+        ></select
+        >.
+      </small>
+    </div>
+    <div
+      id="results-chart§control-features"
+      class="chartcontrol toolbar w-100"
+      data-role="buttongroup"
+      style="display: none"
+    >
+      <small style="font-family: monospace"
+        ><i class="fa-duotone fa-solid fa-circle-info"></i> <b>Left:</b> No.
+        variants per feature per sample (clustered by similarity) and total
+        variants per feature. <b>Right:</b> Allele network of
+        <select
+          id="results-chart§control-features§feature"
+          class="results-chart-control-select"
+          onchange="refreshDashboard('features')"
+        ></select
+        >. Color nodes by
+        <select
+          id="results-chart§control-features§color"
+          class="results-chart-control-select"
+          onchange="refreshDashboard('features')"
+        >
+          <option value="table_filter">table filter (samples)</option>
+          <option value="proteoform">proteoform</option></select
+        >. Node size encodes no. samples per allele.
+      </small>
+    </div>
+    <div
+      id="results-chart§control-nucleotide_variants"
+      class="chartcontrol toolbar w-100"
+      data-role="buttongroup"
+      style="display: none"
+    >
+      <small style="font-family: monospace"
+        ><i class="fa-duotone fa-solid fa-circle-info"></i> Bar colors encode
+        alt. nucleotide content:
+        <i class="fa-solid fa-circle" style="color: #1f78b4"></i> &rarr; A,
+        <i class="fa-solid fa-circle" style="color: #a6cee3"></i> &rarr; G,
+        <i class="fa-solid fa-circle" style="color: #33a02c"></i> &rarr; T,
+        <i class="fa-solid fa-circle" style="color: #b2df8a"></i> &rarr; C,
+        <i class="fa-solid fa-circle" style="color: #333333"></i> &rarr; N,
+        <i class="fa-solid fa-circle" style="color: #984ea3"></i> &rarr; InDel.
+        Legend (selectable) shows the SnpEff classification of variants.</small
+      >
+    </div>
+    <div
+      id="results-chart§control-aminoacid_variants"
+      class="chartcontrol toolbar w-100"
+      data-role="buttongroup"
+      style="display: none"
+    ></div>
+    <div id="results-charts§echart"></div>
+  </div>
+
+  <!-- Table segment. -->
+  <div class="results-segment-title mt-4">
+    <i
+      id="results-table§toggle-switch"
+      class="fa-duotone fa-solid fa-up-right-and-down-left-from-center"
+      style="cursor: pointer"
+    ></i>
+    Table
+  </div>
+  <div
+    id="results-table"
+    class="pt-1 pr-2 pb-2 pl-1"
+    data-role="collapse"
+    data-toggle-element="#results-table§toggle-switch"
+    data-collapsed="false"
+  >
+    <div class="toolbar w-100" data-role="buttongroup">
+      <span class="text-cap mr-4">filter rows by</span>
+      <select
+        id="results-table§filter-field"
+        class="input-small mr-4"
+        data-role="select"
+        data-prepend="Column"
+        data-filter="false"
+      ></select>
+      <select
+        id="results-table§filter-type"
+        class="input-small mr-4 w-10"
+        data-role="select"
+        data-prepend="Type"
+        data-filter="false"
+      >
+        <option value="=">Equal</option>
+        <option value="<">Less</option>
+        <option value="<=">Less or Equal</option>
+        <option value=">">Greater</option>
+        <option value=">=">Greater or Equal</option>
+        <option value="!=">Unequal</option>
+        <option value="keywords">Keyword</option>
+      </select>
+      <input
+        id="results-table§filter-value"
+        type="text"
+        class="input-small mr-4"
+        data-role="input"
+        data-prepend="Value"
+      />
+      <button
+        class="button small rounded results-apply-button mr-8"
+        onclick="TABLE.addFilter()"
+        data-role="hint"
+        data-hint-text="Filter rows by the specified filter."
+        data-hint-position="top"
+      >
+        Add Filter
+      </button>
+    </div>
+
+    <div
+      id="results-table§filter-list-toggle"
+      class="mt-2"
+      style="
+        cursor: pointer;
+        color: var(--text-color);
+        font-family: monospace;
+        font-weight: lighter;
+      "
+    >
+      <i class="fa-duotone fa-solid fa-pen-to-square"></i>
+      Manage Filters and Groups
+    </div>
+    <div
+      id="results-table§filter-list"
+      class="items-list"
+      style="
+        background-color: var(--background-color-1);
+        font-weight: lighter;
+        font-size: smaller;
+      "
+      data-role="collapse"
+      data-toggle-element="#results-table§filter-list-toggle"
+      data-collapsed="true"
+    ></div>
+
+    <div class="toolbar w-100 mt-2" data-role="buttongroup">
+      <span class="text-cap mr-4">compute correlation of</span>
+      <select
+        id="results-table§correlation-1"
+        class="input-small mr-4"
+        data-role="select"
+        data-prepend="Column 1"
+        data-filter="false"
+      ></select>
+      <select
+        id="results-table§correlation-2"
+        class="input-small mr-4"
+        data-role="select"
+        data-prepend="Column 2"
+        data-filter="false"
+      ></select>
+      <select
+        id="results-table§correlation-test"
+        class="input-small mr-4"
+        data-role="select"
+        data-prepend="Test"
+        data-filter="false"
+      >
+        <option value="pearsonr">Pearson</option>
+        <option value="spearmanr">Spearman</option>
+        <option value="kendalltau">Kendall's tau</option>
+        <option value="cramer">Cramer's V</option>
+      </select>
+      <button
+        class="button small rounded results-apply-button mr-4"
+        onclick="sendRequestComputeCorrelation()"
+        data-role="hint"
+        data-hint-text="Run the specified correlation test."
+        data-hint-position="bottom"
+      >
+        Run Test
+      </button>
+      <code id="results-table§correlation-result"
+        >Test Value: -&nbsp;&nbsp;&nbsp;P Value: -</code
+      >
+    </div>
+    <div id="results-table§tabulator" class="mt-2"></div>
+    <div id="results-table§histogram" class="mt-2"></div>
+  </div>
+</div>
+<!-- Include .results.js script at the end; This ensures that all DOM elements are initialized already. -->
+<script
+  type="text/javascript"
+  src="{{url_for('static', filename='js/musial.web.charts.js')}}"
+></script>
+<script
+  type="text/javascript"
+  src="{{url_for('static', filename='js/musial.web.results.js')}}"
+  onload="init();"
+  defer
+></script>
+{% endblock %}

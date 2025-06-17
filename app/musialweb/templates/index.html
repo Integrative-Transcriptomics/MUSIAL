@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<!--
+MUSIALweb APPLICATION
+AUTHOR: Simon Hackl
+CONTACT: simon.hackl@uni-tuebingen.de
+
+LICENSE
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+-->
+<html>
+  <head>
+    <title>MUSIAL</title>
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="{{ url_for('static', filename='resources/icon.ico') }}"
+    />
+    <!--
+      Provide meta information about the application.
+      -->
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="MUSIAL: Webserver for the analysis and visualization of nucleotide variants and their induced amino-acid mutations from multiple prokaryotic samples."
+    />
+    <meta name="author" content="Simon Hackl" />
+    <!--
+      Definition of stylesheets to use in the application.
+      -->
+    <link
+      rel="stylesheet"
+      href="{{url_for('static', filename='css/metro.min.css')}}"
+    />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="{{url_for('static', filename='css/musial.web.index.css')}}"
+    />
+    {% block style %} {% endblock %}
+    <!--
+      Definition of java script files to use in the application.
+      -->
+    <script
+      type="text/javascript"
+      src="https://code.jquery.com/jquery-3.7.1.min.js"
+    ></script>
+    <script
+      type="text/javascript"
+      src="{{url_for('static', filename='js/metro.min.js')}}"
+    ></script>
+    <script
+      type="text/javascript"
+      src="https://kit.fontawesome.com/df04f22e3d.js"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/sweetalert2@11"
+    ></script>
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/axios@1.6.5/dist/axios.min.js"
+    ></script>
+    <script>
+      var BACTERIA_GIF =
+        "{{ url_for('static', filename='resources/bacteria.gif') }}";
+    </script>
+    <script
+      type="text/javascript"
+      src="{{url_for('static', filename='js/pako.min.js')}}"
+    ></script>
+    <script
+      type="text/javascript"
+      src="{{url_for('static', filename='js/musial.web.index.js')}}"
+    ></script>
+    {% block script %} {% endblock %}
+  </head>
+  <body>
+    <!-- App menu -->
+    <header
+      id="menu"
+      class="app-bar app-bar-expand"
+      data-role="appbar"
+      data-expand="true"
+      data-role-appbar="true"
+    >
+      <div id="menu-grid" class="grid w-100">
+        <div class="row">
+          <div class="cell text-left ml-4">
+            <div class="logo no-hover">
+              <img
+                src="{{ url_for('static', filename='resources/logo.png') }}"
+                alt="MUSIAL Logo"
+              />
+            </div>
+          </div>
+          <div class="cell text-right">
+            <button
+              onclick="redirectAbout()"
+              class="undecorated menu-button mr-8"
+              data-role="hint"
+              data-hint-text="Redirects to usage guide and about page. Will not close current tab."
+              data-hint-position="left"
+            >
+              <i class="fa-duotone fa-circle-question"></i> Usage Guide and
+              About
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+    {% block content %} {% endblock %}
+  </body>
+</html>
