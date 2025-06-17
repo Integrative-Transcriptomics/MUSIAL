@@ -1,0 +1,8 @@
+/app/musialweb/__pycache__
+/app/musialweb/session/*
+/app/musialweb/tmp_*
+/app/musialweb/.env
+/app/musialweb/static/resources/bacteria.gif
+.local/
+.venv/
+*.tar.gz
