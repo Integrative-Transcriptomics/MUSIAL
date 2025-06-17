@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="256px" height="256px" src="https://github.com/Integrative-Transcriptomics/MUSIAL/blob/v2.4/media/logo_lucid_512.png">
+  <img width="256px" height="256px" src="https://github.com/Integrative-Transcriptomics/MUSIAL/blob/77ce6bca5c468d4a29f28a0b6c4c0f262026d1d4/media/logo_lucid_512.png">
 </p>
 
 # MUSIAL
@@ -14,7 +14,7 @@ MUSIAL enables a comprehensive assessment of variability within a species at the
 - **Projection to genomic features (genes) facilitates allele- and proteoform-specific information** that supports the characterization of individual samples.
 - **VCF based sequence reconstruction** at nucleotide and protein sequence level and tabular reports on sample, feature and variant statistics.
 
-## 🔧 Usage
+## 📖 Usage
 
 An executable `jar` file (`Java 21`) is available from the [Releases](https://github.com/Integrative-Transcriptomics/MUSIAL/releases) section.
 MUSIAL operates on a modular, task-based architecture that is primarily initiated by the `build` task, which creates a JSON file (_storage_) as its primary output; this is then used as input for all other tasks.
@@ -83,7 +83,7 @@ Further details on the use of the software and internal workflows can be found i
 
 ## 🌐 Web Interface
 
-To provide user-friendly access to its functionalities, MUSIAL is available via a web interface at https://musial-tuevis.cs.uni-tuebingen.de/; currently running version `v2.3.8`.
+To provide user-friendly access to its functionalities, MUSIAL is available via a web interface at https://musial-tuevis.cs.uni-tuebingen.de/ currently running version `v2.3.10`. The code is deposited in the `web` branch.
 
 ## 🔨 Build
 
