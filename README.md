@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="256px" height="256px" src="https://github.com/Integrative-Transcriptomics/MUSIAL/blob/v2.4/media/logo_lucid_512.png">
+  <img width="256px" height="256px" src="https://github.com/Integrative-Transcriptomics/MUSIAL/blob/77ce6bca5c468d4a29f28a0b6c4c0f262026d1d4/media/logo_lucid_512.png">
 </p>
 
 # MUSIAL
