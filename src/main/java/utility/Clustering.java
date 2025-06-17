@@ -1,5 +1,6 @@
 package utility;
 
+import com.oracle.labs.mlrg.olcut.provenance.ConfiguredObjectProvenance;
 import main.Musial;
 import org.tribuo.MutableDataset;
 import org.tribuo.clustering.ClusterID;
@@ -7,8 +8,11 @@ import org.tribuo.clustering.ClusteringFactory;
 import org.tribuo.clustering.hdbscan.HdbscanModel;
 import org.tribuo.clustering.hdbscan.HdbscanTrainer;
 import org.tribuo.impl.ArrayExample;
+import org.tribuo.math.distance.Distance;
 import org.tribuo.math.distance.L1Distance;
+import org.tribuo.math.la.SGDVector;
 import org.tribuo.math.neighbour.NeighboursQueryFactoryType;
+import org.tribuo.math.protos.DistanceProto;
 import org.tribuo.provenance.SimpleDataSourceProvenance;
 
 import java.util.*;
