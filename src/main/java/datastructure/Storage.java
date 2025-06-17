@@ -1077,7 +1077,7 @@ public class Storage {
                     allele.setAttribute(Constants.$SequenceType_clusterIndex, String.valueOf(entry.idx()));
                     allele.setAttribute(Constants.$SequenceType_clusterOutlierScore, String.format(Locale.US, "%.3f", entry.outlierScore()));
                     // Update the allele's name to include clustering information.
-                    allele.setName("%s.a%s.%s".formatted(feature.name, entry.label(), entry.idx()));
+                    allele.setName("%s.a%s.%s".formatted(feature.name, entry.idx(), entry.label()));
                 });
             }
 
@@ -1101,7 +1101,7 @@ public class Storage {
                         proteoform.setAttribute(Constants.$SequenceType_clusterIndex, String.valueOf(entry.idx()));
                         proteoform.setAttribute(Constants.$SequenceType_clusterOutlierScore, String.format(Locale.US, "%.3f", entry.outlierScore()));
                         // Update the proteoform's name to include clustering information.
-                        proteoform.setName("%s.p%s.%s".formatted(feature.name, entry.label(), entry.idx()));
+                        proteoform.setName("%s.p%s.%s".formatted(feature.name, entry.idx(), entry.label()));
                     });
                 }
             }
