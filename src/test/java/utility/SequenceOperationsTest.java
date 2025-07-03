@@ -15,119 +15,194 @@ public class SequenceOperationsTest {
 
     @Test
     void globalNucleotideSequenceAlignment_identicalSequences() {
-        String sequenceA = "ACGT";
-        String sequenceB = "ACGT";
+        String sequenceA = "TAAGTTTACA";
+        String sequenceB = "TAAGTTTACA";
         Tuple<String, String> result = SequenceOperations.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 2, 1,
-                SequenceOperations.MarginalGaps.FORBID, SequenceOperations.MarginalGaps.PENALIZE, null);
-        assertEquals(new Tuple<>("ACGT", "ACGT"), result);
+                true, true, false);
+        assertEquals(new Tuple<>("TAAGTTTACA", "TAAGTTTACA"), result);
     }
 
     @Test
     void globalNucleotideSequenceAlignment_singleSubstitution() {
-        String sequenceA = "ACGT";
-        String sequenceB = "AGGT";
+        String sequenceA = "TAACTTTACA";
+        String sequenceB = "TAAGTTTACA";
         Tuple<String, String> result = SequenceOperations.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 2, 1,
-                SequenceOperations.MarginalGaps.FORBID, SequenceOperations.MarginalGaps.PENALIZE, null);
-        assertEquals(new Tuple<>("ACGT", "AGGT"), result);
+                true, true, false);
+        assertEquals(new Tuple<>("TAACTTTACA", "TAAGTTTACA"), result);
     }
 
     @Test
     void globalNucleotideSequenceAlignment_singleInsertion() {
-        String sequenceA = "ACGT";
-        String sequenceB = "ACGTT";
+        String sequenceA = "TAACTTTACA";
+        String sequenceB = "TAATTTACA";
         Tuple<String, String> result = SequenceOperations.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 2, 1,
-                SequenceOperations.MarginalGaps.FORBID, SequenceOperations.MarginalGaps.PENALIZE, null);
-        assertEquals(new Tuple<>("ACGT-", "ACGTT"), result);
+                true, true, false);
+        assertEquals(new Tuple<>("TAACTTTACA", "TAA-TTTACA"), result);
     }
 
     @Test
     void globalNucleotideSequenceAlignment_singleDeletion() {
-        String sequenceA = "ACGT";
-        String sequenceB = "ACT";
+        String sequenceA = "TAATTTACA";
+        String sequenceB = "TAACTTTACA";
         Tuple<String, String> result = SequenceOperations.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 2, 1,
-                SequenceOperations.MarginalGaps.FORBID, SequenceOperations.MarginalGaps.PENALIZE, null);
-        assertEquals(new Tuple<>("ACGT", "AC-T"), result);
+                true, true, false);
+        assertEquals(new Tuple<>("TAA-TTTACA", "TAACTTTACA"), result);
     }
 
     @Test
     void globalNucleotideSequenceAlignment_emptySequenceA() {
         String sequenceA = "";
-        String sequenceB = "ACGT";
+        String sequenceB = "TAATTTACA";
         Tuple<String, String> result = SequenceOperations.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 2, 1,
-                SequenceOperations.MarginalGaps.FORBID, SequenceOperations.MarginalGaps.PENALIZE, null);
-        assertEquals(new Tuple<>("----", "ACGT"), result);
+                true, true, false);
+        assertEquals(new Tuple<>("---------", "TAATTTACA"), result);
     }
 
     @Test
     void globalNucleotideSequenceAlignment_emptySequenceB() {
-        String sequenceA = "ACGT";
+        String sequenceA = "TAATTTACA";
         String sequenceB = "";
         Tuple<String, String> result = SequenceOperations.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 2, 1,
-                SequenceOperations.MarginalGaps.FORBID, SequenceOperations.MarginalGaps.PENALIZE, null);
-        assertEquals(new Tuple<>("ACGT", "----"), result);
+                true, true, false);
+        assertEquals(new Tuple<>("TAATTTACA", "---------"), result);
+    }
+
+    @Test
+    void globalNucleotideSequenceAlignment_noGapPrefix() {
+        String sequenceA = "CC";
+        String sequenceB = "CCCCCCC";
+        Tuple<String, String> result = SequenceOperations.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 2, 1,
+                false, true, false);
+        assertEquals(new Tuple<>("C-----C", "CCCCCCC"), result);
+    }
+
+    @Test
+    void globalNucleotideSequenceAlignment_noGapSuffix() {
+        String sequenceA = "ATG";
+        String sequenceB = "ATGCTACTTC";
+        Tuple<String, String> result = SequenceOperations.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 2, 1,
+                true, false, false);
+        assertEquals(new Tuple<>("A-------TG", "ATGCTACTTC"), result);
+    }
+
+    @Test
+    void globalNucleotideSequenceAlignment_noGapEnds() {
+        String sequenceA = "CC";
+        String sequenceB = "GCCCCG";
+        Tuple<String, String> result = SequenceOperations.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 2, 1,
+                false, false, false);
+        assertEquals(new Tuple<>("C----C", "GCCCCG"), result);
+    }
+
+    @Test
+    void globalNucleotideSequenceAlignment_banded() {
+        String sequenceA = "TTTCGTATAACCTATGATAAAAAACTAACAATAATCATTAAATA";
+        String sequenceB = "GCTGGATCGTATAACCAGCGGCGCCGCGCCTGGCCCACGGCTACCG";
+        Tuple<String, String> result = SequenceOperations.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 2, 1,
+                true, true, true);
+        assertEquals(new Tuple<>(
+                "TTTCGTATAACCTATGATAAAAAACTAACAATAATC---ATTAAATA",
+                "GCT-GGATCGTATAACCAGCGGCGCCGCGCCTGGCCCACGGCTACCG"
+        ), result);
+    }
+
+    @Test
+    void globalNucleotideSequenceAlignment_complexVariant() {
+        String sequenceA = "CTGG";
+        String sequenceB = "CCCCGAC";
+        Tuple<String, String> result = SequenceOperations.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 2, 1,
+                false, true, false);
+        assertEquals(new Tuple<>(
+                "C---TGG",
+                "CCCCGAC"
+        ), result);
+    }
+
+    @Test
+    void globalNucleotideSequenceAlignment_complexFull() {
+        String sequenceA = "CTAGACGCCGGGCCGCGGCCGTTGCCCATATTTAATATAAATTTTATCCCTACGGCGGCGCCGCATGCGGCCTCGGCGGC";
+        String sequenceB = "TGCGTCACCCCCGCCCGCCCATATTTAATATAAATTTTATGCGACCCGCCCGAGAGGCGTGTATCGGGATCGGGTGGCGC";
+        Tuple<String, String> result = SequenceOperations.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 8, 1,
+                true, true, false);
+        assertEquals(new Tuple<>(
+                "CTAGACGCCGGGCCGCGGCCGTTGCCCATATTTAATATAAATTTTAT----CCCTACGGCGGCGCCGCATGCGGCCTCG---GCGGC",
+                "TGCGTCACCCCCGCCC-------GCCCATATTTAATATAAATTTTATGCGACCCGCCCGAGAGGCGTGTATCGGGATCGGGTGGCGC"
+        ), result);
     }
 
     @Test
     void globalProteinSequenceAlignment_identicalSequences() {
-        String sequenceA = "ACDEFGHIKLMNPQRSTVWY";
-        String sequenceB = "ACDEFGHIKLMNPQRSTVWY";
+        String sequenceA = "MNLSVTLVRV";
+        String sequenceB = "MNLSVTLVRV";
         Tuple<String, String> result = SequenceOperations.globalProteinSequenceAlignment(sequenceA, sequenceB, 8, 7,
-                SequenceOperations.MarginalGaps.FORBID, SequenceOperations.MarginalGaps.PENALIZE, 0);
-        assertEquals(new Tuple<>("ACDEFGHIKLMNPQRSTVWY", "ACDEFGHIKLMNPQRSTVWY"), result);
+                true, true, false);
+        assertEquals(new Tuple<>("MNLSVTLVRV", "MNLSVTLVRV"), result);
     }
 
     @Test
     void globalProteinSequenceAlignment_singleSubstitution() {
-        String sequenceA = "ACDEFGHIKLMNPQRSTVWY";
-        String sequenceB = "ACDEFGHIKLMNPQRSTVWZ";
-        Tuple<String, String> result = SequenceOperations.globalProteinSequenceAlignment(sequenceA, sequenceB, 8, 7,
-                SequenceOperations.MarginalGaps.FORBID, SequenceOperations.MarginalGaps.PENALIZE, 0);
-        assertEquals(new Tuple<>("ACDEFGHIKLMNPQRSTVWY", "ACDEFGHIKLMNPQRSTVWZ"), result);
+        String sequenceA = "MKETIPMQKNVFGTIYSGLA";
+        String sequenceB = "MKETIPMQKNVFGTIYSGLA";
+        Tuple<String, String> result = SequenceOperations.globalProteinSequenceAlignment(sequenceA, sequenceB, 12, 6,
+                true, true, false);
+        assertEquals(new Tuple<>("MKETIPMQKNVFGTIYSGLA", "MKETIPMQKNVFGTIYSGLA"), result);
     }
 
     @Test
     void globalProteinSequenceAlignment_insertion() {
-        String sequenceA = "ACDEFGHIKLMNPQRSTVWY";
-        String sequenceB = "ACDEFGSSSHIKLMNPQRSTVWY";
-        Tuple<String, String> result = SequenceOperations.globalProteinSequenceAlignment(sequenceA, sequenceB, 8, 7,
-                SequenceOperations.MarginalGaps.FORBID, SequenceOperations.MarginalGaps.PENALIZE, 3);
-        assertEquals(new Tuple<>("ACDEFG---HIKLMNPQRSTVWY", "ACDEFGSSSHIKLMNPQRSTVWY"), result);
+        String sequenceA = "MKETIPMQKNVEPAPYYFGTIYSGLA";
+        String sequenceB = "MKETIPMQKNVFGTIYSGLA";
+        Tuple<String, String> result = SequenceOperations.globalProteinSequenceAlignment(sequenceA, sequenceB, 12, 6,
+                true, true, false);
+        assertEquals(new Tuple<>("MKETIPMQKNVEPAPYYFGTIYSGLA", "MKETIPMQKNV------FGTIYSGLA"), result);
     }
 
     @Test
     void globalProteinSequenceAlignment_deletion() {
-        String sequenceA = "ACDEFGHIKLMNPQRSTVW";
-        String sequenceB = "ACDEFGHIKLQRSTVW";
-        Tuple<String, String> result = SequenceOperations.globalProteinSequenceAlignment(sequenceA, sequenceB, 8, 7,
-                SequenceOperations.MarginalGaps.FORBID, SequenceOperations.MarginalGaps.PENALIZE, 3);
-        assertEquals(new Tuple<>("ACDEFGHIKLMNPQRSTVW", "ACDEFGHIKL---QRSTVW"), result);
+        String sequenceA = "MKETIPMQKNVFGTIYSGLA";
+        String sequenceB = "MKETIPMQKNVEPAPYYFGTIYSGLA";
+        Tuple<String, String> result = SequenceOperations.globalProteinSequenceAlignment(sequenceA, sequenceB, 12, 6,
+                true, true, false);
+        assertEquals(new Tuple<>("MKETIPMQKNV------FGTIYSGLA", "MKETIPMQKNVEPAPYYFGTIYSGLA"), result);
     }
 
     @Test
     void globalProteinSequenceAlignment_indel() {
-        String sequenceA = "ACDEFGSSSHIKLMNPQRSW";
-        String sequenceB = "ACDEFGHIKLMNPQRSTVW";
-        Tuple<String, String> result = SequenceOperations.globalProteinSequenceAlignment(sequenceA, sequenceB, 8, 7,
-                SequenceOperations.MarginalGaps.FORBID, SequenceOperations.MarginalGaps.PENALIZE, 5);
-        assertEquals(new Tuple<>("ACDEFGSSSHIKLMNPQRS--W", "ACDEFG---HIKLMNPQRSTVW"), result);
+        String sequenceA = "MKETIPMRTCEQQKNVFGTIYA";
+        String sequenceB = "MKETIPMQKNVFGTIYSGLA";
+        Tuple<String, String> result = SequenceOperations.globalProteinSequenceAlignment(sequenceA, sequenceB, 12, 6,
+                true, true, false);
+        assertEquals(new Tuple<>("MKETIPMRTCEQQKNVFGTIY---A", "MKETIPM-----QKNVFGTIYSGLA"), result);
     }
 
     @Test
     void globalProteinSequenceAlignment_emptySequenceA() {
         String sequenceA = "";
-        String sequenceB = "ACDEFGHIKLMNPQRSTVWY";
+        String sequenceB = "MKETIPMQKNVFGTIYSGLA";
         Tuple<String, String> result = SequenceOperations.globalProteinSequenceAlignment(sequenceA, sequenceB, 8, 7,
-                SequenceOperations.MarginalGaps.FORBID, SequenceOperations.MarginalGaps.PENALIZE, null);
-        assertEquals(new Tuple<>("--------------------", "ACDEFGHIKLMNPQRSTVWY"), result);
+                true, true, false);
+        assertEquals(new Tuple<>("--------------------", "MKETIPMQKNVFGTIYSGLA"), result);
     }
 
     @Test
     void globalProteinSequenceAlignment_emptySequenceB() {
-        String sequenceA = "ACDEFGHIKLMNPQRSTVWY";
+        String sequenceA = "MKETIPMQKNVFGTIYSGLA";
         String sequenceB = "";
         Tuple<String, String> result = SequenceOperations.globalProteinSequenceAlignment(sequenceA, sequenceB, 8, 7,
-                SequenceOperations.MarginalGaps.FORBID, SequenceOperations.MarginalGaps.PENALIZE, null);
-        assertEquals(new Tuple<>("ACDEFGHIKLMNPQRSTVWY", "--------------------"), result);
+                true, true, false);
+        assertEquals(new Tuple<>("MKETIPMQKNVFGTIYSGLA", "--------------------"), result);
+    }
+
+    @Test
+    void globalProteinSequenceAlignment_real() {
+        String sequenceA = "LERSLNRVHLLGRVGQDPVLRQVEGKNPVTIFSLATNEMWRSDVSQKTTWHRISVFRPGLRDVAYQYVKKGSRIYLEGKIDYGEYMDKNNVRRQATTIIADNIIFL";
+        String sequenceB = "RGVNKVILVGNLGQDPEVRYMAVANITLATSESEQTEWHRVVLFGKLAEVASEYLRKGSQVYIEGQLRTRKWTDQSGQDRYTTEVVVNVGGTMQML";
+        Tuple<String, String> result = SequenceOperations.globalProteinSequenceAlignment(sequenceA, sequenceB, 6, 4,
+                true, true, false);
+        assertEquals(new Tuple<>(
+                "LERSLNRVHLLGRVGQDPVLRQVEGKNPVTIFSLATNEMWRSDVSQKTTWHRISVFRPGLRDVAYQYVKKGSRIYLEGKIDYGEYMDKNNVRRQATTIIAD---NIIFL",
+                "--RGVNKVILVGNLGQDPEVRYMAVAN-IT---LATSE------SEQTEWHRVVLFGK-LAEVASEYLRKGSQVYIEGQLRTRKWTDQSGQDRYTTEVVVNVGGTMQML"
+        ), result);
     }
 
     @Test

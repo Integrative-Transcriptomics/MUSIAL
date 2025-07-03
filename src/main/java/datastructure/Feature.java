@@ -365,9 +365,9 @@ public class Feature extends Attributable {
                         proteoformSequence,
                         Math.max(referenceSequence.length(), proteoformSequence.length()), // To avoid more gaps than defined by variant's deletions.
                         6,
-                        SequenceOperations.MarginalGaps.FORBID,
-                        SequenceOperations.MarginalGaps.PENALIZE,
-                        Math.abs(referenceSequence.length() - proteoformSequence.length())
+                        false,
+                        true,
+                        true
                 );
 
                 // Extract canonical amino acid variants from the alignment.

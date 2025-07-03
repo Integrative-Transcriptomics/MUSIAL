@@ -54,13 +54,13 @@ public final class SequenceOperations {
      * @param sequenceB        The second nucleotide sequence to align.
      * @param gapOpenPenalty   The penalty for opening a gap in the alignment.
      * @param gapExtendPenalty The penalty for extending an existing gap in the alignment.
-     * @param left             Specifies how to handle left-marginal gaps (FREE, PENALIZE, FORBID).
-     * @param right            Specifies how to handle right-marginal gaps (FREE, PENALIZE, FORBID).
-     * @param bandWidth        The band-width for banded alignment, or null for non-banded alignment.
+     * @param allowGapPrefix   Whether to allow gaps at the beginning of the aligned sequences.
+     * @param allowGapSuffix   Whether to allow gaps at the end of the aligned sequences.
+     * @param banded           Whether to use banded alignment (restricted by the sequence's length difference).
      * @return A {@link Tuple} containing the aligned sequences.
      */
     public static Tuple<String, String> globalNucleotideSequenceAlignment(String sequenceA, String sequenceB, int gapOpenPenalty, int gapExtendPenalty,
-                                                                          MarginalGaps left, MarginalGaps right, Integer bandWidth) {
+                                                                          boolean allowGapPrefix, boolean allowGapSuffix, boolean banded) {
         HashMap<Character, Integer> simpleNucleotideScoringMatrixIndexMap = new HashMap<>() {{
             put('A', 0);
             put('C', 1);
@@ -75,9 +75,8 @@ public final class SequenceOperations {
                 {-1, -1, -1, 1, -1},
                 {-1, -1, -1, -1, -1},
         };
-        return globalSequenceAlignment(sequenceA, sequenceB, simpleNucleotideScoringMatrixIndexMap,
-                simpleNucleotideScoringMatrix,
-                gapOpenPenalty, gapExtendPenalty, left, right, bandWidth);
+        return globalSequenceAlignment(sequenceA, sequenceB, simpleNucleotideScoringMatrixIndexMap, simpleNucleotideScoringMatrix,
+                gapOpenPenalty, gapExtendPenalty, allowGapPrefix, allowGapSuffix, banded);
     }
 
     /**
@@ -97,13 +96,13 @@ public final class SequenceOperations {
      * @param sequenceB        The second protein sequence to align.
      * @param gapOpenPenalty   The penalty for opening a gap in the alignment.
      * @param gapExtendPenalty The penalty for extending an existing gap in the alignment.
-     * @param left             Specifies how to handle left-marginal gaps (FREE, PENALIZE, FORBID).
-     * @param right            Specifies how to handle right-marginal gaps (FREE, PENALIZE, FORBID).
-     * @param bandWidth        The band-width for banded alignment, or null for non-banded alignment.
+     * @param allowGapPrefix   Whether to allow gaps at the beginning of the aligned sequences.
+     * @param allowGapSuffix   Whether to allow gaps at the end of the aligned sequences.
+     * @param banded           Whether to use banded alignment (restricted by the sequence's length difference).
      * @return A {@link Tuple} containing the aligned sequences.
      */
     public static Tuple<String, String> globalProteinSequenceAlignment(String sequenceA, String sequenceB, int gapOpenPenalty, int gapExtendPenalty,
-                                                                       MarginalGaps left, MarginalGaps right, Integer bandWidth) {
+                                                                       boolean allowGapPrefix, boolean allowGapSuffix, boolean banded) {
         HashMap<Character, Integer> blosum80IndexMap = new HashMap<>() {{
             put('A', 0);
             put('R', 1);
@@ -158,7 +157,8 @@ public final class SequenceOperations {
                 {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -6},
                 {-6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, 1}
         };
-        return globalSequenceAlignment(sequenceA, sequenceB, blosum80IndexMap, blosum80, gapOpenPenalty, gapExtendPenalty, left, right, bandWidth);
+        return globalSequenceAlignment(sequenceA, sequenceB, blosum80IndexMap, blosum80, gapOpenPenalty, gapExtendPenalty, allowGapPrefix,
+                allowGapSuffix, banded);
     }
 
     /**
@@ -174,184 +174,168 @@ public final class SequenceOperations {
      *   <li>Insertions are traced back by walking vertically, and deletions are traced back by walking horizontally.</li>
      * </ul>
      *
-     * @param sequenceY        The first sequence to align.
-     * @param sequenceX        The second sequence to align.
-     * @param characterIndex   A mapping of characters to their respective indices in the scoring matrix.
+     * @param sequenceA        The first sequence to align.
+     * @param sequenceB        The second sequence to align.
+     * @param symbolScoreIndex A mapping of characters to their respective indices in the scoring matrix.
      * @param scores           A 2D array representing the scoring matrix for character matches and mismatches.
      * @param gapOpenPenalty   The penalty for opening a gap in the alignment.
      * @param gapExtendPenalty The penalty for extending an existing gap in the alignment.
-     * @param prefix_gap_mode  Specifies how to handle left-marginal gaps (FREE, PENALIZE, FORBID).
-     * @param suffix_gap_mode  Specifies how to handle right-marginal gaps (FREE, PENALIZE, FORBID).
-     * @param bandWidth        The band-width for banded alignment, or null for non-banded alignment.
+     * @param allowGapPrefix   Whether to allow gaps at the beginning of the aligned sequences.
+     * @param allowGapSuffix   Whether to allow gaps at the end of the aligned sequences.
+     * @param banded           Whether to use banded alignment (restricted by the sequence's length difference).
      * @return A {@link Tuple} containing the aligned sequences.
      * @throws IllegalArgumentException If the bandWidth is too narrow for the given sequences.
      */
-    private static Tuple<String, String> globalSequenceAlignment(String sequenceY, String sequenceX,
-                                                                 HashMap<Character, Integer> characterIndex,
+    private static Tuple<String, String> globalSequenceAlignment(String sequenceA, String sequenceB,
+                                                                 HashMap<Character, Integer> symbolScoreIndex,
                                                                  int[][] scores, int gapOpenPenalty,
                                                                  int gapExtendPenalty,
-                                                                 MarginalGaps prefix_gap_mode,
-                                                                 MarginalGaps suffix_gap_mode,
-                                                                 Integer bandWidth) {
-        /*
-        Note on the alignment matrices:
-        - The y-axis will yield seq1.
-        - The x-axis will yield seq2.
-        - Indels are wrt. seq1; thus insertions are traced back by walking vertically and deletions are traced back by
-          walking horizontally in the matrix.
-         */
-        if (Objects.nonNull(bandWidth)) {
-            int lengthDifference = Math.abs(sequenceX.length() - sequenceY.length());
-            if (lengthDifference > bandWidth)
-                throw new IllegalArgumentException("Band width %d is too narrow for the given sequences with length difference of %d."
-                        .formatted(bandWidth, lengthDifference));
+                                                                 boolean allowGapPrefix,
+                                                                 boolean allowGapSuffix,
+                                                                 boolean banded) {
+        // Set band's width by sequence's length, if specified.
+        Integer width = null;
+        if (banded) {
+            width = Math.abs(sequenceA.length() - sequenceB.length());
         }
-        double[][] scoreMatrix = initializeMatrix(sequenceY.length() + 1, sequenceX.length() + 1);
-        double[][] matchScoreMatrix = initializeMatrix(sequenceY.length() + 1, sequenceX.length() + 1);
-        double[][] insertionScoreMatrix = initializeMatrix(sequenceY.length() + 1, sequenceX.length() + 1);
-        double[][] deletionScoreMatrix = initializeMatrix(sequenceY.length() + 1, sequenceX.length() + 1);
-        char[][] tracebackMatrix = new char[sequenceY.length() + 1][sequenceX.length() + 1];
-        char[] sequenceYBases = sequenceY.toCharArray();
-        char[] sequenceXBases = sequenceX.toCharArray();
-        int capacity = Math.max(sequenceY.length(), sequenceX.length());
-        StringBuilder alignedSequenceYBuilder = new StringBuilder(capacity);
-        StringBuilder alignedSequenceXBuilder = new StringBuilder(capacity);
-        // (1) Fill alignment score matrix.
-        scoreMatrix[0][0] = 0;
-        matchScoreMatrix[0][0] = 0;
-        insertionScoreMatrix[0][0] = 0;
-        deletionScoreMatrix[0][0] = 0;
+
+        int capacity = Math.max(sequenceA.length(), sequenceB.length());
+        StringBuilder alignedA = new StringBuilder(capacity);
+        StringBuilder alignedB = new StringBuilder(capacity);
+        char[] symbolsA = sequenceA.toCharArray();
+        char[] symbolsB = sequenceB.toCharArray();
+
+        // Initialize DP matrices.
+        double[][] D = initializeMatrix(sequenceA.length() + 1, sequenceB.length() + 1);
+        double[][] P = initializeMatrix(sequenceA.length() + 1, sequenceB.length() + 1);
+        double[][] Q = initializeMatrix(sequenceA.length() + 1, sequenceB.length() + 1);
+
+        // Fill dynamic programming matrices.
+        P[0][0] = 0; // Insertion (in sequence A wrt. sequence B) matrix initialization.
+        Q[0][0] = 0; // Deletion (in sequence A wrt. sequence B) matrix initialization.
+        D[0][0] = 0; // Substitution matrix initialization.
         int gapCost;
-        // i -> PREFIX
-        for (int i = 1; i < (Objects.isNull(bandWidth) ? sequenceY.length() + 1 : bandWidth + 1); i++) {
-            gapCost = switch (prefix_gap_mode) {
-                case FREE -> 0;
-                case PENALIZE -> -gapOpenPenalty - (i - 1) * gapExtendPenalty;
-                case FORBID -> -gapOpenPenalty * 2 * sequenceY.length();
-            };
-            scoreMatrix[i][0] = gapCost;
-            matchScoreMatrix[i][0] = gapCost;
-            insertionScoreMatrix[i][0] = gapCost;
-            deletionScoreMatrix[i][0] = gapCost;
-            tracebackMatrix[i][0] = 'I';
+        if (allowGapPrefix) {
+            for (int i = 1; i < (Objects.isNull(width) ? sequenceA.length() + 1 : width + 1); i++) {
+                gapCost = -gapOpenPenalty - i * gapExtendPenalty;
+                D[i][0] = gapCost;
+            }
+            for (int j = 1; j < (Objects.isNull(width) ? sequenceB.length() + 1 : width + 1); j++) {
+                gapCost = -gapOpenPenalty - j * gapExtendPenalty;
+                D[0][j] = gapCost;
+            }
         }
-        // j -> SUFFIX
-        for (int j = 1; j < (Objects.isNull(bandWidth) ? sequenceX.length() + 1 : bandWidth + 1); j++) {
-            gapCost = switch (suffix_gap_mode) {
-                case FREE -> 0;
-                case PENALIZE -> -gapOpenPenalty - (j - 1) * gapExtendPenalty;
-                case FORBID -> -gapOpenPenalty * 2 * sequenceX.length();
-            };
-            scoreMatrix[0][j] = gapCost;
-            matchScoreMatrix[0][j] = gapCost;
-            insertionScoreMatrix[0][j] = gapCost;
-            deletionScoreMatrix[0][j] = gapCost;
-            tracebackMatrix[0][j] = 'D';
+        for (int i = 1; i <= sequenceA.length(); i++) {
+            int jLeftBound = Math.max(1, (Objects.isNull(width) ? 1 : i - width));
+            int jRightBound = Math.min(sequenceB.length(), (Objects.isNull(width) ? sequenceB.length() : i + width));
+            for (int j = jLeftBound; j <= jRightBound; j++) {
+                P[i][j] = Math.max(
+                        D[i - 1][j] - gapOpenPenalty - gapExtendPenalty,
+                        P[i - 1][j] - gapExtendPenalty
+                );
+                Q[i][j] = Math.max(
+                        D[i][j - 1] - gapOpenPenalty - gapExtendPenalty,
+                        Q[i][j - 1] - gapExtendPenalty
+                );
+                D[i][j] = Math.max(
+                        D[i - 1][j - 1] + scores[symbolScoreIndex.get(symbolsA[i - 1])][symbolScoreIndex.get(symbolsB[j - 1])],
+                        Math.max(P[i][j], Q[i][j])
+                );
+            }
         }
-        double max;
-        for (int i = 1; i < sequenceY.length() + 1; i++) {
-            int jLeftBound = Math.max(
-                    1,
-                    (Objects.isNull(bandWidth) ? 1 : i - bandWidth)
-            );
-            int jRightBound = Math.min(
-                    sequenceX.length(),
-                    (Objects.isNull(bandWidth) ? sequenceX.length() : i + bandWidth)
-            );
-            for (int j = jLeftBound; j < jRightBound + 1; j++) {
-                matchScoreMatrix[i][j] =
-                        scoreMatrix[i - 1][j - 1]
-                                + scores[characterIndex.get(sequenceYBases[i - 1])][characterIndex
-                                .get(sequenceXBases[j - 1])];
-                insertionScoreMatrix[i][j] =
-                        Math.max(
-                                scoreMatrix[i - 1][j] - gapOpenPenalty,
-                                insertionScoreMatrix[i - 1][j] - gapExtendPenalty
-                        );
-                deletionScoreMatrix[i][j] =
-                        Math.max(
-                                scoreMatrix[i][j - 1] - gapOpenPenalty,
-                                deletionScoreMatrix[i][j - 1] - gapExtendPenalty
-                        );
-                max = Integer.MIN_VALUE;
-                if (insertionScoreMatrix[i][j] > max) {
-                    max = insertionScoreMatrix[i][j];
-                    scoreMatrix[i][j] = max;
-                    tracebackMatrix[i][j] = 'I';
+
+        // Traceback through the matrices to construct aligned sequences.
+        int i = sequenceA.length();
+        int j = sequenceB.length();
+        // Start from the scoreMatrix.
+        String currentMatrix = "D";
+        double score;
+        while (i > 0 || j > 0) {
+
+            // If the alignment is not allowed to end with a gap, enforce the first traceback step to align the last symbols.
+            if (!allowGapSuffix) {
+                alignedA.append(symbolsA[i - 1]);
+                alignedB.append(symbolsB[j - 1]);
+                i--;
+                j--;
+                allowGapSuffix = true;
+            }
+
+            // If banded alignment is used, ensure that the current indices are within the band's width.
+            if (Objects.nonNull(width) && Math.abs(i - j) >= width) {
+                if (i > 0) {
+                    alignedA.append(symbolsA[i - 1]);
+                    i--;
+                } else {
+                    alignedA.append(Constants.gapString);
                 }
-                if (deletionScoreMatrix[i][j] > max) {
-                    max = deletionScoreMatrix[i][j];
-                    scoreMatrix[i][j] = max;
-                    tracebackMatrix[i][j] = 'D';
-                }
-                if (matchScoreMatrix[i][j] > max) {
-                    max = matchScoreMatrix[i][j];
-                    scoreMatrix[i][j] = max;
-                    tracebackMatrix[i][j] = 'M';
+                if (j > 0) {
+                    alignedB.append(symbolsB[j - 1]);
+                    j--;
+                } else {
+                    alignedB.append(Constants.gapString);
                 }
             }
-        }
-        // (2) Deduce traceback path from matrix.
-        LinkedList<Character> tracebackPath = new LinkedList<>();
-        boolean runTraceback = true;
-        int i = sequenceY.length();
-        int j = sequenceX.length();
-        char tracebackDirection = tracebackMatrix[i][j];
-        while (runTraceback) {
-            if (tracebackDirection == 'M') {
-                tracebackPath.add('M');
-                i = i - 1;
-                j = j - 1;
-            } else if (tracebackDirection == 'D') {
-                tracebackPath.add('D');
-                j = j - 1;
-            } else if (tracebackDirection == 'I') {
-                tracebackPath.add('I');
-                i = i - 1;
-            }
-            if (i == 0 && j == 0) {
-                runTraceback = false;
-            } else {
-                tracebackDirection = tracebackMatrix[i][j];
-                if (tracebackDirection == '\u0000') // Prevents traceback to walk out of set alignment band.
-                    tracebackDirection = 'M';
-            }
-        }
-        Collections.reverse(tracebackPath);
-        // (3) Iterate over traceback path and construct aligned sequences.
-        int seq1Index = 0;
-        int seq2Index = 0;
-        for (Character character : tracebackPath) {
-            // Start walking along the traceback path.
-            tracebackDirection = character;
-            if (tracebackDirection == 'M') {
-                // CASE: Match or mismatch of nucleotide and amino-acid sequence.
-                alignedSequenceYBuilder.append(sequenceYBases[seq1Index]);
-                seq1Index += 1;
-                alignedSequenceXBuilder.append(sequenceXBases[seq2Index]);
-                seq2Index += 1;
-            } else if (tracebackDirection == 'D') {
-                // CASE: Deletion wrt. to first amino acid sequence.
-                alignedSequenceYBuilder.append(Constants.gapString);
-                alignedSequenceXBuilder.append(sequenceXBases[seq2Index]);
-                seq2Index += 1;
-            } else if (tracebackDirection == 'I') {
-                // CASE: Insertion wrt. to first amino acid sequence.
-                alignedSequenceYBuilder.append(sequenceYBases[seq1Index]);
-                seq1Index += 1;
-                alignedSequenceXBuilder.append(Constants.gapString);
+
+            // Default.
+            switch (currentMatrix) {
+                case "D" -> {
+                    score = D[i][j];
+                    if (i > 0 && j > 0 && score == D[i - 1][j - 1] + scores[symbolScoreIndex.get(symbolsA[i - 1])][symbolScoreIndex.get(symbolsB[j - 1])]) {
+                        alignedA.append(symbolsA[i - 1]);
+                        alignedB.append(symbolsB[j - 1]);
+                        i--;
+                        j--;
+                    } else if (i > 0 && score == P[i][j]) {
+                        currentMatrix = "P";
+                    } else if (i == 0) {
+                        alignedA.append(Constants.gapString);
+                        alignedB.append(symbolsB[j - 1]);
+                        j--;
+                    } else if (j > 0 && score == Q[i][j]) {
+                        currentMatrix = "Q";
+                    } else if (j == 0) {
+                        alignedA.append(symbolsA[i - 1]);
+                        alignedB.append(Constants.gapString);
+                        i--;
+                    }
+                }
+                case "P" -> {
+                    score = P[i][j];
+                    alignedA.append(symbolsA[i - 1]);
+                    alignedB.append(Constants.gapString);
+                    i--;
+                    if (i > 0 && score == P[i][j] - gapExtendPenalty) {
+                        currentMatrix = "P";
+                    } else {
+                        currentMatrix = "D";
+                    }
+                }
+                case "Q" -> {
+                    score = Q[i][j];
+                    alignedA.append(Constants.gapString);
+                    alignedB.append(symbolsB[j - 1]);
+                    j--;
+                    if (j > 0 && score == Q[i][j] - gapExtendPenalty) {
+                        currentMatrix = "Q";
+                    } else {
+                        currentMatrix = "D";
+                    }
+                }
             }
         }
-        // (4) Insert results into Tuple.
-        return new Tuple<>(alignedSequenceYBuilder.toString(), alignedSequenceXBuilder.toString());
+
+        // Reverse the aligned sequences to get the final result and return.
+        alignedA.reverse();
+        alignedB.reverse();
+        return new Tuple<>(alignedA.toString(), alignedB.toString());
     }
 
     /**
      * Initializes a 2D matrix with the specified number of rows and columns.
      * <p>
      * This method creates a 2D array of doubles with the given dimensions and fills
-     * each cell with {@link Double#NEGATIVE_INFINITY}. It uses Java Streams to iterate
-     * over the rows and apply the fill operation.
+     * each cell with {@link Double#NEGATIVE_INFINITY}.
      *
      * @param rows The number of rows in the matrix.
      * @param cols The number of columns in the matrix.
@@ -389,24 +373,6 @@ public final class SequenceOperations {
      */
     public static String stripGaps(String s) {
         return s.replaceAll(Constants.gapString, Constants.EMPTY);
-    }
-
-    /**
-     * Enum to store different modes to handle prefix gaps for global sequence alignment.
-     */
-    public enum MarginalGaps {
-        /**
-         * Gaps at the ends of a sequence are not penalized.
-         */
-        FREE,
-        /**
-         * Gaps at the end of a sequence are penalized normally.
-         */
-        PENALIZE,
-        /**
-         * Gaps at the end of a sequence are not allowed.
-         */
-        FORBID
     }
 
     /**
