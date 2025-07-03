@@ -92,6 +92,8 @@ public final class Constants {
      */
     public final static String lowFrequencyCallPrefix = "f";
 
+    public final static String missingUpstreamDeletionCallPrefix = "u";
+
     /**
      * String representation of a gap in a sequence.
      */
@@ -240,9 +242,9 @@ public final class Constants {
     public final static String $Sample_meanCoverage = "mean_coverage";
 
     /**
-     * Key used to represent the mean coverage of a sample wrt. all calls.
+     * Key used to represent the mean entropy of a sample wrt. all calls.
      */
-    public final static String $Sample_meanQuality = "mean_quality";
+    public final static String $Sample_meanEntropy = "mean_entropy";
 
     /**
      * Key used to represent the frequency of a variant in the stored samples.

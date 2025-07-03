@@ -79,7 +79,7 @@ public class Sample extends Attributable {
      * </pre>
      */
     public static final Pattern variantCallPattern =
-            Pattern.compile("([fx]?[0-9]+);[0-9]+;[0-9]+;([ACGTN-]+:(.|[ACGTN*-]+):[0-9]+:[0-9]+(,[ACGTN-]+:(.|[ACGTN*-]+):[0-9]+:[0-9]+)*)");
+            Pattern.compile("([fxu]?[01]);[0-9]+;[.0-9]+;([ACGTN-]+:(.|[ACGTN*-]+):[0-9]+(,[ACGTN-]+:(.|[ACGTN*-]+):[0-9]+)*)");
 
     /**
      * Constructs a new {@link Sample} instance with the specified name and initial capacity for the alleles map.

@@ -270,13 +270,18 @@ public final class Musial {
             Storage.Factory.serialize(storage, outputFile);
 
             // Log summary information about the storage and execution time.
+            long processedGenotypes = storage.getProcessedGenotypes();
+            float filteredGenotypes = storage.getFilteredGenotypes() / (float) processedGenotypes * 100;
+            float ignoredGenotypes = storage.getIgnoredGenotypes() / (float) processedGenotypes * 100;
             Logging.logDone(
-                    "Storage contains %d samples, %d features, %d variants. Processed %d genotypes. Execution time: %.2f seconds."
+                    "Storage contains %d samples, %d features, %d variants. Processed %d genotypes (%.2f%% filtered, %.2f%% reference or excluded). Execution time: %.2f seconds."
                             .formatted(
                                     storage.getSamples().size(),
                                     storage.getFeatures().size(),
                                     storage.getVariantsCount(),
-                                    storage.getProcessedGenotypes(),
+                                    processedGenotypes,
+                                    filteredGenotypes,
+                                    ignoredGenotypes,
                                     (System.currentTimeMillis() - startTime) / 1000.0
                             )
             );
