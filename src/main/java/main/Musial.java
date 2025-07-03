@@ -956,14 +956,36 @@ public final class Musial {
 
             // Iterate through each feature and export its sequences.
             for (String featureName : featureNames) {
-                Feature feature = storage.getFeature(featureName); // Retrieve the feature by name.
-                Contig contig = storage.getContig(feature.contig); // Retrieve the contig associated with the feature.
+
+                // Retrieve the corresponding feature from storage.
+                Feature feature = storage.getFeature(featureName.split(":")[0]);
+                if (Objects.isNull(feature)) {
+                    throw new MusialException("Feature %s not available in storage.".formatted(featureName));
+                }
+
+                Contig contig = storage.getContig(feature.contig);
+                int from, to;
+
+                // If the feature name contains a region specification (e.g., "feature:100..200"), parse and validate the region.
+                if (featureName.contains(":") && featureName.matches("^.+:g.[0-9]+\\.\\.[0-9]+$")) {
+                    String[] region = featureName.split(":g.")[1].split("\\.\\.");
+                    from = Integer.parseInt(region[0]);
+                    to = Integer.parseInt(region[1]);
+
+                    if (from < feature.start || to > feature.end) {
+                        throw new MusialException("Specified region %d..%d is out of bounds for feature %s (%d..%d)."
+                                .formatted(from, to, feature.name, feature.start, feature.end));
+                    }
+                } else { // If no region is specified, use the full range of the feature.
+                    from = feature.start;
+                    to = feature.end;
+                }
 
                 // Export nucleotide or amino acid sequences based on the task parameters.
                 if (nt) {
-                    exportNtSequences(feature, contig, sampleNames, conserved, merge, strip, reference);
+                    exportNtSequences(contig, feature, from, to, sampleNames, conserved, merge, strip, reference);
                 } else {
-                    exportAaSequences(feature, contig, sampleNames, conserved, merge, strip, reference);
+                    exportAaSequences(contig, feature, from, to, sampleNames, conserved, merge, strip, reference);
                 }
             }
 
@@ -978,8 +1000,10 @@ public final class Musial {
          * nucleotide sequences for alleles based on the provided parameters. The sequences
          * are written to a FASTA file in the specified output directory.
          *
-         * @param feature     The genomic feature for which sequences are exported.
          * @param contig      The contig containing the feature and its variants.
+         * @param feature     The genomic feature for which sequences are exported.
+         * @param from        The start position of the sequence to export.
+         * @param to          The end position of the sequence to export.
          * @param sampleNames A set of sample names to filter alleles for sequence generation.
          * @param conserved   If true, generates sequences with conserved reference content.
          * @param merge       If true, merges sequences for all samples into a single output.
@@ -987,7 +1011,7 @@ public final class Musial {
          * @param reference   If true, includes the reference sequence in the output.
          * @throws IOException If an I/O error occurs during file writing.
          */
-        private static void exportNtSequences(Feature feature, Contig contig, Set<String> sampleNames,
+        private static void exportNtSequences(Contig contig, Feature feature, int from, int to, Set<String> sampleNames,
                                               boolean conserved, boolean merge, boolean strip, boolean reference) throws IOException {
 
             // Check if conserved sequences are requested but the contig lacks reference sequence information.
@@ -1011,9 +1035,16 @@ public final class Musial {
             // Retrieve variants associated with the selected alleles.
             ArrayList<Tuple<Integer, String>> variants = contig.getVariantsByAlleles(feature, alleleUids);
 
+            // Filter variants to only include those within the specified range.
+            if (feature.start != from || feature.end != to) {
+                variants = variants.stream()
+                        .filter(variant -> variant.a >= from && variant.a <= to)
+                        .collect(Collectors.toCollection(ArrayList::new));
+            }
+
             // Retrieve the reference content if conserved sequences are requested.
             final char[] referenceContent;
-            if (conserved) referenceContent = contig.getSubsequence(feature.start, feature.end).toCharArray();
+            if (conserved) referenceContent = contig.getSubsequence(from, to).toCharArray();
             else referenceContent = null;
 
             // Map to store positional context for variants, defined as the reference content and maximal insertion length per position.
@@ -1050,16 +1081,16 @@ public final class Musial {
             }
 
             // StringBuilder to construct the sequence content.
-            StringBuilder content = new StringBuilder(conserved ? feature.end - feature.start + 1 : variants.size());
+            StringBuilder content = new StringBuilder(conserved ? referenceContent.length : variants.size());
 
             // Function to resolve reference content for a given position.
             Consumer<Integer> resolveReference = position -> {
                 if (positionalContext.containsKey(position)) {
                     Tuple<String, Integer> context = positionalContext.get(position);
-                    String referenceBase = context.a.isEmpty() && conserved ? String.valueOf(referenceContent[position - feature.start]) : context.a;
+                    String referenceBase = context.a.isEmpty() && conserved ? String.valueOf(referenceContent[position - from]) : context.a;
                     content.append(SequenceOperations.padGaps(referenceBase, referenceBase.length() + context.b));
                 } else if (conserved) {
-                    content.append(referenceContent[position - feature.start]);
+                    content.append(referenceContent[position - from]);
                 }
             };
 
@@ -1084,7 +1115,7 @@ public final class Musial {
 
                 // Write the reference sequence if requested.
                 if (reference) {
-                    IntStream.rangeClosed(feature.start, feature.end).forEach(resolveReference::accept);
+                    IntStream.rangeClosed(from, to).forEach(resolveReference::accept);
                     dump.accept(">reference [allelic_frequency=%s]".formatted(feature.getAttribute(Constants.$Attributable_frequencyReference)));
                 }
 
@@ -1099,7 +1130,7 @@ public final class Musial {
                     allele = feature.getAllele(alleleUid);
                     content.setLength(0);
                     deletedPositions = 0;
-                    for (int position = feature.start; position <= feature.end; position++) {
+                    for (int position = from; position <= to; position++) {
                         if (deletedPositions > 0) {
                             context = positionalContext.get(position);
                             content.append(SequenceOperations.padGaps(Constants.gapString, 1 + context.b));
@@ -1150,8 +1181,10 @@ public final class Musial {
          * amino acid sequences for proteoforms based on the provided parameters. The sequences
          * are written to a FASTA file in the specified output directory.
          *
-         * @param feature     The genomic feature for which sequences are exported.
          * @param contig      The contig containing the feature and its variants.
+         * @param feature     The genomic feature for which sequences are exported.
+         * @param from        The start position of the sequence to export.
+         * @param to          The end position of the sequence to export.
          * @param sampleNames A set of sample names to filter proteoforms for sequence generation.
          * @param conserved   If true, generates sequences with conserved reference content.
          * @param merge       If true, merges sequences for all samples into a single output.
@@ -1160,13 +1193,19 @@ public final class Musial {
          * @throws IOException     If an I/O error occurs during file writing.
          * @throws MusialException If a MUSIAL-specific error occurs.
          */
-        private static void exportAaSequences(Feature feature, Contig contig, Set<String> sampleNames,
+        private static void exportAaSequences(Contig contig, Feature feature, int from, int to, Set<String> sampleNames,
                                               boolean conserved, boolean merge, boolean strip, boolean reference) throws IOException, MusialException {
             // Check if the contig has reference sequence information; required for amino acid export.
             if (!contig.hasSequence()) {
                 Logging.logWarning("Skip feature %s; contig %s has to have reference sequence information for amino acid export."
                         .formatted(feature.name, contig.name));
                 return;
+            }
+
+            // Validate that the feature is coding.
+            if (!feature.isCoding()) {
+                throw new MusialException("Feature %s is not coding, cannot export amino acid sequences."
+                        .formatted(feature.name));
             }
 
             // Collect proteoform UIDs that match the provided sample names, excluding synonymous proteoforms.
@@ -1180,10 +1219,6 @@ public final class Musial {
                 return;
             }
 
-            // Translate the reference nucleotide sequence to amino acid sequence.
-            final char[] referenceContent = SequenceOperations
-                    .translateSequence(contig.getSubsequence(feature.start, feature.end), feature.isReverse()).toCharArray();
-
             // Collect all variants associated with the selected proteoforms.
             Set<Tuple<Integer, String>> variantsSet = new HashSet<>();
             for (String proteoformUid : proteoformUids) {
@@ -1192,6 +1227,26 @@ public final class Musial {
             }
             ArrayList<Tuple<Integer, String>> variants = new ArrayList<>(variantsSet);
             variants.sort(Comparator.comparingInt(i -> i.a));
+
+            int fromRelative = ( ( from - feature.start + 1 ) + 2 ) / 3;
+            int toRelative = ( to - feature.start + 1 ) / 3;
+
+            if (feature.start != from || feature.end != to) {
+                // Check if the range is a multiple of 3, as amino acid sequences require this.
+                if ((to - from + 1) % 3 != 0) {
+                    throw new MusialException("Amino acid sequence export requires range to be a multiple of 3, but %d..%d is not."
+                            .formatted(from, to));
+                }
+
+                // Filter variants to only include those within the specified range.
+                variants = variants.stream()
+                        .filter(variant -> variant.a >= fromRelative && variant.a <= toRelative)
+                        .collect(Collectors.toCollection(ArrayList::new));
+            }
+
+            // Translate the reference nucleotide sequence to amino acid sequence.
+            final char[] referenceContent = SequenceOperations
+                    .translateSequence(contig.getSubsequence(from, to), feature.isReverse()).toCharArray();
 
             // Map to store positional context for variants.
             HashMap<Integer, Tuple<String, Integer>> positionalContext = new HashMap<>();
@@ -1207,21 +1262,22 @@ public final class Musial {
 
             // Process each variant to populate the positional context.
             for (Tuple<Integer, String> variant : variants) {
+                int referenceContentIndex = variant.a - fromRelative;
                 if (VariantInformation.isSubstitution(variant.b)) {
-                    updatePositionalContext.accept(new Tuple<>(variant.a, String.valueOf(referenceContent[variant.a - 1])), 0);
+                    updatePositionalContext.accept(new Tuple<>(variant.a, String.valueOf(referenceContent[referenceContentIndex])), 0);
                 } else {
-                    boolean mixed = variant.b.charAt(0) != referenceContent[variant.a - 1];
+                    boolean mixed = variant.b.charAt(0) != referenceContent[referenceContentIndex];
                     if (VariantInformation.isDeletion(variant.b)) {
                         if (mixed) {
-                            updatePositionalContext.accept(new Tuple<>(variant.a, String.valueOf(referenceContent[variant.a - 1])), 0);
+                            updatePositionalContext.accept(new Tuple<>(variant.a, String.valueOf(referenceContent[referenceContentIndex])), 0);
                         }
                         for (int i = 1; i < variant.b.length(); i++) {
-                            updatePositionalContext.accept(new Tuple<>(variant.a + i, String.valueOf(referenceContent[variant.a - 1 + i])), 0);
+                            updatePositionalContext.accept(new Tuple<>(variant.a + i, String.valueOf(referenceContent[referenceContentIndex + i])), 0);
                         }
                     } else if (VariantInformation.isInsertion(variant.b)) {
                         int length = variant.b.length() - 1;
                         if (mixed) {
-                            updatePositionalContext.accept(new Tuple<>(variant.a, String.valueOf(referenceContent[variant.a - 1])), length);
+                            updatePositionalContext.accept(new Tuple<>(variant.a, String.valueOf(referenceContent[referenceContentIndex])), length);
                         } else {
                             updatePositionalContext.accept(new Tuple<>(variant.a, Constants.EMPTY), length);
                         }
@@ -1234,12 +1290,13 @@ public final class Musial {
 
             // Function to resolve reference content for a given position.
             Consumer<Integer> resolveReference = position -> {
+                int referenceContentIndex = position - fromRelative;
                 if (positionalContext.containsKey(position)) {
                     Tuple<String, Integer> context = positionalContext.get(position);
-                    String referenceBase = context.a.isEmpty() && conserved ? String.valueOf(referenceContent[position - 1]) : context.a;
+                    String referenceBase = context.a.isEmpty() && conserved ? String.valueOf(referenceContent[referenceContentIndex]) : context.a;
                     content.append(SequenceOperations.padGaps(referenceBase, referenceBase.length() + context.b));
                 } else if (conserved) {
-                    content.append(referenceContent[position - 1]);
+                    content.append(referenceContent[referenceContentIndex]);
                 }
             };
 
@@ -1265,7 +1322,7 @@ public final class Musial {
 
                 // Write the reference sequence if requested.
                 if (reference) {
-                    IntStream.rangeClosed(1, referenceContent.length).forEach(resolveReference::accept);
+                    IntStream.rangeClosed(fromRelative, toRelative).forEach(resolveReference::accept);
                     dump.accept(">reference [allelic_frequency=%s]".formatted(feature.getAttribute(Constants.$Attributable_frequencyReference)));
                 }
 
@@ -1274,7 +1331,7 @@ public final class Musial {
                     Feature.Proteoform proteoform = feature.getProteoform(proteoformUid);
                     content.setLength(0);
                     int deletedPositions = 0;
-                    for (int position = 1; position <= referenceContent.length; position++) {
+                    for (int position = fromRelative; position <= toRelative; position++) {
                         if (deletedPositions > 0) {
                             Tuple<String, Integer> context = positionalContext.get(position);
                             content.append(SequenceOperations.padGaps(Constants.gapString, 1 + context.b));
