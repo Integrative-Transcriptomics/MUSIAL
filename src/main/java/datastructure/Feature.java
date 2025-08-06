@@ -363,11 +363,11 @@ public class Feature extends Attributable {
                 Tuple<String, String> alignment = SequenceOperations.globalProteinSequenceAlignment(
                         referenceSequence,
                         proteoformSequence,
-                        Math.max(referenceSequence.length(), proteoformSequence.length()), // To avoid more gaps than defined by variant's deletions.
-                        6,
-                        false,
+                        21,
+                        7,
                         true,
-                        true
+                        true,
+                        Math.abs(referenceSequence.length() - proteoformSequence.length())
                 );
 
                 // Extract canonical amino acid variants from the alignment.

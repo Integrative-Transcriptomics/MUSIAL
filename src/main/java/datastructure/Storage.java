@@ -1700,8 +1700,8 @@ public class Storage {
 
                     // Set deleted downstream positions if the current accepted call is a deletion.
                     if (VariantInformation.isDeletion(REF, ALT, true)) {
-                        downstreamDeletion.setLeft(POS + StringUtils.indexOf(ALT, Constants.gapChar));
-                        downstreamDeletion.setRight(POS + StringUtils.lastIndexOf(ALT, Constants.gapChar));
+                        downstreamDeletion.setLeft(POS + StringUtils.indexOf(ALT, Constants.GAP_CHAR));
+                        downstreamDeletion.setRight(POS + StringUtils.lastIndexOf(ALT, Constants.GAP_CHAR));
                         downstreamDeletionRejected = !prefix.equals(Constants.EMPTY);
                     }
 
@@ -1834,11 +1834,11 @@ public class Storage {
                                 SequenceOperations.globalNucleotideSequenceAlignment(
                                         SequenceOperations.stripGaps(referenceBuilder.toString()),
                                         SequenceOperations.stripGaps(alternativeBuilder.toString()),
-                                        3,
+                                        5,
                                         2,
-                                        false,
                                         true,
-                                        false
+                                        false,
+                                        0
                                 );
                         ArrayList<Triple<Integer, String, String>> resolvedVariants = SequenceOperations.getCanonicalVariants(realignedMixedIndel.a, realignedMixedIndel.b);
                         for (Triple<Integer, String, String> resolvedVariant : resolvedVariants) {
@@ -2132,10 +2132,18 @@ public class Storage {
                                     // For alternative alleles, retrieve the full reference and alternative's sequence.
                                     REF = variantContext.getReference().getBaseString();
                                     ALT = variantContext.getAlleles().get(i).getBaseString();
+
                                     // Handle upstream-deletion cases where ALT is "*".
                                     if (ALT.equals("*")) {
                                         REF = REF.substring(0, 1);
                                     } else {
+                                        // Remove common suffix from REF and ALT.
+                                        String commonSuffix = StringUtils.reverse(
+                                                StringUtils.getCommonPrefix(StringUtils.reverse(REF), StringUtils.reverse(ALT))
+                                        );
+                                        REF = StringUtils.removeEnd(REF, commonSuffix);
+                                        ALT = StringUtils.removeEnd(ALT, commonSuffix);
+
                                         // Ensure REF and ALT are in a canonical padded format for true alternatives.
                                         if (VariantInformation.isCanonicalVariant(REF, ALT)) {
                                             // If already canonical, pad gaps to align their lengths.
@@ -2144,16 +2152,10 @@ public class Storage {
                                         } else {
                                             // Realign REF and ALT by global nucleotide sequence alignment for complex variants.
                                             Tuple<String, String> alignment = SequenceOperations.globalNucleotideSequenceAlignment(
-                                                    REF, ALT, 3, 2, false, true, false
+                                                    REF, ALT, 5, 2, true, false, 0
                                             );
                                             REF = alignment.a;
                                             ALT = alignment.b;
-                                            // Remove common suffix from REF and ALT.
-                                            String commonSuffix = StringUtils.reverse(
-                                                    StringUtils.getCommonPrefix(StringUtils.reverse(REF), StringUtils.reverse(ALT))
-                                            );
-                                            REF = StringUtils.removeEnd(REF, commonSuffix);
-                                            ALT = StringUtils.removeEnd(ALT, commonSuffix);
                                         }
                                     }
                                 }

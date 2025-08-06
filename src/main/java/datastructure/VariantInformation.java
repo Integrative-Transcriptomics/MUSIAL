@@ -122,7 +122,7 @@ public class VariantInformation extends Attributable {
      * Determines whether a variant is an insertion, i.e.,
      * <ul>
      *     <li>either the alternative base content is a string of any length of {@link Constants#baseSymbols}
-     *     and the reference base content is a single base of {@link Constants#baseSymbols} followed by {@link Constants#gapString}s
+     *     and the reference base content is a single base of {@link Constants#baseSymbols} followed by {@link Constants#GAP}s
      *     matching the alternative content's length (padded canonical),</li>
      *     <li>or the reference base content is a single base of {@link Constants#baseSymbols} and the alternative
      *     content is a string of any length of {@link Constants#baseSymbols} (un-padded canonical).</li>
@@ -136,7 +136,7 @@ public class VariantInformation extends Attributable {
     public static boolean isInsertion(String ref, String alt, boolean padded) {
         if (padded) {
             return ref.length() == alt.length()
-                    && ref.matches("^[%s]%s+$".formatted(Constants.baseSymbols, Constants.gapString))
+                    && ref.matches("^[%s]%s+$".formatted(Constants.baseSymbols, Constants.GAP))
                     && isInsertion(alt);
         } else {
             return ref.length() == 1
@@ -164,7 +164,7 @@ public class VariantInformation extends Attributable {
      * Determines whether a variant is a deletion, i.e.,
      * <ul>
      *     <li>either the reference base content is a string of any length of {@link Constants#baseSymbols}
-     *     and the alternative base content is a single base of {@link Constants#baseSymbols} followed by {@link Constants#gapString}s
+     *     and the alternative base content is a single base of {@link Constants#baseSymbols} followed by {@link Constants#GAP}s
      *     matching the reference content's length (padded canonical),</li>
      *     <li>or the reference base content is a string of any length of {@link Constants#baseSymbols} and the
      *     alternative content is a single base of {@link Constants#baseSymbols} (un-padded canonical).</li>
@@ -194,13 +194,13 @@ public class VariantInformation extends Attributable {
      * This method checks if the alternative base content represents a deletion.
      * A deletion is defined as a string that starts with a valid nucleotide base
      * (from {@link Constants#baseSymbols}) followed by one or more gap symbols
-     * (defined in {@link Constants#gapString}).
+     * (defined in {@link Constants#GAP}).
      *
      * @param alt The alternative base content to check.
      * @return {@code true} if the alternative content represents a deletion, {@code false} otherwise.
      */
     public static boolean isDeletion(String alt) {
-        return alt.matches("^[%s]%s+$".formatted(Constants.baseSymbols, Constants.gapString));
+        return alt.matches("^[%s]%s+$".formatted(Constants.baseSymbols, Constants.GAP));
     }
 
     /**

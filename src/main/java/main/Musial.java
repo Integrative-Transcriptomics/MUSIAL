@@ -1106,7 +1106,7 @@ public final class Musial {
                 // Function to write a sequence to the file with a given header.
                 Consumer<String> dump = header -> {
                     try {
-                        String sequence = strip ? content.toString().replaceAll(Constants.gapString, Constants.EMPTY) : content.toString();
+                        String sequence = strip ? content.toString().replaceAll(Constants.GAP, Constants.EMPTY) : content.toString();
                         writer.write("%s\n%s\n".formatted(header, String.join("\n", Splitter.fixedLength(80).split(sequence))));
                     } catch (IOException e) {
                         throw new RuntimeException(e);
@@ -1133,7 +1133,7 @@ public final class Musial {
                     for (int position = from; position <= to; position++) {
                         if (deletedPositions > 0) {
                             context = positionalContext.get(position);
-                            content.append(SequenceOperations.padGaps(Constants.gapString, 1 + context.b));
+                            content.append(SequenceOperations.padGaps(Constants.GAP, 1 + context.b));
                             deletedPositions--;
                             if (allele.hasVariant(position))
                                 Logging.logWarning("Conflict with variant %s at deleted position %d for allele %s of feature %s."
@@ -1313,7 +1313,7 @@ public final class Musial {
                 // Function to write a sequence to the file with a given header.
                 Consumer<String> dump = header -> {
                     try {
-                        String sequence = strip ? content.toString().replaceAll(Constants.gapString, Constants.EMPTY) : content.toString();
+                        String sequence = strip ? content.toString().replaceAll(Constants.GAP, Constants.EMPTY) : content.toString();
                         writer.write("%s\n%s\n".formatted(header, String.join("\n", Splitter.fixedLength(80).split(sequence))));
                     } catch (IOException e) {
                         throw new RuntimeException(e);
@@ -1334,7 +1334,7 @@ public final class Musial {
                     for (int position = fromRelative; position <= toRelative; position++) {
                         if (deletedPositions > 0) {
                             Tuple<String, Integer> context = positionalContext.get(position);
-                            content.append(SequenceOperations.padGaps(Constants.gapString, 1 + context.b));
+                            content.append(SequenceOperations.padGaps(Constants.GAP, 1 + context.b));
                             deletedPositions--;
                             if (proteoform.hasVariant(position))
                                 Logging.logWarning("Conflict with variant %s at deleted position %d for allele %s of feature %s."
