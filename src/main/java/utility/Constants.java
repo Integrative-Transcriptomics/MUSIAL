@@ -97,12 +97,12 @@ public final class Constants {
     /**
      * String representation of a gap in a sequence.
      */
-    public final static String gapString = "-";
+    public final static String GAP = "-";
 
     /**
      * Character representation of a gap in a sequence.
      */
-    public final static char gapChar = '-';
+    public final static char GAP_CHAR = '-';
 
     /**
      * Represents the term used for synonymous {@link datastructure.Feature.Allele}s that are not actually stored.
