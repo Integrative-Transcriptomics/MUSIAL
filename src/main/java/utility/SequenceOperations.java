@@ -15,7 +15,10 @@ import org.biojava.nbio.core.sequence.transcription.Frame;
 import org.biojava.nbio.core.sequence.transcription.TranscriptionEngine;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.NavigableMap;
+import java.util.Objects;
 
 /**
  * Utility class for performing various sequence operations.
@@ -38,29 +41,21 @@ public final class SequenceOperations {
     private final static HashMap<Integer, String> translationCache = new HashMap<>();
 
     /**
-     * Performs global nucleotide sequence alignment using a simple scoring matrix.
+     * Computes optimal pairwise global nucleotide sequence alignment using a gap-affine (Gotoh) banded Needleman-Wunsch algorithm.
      * <p>
-     * This method aligns two nucleotide sequences using a gap-affine Needleman-Wunsch algorithm.
-     * It utilizes a predefined scoring matrix for nucleotide matches, mismatches, and gaps.
-     * <p>
-     * The scoring matrix is defined as follows:
-     * <ul>
-     *   <li>Match: +1</li>
-     *   <li>Mismatch: -1</li>
-     *   <li>Gap: -1</li>
-     * </ul>
+     * A simple scoring matrix (match: +1; mismatch: -1) is used.
      *
      * @param sequenceA        The first nucleotide sequence to align.
      * @param sequenceB        The second nucleotide sequence to align.
      * @param gapOpenPenalty   The penalty for opening a gap in the alignment.
      * @param gapExtendPenalty The penalty for extending an existing gap in the alignment.
-     * @param allowGapPrefix   Whether to allow gaps at the beginning of the aligned sequences.
-     * @param allowGapSuffix   Whether to allow gaps at the end of the aligned sequences.
-     * @param banded           Whether to use banded alignment (restricted by the sequence's length difference).
+     * @param noGapPrefix      Prevent (if true) gaps at the beginning of the aligned sequences.
+     * @param noGapSuffix      Prevent (if true) gaps at the end of the aligned sequences.
+     * @param bandWidth        The width of the band for banded alignment; if <= 0, the full length of sequence B is used.
      * @return A {@link Tuple} containing the aligned sequences.
      */
     public static Tuple<String, String> globalNucleotideSequenceAlignment(String sequenceA, String sequenceB, int gapOpenPenalty, int gapExtendPenalty,
-                                                                          boolean allowGapPrefix, boolean allowGapSuffix, boolean banded) {
+                                                                          boolean noGapPrefix, boolean noGapSuffix, int bandWidth) {
         HashMap<Character, Integer> simpleNucleotideScoringMatrixIndexMap = new HashMap<>() {{
             put('A', 0);
             put('C', 1);
@@ -76,33 +71,25 @@ public final class SequenceOperations {
                 {-1, -1, -1, -1, -1},
         };
         return globalSequenceAlignment(sequenceA, sequenceB, simpleNucleotideScoringMatrixIndexMap, simpleNucleotideScoringMatrix,
-                gapOpenPenalty, gapExtendPenalty, allowGapPrefix, allowGapSuffix, banded);
+                gapOpenPenalty, gapExtendPenalty, noGapPrefix, noGapSuffix, bandWidth);
     }
 
     /**
-     * Performs global protein sequence alignment using the BLOSUM80 scoring matrix.
+     * Computes optimal pairwise global amino acid sequence alignment using a gap-affine (Gotoh) banded Needleman-Wunsch algorithm.
      * <p>
-     * This method aligns two protein sequences using a gap-affine Needleman-Wunsch algorithm.
-     * It utilizes the BLOSUM80 scoring matrix for amino acid matches, mismatches, and gaps.
-     * <p>
-     * The scoring matrix is defined as follows:
-     * <ul>
-     *   <li>Match: Based on BLOSUM80 values.</li>
-     *   <li>Mismatch: Based on BLOSUM80 values.</li>
-     *   <li>Gap penalties: Defined by the gap open and gap extend penalties.</li>
-     * </ul>
+     * This method uses the BLOSUM80 scoring matrix for amino acid matches and mismatches.
      *
      * @param sequenceA        The first protein sequence to align.
      * @param sequenceB        The second protein sequence to align.
      * @param gapOpenPenalty   The penalty for opening a gap in the alignment.
      * @param gapExtendPenalty The penalty for extending an existing gap in the alignment.
-     * @param allowGapPrefix   Whether to allow gaps at the beginning of the aligned sequences.
-     * @param allowGapSuffix   Whether to allow gaps at the end of the aligned sequences.
-     * @param banded           Whether to use banded alignment (restricted by the sequence's length difference).
+     * @param noGapPrefix      Prevent (if true) gaps at the beginning of the aligned sequences.
+     * @param noGapSuffix      Prevent (if true) gaps at the end of the aligned sequences.
+     * @param bandWidth        The width of the band for banded alignment; if <= 0, the full length of sequence B is used.
      * @return A {@link Tuple} containing the aligned sequences.
      */
     public static Tuple<String, String> globalProteinSequenceAlignment(String sequenceA, String sequenceB, int gapOpenPenalty, int gapExtendPenalty,
-                                                                       boolean allowGapPrefix, boolean allowGapSuffix, boolean banded) {
+                                                                       boolean noGapPrefix, boolean noGapSuffix, int bandWidth) {
         HashMap<Character, Integer> blosum80IndexMap = new HashMap<>() {{
             put('A', 0);
             put('R', 1);
@@ -157,169 +144,180 @@ public final class SequenceOperations {
                 {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -6},
                 {-6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, -6, 1}
         };
-        return globalSequenceAlignment(sequenceA, sequenceB, blosum80IndexMap, blosum80, gapOpenPenalty, gapExtendPenalty, allowGapPrefix,
-                allowGapSuffix, banded);
+        return globalSequenceAlignment(sequenceA, sequenceB, blosum80IndexMap, blosum80, gapOpenPenalty, gapExtendPenalty, noGapPrefix,
+                noGapSuffix, bandWidth);
     }
 
     /**
-     * Computes optimal pairwise global sequence alignment using a gap-affine banded Needleman-Wunsch algorithm.
+     * Computes optimal pairwise global sequence alignment using a gap-affine (Gotoh) banded Needleman-Wunsch algorithm.
      * <p>
-     * This method aligns two sequences using a scoring matrix and gap penalties. It supports banded alignment
-     * for performance optimization and handles marginal gaps based on the specified modes.
+     * Setting the bandWidth to a value less than or equal to 0 will result in a full alignment.
      * <p>
-     * The alignment matrices are structured as follows:
-     * <ul>
-     *   <li>The y-axis corresponds to the first sequence (sequenceY).</li>
-     *   <li>The x-axis corresponds to the second sequence (sequenceX).</li>
-     *   <li>Insertions are traced back by walking vertically, and deletions are traced back by walking horizontally.</li>
-     * </ul>
+     * Optionally, gaps can be disallowed at the beginning and/or end of the aligned sequences.
      *
-     * @param sequenceA        The first sequence to align.
-     * @param sequenceB        The second sequence to align.
-     * @param symbolScoreIndex A mapping of characters to their respective indices in the scoring matrix.
-     * @param scores           A 2D array representing the scoring matrix for character matches and mismatches.
-     * @param gapOpenPenalty   The penalty for opening a gap in the alignment.
-     * @param gapExtendPenalty The penalty for extending an existing gap in the alignment.
-     * @param allowGapPrefix   Whether to allow gaps at the beginning of the aligned sequences.
-     * @param allowGapSuffix   Whether to allow gaps at the end of the aligned sequences.
-     * @param banded           Whether to use banded alignment (restricted by the sequence's length difference).
+     * @param sequenceA         The first sequence to align.
+     * @param sequenceB         The second sequence to align.
+     * @param symbolsScoreIndex A mapping of characters to their respective indices in the scoring matrix.
+     * @param scores            A 2D array representing the scoring matrix for character matches and mismatches.
+     * @param gapOpenPenalty    The penalty for opening a gap in the alignment.
+     * @param gapExtendPenalty  The penalty for extending an existing gap in the alignment.
+     * @param noGapPrefix       Prevent (if true) gaps at the beginning of the aligned sequences.
+     * @param noGapSuffix       Prevent (if true) gaps at the end of the aligned sequences.
+     * @param bandWidth         The width of the band for banded alignment. Values less than or equal to 0 will result in a full alignment.
      * @return A {@link Tuple} containing the aligned sequences.
      * @throws IllegalArgumentException If the bandWidth is too narrow for the given sequences.
      */
     private static Tuple<String, String> globalSequenceAlignment(String sequenceA, String sequenceB,
-                                                                 HashMap<Character, Integer> symbolScoreIndex,
+                                                                 HashMap<Character, Integer> symbolsScoreIndex,
                                                                  int[][] scores, int gapOpenPenalty,
                                                                  int gapExtendPenalty,
-                                                                 boolean allowGapPrefix,
-                                                                 boolean allowGapSuffix,
-                                                                 boolean banded) {
-        // Set band's width by sequence's length, if specified.
-        Integer width = null;
-        if (banded) {
-            width = Math.abs(sequenceA.length() - sequenceB.length());
+                                                                 boolean noGapPrefix,
+                                                                 boolean noGapSuffix,
+                                                                 int bandWidth) {
+        // Check if either sequence is empty and return accordingly.
+        if (sequenceA.isEmpty())
+            return new Tuple<>(Constants.GAP.repeat(sequenceB.length()), sequenceB);
+        if (sequenceB.isEmpty())
+            return new Tuple<>(sequenceA, Constants.GAP.repeat(sequenceA.length()));
+
+        // Define constants for the algorithm.
+        final int MIN = Integer.MIN_VALUE / 2;
+        int lengthA = sequenceA.length(), lengthB = sequenceB.length(); // Lengths of the sequences to align.
+        boolean useBand = bandWidth > 0; // Flag to indicate if banded alignment is used.
+
+        // Validate band-width for banded alignment.
+        if (useBand && bandWidth < Math.abs(lengthA - lengthB)) {
+            throw new IllegalArgumentException("Banded alignment width (%d) is too narrow for sequences of lengths %d and %d.".formatted(
+                    bandWidth, lengthA, lengthB));
         }
 
-        int capacity = Math.max(sequenceA.length(), sequenceB.length());
-        StringBuilder alignedA = new StringBuilder(capacity);
-        StringBuilder alignedB = new StringBuilder(capacity);
+        // Initialize sequence components.
+        int maxLength = Math.max(lengthA, sequenceB.length()); // This may be exceeded by inserted gaps.
+        StringBuilder alignedA = new StringBuilder(maxLength);
+        StringBuilder alignedB = new StringBuilder(maxLength);
         char[] symbolsA = sequenceA.toCharArray();
         char[] symbolsB = sequenceB.toCharArray();
 
         // Initialize DP matrices.
-        double[][] D = initializeMatrix(sequenceA.length() + 1, sequenceB.length() + 1);
-        double[][] P = initializeMatrix(sequenceA.length() + 1, sequenceB.length() + 1);
-        double[][] Q = initializeMatrix(sequenceA.length() + 1, sequenceB.length() + 1);
+        int[][] D = new int[lengthA + 1][lengthB + 1];
+        int[][] P = new int[lengthA + 1][lengthB + 1];
+        int[][] Q = new int[lengthA + 1][lengthB + 1];
 
         // Fill dynamic programming matrices.
-        P[0][0] = 0; // Insertion (in sequence A wrt. sequence B) matrix initialization.
-        Q[0][0] = 0; // Deletion (in sequence A wrt. sequence B) matrix initialization.
-        D[0][0] = 0; // Substitution matrix initialization.
-        int gapCost;
-        if (allowGapPrefix) {
-            for (int i = 1; i < (Objects.isNull(width) ? sequenceA.length() + 1 : width + 1); i++) {
-                gapCost = -gapOpenPenalty - i * gapExtendPenalty;
-                D[i][0] = gapCost;
+        int leftBoundary = 0;
+        int rightBoundary = lengthB;
+        for (int i = 0; i <= lengthA; i++) {
+            // Set the boundaries for banded alignment.
+            if (useBand) {
+                leftBoundary = Math.max(0, i - bandWidth);
+                rightBoundary = Math.min(lengthB, i + bandWidth);
             }
-            for (int j = 1; j < (Objects.isNull(width) ? sequenceB.length() + 1 : width + 1); j++) {
-                gapCost = -gapOpenPenalty - j * gapExtendPenalty;
-                D[0][j] = gapCost;
-            }
-        }
-        for (int i = 1; i <= sequenceA.length(); i++) {
-            int jLeftBound = Math.max(1, (Objects.isNull(width) ? 1 : i - width));
-            int jRightBound = Math.min(sequenceB.length(), (Objects.isNull(width) ? sequenceB.length() : i + width));
-            for (int j = jLeftBound; j <= jRightBound; j++) {
-                P[i][j] = Math.max(
-                        D[i - 1][j] - gapOpenPenalty - gapExtendPenalty,
-                        P[i - 1][j] - gapExtendPenalty
-                );
-                Q[i][j] = Math.max(
-                        D[i][j - 1] - gapOpenPenalty - gapExtendPenalty,
-                        Q[i][j - 1] - gapExtendPenalty
-                );
-                D[i][j] = Math.max(
-                        D[i - 1][j - 1] + scores[symbolScoreIndex.get(symbolsA[i - 1])][symbolScoreIndex.get(symbolsB[j - 1])],
-                        Math.max(P[i][j], Q[i][j])
-                );
+            for (int j = leftBoundary; j <= rightBoundary; j++) {
+                // Set cell values outside the band to a worse-than minimum value.
+                if (useBand) {
+                    if (j > 0 && j == leftBoundary) {
+                        D[i][j - 1] = MIN - 1;
+                        P[i][j - 1] = MIN - 1;
+                        Q[i][j - 1] = MIN - 1;
+                    } else if (j < lengthB && j == rightBoundary) {
+                        D[i][j + 1] = MIN - 1;
+                        P[i][j + 1] = MIN - 1;
+                        Q[i][j + 1] = MIN - 1;
+                    }
+                }
+                // Fill the DP matrices based on the current indices.
+                if (i == 0 && j == 0) {
+                    // The first cell is initialized to zero.
+                    D[i][j] = 0;
+                    P[i][j] = 0;
+                    Q[i][j] = 0;
+                } else if (i == 0 && j > 0) {
+                    // First row.
+                    if (noGapPrefix) D[i][j] = MIN;
+                    else D[i][j] = -gapOpenPenalty - j * gapExtendPenalty;
+                    P[i][j] = MIN;
+                    Q[i][j] = MIN;
+                } else if (i > 0 && j == 0) {
+                    // First column.
+                    if (noGapPrefix) D[i][j] = MIN;
+                    else D[i][j] = -gapOpenPenalty - i * gapExtendPenalty;
+                    P[i][j] = MIN;
+                    Q[i][j] = MIN;
+                } else {
+                    // Other cells.
+                    if (noGapSuffix && (i == lengthA ^ j == lengthB)) {
+                        // If no gaps are allowed at the end, set cells in last row or column to minimum value.
+                        D[i][j] = MIN;
+                        P[i][j] = MIN;
+                        Q[i][j] = MIN;
+                    } else {
+                        // Otherwise calculate the scores based on the previous cells as defined by the Gotoh algorithm.
+                        P[i][j] = Math.max(MIN, Math.max(
+                                D[i - 1][j] - gapOpenPenalty - gapExtendPenalty,
+                                P[i - 1][j] - gapExtendPenalty
+                        ));
+                        Q[i][j] = Math.max(MIN, Math.max(
+                                D[i][j - 1] - gapOpenPenalty - gapExtendPenalty,
+                                Q[i][j - 1] - gapExtendPenalty
+                        ));
+                        D[i][j] = Math.max(MIN, Math.max(
+                                D[i - 1][j - 1] + scores[symbolsScoreIndex.get(symbolsA[i - 1])][symbolsScoreIndex.get(symbolsB[j - 1])],
+                                Math.max(P[i][j], Q[i][j])
+                        ));
+                    }
+                }
             }
         }
 
         // Traceback through the matrices to construct aligned sequences.
         int i = sequenceA.length();
         int j = sequenceB.length();
-        // Start from the scoreMatrix.
-        String currentMatrix = "D";
-        double score;
+        String matrix = "D"; // Start from D.
+        int score;
         while (i > 0 || j > 0) {
-
-            // If the alignment is not allowed to end with a gap, enforce the first traceback step to align the last symbols.
-            if (!allowGapSuffix) {
-                alignedA.append(symbolsA[i - 1]);
+            if (i == 0) {
+                // Add a gap in sequence A.
+                alignedA.append(Constants.GAP);
                 alignedB.append(symbolsB[j - 1]);
-                i--;
                 j--;
-                allowGapSuffix = true;
-            }
-
-            // If banded alignment is used, ensure that the current indices are within the band's width.
-            if (Objects.nonNull(width) && Math.abs(i - j) >= width) {
-                if (i > 0) {
-                    alignedA.append(symbolsA[i - 1]);
-                    i--;
-                } else {
-                    alignedA.append(Constants.gapString);
-                }
-                if (j > 0) {
-                    alignedB.append(symbolsB[j - 1]);
-                    j--;
-                } else {
-                    alignedB.append(Constants.gapString);
-                }
-            }
-
-            // Default.
-            switch (currentMatrix) {
-                case "D" -> {
-                    score = D[i][j];
-                    if (i > 0 && j > 0 && score == D[i - 1][j - 1] + scores[symbolScoreIndex.get(symbolsA[i - 1])][symbolScoreIndex.get(symbolsB[j - 1])]) {
+            } else if (j == 0) {
+                // Add a gap in sequence B.
+                alignedA.append(symbolsA[i - 1]);
+                alignedB.append(Constants.GAP);
+                i--;
+            } else {
+                // Determine the current direction and update indices accordingly
+                switch (matrix) {
+                    case "D" -> {
+                        score = D[i - 1][j - 1] + scores[symbolsScoreIndex.get(symbolsA[i - 1])][symbolsScoreIndex.get(symbolsB[j - 1])];
+                        if (D[i][j] == score) {
+                            alignedA.append(symbolsA[i - 1]);
+                            alignedB.append(symbolsB[j - 1]);
+                            i--;
+                            j--;
+                        } else if (D[i][j] == P[i][j]) {
+                            matrix = "P";
+                        } else if (D[i][j] == Q[i][j]) {
+                            matrix = "Q";
+                        } else {
+                            throw new IllegalStateException("Invalid alignment matrix state at cell D[%d][%d]: %d".formatted(i, j, D[i][j]));
+                        }
+                    }
+                    case "P" -> {
+                        if (P[i][j] == D[i - 1][j] - gapOpenPenalty - gapExtendPenalty) {
+                            matrix = "D";
+                        }
                         alignedA.append(symbolsA[i - 1]);
-                        alignedB.append(symbolsB[j - 1]);
-                        i--;
-                        j--;
-                    } else if (i > 0 && score == P[i][j]) {
-                        currentMatrix = "P";
-                    } else if (i == 0) {
-                        alignedA.append(Constants.gapString);
-                        alignedB.append(symbolsB[j - 1]);
-                        j--;
-                    } else if (j > 0 && score == Q[i][j]) {
-                        currentMatrix = "Q";
-                    } else if (j == 0) {
-                        alignedA.append(symbolsA[i - 1]);
-                        alignedB.append(Constants.gapString);
+                        alignedB.append(Constants.GAP);
                         i--;
                     }
-                }
-                case "P" -> {
-                    score = P[i][j];
-                    alignedA.append(symbolsA[i - 1]);
-                    alignedB.append(Constants.gapString);
-                    i--;
-                    if (i > 0 && score == P[i][j] - gapExtendPenalty) {
-                        currentMatrix = "P";
-                    } else {
-                        currentMatrix = "D";
-                    }
-                }
-                case "Q" -> {
-                    score = Q[i][j];
-                    alignedA.append(Constants.gapString);
-                    alignedB.append(symbolsB[j - 1]);
-                    j--;
-                    if (j > 0 && score == Q[i][j] - gapExtendPenalty) {
-                        currentMatrix = "Q";
-                    } else {
-                        currentMatrix = "D";
+                    case "Q" -> {
+                        if (Q[i][j] == D[i][j - 1] - gapOpenPenalty - gapExtendPenalty) {
+                            matrix = "D";
+                        }
+                        alignedA.append(Constants.GAP);
+                        alignedB.append(symbolsB[j - 1]);
+                        j--;
                     }
                 }
             }
@@ -332,25 +330,9 @@ public final class SequenceOperations {
     }
 
     /**
-     * Initializes a 2D matrix with the specified number of rows and columns.
-     * <p>
-     * This method creates a 2D array of doubles with the given dimensions and fills
-     * each cell with {@link Double#NEGATIVE_INFINITY}.
-     *
-     * @param rows The number of rows in the matrix.
-     * @param cols The number of columns in the matrix.
-     * @return A 2D array of doubles initialized with {@link Double#NEGATIVE_INFINITY}.
-     */
-    private static double[][] initializeMatrix(int rows, int cols) {
-        double[][] matrix = new double[rows][cols];
-        Arrays.stream(matrix).forEach(row -> Arrays.fill(row, Double.NEGATIVE_INFINITY));
-        return matrix;
-    }
-
-    /**
      * Pads a string with gap characters to reach a specified length.
      * <p>
-     * This method appends gap characters (defined by {@link Constants#gapString})
+     * This method appends gap characters (defined by {@link Constants#GAP})
      * to the input string until it reaches the desired length. If the input string
      * is already equal to or longer than the specified length, no padding is added.
      *
@@ -359,20 +341,20 @@ public final class SequenceOperations {
      * @return The padded string, or the original string if no padding is needed.
      */
     public static String padGaps(String s, int length) {
-        return s + Constants.gapString.repeat(Math.max(0, length - s.length()));
+        return s + Constants.GAP.repeat(Math.max(0, length - s.length()));
     }
 
     /**
      * Removes all gap characters from the input string.
      * <p>
-     * This method replaces all occurrences of the gap character (defined by {@link Constants#gapString})
+     * This method replaces all occurrences of the gap character (defined by {@link Constants#GAP})
      * in the input string with an empty string (defined by {@link Constants#EMPTY}).
      *
      * @param s The input string from which gaps should be removed.
      * @return A new string with all gap characters removed.
      */
     public static String stripGaps(String s) {
-        return s.replaceAll(Constants.gapString, Constants.EMPTY);
+        return s.replaceAll(Constants.GAP, Constants.EMPTY);
     }
 
     /**
@@ -413,7 +395,7 @@ public final class SequenceOperations {
 
                 // Handle upstream deletions.
                 if (deletionCount > 0) {
-                    result.append(Constants.gapString);
+                    result.append(Constants.GAP);
                     deletionCount--;
                     Logging.logWarning("Skip variant %s at position %d due to upstream deletion.".formatted(variant, pos));
                     continue;
@@ -430,7 +412,7 @@ public final class SequenceOperations {
             } else {
                 // Handle gaps from deletions or append reference character.
                 if (deletionCount > 0) {
-                    result.append(Constants.gapString);
+                    result.append(Constants.GAP);
                     deletionCount--;
                 } else {
                     result.append(referenceChars[idx]);
@@ -512,7 +494,7 @@ public final class SequenceOperations {
                 }
                 isSubstitution = isInsertion = isDeletion = ambiguousSwitch = false;
                 lastNonGapIndex = i;
-            } else if (referenceChars[i] == Constants.gapChar) { // Insertion:
+            } else if (referenceChars[i] == Constants.GAP_CHAR) { // Insertion:
                 if (isDeletion) {
                     if (!ambiguousSwitch) Logging.logWarning("Skip variant %s > %s due to ambiguous deletion to insertion switch."
                             .formatted(reference, alternative));
@@ -523,13 +505,13 @@ public final class SequenceOperations {
                         referenceBuilder.append(referenceChars[lastNonGapIndex]);
                         alternativeBuilder.append(alternativeChars[lastNonGapIndex]);
                     }
-                    referenceBuilder.append(Constants.gapChar);
+                    referenceBuilder.append(Constants.GAP_CHAR);
                     alternativeBuilder.append(alternativeChars[i]);
                     isSubstitution = false;
                     isInsertion = true;
                 }
                 noInsertions++;
-            } else if (alternativeChars[i] == Constants.gapChar) { // Deletion
+            } else if (alternativeChars[i] == Constants.GAP_CHAR) { // Deletion
                 if (isInsertion) {
                     if (!ambiguousSwitch) Logging.logWarning("Skip variant %s > %s due to ambiguous deletion to insertion switch."
                             .formatted(reference, alternative));
@@ -541,7 +523,7 @@ public final class SequenceOperations {
                         alternativeBuilder.append(alternativeChars[lastNonGapIndex]);
                     }
                     referenceBuilder.append(referenceChars[i]);
-                    alternativeBuilder.append(Constants.gapChar);
+                    alternativeBuilder.append(Constants.GAP_CHAR);
                     isSubstitution = false;
                     isDeletion = true;
                 }
