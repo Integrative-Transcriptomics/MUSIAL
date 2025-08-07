@@ -1097,8 +1097,8 @@ public final class Musial {
             // Write the sequences to a FASTA file.
             String fileName = String.format("%s%s%s%s_%s.fna",
                     feature.name,
-                    conserved ? "_allSites" : "_variantSites",
-                    merge ? "_merged" : "_perSample",
+                    conserved ? "_conserved" : "_variant",
+                    merge ? "_merged" : "_sample",
                     strip ? "" : "_aligned",
                     runId
             );
@@ -1303,8 +1303,8 @@ public final class Musial {
             // Write the sequences to a FASTA file.
             String fileName = String.format("%s%s%s%s_%s.faa",
                     feature.name,
-                    conserved ? "_allSites" : "_variantSites",
-                    merge ? "_merged" : "_perSample",
+                    conserved ? "_conserved" : "_variant",
+                    merge ? "_merged" : "_sample",
                     strip ? "" : "_aligned",
                     runId
             );
