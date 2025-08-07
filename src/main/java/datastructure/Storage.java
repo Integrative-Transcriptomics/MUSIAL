@@ -759,8 +759,8 @@ public class Storage {
      *
      * @return {@code true} if proteoform inference should be run, {@code false} otherwise.
      */
-    public boolean runProteoformInference() {
-        return !this.parameters.skipProteoformInference;
+    public boolean skipProteoformInference() {
+        return this.parameters.skipProteoformInference;
     }
 
     /**
@@ -1078,7 +1078,7 @@ public class Storage {
                 // Update allele information for the feature with respect to the sample.
                 String alleleUid = feature.updateAllele(contig, variants, sample);
                 // If the feature is coding and the contig has a sequence, update the proteoform.
-                if (feature.isCoding() && contig.hasSequence() && runProteoformInference()) {
+                if (feature.isCoding() && contig.hasSequence() && !skipProteoformInference()) {
                     feature.updateProteoform(contig, alleleUid);
                 }
             }
@@ -1109,7 +1109,7 @@ public class Storage {
             }
 
             // If the feature is coding, process proteoforms.
-            if (feature.isCoding() && runProteoformInference()) {
+            if (feature.isCoding() && !skipProteoformInference()) {
                 // Reset clustering and add proteoforms to the dataset.
                 Clustering.reset();
                 feature.getProteoforms().forEach(proteoform ->
