@@ -9,7 +9,6 @@ import org.biojava.nbio.core.sequence.DNASequence;
 import org.biojava.nbio.core.sequence.compound.AmbiguityDNACompoundSet;
 import org.biojava.nbio.core.sequence.compound.AmbiguityRNACompoundSet;
 import org.biojava.nbio.core.sequence.compound.NucleotideCompound;
-import org.biojava.nbio.core.sequence.template.CompoundSet;
 import org.biojava.nbio.core.sequence.template.Sequence;
 import org.biojava.nbio.core.sequence.transcription.Frame;
 import org.biojava.nbio.core.sequence.transcription.TranscriptionEngine;
@@ -29,6 +28,16 @@ import java.util.Objects;
  * with gaps and variants.
  */
 public final class SequenceOperations {
+
+    /**
+     * A transcription engine for translating DNA sequences.
+     * <p>
+     * See <a href="https://github.com/biojava/biojava-tutorial/blob/master/core/translating.md">https://github.com/biojava/biojava-tutorial/blob/master/core/translating.md</a>
+     */
+    private final static TranscriptionEngine transcriptionEngine = new TranscriptionEngine.Builder()
+            .dnaCompounds(AmbiguityDNACompoundSet.getDNACompoundSet())
+            .rnaCompounds(AmbiguityRNACompoundSet.getRNACompoundSet())
+            .build();
 
     /**
      * A cache for storing translated DNA sequences.
@@ -441,19 +450,21 @@ public final class SequenceOperations {
             return translationCache.get(cachedTranslationKey.hashCode());
         }
         try {
-            // Define ambiguity compound sets. See: https://github.com/biojava/biojava-tutorial/blob/master/core/translating.md
-            AmbiguityDNACompoundSet ambiguityDNACompoundSet = AmbiguityDNACompoundSet.getDNACompoundSet();
-            CompoundSet<NucleotideCompound> nucleotideCompoundSet = AmbiguityRNACompoundSet.getRNACompoundSet();
-            // Initialize the transcription engine. See: https://github.com/biojava/biojava-tutorial/blob/master/core/translating.md
-            TranscriptionEngine engine = new
-                    TranscriptionEngine.Builder().dnaCompounds(ambiguityDNACompoundSet).rnaCompounds(nucleotideCompoundSet).build();
             // Initialize the DNA sequence.
             Sequence<NucleotideCompound> dna = new DNASequence(sequence);
             String translatedSequence;
             if (reverse)
-                translatedSequence = engine.multipleFrameTranslation(dna, Frame.REVERSED_ONE).get(Frame.REVERSED_ONE).getSequenceAsString();
+                translatedSequence = transcriptionEngine.multipleFrameTranslation(dna, Frame.REVERSED_ONE).get(Frame.REVERSED_ONE).getSequenceAsString();
             else
-                translatedSequence = engine.multipleFrameTranslation(dna, Frame.ONE).get(Frame.ONE).getSequenceAsString();
+                translatedSequence = transcriptionEngine.multipleFrameTranslation(dna, Frame.ONE).get(Frame.ONE).getSequenceAsString();
+            // Add translated stop codon if present at the end of the sequence.
+            if (reverse) {
+                if (sequence.startsWith("CTA") || sequence.startsWith("TTA") || sequence.startsWith("TCA"))
+                    translatedSequence += Constants.stopCodon;
+            } else {
+                if (sequence.endsWith("TAG") || sequence.endsWith("TAA") || sequence.endsWith("TGA"))
+                    translatedSequence += Constants.stopCodon;
+            }
             // Cache the translation result.
             translationCache.put(cachedTranslationKey.hashCode(), translatedSequence);
             return translatedSequence;
