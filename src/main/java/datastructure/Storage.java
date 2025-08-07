@@ -1066,12 +1066,12 @@ public class Storage {
      * @throws MusialException If an error occurs during allele or proteoform updates.
      */
     public void updateSequenceTypes() throws IOException, MusialException {
-        // Iterate through all samples that need to be updated.
-        for (Sample sample : getSamplesToUpdate()) {
-            // Iterate through all features in the storage.
-            for (Feature feature : getFeatures()) {
-                // Retrieve the contig associated with the feature.
-                Contig contig = getContig(feature.contig);
+        // Iterate through all features in the storage.
+        for (Feature feature : getFeatures()) {
+            // Retrieve the contig associated with the feature.
+            Contig contig = getContig(feature.contig);
+            // Iterate through all samples that need to be updated.
+            for (Sample sample : getSamplesToUpdate()) {
                 // Filter variants for the sample within the feature's start and end positions.
                 ArrayList<Tuple<Integer, String>> variants = contig.getVariantsBySampleAndLocation(sample.name, feature.start, feature.end);
                 if (variants.isEmpty()) continue; // Skip if no variants are found.
