@@ -91,9 +91,17 @@ public final class Musial {
          */
         VIEW,
         /**
+         * Task to cluster samples by variants from a MUSIAL storage file.
+         */
+        CLUSTER,
+        /**
          * Task to export sequence data from a MUSIAL storage file.
          */
         SEQUENCE,
+        /**
+         * Task to type samples by feature's alleles and proteoforms from a MUSIAL storage file.
+         */
+        TYPE,
         /**
          * Task is undefined.
          */
@@ -155,9 +163,17 @@ public final class Musial {
                     Logging.logInfo("Execute task \033[1;1mview\033[0m");
                     View.run();
                 }
+                case CLUSTER -> {
+                    Logging.logInfo("Execute task \033[1;1mcluster\033[0m");
+                    Cluster.run();
+                }
                 case SEQUENCE -> {
                     Logging.logInfo("Execute task \033[1;1msequence\033[0m");
                     Sequence.run();
+                }
+                case TYPE -> {
+                    Logging.logInfo("Execute task \033[1;1mtype\033[0m");
+                    Type.run();
                 }
                 default -> System.exit(-2); // Exit with an error code if the task is undefined.
             }
@@ -493,12 +509,10 @@ public final class Musial {
          * </ul>
          */
         public static final Set<String> content = Set.of(
-                "feature",
-                "allele",
-                "sample",
-                "type",
-                "variant",
-                "call"
+                "features",
+                "samples",
+                "variants",
+                "calls"
         );
 
         /**
@@ -560,12 +574,10 @@ public final class Musial {
             // Generate the table based on the specified content type.
             Logging.logInfo("Generate `%s` content.".formatted(content));
             Table table = switch (content) {
-                case "feature" -> featureTable(storage, features);
-                case "allele" -> alleleTable(storage, features, samples);
-                case "sample" -> sampleTable(storage, samples);
-                case "type" -> typeMatrix(storage, samples, features);
-                case "variant" -> variantTable(storage, positions, samples, features);
-                case "call" -> callMatrix(storage, samples, positions);
+                case "features" -> featureTable(storage, features);
+                case "samples" -> sampleTable(storage, samples);
+                case "variants" -> variantTable(storage, positions, samples, features);
+                case "calls" -> callMatrix(storage, samples, positions);
                 default -> throw new MusialException("Unknown task `view` content %s.".formatted(content));
             };
 
@@ -631,88 +643,6 @@ public final class Musial {
         }
 
         /**
-         * Generates a table containing information about alleles and proteoforms for genomic features.
-         * <p>
-         * This method creates a table with rows representing alleles and proteoforms associated with features.
-         * The table can be filtered to include only specific features and samples based on the provided sets.
-         *
-         * @param storage         The {@link Storage} instance containing the features and alleles to be included in the table.
-         * @param includeFeatures A set of feature names to include in the table. If empty, all features are included.
-         * @param includeSamples  A set of sample names to include in the table. If empty, all samples are included.
-         * @return A {@link Table} object containing the allele and proteoform information.
-         */
-        private static Table alleleTable(Storage storage, Set<String> includeFeatures, Set<String> includeSamples) {
-            // Initialize the table with the header "feature    type    uid".
-            // The comparator is used to sort the rows based on feature start position.
-            Comparator<String> comparator = (r1, r2) -> {
-                String[] parts1 = r1.split(Constants.TAB);
-                String[] parts2 = r2.split(Constants.TAB);
-
-                // Extract feature, type, and UID for both rows
-                String feature1 = parts1[0], feature2 = parts2[0];
-                String type1 = parts1[1], type2 = parts2[1];
-
-                // Compare features
-                if (!feature1.equals(feature2)) {
-                    return Integer.compare(storage.getFeature(feature1).start, storage.getFeature(feature2).start);
-                }
-
-                // Compare types
-                if (!type1.equals(type2)) {
-                    return type1.compareTo(type2); // Alleles first, then proteoforms
-                }
-
-                return 0;
-            };
-            Table table = new Table("feature\ttype\tid", storage.getFeatures().size(), comparator, Constants.EMPTY);
-
-            // Stream through the features in the storage, filtering based on the includeFeatures set.
-            storage.getFeatures().stream()
-                    .filter(feature -> includeFeatures.isEmpty() || includeFeatures.contains(feature.name))
-                    .forEach(feature -> {
-                        // Track proteoform uids of associated alleles.
-                        Set<String> proteoformUids = new HashSet<>();
-
-                        // Process each allele of the feature.
-                        feature.getAlleles().forEach(allele -> {
-                            // Check if the allele should be included based on the includeSamples parameter
-                            if (includeSamples.isEmpty() || includeSamples.stream().anyMatch(allele::hasOccurrence)) {
-                                // Create a list of tuples representing the allele's attributes.
-                                // Valid proteoform UIDs are used to map to proteoform names.
-                                List<Tuple<String, String>> items = new ArrayList<>();
-                                for (Map.Entry<String, String> attribute : allele.getAttributes().entrySet()) {
-                                    String key = attribute.getKey(), value = attribute.getValue();
-                                    if (key.equals(Constants.$Allele_proteoform) && !value.equals(Constants.synonymous)) {
-                                        proteoformUids.add(attribute.getValue());
-                                        value = feature.getProteoform(value).getNameOrUid();
-                                    }
-                                    items.add(new Tuple<>(key, value));
-                                }
-                                // Add the allele's information to the table.
-                                table.addContent("%s\tallele\t%s".formatted(feature.name, allele.getNameOrUid()), items);
-                            }
-                        });
-
-                        // Process proteoforms if proteoform inference is not skipped and the feature is coding.
-                        if (feature.isCoding() && storage.runProteoformInference() && !proteoformUids.isEmpty()) {
-                            for (String uid : proteoformUids) {
-                                // Create a list of tuples representing the proteoform's attributes.
-                                Feature.Proteoform proteoform = feature.getProteoform(uid);
-                                List<Tuple<String, String>> items = new ArrayList<>(proteoform.getAttributes().entrySet().stream()
-                                        .map(entry -> new Tuple<>(entry.getKey(), entry.getValue()))
-                                        .toList());
-
-                                // Add the proteoform's information to the table.
-                                table.addContent("%s\tproteoform\t%s".formatted(feature.name, proteoform.getNameOrUid()), items);
-                            }
-                        }
-                    });
-
-            // Return the populated table.
-            return table;
-        }
-
-        /**
          * Generates a table containing information about samples.
          * <p>
          * This method creates a table with rows representing samples and columns representing
@@ -740,51 +670,6 @@ public final class Musial {
                         // Add the sample's name and its attributes to the table.
                         table.addContent(sample.name, items);
                     });
-
-            // Return the populated table.
-            return table;
-        }
-
-        /**
-         * Generates a table containing information about sequence types for samples and features.
-         * <p>
-         * This method creates a table with rows representing alleles and proteoforms associated with features.
-         * The table can be filtered to include only specific samples and features based on the provided sets.
-         *
-         * @param storage         The {@link Storage} instance containing the samples and features to be included in the table.
-         * @param includeSamples  A set of sample names to include in the table. If empty, all samples are included.
-         * @param includeFeatures A set of feature names to include in the table. If empty, all features are included.
-         * @return A {@link Table} object containing the sequence type information.
-         */
-        private static Table typeMatrix(Storage storage, Set<String> includeSamples, Set<String> includeFeatures) {
-            // Initialize the table with the header "name   type" and a comparator for sorting by feature start position.
-            Table table = new Table("name\ttype", includeFeatures.isEmpty() ? storage.getFeatures().size() : includeFeatures.size(),
-                    Comparator.comparingInt(i -> storage.getFeature(i.split(Constants.TAB)[0]).start), Constants.synonymous);
-
-            // Stream through the samples in the storage, filtering based on the includedSamples set.
-            storage.getSamples().stream()
-                    .filter(sample -> includeSamples.isEmpty() || includeSamples.contains(sample.name))
-                    .forEach(sample ->
-                            // Stream through the alleles of the sample, filtering based on the includeFeatures set.
-                            sample.getAlleles().stream()
-                                    .filter(entry -> includeFeatures.isEmpty() || includeFeatures.contains(entry.getKey()))
-                                    .forEach(entry -> {
-                                        // Retrieve the feature and allele information.
-                                        Feature feature = storage.getFeature(entry.getKey());
-                                        String alleleUid = entry.getValue();
-                                        String alleleName = feature.getAllele(alleleUid).getNameOrUid();
-
-                                        // Add allele information to the table.
-                                        table.addContent("%s\tallele".formatted(feature.name), List.of(new Tuple<>(sample.name, alleleName)));
-
-                                        // Add proteoform information if applicable.
-                                        if (feature.isCoding() && storage.runProteoformInference()) {
-                                            String proteoformUid = feature.getAllele(alleleUid).getAttributeOrDefault(Constants.$Allele_proteoform, Constants.synonymous);
-                                            String proteoformName = proteoformUid.equals(Constants.synonymous) ? Constants.synonymous : feature.getProteoform(proteoformUid).getNameOrUid();
-                                            table.addContent("%s\tproteoform".formatted(feature.name), List.of(new Tuple<>(sample.name, proteoformName)));
-                                        }
-                                    })
-                    );
 
             // Return the populated table.
             return table;
@@ -890,6 +775,14 @@ public final class Musial {
             // Return the populated table.
             return table;
         }
+    }
+
+    public static class Cluster {
+
+        public static void run( ) {
+
+        }
+
     }
 
     /**
@@ -1375,6 +1268,14 @@ public final class Musial {
                     }
                 }
             }
+        }
+
+    }
+
+    public static class Type {
+
+        public static void run() {
+
         }
 
     }
