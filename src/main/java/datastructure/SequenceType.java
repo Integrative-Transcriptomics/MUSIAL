@@ -16,15 +16,6 @@ import java.util.stream.Collectors;
 public class SequenceType extends Attributable {
 
     /**
-     * Optional name to describe this sequence type.
-     * <p>
-     * This field stores a human-readable name for the sequence type. It is optional and can be
-     * set to provide additional context or description for the sequence type. If not set, the
-     * sequence type is identified solely by its unique identifier (uid).
-     */
-    protected String name;
-
-    /**
      * The unique identifier of this entity.
      * <p>
      * This field serves as a final and immutable unique identifier for the sequence type.
@@ -78,24 +69,6 @@ public class SequenceType extends Attributable {
         for (Tuple<Integer, String> variant : variants) {
             this.variants.put(variant.a, variant.b);
         }
-    }
-
-    /**
-     * Sets the name of this sequence type.
-     *
-     * @param name The name to set for this sequence type.
-     */
-    protected void setName(String name) {
-        this.name = name;
-    }
-
-    /**
-     * Retrieves the name of this sequence type.
-     *
-     * @return The name of this sequence type, or {@code null} if it has not been set.
-     */
-    public String getName() {
-        return this.name;
     }
 
     /**
@@ -188,19 +161,15 @@ public class SequenceType extends Attributable {
     }
 
     /**
-     * Retrieves the name of this sequence type or its unique identifier (uid), if no name is set.
+     * Retrieves the identifier of this sequence type (its unique identifier (uid) or name attribute value).
      * <p>
-     * This method checks if the {@code name} field is set for the sequence type. If the {@code name}
-     * is {@code null}, it returns the unique identifier {@code uid}. Otherwise, it returns the
-     * {@code name}.
-     * <p>
-     * This should be used for obtaining a human-readable identifier for the sequence type in the
-     * context of logging or reporting.
+     * This method checks if the {@code name} field is set for the sequence type attributes. If not, the
+     * unique identifier {@code uid} is returned. Otherwise, the name attribute value is returned.
      *
-     * @return The name of this sequence type if it is set, or the unique identifier {@code uid} if the name is not set.
+     * @return The name of this sequence type if it is set, or the unique identifier {@code uid} if not set.
      */
-    public String getNameOrUid() {
-        return Objects.isNull(name) ? uid : name;
+    public String getIdentifier() {
+        return getAttributeOrDefault("name", uid);
     }
 
     /**
@@ -230,7 +199,7 @@ public class SequenceType extends Attributable {
      */
     public String toString() {
         return "%s\t%s\t%s".formatted(
-                getNameOrUid(),
+                getIdentifier(),
                 this.attributesAsString(),
                 this.variantsAsString());
     }

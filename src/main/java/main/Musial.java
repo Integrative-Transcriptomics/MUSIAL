@@ -1056,11 +1056,11 @@ public final class Musial {
                         }
                     }
                     if (merge) {
-                        dump.accept(allele.getFastaHeader(allele.getNameOrUid()));
+                        dump.accept(allele.getFastaHeader(allele.getIdentifier()));
                     } else {
                         for (String sampleName : allele.getOccurrence()) {
                             if (sampleNames.isEmpty() || sampleNames.contains(sampleName))
-                                dump.accept(">%s [allele=%s]".formatted(sampleName, allele.getNameOrUid()));
+                                dump.accept(">%s [allele=%s]".formatted(sampleName, allele.getIdentifier()));
                         }
                     }
                 }
@@ -1257,12 +1257,12 @@ public final class Musial {
                         }
                     }
                     if (merge) {
-                        dump.accept(proteoform.getFastaHeader(proteoform.getNameOrUid()));
+                        dump.accept(proteoform.getFastaHeader(proteoform.getIdentifier()));
                     } else {
                         for (String alleleUid : proteoform.getOccurrence()) {
                             for (String sampleName : feature.getAllele(alleleUid).getOccurrence()) {
                                 if (sampleNames.isEmpty() || sampleNames.contains(sampleName))
-                                    dump.accept(">%s [proteoform=%s]".formatted(sampleName, proteoform.getNameOrUid()));
+                                    dump.accept(">%s [proteoform=%s]".formatted(sampleName, proteoform.getIdentifier()));
                             }
                         }
                     }
