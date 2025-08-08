@@ -85,7 +85,9 @@ public final class CLI {
             case BUILD -> CLI.Build.options();
             case EXPAND -> CLI.Expand.options();
             case VIEW -> CLI.View.options();
+            case CLUSTER -> CLI.Cluster.options();
             case SEQUENCE -> CLI.Sequence.options();
+            case TYPE -> CLI.Type.options();
         }
 
         // Initialize help message formatter and default command line parser.
@@ -102,8 +104,10 @@ public final class CLI {
                     \033[47m\033[1;30m build    \033[0m : Build a local database file (storage) in JSON format from variant calls; the mandatory input for other tasks.
                     \033[47m\033[1;30m expand   \033[0m : Expand an existing storage file from variant call files.
                     \033[47m\033[1;30m view     \033[0m : View the content - features, samples or variants - and their attributes, of a MUSIAL storage file.
+                    \033[47m\033[1;30m cluster  \033[0m : ...
                     \033[47m\033[1;30m sequence \033[0m : Export sequences of features from a MUSIAL storage file.
-
+                    \033[47m\033[1;30m type     \033[0m : ...
+                                        
                     Call `java -jar %s-%s.jar <task> [-h|--help]` for more information.
                     """.formatted(Musial.softwareName, Musial.softwareVersion);
 
@@ -143,7 +147,9 @@ public final class CLI {
                 case BUILD -> CLI.Build.transfer();
                 case EXPAND -> CLI.Expand.transfer();
                 case VIEW -> CLI.View.transfer();
+                case CLUSTER -> CLI.Cluster.transfer();
                 case SEQUENCE -> CLI.Sequence.transfer();
+                case TYPE -> CLI.Type.transfer();
                 default -> exitNotRecognized(args);
             }
         } catch (ParseException | IOException | ProcessingException e) {
