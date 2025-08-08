@@ -113,12 +113,12 @@ public class SequenceType extends Attributable {
      * <p>
      * This method joins all unique identifiers stored in the {@code occurrence} set
      * into a single string, separated by commas. It uses the delimiter defined in
-     * {@link Constants#COMMA}.
+     * {@link Constants#comma}.
      *
      * @return A {@link String} representation of the occurrences, separated by commas.
      */
     public String occurrenceAsString() {
-        return String.join(Constants.COMMA, this.occurrence);
+        return String.join(Constants.comma, this.occurrence);
     }
 
     /**
@@ -191,7 +191,7 @@ public class SequenceType extends Attributable {
      * The string representation includes:
      * <ul>
      *   <li>The identifier, which is either the {@code name} (if set) or the unique identifier {@code uid}.</li>
-     *   <li>The attributes of this sequence type, formatted using {@link Attributable#attributesAsString()}.</li>
+     *   <li>The attributes of this sequence type, formatted using {@link Attributable#attributesAsString(String)}.</li>
      *   <li>The variants associated with this sequence type, formatted using {@link #variantsAsString()}.</li>
      * </ul>
      *
@@ -200,7 +200,7 @@ public class SequenceType extends Attributable {
     public String toString() {
         return "%s\t%s\t%s".formatted(
                 getIdentifier(),
-                this.attributesAsString(),
+                this.attributesAsString(Constants.semicolon),
                 this.variantsAsString());
     }
 
@@ -217,7 +217,7 @@ public class SequenceType extends Attributable {
     public static String variantsAsString(Map<Integer, String> variants) {
         return variants.entrySet().stream()
                 .map(e -> e.getKey() + e.getValue())
-                .collect(Collectors.joining(Constants.DOT));
+                .collect(Collectors.joining(Constants.dot));
     }
 
     /**
@@ -233,7 +233,7 @@ public class SequenceType extends Attributable {
     public static String variantsAsString(List<Tuple<Integer, String>> variants) {
         return variants.stream()
                 .map(e -> e.a + e.b)
-                .collect(Collectors.joining(Constants.DOT));
+                .collect(Collectors.joining(Constants.dot));
     }
 
     /**

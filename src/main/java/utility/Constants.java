@@ -17,47 +17,52 @@ public final class Constants {
     /**
      * Empty string constant.
      */
-    public final static String EMPTY = "";
+    public final static String empty = "";
+
+    /**
+     * Space string constant.
+     */
+    public final static String blank = " ";
 
     /**
      * Colon string constant.
      */
-    public final static String COLON = ":";
+    public final static String colon = ":";
 
     /**
      * Semicolon string constant.
      */
-    public final static String SEMICOLON = ";";
+    public final static String semicolon = ";";
 
     /**
      * Comma string constant.
      */
-    public final static String COMMA = ",";
+    public final static String comma = ",";
 
     /**
      * Tabulator string constant.
      */
-    public final static String TAB = "\t";
+    public final static String tab = "\t";
 
     /**
      * Dot string constant.
      */
-    public final static String DOT = ".";
+    public final static String dot = ".";
 
     /**
      * Equals sign string constant.
      */
-    public final static String EQUAL = "=";
+    public final static String equal = "=";
 
     /**
      * Number sign string constant.
      */
-    public final static String SIGN = "#";
+    public final static String sign = "#";
 
     /**
      * Pipe string constant.
      */
-    public final static String PIPE = "|";
+    public final static String pipe = "|";
 
     /**
      * Represents the nucleotide used to denote any base in a sequence.
@@ -97,15 +102,20 @@ public final class Constants {
     /**
      * String representation of a gap in a sequence.
      */
-    public final static String GAP = "-";
+    public final static String gap = "-";
 
     /**
      * Character representation of a gap in a sequence.
      */
-    public final static char GAP_CHAR = '-';
+    public final static char gapChar = '-';
 
     /**
-     * Represents the term used for synonymous {@link datastructure.Feature.Allele}s that are not actually stored.
+     * The term used for reference alleles in the context of {@link datastructure.Feature.Allele}s.
+     */
+    public final static String reference = "reference";
+
+    /**
+     * The term used for synonymous proteoforms in the context of {@link datastructure.Feature.Proteoform}s.
      */
     public final static String synonymous = "synonymous";
 

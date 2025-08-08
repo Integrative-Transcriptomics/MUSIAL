@@ -12,8 +12,8 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static utility.Constants.DOT;
-import static utility.Constants.TAB;
+import static utility.Constants.dot;
+import static utility.Constants.tab;
 
 /**
  * Representation of a genomic feature that is subject to analysis.
@@ -236,7 +236,7 @@ public class Feature extends Attributable {
             if (netFrameshift != 0) {
                 effects.add(lengthVariation > 0 ? "plus_%d_frameshift".formatted(netFrameshift) : "minus_%d_frameshift".formatted(netFrameshift));
             }
-            allele.setAttribute(Constants.$SequenceType_effects, String.join(Constants.COMMA, effects));
+            allele.setAttribute(Constants.$SequenceType_effects, String.join(Constants.comma, effects));
         }
 
         // Add the sample occurrence to the allele.
@@ -389,7 +389,7 @@ public class Feature extends Attributable {
                                 effects.add("redundant_inserted_stop_gained");
                             }
                         });
-                proteoform.setAttribute(Constants.$SequenceType_effects, String.join(Constants.COMMA, effects));
+                proteoform.setAttribute(Constants.$SequenceType_effects, String.join(Constants.comma, effects));
 
             }
 
@@ -457,10 +457,10 @@ public class Feature extends Attributable {
         // Check if the "children" attribute exists for this feature.
         if (hasAttribute("children")) {
             // Split the "children" attribute value into individual child entries using a comma as the delimiter.
-            for (String child : getAttribute("children").split(Constants.COMMA)) {
+            for (String child : getAttribute("children").split(Constants.comma)) {
 
                 // Split each child entry into parts using a colon as the delimiter.
-                String[] parts = child.split(Constants.COLON);
+                String[] parts = child.split(Constants.colon);
 
                 // Ensure the child entry has exactly three parts: type, start, and end.
                 if (parts.length == 3) {
@@ -495,9 +495,9 @@ public class Feature extends Attributable {
         children.forEach((key, locations) ->
                 // For each location, append the type, start, and end positions to the StringBuilder.
                 locations.forEach(location ->
-                        sb.append(key).append(Constants.COLON) // Append the child type.
-                                .append(location.a).append(Constants.COLON) // Append the start position.
-                                .append(location.b).append(Constants.COMMA) // Append the end position and a comma.
+                        sb.append(key).append(Constants.colon) // Append the child type.
+                                .append(location.a).append(Constants.colon) // Append the start position.
+                                .append(location.b).append(Constants.comma) // Append the end position and a comma.
                 )
         );
 
@@ -553,7 +553,7 @@ public class Feature extends Attributable {
                 start + "\t" +
                 end + "\t" +
                 strand + "\t" +
-                attributesAsString(exclude);
+                attributesAsString(exclude, Constants.semicolon);
     }
 
     /**
@@ -576,23 +576,23 @@ public class Feature extends Attributable {
         }
 
         // Append feature information.
-        contentBuilder.append(String.join(TAB,
+        contentBuilder.append(String.join(tab,
                 contig, Musial.softwareName, type, String.valueOf(start), String.valueOf(end),
-                DOT, String.valueOf(strand), DOT, "ID=%s".formatted(id)));
+                dot, String.valueOf(strand), dot, "ID=%s".formatted(id)));
 
         // Append attributes if present.
         if (hasAttributes()) {
             contentBuilder.append(";%s".formatted(attributesAsString(Set.of(
                     "children", "reference_proportion", "sequence_types_disrupted",
-                    "sequence_types_modified", "sequence_types_synonymous"))));
+                    "sequence_types_modified", "sequence_types_synonymous"), Constants.semicolon)));
         }
         contentBuilder.append(Constants.lineSeparator);
 
         // Append child features.
         getChildren().forEach((childType, locations) -> locations.forEach(location ->
-                contentBuilder.append(String.join(TAB,
+                contentBuilder.append(String.join(tab,
                                 contig, Musial.softwareName, childType, String.valueOf(location.a), String.valueOf(location.b),
-                                DOT, String.valueOf(strand), DOT, constructChildId(childType, id)))
+                                dot, String.valueOf(strand), dot, constructChildId(childType, id)))
                         .append(Constants.lineSeparator)
         ));
 

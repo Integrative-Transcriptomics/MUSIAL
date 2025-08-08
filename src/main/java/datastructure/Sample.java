@@ -169,7 +169,7 @@ public class Sample extends Attributable {
      * @throws ArrayIndexOutOfBoundsException If the call string does not conform to the expected format.
      */
     public static String getReferenceOfCall(String call) {
-        return call.split(Constants.SEMICOLON)[3].split(Constants.COMMA)[0].split(Constants.COLON)[0].substring(0, 1);
+        return call.split(Constants.semicolon)[3].split(Constants.comma)[0].split(Constants.colon)[0].substring(0, 1);
     }
 
     /**
@@ -185,9 +185,9 @@ public class Sample extends Attributable {
     public String toString() {
         StringBuilder sb = new StringBuilder(name).append("\t");
         this.getAttributes().forEach((key, value) ->
-                sb.append(key).append(Constants.EQUAL).append(value).append(Constants.SEMICOLON)
+                sb.append(key).append(Constants.equal).append(value).append(Constants.semicolon)
         );
-        if (sb.charAt(sb.length() - 1) == Constants.SEMICOLON.charAt(0)) {
+        if (sb.charAt(sb.length() - 1) == Constants.semicolon.charAt(0)) {
             sb.setLength(sb.length() - 1);
         }
         return sb.toString();

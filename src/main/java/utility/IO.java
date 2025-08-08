@@ -164,7 +164,7 @@ public final class IO {
      * Detects the separator used in a list of strings.
      * <p>
      * This method analyzes the provided list of strings to determine the separator used in the content.
-     * It skips lines that start with a specific sign (defined by {@link Constants#SIGN}) and checks the first
+     * It skips lines that start with a specific sign (defined by {@link Constants#sign}) and checks the first
      * non-skipped line for the presence of either a tab character or a comma. If a tab is found, it returns
      * the tab separator; if a comma is found, it returns the comma separator. If neither is found, it returns
      * an empty string.
@@ -175,12 +175,12 @@ public final class IO {
      */
     public static String detectSeparator(List<String> content) {
         return content.stream()
-                .filter(line -> !line.startsWith(Constants.SIGN)) // Skip lines starting with the defined sign
+                .filter(line -> !line.startsWith(Constants.sign)) // Skip lines starting with the defined sign
                 .findFirst() // Find the first non-skipped line
-                .map(line -> line.contains(Constants.TAB) ? Constants.TAB // Check for tab separator
-                        : line.contains(Constants.COMMA) ? Constants.COMMA // Check for comma separator
-                        : Constants.EMPTY) // Return empty string if no separator is found
-                .orElse(Constants.EMPTY); // Return empty string if no valid line is found
+                .map(line -> line.contains(Constants.tab) ? Constants.tab // Check for tab separator
+                        : line.contains(Constants.comma) ? Constants.comma // Check for comma separator
+                        : Constants.empty) // Return empty string if no separator is found
+                .orElse(Constants.empty); // Return empty string if no valid line is found
     }
 
     /**

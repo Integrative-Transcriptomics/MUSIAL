@@ -429,7 +429,7 @@ public class Storage {
                 // Iterate over each line in the file.
                 for (String line : content) {
                     // Skip lines that start with a comment sign.
-                    if (!line.startsWith(Constants.SIGN)) {
+                    if (!line.startsWith(Constants.sign)) {
                         String[] parts = line.split(separator);
                         if (parts.length < 3) {
                             throw new IOException("Invalid number of columns in row %d of file %s."
@@ -487,7 +487,7 @@ public class Storage {
                 // Iterate over each line in the file.
                 for (String line : content) {
                     // Skip lines that start with a comment sign.
-                    if (!line.startsWith(Constants.SIGN)) {
+                    if (!line.startsWith(Constants.sign)) {
                         String[] parts = line.split(separator);
                         if (parts.length < 4) {
                             throw new IOException("Invalid number of columns in row %d of file %s."
@@ -499,7 +499,7 @@ public class Storage {
                         String alt = parts[3];   // Alternate base.
                         // Add the excluded variant to the map for the corresponding contig.
                         excludedVariants.computeIfAbsent(chrom, k -> new HashSet<>())
-                                .add(pos + Constants.COLON + ref + Constants.COLON + alt);
+                                .add(pos + Constants.colon + ref + Constants.colon + alt);
                     }
                 }
             }
@@ -598,10 +598,10 @@ public class Storage {
             }
 
             // Helper to process attributes
-            Consumer<Map<String, String>> reprocessAttributes = attributes -> attributes.replaceAll((k, v) -> Arrays.stream(v.split(Constants.COMMA))
+            Consumer<Map<String, String>> reprocessAttributes = attributes -> attributes.replaceAll((k, v) -> Arrays.stream(v.split(Constants.comma))
                     .map(s -> s.split("\\|")[0])
                     .filter(s -> !s.isEmpty())
-                    .collect(Collectors.joining(Constants.COMMA)));
+                    .collect(Collectors.joining(Constants.comma)));
 
             // Process reference features.
             String path = (String) CLI.parameters.get("features");
@@ -617,7 +617,7 @@ public class Storage {
                 }
 
                 for (String line : content) {
-                    if (line.startsWith(Constants.SIGN)) continue;
+                    if (line.startsWith(Constants.sign)) continue;
 
                     String[] parts = line.split(separator);
                     if (parts.length < 2) {
@@ -629,8 +629,8 @@ public class Storage {
                     String value = parts[1];
                     Map<String, String> customAttributes = new HashMap<>();
                     if (parts.length > 2) {
-                        Arrays.stream(parts[2].split(Constants.SEMICOLON))
-                                .map(entry -> entry.split(Constants.EQUAL))
+                        Arrays.stream(parts[2].split(Constants.semicolon))
+                                .map(entry -> entry.split(Constants.equal))
                                 .filter(info -> info.length == 2)
                                 .forEach(info -> customAttributes.put(info[0], info[1]));
                     }
@@ -785,7 +785,7 @@ public class Storage {
      */
     public boolean isVariantExcluded(String contig, int position, String reference, String variant) {
         return this.parameters.excludedVariants.containsKey(contig) &&
-                this.parameters.excludedVariants.get(contig).contains(reference + Constants.COLON + position + Constants.COLON + variant);
+                this.parameters.excludedVariants.get(contig).contains(reference + Constants.colon + position + Constants.colon + variant);
     }
 
     /**
@@ -846,7 +846,7 @@ public class Storage {
                 compressedSequence = IO.gzipCompress(sequence); // Compress the sequence using GZIP.
                 length = sequence.length(); // Calculate the length of the sequence.
             } else {
-                compressedSequence = Constants.EMPTY; // Assign an empty string if the sequence is null or empty.
+                compressedSequence = Constants.empty; // Assign an empty string if the sequence is null or empty.
                 length = 0; // Set the length to 0 for an empty sequence.
             }
             this.contigs.put(name, new Contig(name, compressedSequence)); // Add the contig to the storage.
@@ -1016,7 +1016,7 @@ public class Storage {
         if (this.features.isEmpty()) {
             Logging.logConfig("No features available; infer features from variant calls.");
             for (Map.Entry<String, Integer> entry : vcfHandler.inferContigs().entrySet()) {
-                addContig(entry.getKey(), Constants.EMPTY);
+                addContig(entry.getKey(), Constants.empty);
                 String id = "%s:%d..%d".formatted(entry.getKey(), 1, entry.getValue());
                 Map<String, String> attributes = new HashMap<>(1);
                 attributes.put("ID", id);
@@ -1116,7 +1116,7 @@ public class Storage {
             for (Map<Integer, String> variantCalls : sample.variantCalls.values()) {
                 totalCalls += variantCalls.size();
                 for (String variantCall : variantCalls.values()) {
-                    String[] callParts = variantCall.split(Constants.SEMICOLON);
+                    String[] callParts = variantCall.split(Constants.semicolon);
                     coverages.add(Integer.parseInt(callParts[1]));
                     if (variantCall.startsWith(Constants.lowCoverageCallPrefix) || variantCall.startsWith(Constants.lowFrequencyCallPrefix)
                             || variantCall.startsWith(Constants.missingUpstreamDeletionCallPrefix)) {
@@ -1595,7 +1595,7 @@ public class Storage {
                     int callIndex = 0;
                     String REF = alleles.get(callIndex).REF;
                     String ALT = alleles.get(callIndex).ALT;
-                    String prefix = Constants.EMPTY; // To indicate filtered variants.
+                    String prefix = Constants.empty; // To indicate filtered variants.
 
                     // Handle missing allele due to an upstream deletion.
                     if (ALT.equals("*")) {
@@ -1624,7 +1624,7 @@ public class Storage {
                     float frequency = AD / (float) DP;
 
                     // Determine whether the call is a reference call.
-                    boolean isReferenceCall = alleles.get(callIndex).ALT.equals(Constants.DOT);
+                    boolean isReferenceCall = alleles.get(callIndex).ALT.equals(Constants.dot);
 
                     // Skip the variant, if it is excluded.
                     if (isVariantExcluded(contigName, POS, SequenceOperations.stripGaps(alleles.get(0).REF()),
@@ -1650,18 +1650,18 @@ public class Storage {
 
                     // Set deleted downstream positions if the current accepted call is a deletion.
                     if (VariantInformation.isDeletion(REF, ALT, true)) {
-                        downstreamDeletion.setLeft(POS + StringUtils.indexOf(ALT, Constants.GAP_CHAR));
-                        downstreamDeletion.setRight(POS + StringUtils.lastIndexOf(ALT, Constants.GAP_CHAR));
-                        downstreamDeletionRejected = !prefix.equals(Constants.EMPTY);
+                        downstreamDeletion.setLeft(POS + StringUtils.indexOf(ALT, Constants.gapChar));
+                        downstreamDeletion.setRight(POS + StringUtils.lastIndexOf(ALT, Constants.gapChar));
+                        downstreamDeletionRejected = !prefix.equals(Constants.empty);
                     }
 
                     // Build the call string with allele information.
                     StringBuilder callContextBuilder = new StringBuilder();
-                    callContextBuilder.append(prefix).append(isReferenceCall ? "0" : "1").append(Constants.SEMICOLON)
-                            .append(DP).append(Constants.SEMICOLON).append(IO.formatNumber(HN)).append(Constants.SEMICOLON);
-                    alleles.forEach(allele -> callContextBuilder.append(allele.REF()).append(Constants.COLON)
-                            .append(allele.ALT()).append(Constants.COLON).append(allele.AD())
-                            .append(Constants.COMMA));
+                    callContextBuilder.append(prefix).append(isReferenceCall ? "0" : "1").append(Constants.semicolon)
+                            .append(DP).append(Constants.semicolon).append(IO.formatNumber(HN)).append(Constants.semicolon);
+                    alleles.forEach(allele -> callContextBuilder.append(allele.REF()).append(Constants.colon)
+                            .append(allele.ALT()).append(Constants.colon).append(allele.AD())
+                            .append(Constants.comma));
                     callContextBuilder.deleteCharAt(callContextBuilder.length() - 1);
 
                     // Add the variant call to the sample.
@@ -1744,7 +1744,7 @@ public class Storage {
                 // Process each variant call for the contig.
                 for (Map.Entry<Integer, String> callContext : sample.variantCalls.get(contigName).entrySet()) {
                     int POS = callContext.getKey();
-                    String[] context = callContext.getValue().split(Constants.SEMICOLON);
+                    String[] context = callContext.getValue().split(Constants.semicolon);
                     // Skip reference calls.
                     if (context[0].startsWith("0")) continue;
 
@@ -1754,7 +1754,7 @@ public class Storage {
                     // Skip ambiguous calls, if not to be stored.
                     if (!storeFiltered() && isAmbiguous) continue;
 
-                    String[] genotype = context[3].split(Constants.COMMA)[0].split(Constants.COLON);
+                    String[] genotype = context[3].split(Constants.comma)[0].split(Constants.colon);
                     String REF = genotype[0];
                     String ALT = isAmbiguous ? (Constants.anyNucleotide.repeat(REF.length())) : genotype[1];
 
@@ -2077,7 +2077,7 @@ public class Storage {
                                 if (i == 0) {
                                     // For the reference allele, set REF to the first base of the reference sequence and ALT to a dot.
                                     REF = variantContext.getReference().getBaseString().substring(0, 1);
-                                    ALT = Constants.DOT;
+                                    ALT = Constants.dot;
                                 } else {
                                     // For alternative alleles, retrieve the full reference and alternative's sequence.
                                     REF = variantContext.getReference().getBaseString();
@@ -2230,18 +2230,18 @@ public class Storage {
                 try {
                     List<String> lines = IO.readFile(new File(temp + "/annotation" + FileExtensions.VCF))
                             .stream()
-                            .filter(s -> !s.startsWith(Constants.SIGN))
+                            .filter(s -> !s.startsWith(Constants.sign))
                             .toList();
                     int index = 0;
                     for (String line : lines) {
                         String[] annotationFields = line.split("\t");
                         if (!annotationFields[7].equals(".")) {
-                            annotationFields = annotationFields[7].replace("ANN=", "").split(Constants.COMMA)[0].split("\\|");
+                            annotationFields = annotationFields[7].replace("ANN=", "").split(Constants.comma)[0].split("\\|");
                             for (int i = 0; i < annotationFields.length; i++) {
                                 if (i == 1 || i == 2 || i == 5 || i == 7 || i == 12 || i == 13) {
                                     variants.get(index).b.addAttributeIfAbsent(
                                             Constants.snpEffAttributeKeyPrefix + Constants.snpEffKeys.get(i),
-                                            i == 1 ? annotationFields[i].replaceAll("&", Constants.COMMA) : annotationFields[i]
+                                            i == 1 ? annotationFields[i].replaceAll("&", Constants.comma) : annotationFields[i]
                                     );
                                 } else if (i == 6) {
                                     variants.get(index).b.addAttributeIfAbsent(

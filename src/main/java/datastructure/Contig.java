@@ -114,7 +114,7 @@ public class Contig extends Attributable {
         if (hasSequence())
             return IO.gzipDecompress(this.sequence);
         else
-            return Constants.EMPTY;
+            return Constants.empty;
     }
 
     /**
@@ -144,7 +144,7 @@ public class Contig extends Attributable {
                 return subsequence;
             }
         } else {
-            return Constants.EMPTY;
+            return Constants.empty;
         }
     }
 

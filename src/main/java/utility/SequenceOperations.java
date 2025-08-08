@@ -185,9 +185,9 @@ public final class SequenceOperations {
                                                                  int bandWidth) {
         // Check if either sequence is empty and return accordingly.
         if (sequenceA.isEmpty())
-            return new Tuple<>(Constants.GAP.repeat(sequenceB.length()), sequenceB);
+            return new Tuple<>(Constants.gap.repeat(sequenceB.length()), sequenceB);
         if (sequenceB.isEmpty())
-            return new Tuple<>(sequenceA, Constants.GAP.repeat(sequenceA.length()));
+            return new Tuple<>(sequenceA, Constants.gap.repeat(sequenceA.length()));
 
         // Define constants for the algorithm.
         final int MIN = Integer.MIN_VALUE / 2;
@@ -286,13 +286,13 @@ public final class SequenceOperations {
         while (i > 0 || j > 0) {
             if (i == 0) {
                 // Add a gap in sequence A.
-                alignedA.append(Constants.GAP);
+                alignedA.append(Constants.gap);
                 alignedB.append(symbolsB[j - 1]);
                 j--;
             } else if (j == 0) {
                 // Add a gap in sequence B.
                 alignedA.append(symbolsA[i - 1]);
-                alignedB.append(Constants.GAP);
+                alignedB.append(Constants.gap);
                 i--;
             } else {
                 // Determine the current direction and update indices accordingly
@@ -317,14 +317,14 @@ public final class SequenceOperations {
                             matrix = "D";
                         }
                         alignedA.append(symbolsA[i - 1]);
-                        alignedB.append(Constants.GAP);
+                        alignedB.append(Constants.gap);
                         i--;
                     }
                     case "Q" -> {
                         if (Q[i][j] == D[i][j - 1] - gapOpenPenalty - gapExtendPenalty) {
                             matrix = "D";
                         }
-                        alignedA.append(Constants.GAP);
+                        alignedA.append(Constants.gap);
                         alignedB.append(symbolsB[j - 1]);
                         j--;
                     }
@@ -341,7 +341,7 @@ public final class SequenceOperations {
     /**
      * Pads a string with gap characters to reach a specified length.
      * <p>
-     * This method appends gap characters (defined by {@link Constants#GAP})
+     * This method appends gap characters (defined by {@link Constants#gap})
      * to the input string until it reaches the desired length. If the input string
      * is already equal to or longer than the specified length, no padding is added.
      *
@@ -350,20 +350,20 @@ public final class SequenceOperations {
      * @return The padded string, or the original string if no padding is needed.
      */
     public static String padGaps(String s, int length) {
-        return s + Constants.GAP.repeat(Math.max(0, length - s.length()));
+        return s + Constants.gap.repeat(Math.max(0, length - s.length()));
     }
 
     /**
      * Removes all gap characters from the input string.
      * <p>
-     * This method replaces all occurrences of the gap character (defined by {@link Constants#GAP})
-     * in the input string with an empty string (defined by {@link Constants#EMPTY}).
+     * This method replaces all occurrences of the gap character (defined by {@link Constants#gap})
+     * in the input string with an empty string (defined by {@link Constants#empty}).
      *
      * @param s The input string from which gaps should be removed.
      * @return A new string with all gap characters removed.
      */
     public static String stripGaps(String s) {
-        return s.replaceAll(Constants.GAP, Constants.EMPTY);
+        return s.replaceAll(Constants.gap, Constants.empty);
     }
 
     /**
@@ -404,7 +404,7 @@ public final class SequenceOperations {
 
                 // Handle upstream deletions.
                 if (deletionCount > 0) {
-                    result.append(Constants.GAP);
+                    result.append(Constants.gap);
                     deletionCount--;
                     Logging.logWarning("Skip variant %s at position %d due to upstream deletion.".formatted(variant, pos));
                     continue;
@@ -421,7 +421,7 @@ public final class SequenceOperations {
             } else {
                 // Handle gaps from deletions or append reference character.
                 if (deletionCount > 0) {
-                    result.append(Constants.GAP);
+                    result.append(Constants.gap);
                     deletionCount--;
                 } else {
                     result.append(referenceChars[idx]);
@@ -443,7 +443,7 @@ public final class SequenceOperations {
      * @throws MusialException If an error occurs during translation.
      */
     public static String translateSequence(String sequence, boolean reverse) throws MusialException {
-        if (sequence.isEmpty()) return Constants.EMPTY;
+        if (sequence.isEmpty()) return Constants.empty;
         String cachedTranslationKey = "%s-%s".formatted(reverse ? "rev" : "fwd", sequence);
         // Check if the translation result is already cached.
         if (translationCache.containsKey(cachedTranslationKey.hashCode())) {
@@ -505,7 +505,7 @@ public final class SequenceOperations {
                 }
                 isSubstitution = isInsertion = isDeletion = ambiguousSwitch = false;
                 lastNonGapIndex = i;
-            } else if (referenceChars[i] == Constants.GAP_CHAR) { // Insertion:
+            } else if (referenceChars[i] == Constants.gapChar) { // Insertion:
                 if (isDeletion) {
                     if (!ambiguousSwitch) Logging.logWarning("Skip variant %s > %s due to ambiguous deletion to insertion switch."
                             .formatted(reference, alternative));
@@ -516,13 +516,13 @@ public final class SequenceOperations {
                         referenceBuilder.append(referenceChars[lastNonGapIndex]);
                         alternativeBuilder.append(alternativeChars[lastNonGapIndex]);
                     }
-                    referenceBuilder.append(Constants.GAP_CHAR);
+                    referenceBuilder.append(Constants.gapChar);
                     alternativeBuilder.append(alternativeChars[i]);
                     isSubstitution = false;
                     isInsertion = true;
                 }
                 noInsertions++;
-            } else if (alternativeChars[i] == Constants.GAP_CHAR) { // Deletion
+            } else if (alternativeChars[i] == Constants.gapChar) { // Deletion
                 if (isInsertion) {
                     if (!ambiguousSwitch) Logging.logWarning("Skip variant %s > %s due to ambiguous deletion to insertion switch."
                             .formatted(reference, alternative));
@@ -534,7 +534,7 @@ public final class SequenceOperations {
                         alternativeBuilder.append(alternativeChars[lastNonGapIndex]);
                     }
                     referenceBuilder.append(referenceChars[i]);
-                    alternativeBuilder.append(Constants.GAP_CHAR);
+                    alternativeBuilder.append(Constants.gapChar);
                     isSubstitution = false;
                     isDeletion = true;
                 }

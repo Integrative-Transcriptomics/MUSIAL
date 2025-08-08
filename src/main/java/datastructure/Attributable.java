@@ -84,7 +84,7 @@ public class Attributable {
         String currentValue = this.attributes.get(key);
         if (currentValue != null) {
             if (!currentValue.contains(value)) {
-                this.attributes.put(key, currentValue + Constants.COMMA + value);
+                this.attributes.put(key, currentValue + Constants.comma + value);
             }
         } else {
             this.attributes.put(key, value);
@@ -102,13 +102,13 @@ public class Attributable {
 
     /**
      * Retrieves the value of an attribute associated with this entity. If the attribute does not exist,
-     * {@link Constants#EMPTY} is returned.
+     * {@link Constants#empty} is returned.
      *
      * @param key The key of the attribute to retrieve.
-     * @return The value of the attribute, or {@link Constants#EMPTY} if the attribute does not exist.
+     * @return The value of the attribute, or {@link Constants#empty} if the attribute does not exist.
      */
     public String getAttribute(String key) {
-        return this.attributes.getOrDefault(key, Constants.EMPTY);
+        return this.attributes.getOrDefault(key, Constants.empty);
     }
 
     /**
@@ -133,7 +133,7 @@ public class Attributable {
      * @return A collection of strings representing the split values of the attribute, or an empty collection if the attribute does not exist.
      */
     public Collection<String> getAttributeAsCollection(String key) {
-        return Arrays.stream(this.attributes.getOrDefault(key, Constants.EMPTY).split(Constants.COMMA))
+        return Arrays.stream(this.attributes.getOrDefault(key, Constants.empty).split(Constants.comma))
                 .collect(Collectors.toSet());
     }
 
@@ -169,6 +169,7 @@ public class Attributable {
      * Removes an attribute with the specified key from this entity.
      *
      * @param key The key of the attribute to remove.
+     * @noinspection unused
      */
     public void removeAttribute(String key) {
         this.attributes.remove(key);
@@ -176,33 +177,36 @@ public class Attributable {
 
     /**
      * Removes all attributes from this entity.
+     *
+     * @noinspection unused
      */
     public void clearAttributes() {
         this.attributes.clear();
     }
 
     /**
-     * Converts the attributes of this entity to a string representation in the format {@code KEY=VALUE;...}.
+     * Converts the attributes of this entity to a string representation..
      *
+     * @param separator The separator to use between key-value pairs.
      * @return A string representation of the attributes.
      */
-    public String attributesAsString() {
+    public String attributesAsString(String separator) {
         return this.attributes.entrySet().stream()
-                .map(entry -> entry.getKey() + Constants.EQUAL + entry.getValue())
-                .collect(Collectors.joining(Constants.SEMICOLON));
+                .map(entry -> entry.getKey() + Constants.equal + entry.getValue())
+                .collect(Collectors.joining(separator));
     }
 
     /**
-     * Converts the attributes of this entity to a string representation in the format {@code KEY=VALUE;...},
-     * excluding attributes with keys in the specified collection.
+     * Converts the attributes of this entity to a string representation, excluding attributes with keys in the specified collection.
      *
-     * @param except A collection of keys to exclude from the string representation.
+     * @param except    A collection of keys to exclude from the string representation.
+     * @param separator The separator to use between key-value pairs.
      * @return A string representation of the attributes, excluding the specified keys.
      */
-    public String attributesAsString(Collection<String> except) {
+    public String attributesAsString(Collection<String> except, String separator) {
         return this.attributes.entrySet().stream()
                 .filter(entry -> !except.contains(entry.getKey()))
-                .map(entry -> entry.getKey() + Constants.EQUAL + entry.getValue())
-                .collect(Collectors.joining(Constants.SEMICOLON));
+                .map(entry -> entry.getKey() + Constants.equal + entry.getValue())
+                .collect(Collectors.joining(separator));
     }
 }
