@@ -8,16 +8,18 @@ import htsjdk.samtools.reference.IndexedFastaSequenceFile;
 import htsjdk.samtools.reference.ReferenceSequence;
 import htsjdk.samtools.reference.ReferenceSequenceFile;
 import htsjdk.samtools.util.FileExtensions;
+import htsjdk.samtools.util.IntervalList;
 import htsjdk.samtools.util.Tuple;
 import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFFileReader;
+import htsjdk.variant.vcf.VCFUtils;
 import main.Musial;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
-import org.apache.commons.lang3.tuple.MutablePair;
+import org.apache.commons.lang3.tuple.MutableTriple;
 import org.apache.commons.lang3.tuple.Triple;
 import org.biojava.nbio.genome.parsers.gff.FeatureI;
 import org.biojava.nbio.genome.parsers.gff.FeatureList;
@@ -128,13 +130,13 @@ public class Storage {
 
     /**
      * Transient sample information. This is only relevant for the `build` task. <i>This should only be set by the
-     * {@link Factory#samplesFromCLI} method during initialization of a storage.</i>
+     * {@link Factory#sampleInformationFromCli} method during initialization of a storage.</i>
      */
     private transient Map<String, Map<String, String>> sampleInfo = new LinkedTreeMap<>();
 
     /**
      * Transient list of VCF files to collect data from to expand this storage. <i>This should only be set by the
-     * {@link Factory#samplesFromCLI} method during initialization of a storage.</i>
+     * {@link Factory#sampleInformationFromCli} method during initialization of a storage.</i>
      */
     private transient List<File> vcfFiles = new ArrayList<>();
 
@@ -148,6 +150,16 @@ public class Storage {
      * Transient accessor to the VCF handler.
      */
     private transient VcfHandler vcfHandler = new VcfHandler();
+
+    /**
+     * This flag is used to determine if the storage has no user-specified contigs and should instead
+     * parse contigs from VCF files.
+     * <ul>
+     *   <li>If set to {@code true}, the system assumes no contigs were explicitly provided by the user.</li>
+     *   <li>If set to {@code false}, the system assumes contigs were specified and skips parsing them from VCF files.</li>
+     * </ul>
+     */
+    private static boolean addContigsFromVCF = false;
 
     /**
      * Map of sequence ontology (SO) terms and their respective hierarchy levels as used by MUSIAL.
@@ -187,15 +199,15 @@ public class Storage {
          * @throws MusialException If an error occurs while loading or validating the data.
          * @throws IOException     If an error occurs while reading files or parsing data.
          */
-        public static Storage fromCLI() throws MusialException, IOException {
+        public static Storage fromCli() throws MusialException, IOException {
             if (CLI.parameters.isEmpty()) {
-                throw new MusialException("CLI parameters are empty; run CLI.parse() before initializing the storage.");
+                throw new MusialException("CLI parameters are empty; run CLI.parse() before initializing the storage with this method.");
             }
-            Parameters parameters = parametersFromCLI();
+            Parameters parameters = parametersFromCli();
             Storage storage = new Storage(parameters);
-            referenceFromCLI(storage);
-            featuresFromCLI(storage);
-            samplesFromCLI(storage);
+            referenceFromCli(storage);
+            featuresFromCli(storage);
+            sampleInformationFromCli(storage);
             storage.validateFeatures();
             return storage;
         }
@@ -261,62 +273,6 @@ public class Storage {
         }
 
         /**
-         * Sets sample information in the storage from a specified file.
-         * <p>
-         * This method reads a tabular file containing sample metadata and populates the `sampleInfo` map
-         * in the provided `Storage` instance. The file is expected to be in a format that can be parsed
-         * into a nested map structure, where the outer map keys represent sample names and the inner map
-         * contains attribute-value pairs for each sample.
-         *
-         * @param storage The {@link Storage} instance where the sample information will be stored.
-         * @param file    The {@link File} object representing the input file containing sample metadata.
-         * @throws IOException If an error occurs while reading or parsing the file.
-         */
-        public static void setSampleInformation(Storage storage, File file) throws IOException {
-            Validation.checkFile(file);
-            storage.sampleInfo.putAll(IO.readTabularFileAsNestedMap(file));
-        }
-
-        /**
-         * Sets the VCF files in the storage from a list of file paths.
-         * <p>
-         * This method processes a list of file paths, adding valid VCF files or directories containing VCF files
-         * to the storage's `vcfFiles` list. It supports both uncompressed `.vcf` files and compressed `.vcf.gz` files.
-         * If no valid VCF files are found, an exception is thrown.
-         *
-         * @param storage The {@link Storage} instance where the VCF files will be stored.
-         * @param paths   A list of file paths to process. Each path can be a file or a directory.
-         * @throws MusialException If no valid VCF files are found in the provided paths.
-         * @throws IOException     If an error occurs while accessing the file system.
-         */
-        public static void setVcfFiles(Storage storage, List<String> paths) throws MusialException, IOException {
-            for (String pathName : paths) {
-                Path path = Paths.get(pathName);
-                Function<Path, Boolean> isVcf = p -> (p.toString().endsWith(FileExtensions.VCF) ||
-                        p.toString().endsWith(FileExtensions.COMPRESSED_VCF));
-
-                if (Files.isDirectory(path)) {
-                    try (Stream<Path> stream = Files.list(path)) {
-                        List<File> files = stream.filter(isVcf::apply).map(Path::toFile).toList();
-                        for (File file : files) {
-                            Validation.checkFile(file);
-                            storage.vcfFiles.add(file);
-                        }
-                    }
-                } else if (isVcf.apply(path)) {
-                    File file = path.toFile();
-                    Validation.checkFile(file);
-                    storage.vcfFiles.add(path.toFile());
-                }
-            }
-
-            // Throw an exception if no valid VCF files were added to the storage.
-            if (storage.vcfFiles.isEmpty()) {
-                throw new MusialException("Expect at least one VCF file, but none was provided.");
-            }
-        }
-
-        /**
          * Loads parameters from CLI.
          * <p>
          * This method loads parameters from the command line interface (CLI) and validates them. It checks for
@@ -326,7 +282,7 @@ public class Storage {
          * @return A {@link Parameters} object containing the loaded and validated parameters.
          * @throws IOException If an error occurs while reading or validating the parameters for excluded positions/variants.
          */
-        private static Parameters parametersFromCLI() throws IOException {
+        private static Parameters parametersFromCli() throws IOException {
             double minimalCoverage = 3.0; // Default value
             if (CLI.parameters.containsKey("minimalCoverage")) {
                 String value = String.valueOf(CLI.parameters.get("minimalCoverage"));
@@ -513,33 +469,6 @@ public class Storage {
         }
 
         /**
-         * Loads sample information, i.e. metadata and variant information, from CLI parameters.
-         * <p>
-         * This method loads sample information from the command line interface (CLI) parameters. See the
-         * {@link #setSampleInformation} and {@link #setVcfFiles} methods for details on
-         * how the sample information is loaded.
-         *
-         * @param storage The {@link Storage} instance to load sample information into.
-         * @throws IOException     If an error occurs while reading the sample metadata file or VCF files.
-         * @throws MusialException If an error occurs while validating the sample information or VCF files.
-         */
-        private static void samplesFromCLI(Storage storage) throws IOException, MusialException {
-            // Parse sample metadata file if available.
-            String path = (String) CLI.parameters.get("vcfMeta");
-            if (path != null && !path.isBlank()) {
-                File file = new File(path);
-                // File validation is handled in the setSampleInformation method.
-                setSampleInformation(storage, file);
-            }
-
-            // Collect VCF file paths from the specified list.
-            //noinspection unchecked
-            List<String> paths = (List<String>) CLI.parameters.get("vcfInput");
-            // File validation is handled in the setVcfFiles method.
-            setVcfFiles(storage, paths);
-        }
-
-        /**
          * Loads the reference sequence from CLI parameters.
          * <p>
          * This method loads the reference sequence from the command line interface (CLI) parameters. It checks
@@ -550,7 +479,7 @@ public class Storage {
          * @throws MusialException If an error occurs while loading or parsing the reference sequence.
          * @throws IOException     If an error occurs while reading the reference file or creating the index.
          */
-        private static void referenceFromCLI(Storage storage) throws MusialException, IOException {
+        private static void referenceFromCli(Storage storage) throws MusialException, IOException {
             String path = (String) CLI.parameters.get("reference");
             if (path != null && !path.isBlank()) {
                 File file = new File(path);
@@ -562,6 +491,92 @@ public class Storage {
                     throw new MusialException("Failed to create index for reference sequence %s; %s"
                             .formatted(file.getAbsolutePath(), e.getMessage()));
                 }
+            } else {
+                Logging.logConfig("Contigs will be parsed from VCF files.");
+                addContigsFromVCF = true;
+            }
+        }
+
+        /**
+         * Loads sample information, i.e. metadata and variant information, from CLI parameters.
+         * <p>
+         * This method loads sample information from the command line interface (CLI) parameters. See the
+         * {@link #cacheSampleInformation} and {@link #updateVcfFiles} methods for details on
+         * how the sample information is loaded.
+         *
+         * @param storage The {@link Storage} instance to load sample information into.
+         * @throws IOException     If an error occurs while reading the sample metadata file or VCF files.
+         * @throws MusialException If an error occurs while validating the sample information or VCF files.
+         */
+        private static void sampleInformationFromCli(Storage storage) throws IOException, MusialException {
+            // Parse sample metadata file if available.
+            String path = (String) CLI.parameters.get("vcfMeta");
+            if (path != null && !path.isBlank()) {
+                File file = new File(path);
+                // File validation is handled in the setSampleInformation method.
+                cacheSampleInformation(storage, file);
+            }
+
+            // Collect VCF file paths from the specified list.
+            //noinspection unchecked
+            List<String> paths = (List<String>) CLI.parameters.get("vcfInput");
+            // File validation is handled in the setVcfFiles method.
+            updateVcfFiles(storage, paths);
+        }
+
+        /**
+         * Sets sample information in the storage from a specified file.
+         * <p>
+         * This method reads a tabular file containing sample metadata and populates the `sampleInfo` map
+         * in the provided `Storage` instance. The file is expected to be in a format that can be parsed
+         * into a nested map structure, where the outer map keys represent sample names and the inner map
+         * contains attribute-value pairs for each sample.
+         *
+         * @param storage The {@link Storage} instance where the sample information will be stored.
+         * @param file    The {@link File} object representing the input file containing sample metadata.
+         * @throws IOException If an error occurs while reading or parsing the file.
+         */
+        public static void cacheSampleInformation(Storage storage, File file) throws IOException {
+            Validation.checkFile(file);
+            storage.sampleInfo.putAll(IO.readTabularFileAsNestedMap(file));
+        }
+
+        /**
+         * Sets the VCF files in the storage from a list of file paths.
+         * <p>
+         * This method processes a list of file paths, adding valid VCF files or directories containing VCF files
+         * to the storage's `vcfFiles` list. It supports both uncompressed `.vcf` files and compressed `.vcf.gz` files.
+         * If no valid VCF files are found, an exception is thrown.
+         *
+         * @param storage The {@link Storage} instance where the VCF files will be stored.
+         * @param paths   A list of file paths to process. Each path can be a file or a directory.
+         * @throws MusialException If no valid VCF files are found in the provided paths.
+         * @throws IOException     If an error occurs while accessing the file system.
+         */
+        public static void updateVcfFiles(Storage storage, List<String> paths) throws MusialException, IOException {
+            for (String pathName : paths) {
+                Path path = Paths.get(pathName);
+                Function<Path, Boolean> isVcf = p -> (p.toString().endsWith(FileExtensions.VCF) ||
+                        p.toString().endsWith(FileExtensions.COMPRESSED_VCF));
+
+                if (Files.isDirectory(path)) {
+                    try (Stream<Path> stream = Files.list(path)) {
+                        List<File> files = stream.filter(isVcf::apply).map(Path::toFile).toList();
+                        for (File file : files) {
+                            Validation.checkFile(file);
+                            storage.vcfFiles.add(file);
+                        }
+                    }
+                } else if (isVcf.apply(path)) {
+                    File file = path.toFile();
+                    Validation.checkFile(file);
+                    storage.vcfFiles.add(path.toFile());
+                }
+            }
+
+            // Throw an exception if no valid VCF files were added to the storage.
+            if (storage.vcfFiles.isEmpty()) {
+                throw new MusialException("Expect at least one VCF file, but none was provided.");
             }
         }
 
@@ -575,7 +590,7 @@ public class Storage {
          * @throws MusialException If an error occurs while loading or parsing the features.
          * @throws IOException     If an error occurs while reading the feature file or parsing the data.
          */
-        private static void featuresFromCLI(Storage storage) throws MusialException, IOException {
+        private static void featuresFromCli(Storage storage) throws MusialException, IOException {
             // Reference annotation requires a reference sequence.
             if (!storage.hasReference() && CLI.parameters.containsKey("annotation")) {
                 throw new MusialException("Annotation (GFF3) specified without a sequence (FASTA).");
@@ -665,19 +680,6 @@ public class Storage {
                     }
                 }
             }
-
-            // Parse features from reference sequence if none are available
-            if (storage.features.isEmpty() && storage.hasReference()) {
-                Logging.logConfig("No features were specified; one feature of type region per reference contig is derived.");
-                ReferenceSequence entry = storage.reference.nextSequence();
-                while (entry != null) {
-                    Map<String, String> attributes = new HashMap<>(1);
-                    attributes.put("ID", "%s:%d..%d".formatted(entry.getName(), 1, entry.length()));
-                    storage.addFeature(entry.getName(), entry.getName(), 1, entry.length(), '+', "region", attributes);
-                    entry = storage.reference.nextSequence();
-                }
-                storage.reference.reset();
-            }
         }
     }
 
@@ -723,7 +725,7 @@ public class Storage {
      *
      * @return Get the minimum coverage parameter.
      */
-    public double minimumCoverage() {
+    public double getMinimumCoverage() {
         return this.parameters.minimalCoverage;
     }
 
@@ -732,7 +734,7 @@ public class Storage {
      *
      * @return Get the minimum frequency parameter.
      */
-    public double minimumFrequency() {
+    public double getMinimumFrequency() {
         return this.parameters.minimalFrequency;
     }
 
@@ -741,7 +743,7 @@ public class Storage {
      *
      * @return {@code true} if filtered calls are retained as ambiguous bases, {@code false} otherwise.
      */
-    public boolean storeFiltered() {
+    public boolean getStoreFiltered() {
         return this.parameters.storeFiltered;
     }
 
@@ -750,7 +752,7 @@ public class Storage {
      *
      * @return {@code true} if the SnpEff annotation process is skipped, {@code false} otherwise.
      */
-    public boolean skipSnpEff() {
+    public boolean getSkipSnpEff() {
         return this.parameters.skipSnpEff;
     }
 
@@ -759,7 +761,7 @@ public class Storage {
      *
      * @return {@code true} if proteoform inference should be run, {@code false} otherwise.
      */
-    public boolean skipProteoformInference() {
+    public boolean getSkipProteoformInference() {
         return this.parameters.skipProteoformInference;
     }
 
@@ -770,7 +772,7 @@ public class Storage {
      * @param position Position to check for exclusion.
      * @return True if {@code position} on {@code contig} is excluded from analysis.
      */
-    public boolean isPositionExcluded(String contig, int position) {
+    public boolean getIsPositionExcluded(String contig, int position) {
         return this.parameters.excludedPositions.containsKey(contig) && this.parameters.excludedPositions.get(contig).contains(position);
     }
 
@@ -783,7 +785,7 @@ public class Storage {
      * @param variant   Variant base at {@code position}.
      * @return True if {@code variant} on {@code contig} at {@code position} is excluded from analysis.
      */
-    public boolean isVariantExcluded(String contig, int position, String reference, String variant) {
+    public boolean getIsVariantExcluded(String contig, int position, String reference, String variant) {
         return this.parameters.excludedVariants.containsKey(contig) &&
                 this.parameters.excludedVariants.get(contig).contains(reference + Constants.colon + position + Constants.colon + variant);
     }
@@ -797,7 +799,7 @@ public class Storage {
      *
      * @return The total number of processed genotype records as a {@code long}.
      */
-    public long getProcessedGenotypes() {
+    public long getProcessedGenotypesCount() {
         return this.vcfHandler.processedGenotypes;
     }
 
@@ -810,7 +812,7 @@ public class Storage {
      *
      * @return The total number of filtered genotype records as a {@code long}.
      */
-    public long getFilteredGenotypes() {
+    public long getFilteredGenotypesCount() {
         return this.vcfHandler.filteredGenotypes;
     }
 
@@ -823,8 +825,17 @@ public class Storage {
      *
      * @return The total number of ignored genotype records as a {@code long}.
      */
-    public long getIgnoredGenotypes() {
+    public long getIgnoredGenotypesCount() {
         return this.vcfHandler.ignoredGenotypes;
+    }
+
+    /**
+     * Returns the total number of variants stored.
+     *
+     * @return Number of all stored {@link Contig#variants} across all {@link #contigs}.
+     */
+    public long getVariantsCount() {
+        return contigs.values().stream().mapToLong(Contig::getVariantsCount).sum();
     }
 
     /**
@@ -886,7 +897,7 @@ public class Storage {
      *
      * @return {@code true} if any contig has an empty sequence, {@code false} otherwise.
      */
-    public boolean hasMissingContigSequences() {
+    public boolean getHasMissingContigSequences() {
         return !this.contigs.values().stream().allMatch(Contig::hasSequence);
     }
 
@@ -900,15 +911,6 @@ public class Storage {
     }
 
     /**
-     * Returns the total number of variants stored.
-     *
-     * @return Number of all stored {@link Contig#variants} across all {@link #contigs}.
-     */
-    public long getVariantsCount() {
-        return contigs.values().stream().mapToLong(Contig::getVariantsCount).sum();
-    }
-
-    /**
      * Checks if there are any novel variants stored in the storage.
      * <p>
      * This method verifies whether the `novelVariants` list contains any entries.
@@ -917,7 +919,7 @@ public class Storage {
      *
      * @return {@code true} if there are novel variants in the storage, {@code false} otherwise.
      */
-    public boolean hasNovelVariants() {
+    public boolean getHasNovelVariants() {
         return !this.novelVariants.isEmpty();
     }
 
@@ -980,7 +982,7 @@ public class Storage {
      */
     public Collection<Sample> getSamplesToUpdate() {
         return samples.values().stream()
-                .filter(sample -> this.vcfHandler.records.containsKey(sample.name))
+                .filter(sample -> this.vcfHandler.novelSamples.contains(sample.name))
                 .collect(Collectors.toList());
     }
 
@@ -1010,26 +1012,11 @@ public class Storage {
      * @throws IOException If an error occurs while analyzing VCF files or transferring data.
      */
     public void updateVariants() throws IOException {
-        vcfHandler.clearRecords(); // Clear existing variant records.
-
-        // If no features were set yet, infer one feature per contig present in the VCF files.
-        if (this.features.isEmpty()) {
-            Logging.logConfig("No features available; infer features from variant calls.");
-            for (Map.Entry<String, Integer> entry : vcfHandler.inferContigs().entrySet()) {
-                addContig(entry.getKey(), Constants.empty);
-                String id = "%s:%d..%d".formatted(entry.getKey(), 1, entry.getValue());
-                Map<String, String> attributes = new HashMap<>(1);
-                attributes.put("ID", id);
-                addFeature(entry.getKey(), entry.getKey(), 1, entry.getValue(), '+', "region", attributes);
-            }
-        }
-
         for (File file : vcfFiles) {
-            vcfHandler.analyzeVcf(file); // Analyze each VCF file to extract variant information.
+            vcfHandler.processVcf(file); // Analyze each VCF file to extract variant information.
         }
         vcfFiles.clear(); // Clear the list of VCF files after processing.
-        transferCallContext(); // Transfer sample information to the storage.
-        transferSampleAttributes(); // Transfer sample attributes to the storage.
+        updateSampleAttributes(); // Transfer sample attributes to the storage.
         transferVariantsInformation(); // Transfer variant information to the storage.
     }
 
@@ -1044,7 +1031,7 @@ public class Storage {
      * @throws MusialException If the SnpEff annotation process encounters an error.
      */
     public void annotateVariants() throws IOException, MusialException {
-        this.vcfHandler.runSnpEffAnalysis();
+        this.vcfHandler.runSnpEff();
     }
 
     /**
@@ -1078,7 +1065,7 @@ public class Storage {
                 // Update allele information for the feature with respect to the sample.
                 String alleleUid = feature.updateAllele(contig, variants, sample);
                 // If the feature is coding and the contig has a sequence, update the proteoform.
-                if (feature.isCoding() && contig.hasSequence() && !skipProteoformInference()) {
+                if (feature.isCoding() && contig.hasSequence() && !getSkipProteoformInference()) {
                     feature.updateProteoform(contig, alleleUid);
                 }
             }
@@ -1552,126 +1539,6 @@ public class Storage {
     }
 
     /**
-     * Constructs harmonized call context information from {@link VcfHandler#records} to be added to samples.
-     * <p>
-     * This method processes allele records stored in {@link VcfHandler#records} and updates the storage with
-     * variant call contexts for each sample, contig, and position. It calculates the total depth of coverage (DP),
-     * determines the best allele based on allelic frequency, and builds a variant call string. The method also
-     * handles exclusions for filter specified in the build configuration file (see {@link Storage.Parameters}).
-     */
-    public void transferCallContext() {
-        // Iterate over each sample in the variant records.
-        for (Map.Entry<String, HashMap<String, TreeMap<Integer, ArrayList<VcfHandler.Allele>>>> entry1 : vcfHandler.records.entrySet()) {
-            String sampleName = entry1.getKey();
-            HashMap<String, TreeMap<Integer, ArrayList<VcfHandler.Allele>>> contigs = entry1.getValue();
-
-            // Iterate over each contig for the current sample.
-            for (Map.Entry<String, TreeMap<Integer, ArrayList<VcfHandler.Allele>>> entry2 : contigs.entrySet()) {
-                String contigName = entry2.getKey();
-                TreeMap<Integer, ArrayList<VcfHandler.Allele>> variants = entry2.getValue();
-
-                // To validate deleted downstream positions.
-                MutablePair<Integer, Integer> downstreamDeletion = new MutablePair<>(0, 0);
-                boolean downstreamDeletionRejected = false;
-
-                // Iterate over each variant context for the current contig.
-                for (Map.Entry<Integer, ArrayList<VcfHandler.Allele>> entry3 : variants.entrySet()) {
-                    int POS = entry3.getKey();
-                    ArrayList<VcfHandler.Allele> alleles = entry3.getValue();
-
-                    // Sort alleles in descending order by their allelic depth (AD).
-                    alleles.sort(Comparator.comparingInt(VcfHandler.Allele::AD).reversed());
-
-                    // Calculate the total observed depth of coverage.
-                    int DP = alleles.stream().mapToInt(VcfHandler.Allele::AD).sum();
-
-                    // Calculate normalized entropy for the call context.
-                    double HN = alleles.size() == 1 ? 0.0 : -1 * (alleles.stream().mapToDouble(allele -> {
-                        float frequency = allele.AD / (float) DP;
-                        return frequency == 0 ? 0 : frequency * (Math.log(frequency) / Math.log(2));
-                    }).sum()) / (Math.log(alleles.size()) / Math.log(2));
-
-                    // Access the allele with the highest depth of coverage.
-                    int callIndex = 0;
-                    String REF = alleles.get(callIndex).REF;
-                    String ALT = alleles.get(callIndex).ALT;
-                    String prefix = Constants.empty; // To indicate filtered variants.
-
-                    // Handle missing allele due to an upstream deletion.
-                    if (ALT.equals("*")) {
-                        boolean isUnexplainedDeletion = (downstreamDeletion.left <= POS && POS <= downstreamDeletion.right && downstreamDeletionRejected)
-                                || POS > downstreamDeletion.right;
-
-                        if (isUnexplainedDeletion) {
-                            Logging.logWarningOnce("UNEXPLAINED_MISSING_ALLELE",
-                                    String.format("Ambiguous genotype. A called missing allele (*) is not explained by an upstream deletion "
-                                                    + "(%s %d sample %s).",
-                                            contigName, POS, sampleName));
-
-                            // Fallback to the next allele if available, otherwise log a warning.
-                            if (alleles.size() > 1) {
-                                callIndex = 1;
-                                REF = alleles.get(callIndex).REF;
-                                ALT = alleles.get(callIndex).ALT;
-                            } else {
-                                prefix = Constants.missingUpstreamDeletionCallPrefix;
-                            }
-                        }
-                    }
-
-                    // Compute the actual frequency of the selected allele.
-                    int AD = alleles.get(callIndex).AD;
-                    float frequency = AD / (float) DP;
-
-                    // Determine whether the call is a reference call.
-                    boolean isReferenceCall = alleles.get(callIndex).ALT.equals(Constants.dot);
-
-                    // Skip the variant, if it is excluded.
-                    if (isVariantExcluded(contigName, POS, SequenceOperations.stripGaps(alleles.get(0).REF()),
-                            SequenceOperations.stripGaps(alleles.get(0).ALT()))) {
-                        this.vcfHandler.ignoredGenotypes++;
-                        continue;
-                    }
-
-                    // Set call prefix for low frequency or coverage.
-                    if (frequency < minimumFrequency()) prefix = Constants.lowFrequencyCallPrefix;
-                    if (AD < minimumCoverage()) prefix = Constants.lowCoverageCallPrefix;
-
-                    // Skip passing reference calls.
-                    if (isReferenceCall && prefix.isEmpty()) {
-                        this.vcfHandler.ignoredGenotypes++;
-                        continue;
-                    }
-
-                    // Increase filtered genotypes count if the call is filtered.
-                    if (!prefix.isEmpty()) {
-                        this.vcfHandler.filteredGenotypes++;
-                    }
-
-                    // Set deleted downstream positions if the current accepted call is a deletion.
-                    if (VariantInformation.isDeletion(REF, ALT, true)) {
-                        downstreamDeletion.setLeft(POS + StringUtils.indexOf(ALT, Constants.gapChar));
-                        downstreamDeletion.setRight(POS + StringUtils.lastIndexOf(ALT, Constants.gapChar));
-                        downstreamDeletionRejected = !prefix.equals(Constants.empty);
-                    }
-
-                    // Build the call string with allele information.
-                    StringBuilder callContextBuilder = new StringBuilder();
-                    callContextBuilder.append(prefix).append(isReferenceCall ? "0" : "1").append(Constants.semicolon)
-                            .append(DP).append(Constants.semicolon).append(IO.formatNumber(HN)).append(Constants.semicolon);
-                    alleles.forEach(allele -> callContextBuilder.append(allele.REF()).append(Constants.colon)
-                            .append(allele.ALT()).append(Constants.colon).append(allele.AD())
-                            .append(Constants.comma));
-                    callContextBuilder.deleteCharAt(callContextBuilder.length() - 1);
-
-                    // Add the variant call to the sample.
-                    addCallContextToSample(sampleName, contigName, POS, callContextBuilder.toString());
-                }
-            }
-        }
-    }
-
-    /**
      * Adds a variant call to the sample stored in {@link #samples} with the key {@code sampleName}. The call is expected to be in the
      * format specified by {@link Sample#variantCallPattern}, where {@code CALL_INDEX} is one of {@code f} (low frequency), {@code x} (low coverage),
      * or the index of the alternative call (starting at 0 for the reference allele). {@code DP, AD} as defined in VCF specification
@@ -1704,7 +1571,7 @@ public class Storage {
      * with the corresponding name exists in the `samples` map. If the sample exists, it adds any attributes
      * from the `sampleInfo` entry that are not already present in the sample.
      */
-    private void transferSampleAttributes() {
+    private void updateSampleAttributes() {
         for (Map.Entry<String, Map<String, String>> entry : this.sampleInfo.entrySet()) {
             if (hasSample(entry.getKey())) {
                 samples.get(entry.getKey()).addAttributesIfAbsent(entry.getValue());
@@ -1752,7 +1619,7 @@ public class Storage {
                             || context[0].startsWith(Constants.lowCoverageCallPrefix)
                             || context[0].startsWith(Constants.missingUpstreamDeletionCallPrefix));
                     // Skip ambiguous calls, if not to be stored.
-                    if (!storeFiltered() && isAmbiguous) continue;
+                    if (!getStoreFiltered() && isAmbiguous) continue;
 
                     String[] genotype = context[3].split(Constants.comma)[0].split(Constants.colon);
                     String REF = genotype[0];
@@ -1882,17 +1749,17 @@ public class Storage {
             throw new IllegalArgumentException("Failed to add non-canonical variant %s > %s at position %d on contig %s."
                     .formatted(referenceContent, alternativeContent, position, contigName));
         }
-        // Get all features that are annotated for the position.
-        Set<String> featureNames = features.values().stream()
-                .filter(feature -> feature.start <= position && feature.end >= position)
-                .map(feature -> feature.name).collect(Collectors.toSet());
-        if (this.hasContig(contigName) && this.hasSample(sampleName) && featureNames.stream().allMatch(this::hasFeature)) {
+        if (this.hasContig(contigName) && this.hasSample(sampleName)) {
             VariantInformation variantInformation;
             Contig contig = this.getContig(contigName);
             contig.variants.putIfAbsent(position, new HashMap<>());
             variantInformation = contig.variants.get(position)
                     .putIfAbsent(alternativeContent, new VariantInformation(referenceContent, alternativeContent));
             contig.variants.get(position).get(alternativeContent).addSampleOccurrence(sampleName);
+            // Get all features that are annotated for the position and add the variant occurrence to them.
+            Set<String> featureNames = features.values().stream()
+                    .filter(feature -> feature.start <= position && feature.end >= position)
+                    .map(feature -> feature.name).collect(Collectors.toSet());
             featureNames.forEach(featureName -> contig.variants.get(position).get(alternativeContent).addFeatureOccurrence(featureName));
             if (Objects.nonNull(variantInformation) && !variantInformation.reference.equals(referenceContent)) {
                 Logging.logWarning("Variant call %s at position %d on contig %s occurred with different reference bases %s and %s."
@@ -1901,8 +1768,8 @@ public class Storage {
             if (Objects.isNull(variantInformation))
                 novelVariants.add(new ImmutableTriple<>(contigName, position, alternativeContent));
         } else {
-            throw new IllegalArgumentException(String.format("Failed to add variant to contig %s as either the contig, sample (%s), or feature (%s) were not found.",
-                    contigName, sampleName, String.join(", ", featureNames)));
+            throw new IllegalArgumentException(String.format("Failed to add variant to contig %s as either the contig or sample (%s) were not found.",
+                    contigName, sampleName));
         }
     }
 
@@ -1916,29 +1783,15 @@ public class Storage {
     private class VcfHandler {
 
         /**
-         * Used to store information about a specific allele, including its reference
-         * sequence (REF), alternate sequence (ALT), and depth of coverage (DP).
-         *
-         * @param REF The reference allele sequence.
-         * @param ALT The alternate allele sequence.
-         * @param AD  The depth of coverage for the allele.
-         */
-        public record Allele(String REF, String ALT, int AD) {
-        }
-
-        /**
-         * A nested HashMap structure used to store allele information for VCF records.
+         * Path to the VCF file being processed.
          * <p>
-         * The structure is organized as follows:
-         * <ul>
-         *   <li>The outermost key is a {@link String} representing the sample name.</li>
-         *   <li>The second-level key is a {@link String} representing the contig name.</li>
-         *   <li>The third-level key is an {@link Integer} representing the start position of the variant.</li>
-         *   <li>The innermost object is a list storing {@link Allele} objects, representing the alleles at the given position.</li>
-         * </ul>
-         * This structure is used to store and organize allele data across files.
+         * This is only used for logging purposes.
          */
-        private final HashMap<String, HashMap<String, TreeMap<Integer, ArrayList<Allele>>>> records = new HashMap<>();
+        private String filePath;
+
+        private final Set<String> novelSamples = new HashSet<>();
+
+        private final Map<String, MutableTriple<Integer, Integer, Boolean>> downstreamDeletions = new HashMap<>();
 
         /**
          * Counter for processed genotype records.
@@ -1947,7 +1800,7 @@ public class Storage {
          * the analysis of VCF files. It is initialized to 0 and is incremented as files are being
          * processed.
          */
-        private long processedGenotypes = 0; // Counter for processed genotype records.
+        private long processedGenotypes = 0;
 
         /**
          * Counter for ignored genotype records.
@@ -1956,7 +1809,7 @@ public class Storage {
          * the analysis of VCF files. It is initialized to 0 and is incremented as files are
          * being processed.
          */
-        private long ignoredGenotypes = 0; // Counter for ignored genotype records.
+        private long ignoredGenotypes = 0;
 
         /**
          * Counter for filtered genotype records.
@@ -1965,203 +1818,285 @@ public class Storage {
          * the analysis of VCF files. It is initialized to 0 and is incremented as files are being
          * processed.
          */
-        private long filteredGenotypes = 0; // Counter for filtered genotype records.
+        private long filteredGenotypes = 0;
 
         /**
-         * Clears the nested HashMap structure storing allele information for variant records.
-         * <p>
-         * This method removes all entries from the {@link #records} map, effectively resetting it.
-         * It is typically used to free up memory or prepare for a new analysis.
+         * TODO
          */
-        private void clearRecords() {
-            records.clear();
+        private void processVcf(File file) throws IOException {
+            filePath = file.getAbsolutePath(); // Only used for logging purposes.
+            File temporaryIndexedVcfFile = VCFUtils.createTemporaryIndexedVcfFromInput(file, String.valueOf(file.hashCode()));
+            try (VCFFileReader vcfFileReader = new VCFFileReader(temporaryIndexedVcfFile)) {
+
+                // Extract contigs from the VCF file as needed.
+                // TODO: This can be done on the fly?
+                if (addContigsFromVCF) {
+                    // Access unique intervals from the VCF file.
+                    IntervalList intervalList = vcfFileReader.toIntervalList().uniqued();
+                    // Initialize a map to store contigs represented in the VCF file.
+                    Set<String> vcfContigs = new HashSet<>();
+                    // Extract contig names and their maximum end positions from the VCF file.
+                    intervalList.getIntervals().forEach(interval -> vcfContigs.add(interval.getContig()));
+                    // Infer one feature per contig present in the VCF files.
+                    for (String contig : vcfContigs) {
+                        addContig(contig, Constants.empty);
+                    }
+                }
+
+                // Create iterators for variant contexts based on feature availability.
+                if (!features.isEmpty()) {
+                    // Restrict queries to feature regions.
+                    for (Feature feature : getFeatures()) {
+                        processVariantContexts(vcfFileReader.query(feature.contig, feature.start, feature.end));
+                    }
+                } else {
+                    processVariantContexts(vcfFileReader.iterator());
+                }
+            } finally {
+                //noinspection ResultOfMethodCallIgnored
+                temporaryIndexedVcfFile.delete();
+            }
         }
 
-        /**
-         * Analyzes a VCF (Variant Call Format) file and processes its contents to extract variant information.
-         * <p>
-         * This method reads a VCF file, iterates over its features, and processes the genotypes for each variant context.
-         * It validates and extracts allelic depth (AD) and total depth (DP) information, computes coverage, and stores
-         * allele data in a nested record structure. The method also handles missing attributes, canonicalizes variants,
-         * and logs warnings for potential data inconsistencies.
-         *
-         * @param vcfFile The VCF file to analyze.
-         * @throws IOException If an error occurs while reading the VCF file.
-         */
-        private void analyzeVcf(File vcfFile) throws IOException {
-            // Used for logging and warnings.
-            String vcfFilePath = vcfFile.getAbsolutePath();
+        private void processVariantContexts(Iterator<VariantContext> variantContextIterator) {
+            while (variantContextIterator.hasNext()) {
+                VariantContext variantContext = variantContextIterator.next();
+                String contigName = variantContext.getContig();
+                int position = variantContext.getStart();
+                // Skip excluded positions based on the build configuration.
+                if (getIsPositionExcluded(contigName, variantContext.getStart())) continue;
+                // Process each genotype in the VariantContext.
+                for (Genotype genotype : variantContext.getGenotypes()) {
+                    // Count processed genotype records.
+                    processedGenotypes++;
 
-            // Initialize a VCF file reader to read the VCF file.
-            try (VCFFileReader vcfFileReader = IO.initializeVCFFileReader(vcfFile)) {
+                    if (genotype.isNoCall()) {
+                        // Skip no call genotypes. TODO: Is this correct?
+                        ignoredGenotypes++;
+                        continue;
+                    }
 
-                // Iterate over features in the storage.
-                for (Feature feature : Storage.this.getFeatures()) {
+                    // Log a one-time warning if AD and DP attributes are missing.
+                    if (!(genotype.hasDP() && (genotype.hasAD() || genotype.hasAnyAttribute("COV")))) {
+                        Logging.logWarningOnce("MISSING_AD_DP_ATTRIBUTES",
+                                String.format("Some variants may be ignored. AD/COV and DP attributes are missing for at least one genotype "
+                                                + "(%s %d sample %s in file %s).",
+                                        contigName, variantContext.getStart(), genotype.getSampleName(), filePath));
+                    }
 
-                    // Query the VCF file for variants within the feature's region.
-                    for (Iterator<VariantContext> variantContextIterator = vcfFileReader
-                            .query(feature.contig, feature.start, feature.end) // Query VCF for the feature region.
-                            .stream()
-                            .filter(context -> !Storage.this.isPositionExcluded(context.getContig(), context.getStart())) // Exclude specific positions.
-                            .iterator(); variantContextIterator.hasNext(); ) {
-                        VariantContext variantContext = variantContextIterator.next();
+                    // Extract the sample name and ensure the sample and contig exist in storage.
+                    // TODO: Sample names in the VCF can have a "$" suffix to be merged within one sample in musial.
+                    String sampleName = genotype.getSampleName().split("\\$")[0];
+                    novelSamples.add(sampleName);
+                    Storage.this.addSample(sampleName);
 
-                        // Process each genotype in the VariantContext.
-                        for (Genotype genotype : variantContext.getGenotypes()) {
+                    // Extract allelic depth (AD) information for the genotype.
+                    int[] ADs;
+                    if (genotype.hasAD()) {
+                        ADs = genotype.getAD();
+                    } else if (genotype.hasAnyAttribute("COV")) {
+                        ADs = (int[]) genotype.getAnyAttribute("COV");
+                    } else if (genotype.getAlleles().size() == 2
+                            && variantContext.getNSamples() == 1
+                            && variantContext.hasAttribute("DP4")) {
+                        // Fallback case: Use the DP4 attribute if AD is missing.
+                        List<Integer> DP4 = variantContext.getAttributeAsIntList("DP4", 0);
+                        ADs = new int[]{
+                                DP4.get(0) + DP4.get(1), // Reference allele coverage.
+                                DP4.get(2) + DP4.get(3)  // Alternative allele coverage.
+                        };
+                    } else {
+                        // Skip genotypes that lack sufficient information.
+                        ignoredGenotypes++;
+                        continue;
+                    }
 
-                            // Count processed genotype records.
-                            processedGenotypes++;
+                    // Compute the total depth of coverage (ADSum) from allelic depths.
+                    int ADSum = Arrays.stream(ADs).sum();
 
-                            // Log a one-time warning if AD and DP attributes are missing.
-                            if (!(genotype.hasAD() && genotype.hasDP())) {
-                                Logging.logWarningOnce("MISSING_AD_DP_ATTRIBUTES",
-                                        String.format("Some variants may be ignored. AD and DP attributes are missing for at least one genotype "
-                                                        + "(%s %d sample %s in file %s).",
-                                                variantContext.getContig(), variantContext.getStart(), genotype.getSampleName(), vcfFilePath));
-                            }
+                    // Log warnings for discrepancies between AD sum and DP.
+                    if (genotype.hasDP()) {
+                        if (ADSum > genotype.getDP()) {
+                            Logging.logWarningOnce("AD_SUM_GREATER_THAN_DP",
+                                    String.format("Possible error in genotype data. Summed allelic depth (%d) is greater than total depth (%d). "
+                                                    + "(%s %d sample %s in file %s).",
+                                            ADSum, genotype.getDP(), contigName, variantContext.getStart(), sampleName, filePath));
+                        } else if (ADSum < 0.5 * genotype.getDP()) {
+                            Logging.logWarningOnce("AD_SUM_LOWER_THAN_DP",
+                                    String.format("Allegedly low-quality data. Summed allelic depth (%d) is much lower than total depth (%d). "
+                                                    + "(%s %d sample %s in file %s).",
+                                            ADSum, genotype.getDP(), contigName, variantContext.getStart(), sampleName, filePath));
+                        }
+                    }
 
-                            // Extract the sample name and ensure the sample and contig exist in storage.
-                            // TODO: Sample names in the VCF can have a "$" suffix to be merged within one sample in musial.
-                            String sampleName = genotype.getSampleName().split("\\$")[0];
-                            Storage.this.addSample(sampleName);
+                    // Iterate through alternatives.
+                    String REF;
+                    String ALT;
+                    int AD;
 
-                            // Extract allelic depth (AD) information for the genotype.
-                            int[] ADs;
-                            if (genotype.hasAD()) {
-                                // Default case: Use the AD attribute.
-                                ADs = genotype.getAD();
-                            } else if (genotype.getAlleles().size() == 2
-                                    && variantContext.getNSamples() == 1
-                                    && variantContext.hasAttribute("DP4")) {
-                                // Fallback case: Use the DP4 attribute if AD is missing.
-                                List<Integer> DP4 = variantContext.getAttributeAsIntList("DP4", 0);
-                                ADs = new int[]{
-                                        DP4.get(0) + DP4.get(1), // Reference allele coverage.
-                                        DP4.get(2) + DP4.get(3)  // Alternative allele coverage.
-                                };
+                    // Create a map to store alternatives for the current genotype.
+                    List<MutableTriple<String, String, Integer>> alternatives;
+                    // Check if any call information already exists in the storage.
+                    if (Storage.this.getSample(sampleName).getVariantCalls(contigName).containsKey(position)) {
+                        alternatives = samples.get(sampleName).getCallAlternatives(contigName, position);
+                    } else {
+                        alternatives = new ArrayList<>();
+                    }
+
+                    for (int i = 0; i < ADs.length; i++) {
+                        // Access the allelic depth for the current allele.
+                        AD = ADs[i];
+                        // Skip alleles with zero depth. TODO: Fix this!
+                        if (AD == 0) continue;
+
+                        // Extract REF and ALT content.
+                        if (i == 0) {
+                            // For the reference allele, set REF to the first base of the reference sequence and ALT to a dot.
+                            REF = variantContext.getReference().getBaseString().substring(0, 1);
+                            ALT = Constants.dot;
+                        } else {
+                            // For alternative alleles, retrieve the full reference and alternative's sequence.
+                            REF = variantContext.getReference().getBaseString();
+                            ALT = variantContext.getAlleles().get(i).getBaseString();
+
+                            // Handle upstream-deletion cases where ALT is "*".
+                            if (ALT.equals("*")) {
+                                REF = REF.substring(0, 1);
+                            } else if (VariantInformation.isCanonicalVariant(REF, ALT)) {
+                                // If already canonical, pad gaps to align their lengths.
+                                REF = SequenceOperations.padGaps(REF, ALT.length());
+                                ALT = SequenceOperations.padGaps(ALT, REF.length());
                             } else {
-                                // Skip genotypes that lack sufficient information.
-                                ignoredGenotypes++;
-                                continue;
-                            }
+                                // Remove common suffix from REF and ALT.
+                                String commonSuffix = StringUtils.reverse(
+                                        StringUtils.getCommonPrefix(StringUtils.reverse(REF), StringUtils.reverse(ALT))
+                                );
+                                REF = StringUtils.removeEnd(REF, commonSuffix);
+                                ALT = StringUtils.removeEnd(ALT, commonSuffix);
 
-                            // Compute the total depth of coverage (ADSum) from allelic depths.
-                            int ADSum = Arrays.stream(ADs).sum();
-
-                            // Log warnings for discrepancies between AD sum and DP.
-                            if (genotype.hasDP()) {
-                                if (ADSum > genotype.getDP()) {
-                                    Logging.logWarningOnce("AD_SUM_GREATER_THAN_DP",
-                                            String.format("Possible error in genotype data. Summed allelic depth (%d) is greater than total depth (%d). "
-                                                            + "(%s %d sample %s in file %s).",
-                                                    ADSum, genotype.getDP(), variantContext.getContig(), variantContext.getStart(), sampleName, vcfFilePath));
-                                } else if (ADSum < 0.8 * genotype.getDP()) {
-                                    Logging.logWarningOnce("AD_SUM_LOWER_THAN_DP",
-                                            String.format("Allegedly low-quality data. Summed allelic depth (%d) is much lower than total depth (%d). "
-                                                            + "(%s %d sample %s in file %s).",
-                                                    ADSum, genotype.getDP(), variantContext.getContig(), variantContext.getStart(), sampleName, vcfFilePath));
-                                }
-                            }
-
-                            // Iterate through alleles and add or update records.
-                            String REF;
-                            String ALT;
-                            int AD;
-                            for (int i = 0; i < ADs.length; i++) {
-                                // Access the allelic depth for the current allele.
-                                AD = ADs[i];
-                                // Skip alleles with zero depth.
-                                if (AD == 0) continue;
-
-                                // Extract REF and ALT content.
-                                if (i == 0) {
-                                    // For the reference allele, set REF to the first base of the reference sequence and ALT to a dot.
-                                    REF = variantContext.getReference().getBaseString().substring(0, 1);
-                                    ALT = Constants.dot;
+                                // Ensure REF and ALT are in a canonical padded format for true alternatives.
+                                if (VariantInformation.isCanonicalVariant(REF, ALT)) {
+                                    // If already canonical, pad gaps to align their lengths.
+                                    REF = SequenceOperations.padGaps(REF, ALT.length());
+                                    ALT = SequenceOperations.padGaps(ALT, REF.length());
                                 } else {
-                                    // For alternative alleles, retrieve the full reference and alternative's sequence.
-                                    REF = variantContext.getReference().getBaseString();
-                                    ALT = variantContext.getAlleles().get(i).getBaseString();
-
-                                    // Handle upstream-deletion cases where ALT is "*".
-                                    if (ALT.equals("*")) {
-                                        REF = REF.substring(0, 1);
-                                    } else {
-                                        // Remove common suffix from REF and ALT.
-                                        String commonSuffix = StringUtils.reverse(
-                                                StringUtils.getCommonPrefix(StringUtils.reverse(REF), StringUtils.reverse(ALT))
-                                        );
-                                        REF = StringUtils.removeEnd(REF, commonSuffix);
-                                        ALT = StringUtils.removeEnd(ALT, commonSuffix);
-
-                                        // Ensure REF and ALT are in a canonical padded format for true alternatives.
-                                        if (VariantInformation.isCanonicalVariant(REF, ALT)) {
-                                            // If already canonical, pad gaps to align their lengths.
-                                            REF = SequenceOperations.padGaps(REF, ALT.length());
-                                            ALT = SequenceOperations.padGaps(ALT, REF.length());
-                                        } else {
-                                            // Realign REF and ALT by global nucleotide sequence alignment for complex variants.
-                                            Tuple<String, String> alignment = SequenceOperations.globalNucleotideSequenceAlignment(
-                                                    REF, ALT, 5, 2, true, false, 0
-                                            );
-                                            REF = alignment.a;
-                                            ALT = alignment.b;
-                                        }
-                                    }
-                                }
-
-                                // Ensure nested record structure exists for the given sample, contig, and start position.
-                                ArrayList<Allele> alleles = records
-                                        .computeIfAbsent(sampleName, k -> new HashMap<>())
-                                        .computeIfAbsent(variantContext.getContig(), k -> new TreeMap<>())
-                                        .computeIfAbsent(variantContext.getStart(), k -> new ArrayList<>());
-
-                                // Create a new Allele object.
-                                Allele allele = new Allele(REF, ALT, ADs[i]);
-
-                                // Check if the allele already exists and update it, otherwise add it.
-                                int idx = alleles.indexOf(allele);
-                                if (idx > -1) {
-                                    Allele existingAllele = alleles.get(idx);
-                                    alleles.set(idx, new Allele(REF, ALT, ADs[i] + existingAllele.AD));
-                                } else {
-                                    alleles.add(allele);
+                                    // Realign REF and ALT by global nucleotide sequence alignment for complex variants.
+                                    Tuple<String, String> alignment = SequenceOperations.globalNucleotideSequenceAlignment(
+                                            REF, ALT, 5, 2, true, false, 0
+                                    );
+                                    REF = alignment.a;
+                                    ALT = alignment.b;
                                 }
                             }
                         }
+
+                        // Add alternative.
+                        MutableTriple<String, String, Integer> alternative = new MutableTriple<>(REF, ALT, ADs[i]);
+                        int idx = alternatives.indexOf(alternative);
+                        if (idx > -1) {
+                            MutableTriple<String, String, Integer> existingAlternative = alternatives.get(idx);
+                            alternatives.set(idx, new MutableTriple<>(REF, ALT, ADs[i] + existingAlternative.right));
+                        } else {
+                            alternatives.add(alternative);
+                        }
                     }
+
+                    // Transfer alternatives to the storage.
+                    // To validate deleted downstream positions.
+                    String downstreamDeletionKey = sampleName + Constants.colon + contigName;
+                    MutableTriple<Integer, Integer, Boolean> downstreamDeletion = downstreamDeletions
+                            .getOrDefault(downstreamDeletionKey, new MutableTriple<>(0, 0, false));
+
+                    // Sort alleles in descending order by their allelic depth (AD).
+                    alternatives.sort(Comparator.comparingInt(alt -> -alt.right));
+
+                    // Calculate the total observed depth of coverage.
+                    int DP = alternatives.stream().mapToInt(alt -> alt.right).sum();
+
+                    // Calculate normalized entropy for the call context.
+                    double HN = alternatives.size() == 1 ? 0.0 : -1 * (alternatives.stream().mapToDouble(alternative -> {
+                        float frequency = alternative.right / (float) DP;
+                        return frequency == 0 ? 0 : frequency * (Math.log(frequency) / Math.log(2));
+                    }).sum()) / (Math.log(alternatives.size()) / Math.log(2));
+
+                    // Access the allele with the highest depth of coverage.
+                    int callIndex = 0;
+                    REF = alternatives.get(callIndex).left;
+                    ALT = alternatives.get(callIndex).middle;
+                    String prefix = Constants.empty; // To indicate filtered variants.
+
+                    // Handle missing allele due to an upstream deletion.
+                    if (ALT.equals("*")) {
+                        boolean isUnexplainedDeletion = (downstreamDeletion.left <= position && position <= downstreamDeletion.middle && downstreamDeletion.right)
+                                || position > downstreamDeletion.middle;
+
+                        if (isUnexplainedDeletion) {
+                            Logging.logWarningOnce("UNEXPLAINED_MISSING_ALLELE",
+                                    String.format("Ambiguous genotype. A called missing allele (*) is not explained by an upstream deletion "
+                                                    + "(%s %d sample %s).",
+                                            contigName, position, sampleName));
+
+                            // Fallback to the next allele if available, otherwise mark call as filtered.
+                            if (alternatives.size() > 1) {
+                                callIndex = 1;
+                                REF = alternatives.get(callIndex).left;
+                                ALT = alternatives.get(callIndex).middle;
+                            } else {
+                                prefix = Constants.missingUpstreamDeletionCallPrefix;
+                            }
+                        }
+                    }
+
+                    // Compute the actual frequency of the selected allele.
+                    AD = alternatives.get(callIndex).right;
+                    float frequency = AD / (float) DP;
+
+                    // Determine whether the call is a reference call.
+                    boolean isReferenceCall = alternatives.get(callIndex).middle.equals(Constants.dot);
+
+                    // Skip the variant, if it is excluded.
+                    if (getIsVariantExcluded(contigName, position, SequenceOperations.stripGaps(alternatives.get(0).left),
+                            SequenceOperations.stripGaps(alternatives.get(0).middle))) {
+                        ignoredGenotypes++;
+                        continue;
+                    }
+
+                    // Set call prefix for low frequency or coverage.
+                    if (frequency < getMinimumFrequency()) prefix = Constants.lowFrequencyCallPrefix;
+                    if (AD < getMinimumCoverage()) prefix = Constants.lowCoverageCallPrefix;
+
+                    // Skip passing reference calls.
+                    if (isReferenceCall && prefix.isEmpty()) {
+                        ignoredGenotypes++;
+                        continue;
+                    }
+
+                    // Increase filtered genotypes count if the call is filtered.
+                    if (!prefix.isEmpty()) {
+                        filteredGenotypes++;
+                    }
+
+                    // Set deleted downstream positions if the current accepted call is a deletion.
+                    if (VariantInformation.isDeletion(REF, ALT, true)) {
+                        downstreamDeletions.computeIfAbsent(downstreamDeletionKey, k -> new MutableTriple<>(0, 0, false));
+                        downstreamDeletions.get(downstreamDeletionKey).setLeft(position + StringUtils.indexOf(ALT, Constants.gapChar));
+                        downstreamDeletions.get(downstreamDeletionKey).setMiddle(position + StringUtils.lastIndexOf(ALT, Constants.gapChar));
+                        downstreamDeletions.get(downstreamDeletionKey).setRight(!prefix.equals(Constants.empty));
+                    }
+
+                    // Build the call string with allele information.
+                    StringBuilder callContextBuilder = new StringBuilder();
+                    callContextBuilder.append(prefix).append(isReferenceCall ? "0" : "1").append(Constants.semicolon)
+                            .append(DP).append(Constants.semicolon).append(IO.formatNumber(HN)).append(Constants.semicolon);
+                    alternatives.forEach(alternative -> callContextBuilder.append(alternative.left).append(Constants.colon)
+                            .append(alternative.middle).append(Constants.colon).append(alternative.right)
+                            .append(Constants.comma));
+                    callContextBuilder.deleteCharAt(callContextBuilder.length() - 1);
+
+                    // Add the variant call to the sample.
+                    addCallContextToSample(sampleName, contigName, position, callContextBuilder.toString());
                 }
             }
-        }
-
-        /**
-         * Computes the maximum end position for each contig across multiple VCF files.
-         * <p>
-         * This method iterates through a list of VCF files, reads their intervals, and updates a map
-         * where the key is the contig name and the value is the maximum end position observed for that
-         * contig. If a contig already exists in the map, the method updates its value to the maximum
-         * of the current value and the new interval's end position.
-         *
-         * @return A {@link HashMap} where the keys are contig names and the values are the maximum end positions.
-         * @throws IOException If an error occurs while reading the VCF files.
-         */
-        private HashMap<String, Integer> inferContigs() throws IOException {
-            // Initialize a map to store the maximum end position for each contig.
-            HashMap<String, Integer> contigs = new HashMap<>();
-
-            // Iterate over the list of VCF files.
-            for (File vcfFile : vcfFiles) {
-                // Open a VCF file reader for the current file.
-                try (VCFFileReader reader = IO.initializeVCFFileReader(vcfFile)) {
-                    // Iterate over the intervals in the VCF file and update the map.
-                    reader.toIntervalList().getIntervals().forEach(interval ->
-                            contigs.merge(interval.getContig(), interval.getEnd(), Math::max) // Merge the current end position with the maximum.
-                    );
-                }
-            }
-
-            // Return the map containing the maximum end positions for each contig.
-            return contigs;
         }
 
         /**
@@ -2185,7 +2120,7 @@ public class Storage {
          * @throws MusialException If the SnpEff annotation process fails.
          * @throws IOException     If an error occurs while reading or writing files.
          */
-        private void runSnpEffAnalysis() throws MusialException, IOException {
+        private void runSnpEff() throws MusialException, IOException {
             // Generate a temporary directory for snpEff.
             String prefix = "%s-%s".formatted("snpEff", RandomStringUtils.randomAlphanumeric(6));
             Path temp = Files.createTempDirectory(prefix);

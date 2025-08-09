@@ -331,9 +331,7 @@ public class Feature extends Attributable {
         String proteoformSequence =
                 SequenceOperations.translateSequence(SequenceOperations.integrateVariants(contig, this, variants, true), isReverse());
 
-        /* Generate a unique identifier for the proteoform out of its sequence; if no variants are present, use "synonymous".
-         * NOTE: In contrast to alleles, the UID of the proteoform is generated from its sequence.
-         */
+        // Generate a unique identifier for the proteoform out of its sequence; if no variants are present, use "synonymous".
         String proteoformUid;
         if (Objects.equals(referenceSequence, proteoformSequence)) {
             proteoformUid = Constants.synonymous;

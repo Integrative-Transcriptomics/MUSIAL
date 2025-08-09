@@ -223,13 +223,15 @@ public final class Musial {
             storage.updateVariants();
 
             // Check and run SnpEff annotation if applicable.
-            if (storage.skipSnpEff()) {
-                Logging.logInfo("Skipping SnpEff analysis as per user request.");
-            } else if (storage.hasMissingContigSequences()) {
+            if (storage.getSkipSnpEff()) {
+                Logging.logInfo("Skip SnpEff analysis as per user request.");
+            } else if (storage.getHasMissingContigSequences()) {
                 Logging.logWarning("Skip SnpEff annotation; no reference sequence provided.");
+            } else if (storage.getFeatures().isEmpty()) {
+                Logging.logWarning("Skip SnpEff annotation; no features available.");
             } else if (storage.getFeatures().stream().allMatch(f -> f.type.equals("region"))) {
                 Logging.logWarning("Skip SnpEff annotation; all features are of type region.");
-            } else if (!storage.hasNovelVariants()) {
+            } else if (!storage.getHasNovelVariants()) {
                 Logging.logWarning("Skip SnpEff annotation; no variants to annotate.");
             } else {
                 Logging.logInfo("Run SnpEff annotation.");
@@ -237,8 +239,12 @@ public final class Musial {
             }
 
             // Infer sequence types if reference sequences are available.
-            Logging.logInfo("Infer sequence types.");
-            storage.updateSequenceTypes();
+            if (storage.getFeatures().isEmpty()) {
+                Logging.logWarning("Skip sequence type inference; no features available.");
+            } else {
+                Logging.logInfo("Infer sequence types.");
+                storage.updateSequenceTypes();
+            }
 
             // Compute statistics for the storage.
             Logging.logInfo("Compute statistics.");
@@ -276,7 +282,7 @@ public final class Musial {
             }
 
             Logging.logInfo("Initialize storage.");
-            Storage storage = Storage.Factory.fromCLI();
+            Storage storage = Storage.Factory.fromCli();
 
             // Update the storage with variant calls, annotations, and statistics.
             update(storage);
@@ -286,9 +292,9 @@ public final class Musial {
             Storage.Factory.serialize(storage, outputFile);
 
             // Log summary information about the storage and execution time.
-            long processedGenotypes = storage.getProcessedGenotypes();
-            float filteredGenotypes = storage.getFilteredGenotypes() / (float) processedGenotypes * 100;
-            float ignoredGenotypes = storage.getIgnoredGenotypes() / (float) processedGenotypes * 100;
+            long processedGenotypes = storage.getProcessedGenotypesCount();
+            float filteredGenotypes = storage.getFilteredGenotypesCount() / (float) processedGenotypes * 100;
+            float ignoredGenotypes = storage.getIgnoredGenotypesCount() / (float) processedGenotypes * 100;
             Logging.logDone(
                     "Storage contains %d samples, %d features, %d variants. Processed %d genotypes (%.2f%% filtered, %.2f%% reference or excluded). Execution time: %.2f seconds."
                             .formatted(
@@ -353,12 +359,12 @@ public final class Musial {
             // Add sample information from the specified metadata file, if provided.
             String sampleInfoFile = (String) CLI.parameters.get("vcfMeta");
             if (sampleInfoFile != null) {
-                Storage.Factory.setSampleInformation(storage, new File(sampleInfoFile));
+                Storage.Factory.cacheSampleInformation(storage, new File(sampleInfoFile));
             }
 
             // Add VCF files to the storage for processing.
             //noinspection unchecked
-            Storage.Factory.setVcfFiles(storage, (List<String>) CLI.parameters.get("vcfInput"));
+            Storage.Factory.updateVcfFiles(storage, (List<String>) CLI.parameters.get("vcfInput"));
 
             // Update the storage with new data, annotations, and statistics.
             update(storage);
@@ -376,7 +382,7 @@ public final class Musial {
                                     write ? "expanded" : "expandable", // Indicate whether the storage was expanded or just expandable.
                                     storage.getSamples().size() - originalSampleCount, // Number of new samples added.
                                     storage.getVariantsCount() - originalVariantsCount, // Number of new variants added.
-                                    storage.getProcessedGenotypes(), // Total number of genotypes processed.
+                                    storage.getProcessedGenotypesCount(), // Total number of genotypes processed.
                                     (System.currentTimeMillis() - startTime) / 1000.0 // Total execution time in seconds.
                             )
             );
@@ -533,7 +539,7 @@ public final class Musial {
 
             // Retrieve and validate the content type to view.
             String content = ((String) CLI.parameters.get("content")).toLowerCase();
-            if (!content.matches(String.join(Constants.PIPE, Musial.View.content))) {
+            if (!content.matches(String.join(Constants.pipe, Musial.View.content))) {
                 throw new MusialException("Content (-c) has to be one of %s, but %s was provided."
                         .formatted(String.join(", ", Musial.View.content), content));
             }
@@ -616,7 +622,7 @@ public final class Musial {
         private static Table featureTable(Storage storage, Set<String> include) {
             // Initialize the table with the header "name" and a comparator for sorting by feature start position.
             Table table = new Table("name", include.isEmpty() ? storage.getFeatures().size() : include.size(),
-                    Comparator.comparingInt(i -> storage.getFeature(i).start), Constants.EMPTY);
+                    Comparator.comparingInt(i -> storage.getFeature(i).start), Constants.empty);
 
             // Stream through the features in the storage, filtering based on the include set.
             storage.getFeatures().stream()
@@ -656,7 +662,7 @@ public final class Musial {
         private static Table sampleTable(Storage storage, Set<String> include) {
             // Initialize the table with the header "name" and a comparator for natural ordering of sample names.
             Table table = new Table("name", include.isEmpty() ? storage.getSamples().size() : include.size(),
-                    Comparator.naturalOrder(), Constants.EMPTY);
+                    Comparator.naturalOrder(), Constants.empty);
 
             // Stream through the samples in the storage, filtering based on the include set.
             storage.getSamples().stream()
@@ -691,7 +697,7 @@ public final class Musial {
         private static Table variantTable(Storage storage, Set<String> includePositions, Set<String> includeSamples, Set<String> includeFeatures) {
             // Initialize the table with the header and a comparator for sorting by position.
             Table table = new Table("contig\tpos\tref\talt", (int) storage.getVariantsCount(),
-                    Comparator.comparingInt(i -> Integer.parseInt(i.split(Constants.TAB)[1])), Constants.EMPTY);
+                    Comparator.comparingInt(i -> Integer.parseInt(i.split(Constants.tab)[1])), Constants.empty);
 
             // Iterate through each contig in the storage.
             storage.getContigs().forEach(contig ->
@@ -720,7 +726,7 @@ public final class Musial {
                                 variantInfo.getAttributes().forEach((key, value) -> items.add(new Tuple<>(key, value)));
 
                                 // Add the occurrence information of the variant to the list.
-                                items.add(new Tuple<>("samples", String.join(Constants.COMMA, variantInfo.getSampleOccurrence())));
+                                items.add(new Tuple<>("samples", String.join(Constants.comma, variantInfo.getSampleOccurrence())));
 
                                 // Add the variant's information to the table.
                                 table.addContent(contig.name + "\t" + variant.a + "\t" + variantInfo.reference + "\t" + variant.b, items);
@@ -748,7 +754,7 @@ public final class Musial {
         private static Table callMatrix(Storage storage, Set<String> includedSamples, Set<String> includedPositions) {
             // Initialize the table with the header and a comparator for sorting by position.
             Table table = new Table("contig\tposition\treference", (int) storage.getVariantsCount(),
-                    Comparator.comparingInt(s -> Integer.parseInt(s.split("\t")[1])), Constants.DOT);
+                    Comparator.comparingInt(s -> Integer.parseInt(s.split("\t")[1])), Constants.dot);
 
             // Stream through the samples in the storage, filtering based on the includedSamples set.
             storage.getSamples().stream()
@@ -779,7 +785,7 @@ public final class Musial {
 
     public static class Cluster {
 
-        public static void run( ) {
+        public static void run() {
 
         }
 
@@ -893,30 +899,31 @@ public final class Musial {
          * nucleotide sequences for alleles based on the provided parameters. The sequences
          * are written to a FASTA file in the specified output directory.
          *
-         * @param contig      The contig containing the feature and its variants.
-         * @param feature     The genomic feature for which sequences are exported.
-         * @param from        The start position of the sequence to export.
-         * @param to          The end position of the sequence to export.
-         * @param sampleNames A set of sample names to filter alleles for sequence generation.
-         * @param conserved   If true, generates sequences with conserved reference content.
-         * @param merge       If true, merges sequences for all samples into a single output.
-         * @param strip       If true, un-aligns sequences by removing gaps.
-         * @param reference   If true, includes the reference sequence in the output.
+         * @param contig         The contig containing the feature and its variants.
+         * @param feature        The genomic feature for which sequences are exported.
+         * @param from           The start position of the sequence to export.
+         * @param to             The end position of the sequence to export.
+         * @param sampleNames    A set of sample names to filter alleles for sequence generation.
+         * @param writeConserved If true, generates sequences with conserved reference content.
+         * @param merge          If true, merges sequences for all samples into a single output.
+         * @param strip          If true, un-aligns sequences by removing gaps.
+         * @param writeReference If true, includes the reference sequence in the output.
          * @throws IOException If an I/O error occurs during file writing.
          */
         private static void exportNtSequences(Contig contig, Feature feature, int from, int to, Set<String> sampleNames,
-                                              boolean conserved, boolean merge, boolean strip, boolean reference) throws IOException {
+                                              boolean writeConserved, boolean merge, boolean strip, boolean writeReference) throws IOException {
 
             // Check if conserved sequences are requested but the contig lacks reference sequence information.
-            if (conserved && !contig.hasSequence()) {
+            if (writeConserved && !contig.hasSequence()) {
                 Logging.logWarning("Skip feature %s as contig %s has no reference sequence information (incompatible with conserved export)."
                         .formatted(feature.name, contig.name));
                 return;
             }
 
-            // Collect allele UIDs that match the provided sample names.
+            // Collect allele UIDs that match with the provided sample names.
             final Set<String> alleleUids = feature.getAlleles().stream()
                     .filter(allele -> sampleNames.stream().anyMatch(allele::hasOccurrence))
+                    .sorted(Comparator.comparing(SequenceType::getCount))
                     .map(allele -> allele.uid)
                     .collect(Collectors.toSet());
             if (alleleUids.isEmpty()) {
@@ -928,7 +935,7 @@ public final class Musial {
             // Retrieve variants associated with the selected alleles.
             ArrayList<Tuple<Integer, String>> variants = contig.getVariantsByAlleles(feature, alleleUids);
 
-            // Filter variants to only include those within the specified range.
+            // Filter variants to only include those within the specified position range.
             if (feature.start != from || feature.end != to) {
                 variants = variants.stream()
                         .filter(variant -> variant.a >= from && variant.a <= to)
@@ -937,69 +944,69 @@ public final class Musial {
 
             // Retrieve the reference content if conserved sequences are requested.
             final char[] referenceContent;
-            if (conserved) referenceContent = contig.getSubsequence(from, to).toCharArray();
+            if (writeConserved) referenceContent = contig.getSubsequence(from, to).toCharArray();
             else referenceContent = null;
 
-            // Map to store positional context for variants, defined as the reference content and maximal insertion length per position.
+            // Store context (reference content and max. indel length) per position.
             HashMap<Integer, Tuple<String, Integer>> positionalContext = new HashMap<>();
 
             // Function to update the positional context from variant information.
             BiConsumer<Tuple<Integer, String>, Integer> updatePositionalContext = (context, insertionLength) ->
                     positionalContext.merge(context.a, new Tuple<>(context.b, insertionLength), (e1, e2) -> {
-                        if (!Objects.equals(e2.a, Constants.EMPTY) && !Objects.equals(e1.a, Constants.EMPTY) && !Objects.equals(e1.a, e2.a)) {
+                        if (!Objects.equals(e2.a, Constants.empty) && !Objects.equals(e1.a, Constants.empty) && !Objects.equals(e1.a, e2.a)) {
                             Logging.logWarning("Reference content conflict at position %d (%s and %s).".formatted(context.a, e1.a, e2.a));
                         }
-                        return new Tuple<>(e1.a.equals(Constants.EMPTY) ? e2.a : e1.a, Math.max(e1.b, e2.b));
+                        return new Tuple<>(e1.a.equals(Constants.empty) ? e2.a : e1.a, Math.max(e1.b, e2.b));
                     });
 
-            // Process each variant to populate the positional context.
-            VariantInformation info;
+            // Process each variant to populate positional context.
+            VariantInformation variantInformation;
             for (Tuple<Integer, String> variant : variants) {
-                info = contig.getVariantInformation(variant.a, variant.b);
-                char[] ref = info.reference.toCharArray();
-                if (info.type.equals(VariantInformation.Type.SNV)) {
-                    updatePositionalContext.accept(new Tuple<>(variant.a, info.reference), 0);
-                } else if (info.type.equals(VariantInformation.Type.DELETION)) {
+                variantInformation = contig.getVariantInformation(variant.a, variant.b);
+                char[] ref = variantInformation.reference.toCharArray();
+                if (variantInformation.type.equals(VariantInformation.Type.SNV)) {
+                    updatePositionalContext.accept(new Tuple<>(variant.a, variantInformation.reference), 0);
+                } else if (variantInformation.type.equals(VariantInformation.Type.DELETION)) {
                     if (variant.b.charAt(0) != ref[0])
                         updatePositionalContext.accept(new Tuple<>(variant.a, String.valueOf(ref[0])), 0);
                     for (int i = 1; i < ref.length; i++) {
                         updatePositionalContext.accept(new Tuple<>(variant.a + i, String.valueOf(ref[i])), 0);
                     }
-                } else if (info.type.equals(VariantInformation.Type.INSERTION)) {
+                } else if (variantInformation.type.equals(VariantInformation.Type.INSERTION)) {
                     int length = variant.b.length() - 1;
                     if (variant.b.charAt(0) != ref[0])
                         updatePositionalContext.accept(new Tuple<>(variant.a, String.valueOf(ref[0])), length);
-                    else updatePositionalContext.accept(new Tuple<>(variant.a, Constants.EMPTY), length);
+                    else updatePositionalContext.accept(new Tuple<>(variant.a, Constants.empty), length);
                 }
             }
 
-            // StringBuilder to construct the sequence content.
-            StringBuilder content = new StringBuilder(conserved ? referenceContent.length : variants.size());
+            // String builder to store sequence content.
+            StringBuilder content = new StringBuilder(writeConserved ? referenceContent.length : variants.size());
 
-            // Function to resolve reference content for a given position.
+            // Function to resolve reference content for a position.
             Consumer<Integer> resolveReference = position -> {
                 if (positionalContext.containsKey(position)) {
                     Tuple<String, Integer> context = positionalContext.get(position);
-                    String referenceBase = context.a.isEmpty() && conserved ? String.valueOf(referenceContent[position - from]) : context.a;
+                    String referenceBase = context.a.isEmpty() && writeConserved ? String.valueOf(referenceContent[position - from]) : context.a;
                     content.append(SequenceOperations.padGaps(referenceBase, referenceBase.length() + context.b));
-                } else if (conserved) {
+                } else if (writeConserved) {
                     content.append(referenceContent[position - from]);
                 }
             };
 
-            // Write the sequences to a FASTA file.
-            String fileName = String.format("%s%s%s%s_%s.fna",
+            // Write sequences to FASTA file.
+            String fileName = String.format("%s_%d_%d_%s_%s%s_nt.fasta",
                     feature.name,
-                    conserved ? "_conserved" : "_variant",
-                    merge ? "_merged" : "_sample",
-                    strip ? "" : "_aligned",
-                    runId
+                    from,
+                    to,
+                    writeConserved ? "conserved" : "variable",
+                    merge ? "merged" : "samples",
+                    strip ? "" : "_aligned"
             );
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputDirectory + File.separator + fileName, StandardCharsets.UTF_8))) {
-                // Function to write a sequence to the file with a given header.
-                Consumer<String> dump = header -> {
+                // Function to write header and sequence content to the file.
+                BiConsumer<String, String> dump = (header, sequence) -> {
                     try {
-                        String sequence = strip ? content.toString().replaceAll(Constants.GAP, Constants.EMPTY) : content.toString();
                         writer.write("%s\n%s\n".formatted(header, String.join("\n", Splitter.fixedLength(80).split(sequence))));
                     } catch (IOException e) {
                         throw new RuntimeException(e);
@@ -1007,9 +1014,32 @@ public final class Musial {
                 };
 
                 // Write the reference sequence if requested.
-                if (reference) {
+                if (writeReference) {
+                    // Generate the reference sequence.
                     IntStream.rangeClosed(from, to).forEach(resolveReference::accept);
-                    dump.accept(">reference [allelic_frequency=%s]".formatted(feature.getAttribute(Constants.$Attributable_frequencyReference)));
+
+                    // Build the header.
+                    StringBuilder header = new StringBuilder(">%s.%s".formatted(feature.name, Constants.reference));
+                    long count = sampleNames.stream()
+                            .filter(sampleName -> feature.getAlleles().stream().noneMatch(allele -> allele.hasOccurrence(sampleName)))
+                            .count();
+                    header.append(" N=%d/%d".formatted(count, sampleNames.size()));
+
+                    String attributes = feature.attributesAsString(
+                            Set.of(Constants.$Feature_children, Constants.$Attributable_frequencyDisrupted,
+                                    Constants.$Attributable_frequencyReference, Constants.$Feature_numberOfAlleles,
+                                    Constants.$Feature_numberOfProteoforms),
+                            Constants.pipe
+                    );
+                    if (!attributes.isEmpty()) {
+                        header.append(" ").append(attributes);
+                    }
+
+                    // Remove gaps if requested.
+                    String sequence = strip ? content.toString().replace(Constants.gap, Constants.empty) : content.toString();
+
+                    // Write the sequence to the file.
+                    dump.accept(header.toString(), sequence);
                 }
 
                 // Write sequences for each allele.
@@ -1018,7 +1048,7 @@ public final class Musial {
                 boolean positionConserved;
                 int deletedPositions;
                 Tuple<String, Integer> context;
-                Tuple<String, Integer> nullContext = new Tuple<>(Constants.EMPTY, 0);
+                Tuple<String, Integer> nullContext = new Tuple<>(Constants.empty, 0);
                 for (String alleleUid : alleleUids) {
                     allele = feature.getAllele(alleleUid);
                     content.setLength(0);
@@ -1026,7 +1056,7 @@ public final class Musial {
                     for (int position = from; position <= to; position++) {
                         if (deletedPositions > 0) {
                             context = positionalContext.get(position);
-                            content.append(SequenceOperations.padGaps(Constants.GAP, 1 + context.b));
+                            content.append(SequenceOperations.padGaps(Constants.gap, 1 + context.b));
                             deletedPositions--;
                             if (allele.hasVariant(position))
                                 Logging.logWarning("Conflict with variant %s at deleted position %d for allele %s of feature %s."
@@ -1038,14 +1068,14 @@ public final class Musial {
                             if (VariantInformation.isSubstitution(alt)) {
                                 content.append(SequenceOperations.padGaps(alt, 1 + context.b));
                             } else if (VariantInformation.isDeletion(alt)) {
-                                if (positionConserved && !conserved) {
-                                    content.append(SequenceOperations.padGaps(Constants.EMPTY, context.b));
+                                if (positionConserved && !writeConserved) {
+                                    content.append(SequenceOperations.padGaps(Constants.empty, context.b));
                                 } else {
                                     content.append(SequenceOperations.padGaps(alt.substring(0, 1), 1 + context.b));
                                 }
                                 deletedPositions += (alt.length() - 1);
                             } else if (VariantInformation.isInsertion(alt)) {
-                                if (positionConserved && !conserved) {
+                                if (positionConserved && !writeConserved) {
                                     content.append(SequenceOperations.padGaps(alt.substring(1), context.b));
                                 } else {
                                     content.append(SequenceOperations.padGaps(alt, 1 + context.b));
@@ -1055,12 +1085,37 @@ public final class Musial {
                             resolveReference.accept(position);
                         }
                     }
+
+                    // Remove gaps if requested.
+                    String sequence = strip ? content.toString().replace(Constants.gap, Constants.empty) : content.toString();
+
                     if (merge) {
-                        dump.accept(allele.getFastaHeader(allele.getIdentifier()));
+                        // Build the header.
+                        StringBuilder header = new StringBuilder(">%s".formatted(alleleUid));
+                        long count = sampleNames.stream().filter(allele::hasOccurrence).count();
+                        header.append(" N=%d/%d".formatted(count, sampleNames.size()));
+
+                        String attributes = allele.attributesAsString(Constants.pipe);
+                        if (!attributes.isEmpty()) {
+                            header.append(" ").append(attributes);
+                        }
+
+                        // Write the sequence to the file.
+                        dump.accept(header.toString(), sequence);
                     } else {
                         for (String sampleName : allele.getOccurrence()) {
-                            if (sampleNames.isEmpty() || sampleNames.contains(sampleName))
-                                dump.accept(">%s [allele=%s]".formatted(sampleName, allele.getIdentifier()));
+                            if (sampleNames.contains(sampleName)) {
+                                // Build the header.
+                                StringBuilder header = new StringBuilder(">%s.%s".formatted(feature.name, sampleName));
+
+                                String attributes = allele.attributesAsString(Constants.pipe);
+                                if (!attributes.isEmpty()) {
+                                    header.append(" ").append(attributes);
+                                }
+
+                                // Write the sequence to the file.
+                                dump.accept(header.toString(), sequence);
+                            }
                         }
                     }
                 }
@@ -1121,8 +1176,8 @@ public final class Musial {
             ArrayList<Tuple<Integer, String>> variants = new ArrayList<>(variantsSet);
             variants.sort(Comparator.comparingInt(i -> i.a));
 
-            int fromRelative = ( ( from - feature.start + 1 ) + 2 ) / 3;
-            int toRelative = ( to - feature.start + 1 ) / 3;
+            int fromRelative = ((from - feature.start + 1) + 2) / 3;
+            int toRelative = (to - feature.start + 1) / 3;
 
             if (feature.start != from || feature.end != to) {
                 // Check if the range is a multiple of 3, as amino acid sequences require this.
@@ -1147,10 +1202,10 @@ public final class Musial {
             // Function to update the positional context with variant information.
             BiConsumer<Tuple<Integer, String>, Integer> updatePositionalContext = (context, insertionLength) ->
                     positionalContext.merge(context.a, new Tuple<>(context.b, insertionLength), (e1, e2) -> {
-                        if (!Objects.equals(e2.a, Constants.EMPTY) && !Objects.equals(e1.a, Constants.EMPTY) && !Objects.equals(e1.a, e2.a)) {
+                        if (!Objects.equals(e2.a, Constants.empty) && !Objects.equals(e1.a, Constants.empty) && !Objects.equals(e1.a, e2.a)) {
                             Logging.logWarning("Reference content conflict at position %d (%s and %s).".formatted(context.a, e1.a, e2.a));
                         }
-                        return new Tuple<>(e1.a.equals(Constants.EMPTY) ? e2.a : e1.a, Math.max(e1.b, e2.b));
+                        return new Tuple<>(e1.a.equals(Constants.empty) ? e2.a : e1.a, Math.max(e1.b, e2.b));
                     });
 
             // Process each variant to populate the positional context.
@@ -1172,7 +1227,7 @@ public final class Musial {
                         if (mixed) {
                             updatePositionalContext.accept(new Tuple<>(variant.a, String.valueOf(referenceContent[referenceContentIndex])), length);
                         } else {
-                            updatePositionalContext.accept(new Tuple<>(variant.a, Constants.EMPTY), length);
+                            updatePositionalContext.accept(new Tuple<>(variant.a, Constants.empty), length);
                         }
                     }
                 }
@@ -1206,7 +1261,7 @@ public final class Musial {
                 // Function to write a sequence to the file with a given header.
                 Consumer<String> dump = header -> {
                     try {
-                        String sequence = strip ? content.toString().replaceAll(Constants.GAP, Constants.EMPTY) : content.toString();
+                        String sequence = strip ? content.toString().replaceAll(Constants.gap, Constants.empty) : content.toString();
                         writer.write("%s\n%s\n".formatted(header, String.join("\n", Splitter.fixedLength(80).split(sequence))));
                     } catch (IOException e) {
                         throw new RuntimeException(e);
@@ -1227,20 +1282,20 @@ public final class Musial {
                     for (int position = fromRelative; position <= toRelative; position++) {
                         if (deletedPositions > 0) {
                             Tuple<String, Integer> context = positionalContext.get(position);
-                            content.append(SequenceOperations.padGaps(Constants.GAP, 1 + context.b));
+                            content.append(SequenceOperations.padGaps(Constants.gap, 1 + context.b));
                             deletedPositions--;
                             if (proteoform.hasVariant(position))
                                 Logging.logWarning("Conflict with variant %s at deleted position %d for allele %s of feature %s."
                                         .formatted(proteoform.getVariant(position), position, proteoformUid, feature.name));
                         } else if (proteoform.hasVariant(position)) {
                             String alt = proteoform.getVariant(position);
-                            Tuple<String, Integer> context = positionalContext.getOrDefault(position, new Tuple<>(Constants.EMPTY, 0));
+                            Tuple<String, Integer> context = positionalContext.getOrDefault(position, new Tuple<>(Constants.empty, 0));
                             boolean positionConserved = context.a.isEmpty();
                             if (VariantInformation.isSubstitution(alt)) {
                                 content.append(SequenceOperations.padGaps(alt, 1 + context.b));
                             } else if (VariantInformation.isDeletion(alt)) {
                                 if (positionConserved && !conserved) {
-                                    content.append(SequenceOperations.padGaps(Constants.EMPTY, context.b));
+                                    content.append(SequenceOperations.padGaps(Constants.empty, context.b));
                                 } else {
                                     content.append(SequenceOperations.padGaps(alt.substring(0, 1), 1 + context.b));
                                 }

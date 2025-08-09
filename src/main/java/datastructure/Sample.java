@@ -1,11 +1,9 @@
 package datastructure;
 
+import org.apache.commons.lang3.tuple.MutableTriple;
 import utility.Constants;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.regex.Pattern;
 
 /**
@@ -60,6 +58,7 @@ public class Sample extends Attributable {
     protected final Map<String, String> alleles;
 
     /**
+     * TODO
      * Regular expression pattern to match variant call strings.
      * <p>
      * This pattern is designed to parse variant call strings that conform to the VCF specification.
@@ -105,7 +104,7 @@ public class Sample extends Attributable {
      * is identified by its unique identifier.
      *
      * @param featureName The name of the feature ({@link Feature#name}) to associate with the allele.
-     * @param alleleUid   The unique identifier of the allele ({@link SequenceType#name}) to set for the feature.
+     * @param alleleUid   The unique identifier of the allele ({@link SequenceType#uid}) to set for the feature.
      */
     protected void setAllele(String featureName, String alleleUid) {
         this.alleles.put(featureName, alleleUid);
@@ -150,6 +149,20 @@ public class Sample extends Attributable {
      */
     public TreeMap<Integer, String> getVariantCalls(String contig) {
         return this.variantCalls.getOrDefault(contig, new TreeMap<>());
+    }
+
+    public List<MutableTriple<String, String, Integer>> getCallAlternatives(String contig, int position) {
+        TreeMap<Integer, String> calls = this.getVariantCalls(contig);
+        if (calls == null || !calls.containsKey(position)) {
+            return new ArrayList<>();
+        }
+        String call = calls.get(position);
+        List<MutableTriple<String, String, Integer>> alternatives = new ArrayList<>();
+        for (String alternative : call.split(Constants.semicolon)[3].split(Constants.comma)) {
+            String[] parts = alternative.split(Constants.colon);
+            alternatives.add(new MutableTriple<>(parts[0], parts[1], Integer.parseInt(parts[2])));
+        }
+        return alternatives;
     }
 
     /**

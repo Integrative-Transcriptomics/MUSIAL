@@ -240,7 +240,7 @@ public final class IO {
      * @throws IllegalArgumentException If no reference sequence information is stored in the {@link Storage} object.
      */
     public static String generateReferenceFastaContent(Storage storage) throws IOException {
-        if (storage.hasMissingContigSequences())
+        if (storage.getHasMissingContigSequences())
             throw new IllegalArgumentException("No reference sequence information is stored in the specified storage.");
         StringBuilder content = new StringBuilder();
         for (Contig contig : storage.getContigs()) {
