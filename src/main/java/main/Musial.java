@@ -53,17 +53,12 @@ public final class Musial {
     public static Task task;
 
     /**
-     * Specifies the output directory for the program.
+     * Output directory used for generated MUSIAL storage files.
      */
     public static File outputDirectory;
 
     /**
-     * Start time of the program.
-     */
-    public static long startTime;
-
-    /**
-     * File extension used for MUSIAL storage files.
+     * File extension used for generated MUSIAL storage files.
      * <p>
      * This constant specifies the default file extension for storage files
      * created or used by the MUSIAL application. It is marked as `transient`
@@ -72,7 +67,12 @@ public final class Musial {
      * The extension should either be `.json` or `.json.gz` depending on the
      * compression method used. For production, use `.json.gz` for compressed files.
      */
-    public static final String storageExtension = ".json.gz";
+    public static final String outputExtension = ".json.gz";
+
+    /**
+     * Start time of the program.
+     */
+    public static long startTime;
 
     /**
      * {@link Enum} specifying tasks of MUSIAL to choose from.
@@ -268,7 +268,7 @@ public final class Musial {
             // Ensure the output path is a file, not a directory.
             File outputFile = new File(outputPath);
             if (outputFile.isDirectory()) {
-                outputPath += File.separator + "musial_storage_%s_%s".formatted(Logging.getDate(), storageExtension);
+                outputPath += File.separator + "musial_storage_%s_%s".formatted(Logging.getDate(), outputExtension);
                 outputFile = new File(outputPath);
             }
 
@@ -342,7 +342,7 @@ public final class Musial {
                 if (outputFile.isDirectory()) {
                     outputFile = new File(outputFile.getAbsolutePath()
                             + File.separator
-                            + "musial_storage_%s_%s".formatted(Logging.getDate(), storageExtension)
+                            + "musial_storage_%s_%s".formatted(Logging.getDate(), outputExtension)
                     );
                 }
             }

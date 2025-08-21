@@ -255,7 +255,7 @@ public class Storage {
         public static void serialize(Storage storage, File file) throws IOException {
             // Ensure the file has the correct extension
             if (!(file.getAbsolutePath().endsWith(".json") || file.getAbsolutePath().endsWith(".json.gz"))) {
-                file = new File(file.getAbsolutePath() + Musial.storageExtension);
+                file = new File(file.getAbsolutePath() + Musial.outputExtension);
             }
 
             // Convert the storage object to a JSON string
