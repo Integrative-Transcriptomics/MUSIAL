@@ -1,7 +1,7 @@
 package utility;
 
-import datastructure.Contig;
-import datastructure.Feature;
+import model.Contig;
+import model.Feature;
 import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;
 import org.apache.commons.lang3.tuple.Triple;

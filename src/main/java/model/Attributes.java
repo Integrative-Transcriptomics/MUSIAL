@@ -1,4 +1,4 @@
-package datastructure;
+package model;
 
 import utility.Constants;
 

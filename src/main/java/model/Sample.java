@@ -1,4 +1,4 @@
-package datastructure;
+package model;
 
 import org.apache.commons.lang3.tuple.MutableTriple;
 import utility.Constants;

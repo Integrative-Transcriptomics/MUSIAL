@@ -1,4 +1,4 @@
-package datastructure;
+package model;
 
 import htsjdk.samtools.util.Tuple;
 import utility.Constants;

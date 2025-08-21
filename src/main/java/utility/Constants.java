@@ -110,12 +110,12 @@ public final class Constants {
     public final static char gapChar = '-';
 
     /**
-     * The term used for reference alleles in the context of {@link datastructure.Feature.Allele}s.
+     * The term used for reference alleles in the context of {@link model.Feature.Allele}s.
      */
     public final static String reference = "reference";
 
     /**
-     * The term used for synonymous proteoforms in the context of {@link datastructure.Feature.Proteoform}s.
+     * The term used for synonymous proteoforms in the context of {@link model.Feature.Proteoform}s.
      */
     public final static String synonymous = "synonymous";
 
@@ -174,14 +174,14 @@ public final class Constants {
     public final static String $Feature_numberOfProteoforms = "no_proteoform";
 
     /**
-     * Key used to represent the effects of a {@link datastructure.SequenceType}.
+     * Key used to represent the effects of a {@link model.SequenceType}.
      * <p>
      * This constant is used as a key in
      * <ul>
-     *     <li>{@link datastructure.Feature.Allele} data structures to store or retrieve
+     *     <li>{@link model.Feature.Allele} data structures to store or retrieve
      *     the effects associated with a specific allele, i.e., all distinct {@code snpeff_effect} values of
-     *     {@link datastructure.VariantInformation} instances associated with the object.</li>
-     *     <li>{@link datastructure.Feature.Proteoform} data structures to store or retrieve
+     *     {@link model.VariantInformation} instances associated with the object.</li>
+     *     <li>{@link model.Feature.Proteoform} data structures to store or retrieve
      *     the effects derived in the constructor of the class.</li>
      * </ul>
      */

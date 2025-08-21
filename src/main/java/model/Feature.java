@@ -1,4 +1,4 @@
-package datastructure;
+package model;
 
 import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;

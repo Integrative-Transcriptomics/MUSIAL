@@ -1,4 +1,4 @@
-package datastructure;
+package model;
 
 import com.google.gson.GsonBuilder;
 import com.google.gson.internal.LinkedTreeMap;

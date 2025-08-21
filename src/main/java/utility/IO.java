@@ -1,10 +1,10 @@
 package utility;
 
 import com.google.common.base.Splitter;
-import datastructure.Contig;
-import datastructure.Feature;
-import datastructure.Storage;
-import datastructure.VariantInformation;
+import model.Contig;
+import model.Feature;
+import model.Storage;
+import model.VariantInformation;
 import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;
 import htsjdk.variant.vcf.VCFFileReader;
