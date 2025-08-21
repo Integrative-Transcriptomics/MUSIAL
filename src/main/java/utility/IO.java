@@ -271,7 +271,7 @@ public final class IO {
     public static String generateGffContent(Storage storage) {
         StringBuilder content = new StringBuilder();
         content.append("##gff-version 3.1.26").append(Constants.lineSeparator);
-        content.append("##processor %s %s".formatted(Musial.softwareName, Musial.softwareVersion)).append(Constants.lineSeparator);
+        content.append("##processor %s %s".formatted(Musial.name, Musial.version)).append(Constants.lineSeparator);
         for (Feature feature : storage.getFeatures()) {
             content.append(feature.toGffString());
         }

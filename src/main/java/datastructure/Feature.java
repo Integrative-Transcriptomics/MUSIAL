@@ -575,7 +575,7 @@ public class Feature extends Attributable {
 
         // Append feature information.
         contentBuilder.append(String.join(tab,
-                contig, Musial.softwareName, type, String.valueOf(start), String.valueOf(end),
+                contig, Musial.name, type, String.valueOf(start), String.valueOf(end),
                 dot, String.valueOf(strand), dot, "ID=%s".formatted(id)));
 
         // Append attributes if present.
@@ -589,7 +589,7 @@ public class Feature extends Attributable {
         // Append child features.
         getChildren().forEach((childType, locations) -> locations.forEach(location ->
                 contentBuilder.append(String.join(tab,
-                                contig, Musial.softwareName, childType, String.valueOf(location.a), String.valueOf(location.b),
+                                contig, Musial.name, childType, String.valueOf(location.a), String.valueOf(location.b),
                                 dot, String.valueOf(strand), dot, constructChildId(childType, id)))
                         .append(Constants.lineSeparator)
         ));

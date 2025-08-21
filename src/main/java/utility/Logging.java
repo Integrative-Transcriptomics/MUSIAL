@@ -89,7 +89,7 @@ public final class Logging {
      * Note: The software information is retrieved from the {@link Musial} class.
      */
     public static void printSoftwareInfo() {
-        System.out.printf("\033[47m\033[1;30m| %s %s |\033[0m%n", Musial.softwareName, Musial.softwareVersion);
+        System.out.printf("\033[47m\033[1;30m| %s %s |\033[0m%n", Musial.name, Musial.version);
     }
 
     /**

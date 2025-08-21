@@ -109,7 +109,7 @@ public final class CLI {
                     \033[47m\033[1;30m type     \033[0m : ...
                                         
                     Call `java -jar %s-%s.jar <task> [-h|--help]` for more information.
-                    """.formatted(Musial.softwareName, Musial.softwareVersion);
+                    """.formatted(Musial.name, Musial.version);
 
             // If a task was specified, but is not recognized, adjust the help text.
             if (Musial.task.equals(Musial.Task.UNDEFINED)) {
@@ -128,7 +128,7 @@ public final class CLI {
             // Print the help message with the specified options and arguments.
             helpformatter.printHelp(
                     150,
-                    "java -jar %s-%s.jar %s".formatted(Musial.softwareName, Musial.softwareVersion,
+                    "java -jar %s-%s.jar %s".formatted(Musial.name, Musial.version,
                             Musial.task.equals(Musial.Task.UNDEFINED) ? "<task>" : Musial.task.toString().toLowerCase()),
                     helpText,
                     options,
@@ -169,7 +169,7 @@ public final class CLI {
     private static void exitNotRecognized(String[] args) {
         if (Arrays.stream(args).noneMatch(arg -> arg.equals("-h") || arg.equals("--help"))) {
             System.out.printf("Task \033[1;31m%s\033[0m not recognized. Call `java -jar %s-%s.jar [-h|--help]` for more information.%n",
-                    args[0], Musial.softwareName, Musial.softwareVersion);
+                    args[0], Musial.name, Musial.version);
             System.exit(0);
         }
     }

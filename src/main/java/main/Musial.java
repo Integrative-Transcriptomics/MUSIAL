@@ -26,26 +26,26 @@ import java.util.stream.IntStream;
  * conserved and variable regions, diversity at the gene level and common proteoforms among samples.
  */
 public final class Musial {
-    
+
     /**
      * Name of the software; parsed from `/src/main/resources/info.properties`.
      */
-    public static String softwareName = "";
+    public static String name = "";
 
     /**
      * Version of the software; parsed from `/src/main/resources/info.properties`.
      */
-    public static String softwareVersion = "";
+    public static String version = "";
 
     /**
      * Author contact of the software; parsed from `/src/main/resources/info.properties`.
      */
-    public static String softwareContact = "";
+    public static String contact = "";
 
     /**
      * License information of the software; parsed from `/src/main/resources/info.properties`.
      */
-    public static String softwareLicense = "";
+    public static String license = "";
 
     /**
      * Specifies the task to execute.
@@ -134,7 +134,7 @@ public final class Musial {
             // Check if any arguments were provided; if not, display usage information and exit.
             if (args.length == 0) {
                 System.out.printf("No arguments were specified. Call `java -jar %s-%s.jar [-h|--help]` for more information.%n",
-                        Musial.softwareName, Musial.softwareVersion);
+                        Musial.name, Musial.version);
                 System.exit(0);
             }
 
@@ -197,10 +197,10 @@ public final class Musial {
         Properties properties = new Properties();
         InputStream in = Musial.class.getResourceAsStream("/info.properties");
         properties.load(in);
-        Musial.softwareName = properties.getProperty("name");
-        Musial.softwareVersion = properties.getProperty("version");
-        Musial.softwareContact = properties.getProperty("contact");
-        Musial.softwareLicense = properties.getProperty("license");
+        Musial.name = properties.getProperty("name");
+        Musial.version = properties.getProperty("version");
+        Musial.contact = properties.getProperty("contact");
+        Musial.license = properties.getProperty("license");
         // Print information to stdout.
         Logging.printSoftwareInfo();
     }
