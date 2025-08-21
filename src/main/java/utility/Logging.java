@@ -20,7 +20,7 @@ public final class Logging {
     /**
      * Set to keep track of logged warnings to avoid duplicate messages.
      */
-    public static final Set<String> logDump = new HashSet<>();
+    public static final Set<String> cache = new HashSet<>();
 
     /**
      * Logger instance for the application.
@@ -61,10 +61,10 @@ public final class Logging {
             public String format(LogRecord record) {
                 String prefix;
                 switch (record.getLevel().getName()) {
-                    case "INFO" -> prefix = "\033[0;34mINFO\033[0m    ";
-                    case "CONFIG" -> prefix = "\033[0;94mCONFIG\033[0m  ";
-                    case "WARNING" -> prefix = "\033[0;33mWARNING\033[0m ";
-                    case "SEVERE" -> prefix = "\033[0;93mSEVERE\033[0m  ";
+                    case "INFO" -> prefix = "\033[34mINFO\033[0m    ";
+                    case "CONFIG" -> prefix = "\033[94mCONFIG\033[0m  ";
+                    case "WARNING" -> prefix = "\033[33mWARNING\033[0m ";
+                    case "SEVERE" -> prefix = "\033[93mSEVERE\033[0m  ";
                     default -> prefix = "LOG     "; // Default
                 }
                 prefix += "%s ".formatted(getTimestamp());
@@ -89,7 +89,7 @@ public final class Logging {
      * Note: The software information is retrieved from the {@link Musial} class.
      */
     public static void printSoftwareInfo() {
-        System.out.printf("\033[47m\033[1;30m| %s %s |\033[0m%n", Musial.name, Musial.version);
+        System.out.printf("\033[1;30;47m| %s %s |\033[0m%n", Musial.name, Musial.version);
     }
 
     /**
@@ -174,7 +174,7 @@ public final class Logging {
      * Logs a warning message to the console with a timestamp, but only once for each unique key.
      * <p>
      * This method ensures that a warning message associated with a specific key is logged only once.
-     * It uses a set (`logDump`) to track keys of already logged warnings. If the key is not present
+     * It uses a set (`cache`) to track keys of already logged warnings. If the key is not present
      * in the set, the warning message is logged, and the key is added to the set.
      * <p>
      * This is useful for avoiding repetitive logging of the same warning message.
@@ -183,7 +183,7 @@ public final class Logging {
      * @param msg The warning message to be logged.
      */
     public static void logWarningOnce(String key, String msg) {
-        if (logDump.add(key)) {
+        if (cache.add(key)) {
             Logging.logWarning(msg);
         }
     }
