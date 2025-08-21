@@ -2196,13 +2196,13 @@ public class Storage {
                 if (buildErrorFile.exists() && buildErrorFile.length() != 0) {
                     Logging.logSevere("SnpEff `build` has raised an error or warning; a copy of the log file is in the output directory - the annotations may be incorrect.");
                     FileUtils.copyFile(buildErrorFile, new File(Musial.outputDirectory.getAbsolutePath()
-                            + "/musial_snpeff_build_%s.error".formatted(Musial.runId)));
+                            + "/musial_snpeff_build_%s.error".formatted(Logging.getDate())));
                 }
                 File annErrorFile = new File(temp + "/snpEff.ann.err");
                 if (annErrorFile.exists() && annErrorFile.length() != 0) {
                     Logging.logSevere("SnpEff `ann` has raised an error or warning; a copy of the log file is in the output directory - the annotations may be incorrect.");
                     FileUtils.copyFile(annErrorFile, new File(Musial.outputDirectory.getAbsolutePath()
-                            + "/musial_snpeff_ann_%s.error".formatted(Musial.runId)));
+                            + "/musial_snpeff_ann_%s.error".formatted(Logging.getDate())));
                 }
                 // Clean up temporary directory.
                 FileUtils.deleteDirectory(temp.toFile());

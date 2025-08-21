@@ -26,12 +26,7 @@ import java.util.stream.IntStream;
  * conserved and variable regions, diversity at the gene level and common proteoforms among samples.
  */
 public final class Musial {
-
-    /**
-     * Unique run ID of this program instance; generated from the current date and time.
-     */
-    public static final String runId = IO.md5Hash(Logging.getTimestamp());
-
+    
     /**
      * Name of the software; parsed from `/src/main/resources/info.properties`.
      */
@@ -273,7 +268,7 @@ public final class Musial {
             // Ensure the output path is a file, not a directory.
             File outputFile = new File(outputPath);
             if (outputFile.isDirectory()) {
-                outputPath += File.separator + "musial_storage_%s_%s".formatted(runId, storageExtension);
+                outputPath += File.separator + "musial_storage_%s_%s".formatted(Logging.getDate(), storageExtension);
                 outputFile = new File(outputPath);
             }
 
@@ -347,7 +342,7 @@ public final class Musial {
                 if (outputFile.isDirectory()) {
                     outputFile = new File(outputFile.getAbsolutePath()
                             + File.separator
-                            + "musial_storage_%s_%s".formatted(runId, storageExtension)
+                            + "musial_storage_%s_%s".formatted(Logging.getDate(), storageExtension)
                     );
                 }
             }
@@ -568,7 +563,7 @@ public final class Musial {
                 if (outputFile.isDirectory()) {
                     outputFile = new File(outputFile.getAbsolutePath()
                             + File.separator
-                            + "musial_view_%s_%s.tsv".formatted(content, runId)
+                            + "musial_view_%s_%s.tsv".formatted(content, Logging.getDate())
                     );
                 }
 
@@ -1259,7 +1254,7 @@ public final class Musial {
                     conserved ? "_conserved" : "_variant",
                     merge ? "_merged" : "_sample",
                     strip ? "" : "_aligned",
-                    runId
+                    Logging.getDate()
             );
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputDirectory + File.separator + fileName, StandardCharsets.UTF_8))) {
 
