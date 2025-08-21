@@ -360,7 +360,7 @@ public final class CLI {
                     .build());
             options.addOption(Option.builder("C")
                     .longOpt("content")
-                    .desc("One of %s.".formatted(String.join(", ", Musial.View.content)))
+                    .desc("One of %s.".formatted(String.join(", ", Musial.ContentUtility.content)))
                     .hasArg()
                     .required()
                     .build());
@@ -422,7 +422,7 @@ public final class CLI {
                     .build());
             options.addOption(Option.builder("C")
                     .longOpt("content")
-                    .desc("One of %s.".formatted(String.join(", ", Musial.View.content)))
+                    .desc("One of %s.".formatted(String.join(", ", Musial.ContentUtility.content)))
                     .hasArg()
                     .required()
                     .build());
@@ -576,7 +576,7 @@ public final class CLI {
                     .build());
             options.addOption(Option.builder("C")
                     .longOpt("content")
-                    .desc("One of %s.".formatted(String.join(", ", Musial.View.content)))
+                    .desc("One of %s.".formatted(String.join(", ", Musial.ContentUtility.content)))
                     .hasArg()
                     .required()
                     .build());

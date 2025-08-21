@@ -1,7 +1,7 @@
 package main;
 
 import com.google.common.base.Splitter;
-import datastructure.*;
+import model.*;
 import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;
 import org.apache.commons.io.FileUtils;
@@ -75,7 +75,7 @@ public final class Musial {
     public static long startTime;
 
     /**
-     * {@link Enum} specifying tasks of MUSIAL to choose from.
+     * {@link Enum} specifying MUSIAL tasks.
      */
     public enum Task {
         /**
@@ -83,25 +83,17 @@ public final class Musial {
          */
         BUILD,
         /**
-         * Task to add sample data from variant call files to a MUSIAL storage file.
+         * Task to add (sample) data from VCF files to a MUSIAL storage file.
          */
         EXPAND,
         /**
-         * Task to view content of a MUSIAL storage file.
+         * Task to generate tables of various content from a MUSIAL storage file.
          */
         VIEW,
         /**
-         * Task to cluster samples by variants from a MUSIAL storage file.
-         */
-        CLUSTER,
-        /**
-         * Task to export sequence data from a MUSIAL storage file.
+         * Task to export sequence data in FASTA format from a MUSIAL storage file.
          */
         SEQUENCE,
-        /**
-         * Task to type samples by feature's alleles and proteoforms from a MUSIAL storage file.
-         */
-        TYPE,
         /**
          * Task is undefined.
          */
@@ -152,30 +144,23 @@ public final class Musial {
             // Execute the task based on the parsed value.
             switch (task) {
                 case BUILD -> {
-                    Logging.logInfo("Execute task \033[1;1mbuild\033[0m");
-                    Update.build();
+                    Logging.logInfo("Execute task \033[1mbuild\033[0m");
+                    UpdateUtility.build();
                 }
                 case EXPAND -> {
-                    Logging.logInfo("Execute task \033[1;1mexpand\033[0m");
-                    Update.expand();
+                    Logging.logInfo("Execute task \033[1mexpand\033[0m");
+                    UpdateUtility.expand();
                 }
                 case VIEW -> {
-                    Logging.logInfo("Execute task \033[1;1mview\033[0m");
-                    View.run();
-                }
-                case CLUSTER -> {
-                    Logging.logInfo("Execute task \033[1;1mcluster\033[0m");
-                    Cluster.run();
+                    Logging.logInfo("Execute task \033[1mtable\033[0m");
+                    ContentUtility.run();
                 }
                 case SEQUENCE -> {
-                    Logging.logInfo("Execute task \033[1;1msequence\033[0m");
-                    Sequence.run();
+                    Logging.logInfo("Execute task \033[1msequence\033[0m");
+                    SequenceUtility.run();
                 }
-                case TYPE -> {
-                    Logging.logInfo("Execute task \033[1;1mtype\033[0m");
-                    Type.run();
-                }
-                default -> System.exit(-2); // Exit with an error code if the task is undefined.
+                // Exit the program, if the task is undefined.
+                default -> System.exit(-2);
             }
         } catch (Exception e) {
             // Log the error message and stack trace, then exit with an error code.
@@ -206,9 +191,11 @@ public final class Musial {
     }
 
     /**
-     * Provides functionality to update (build or expand) a MUSIAL storage.
+     * Inner utility class for updating MUSIAL storage files.
+     * <p>
+     * Handles the {@code BUILD} and {@code EXPAND} tasks.
      */
-    public static class Update {
+    public static class UpdateUtility {
 
         /**
          * Updates the storage by processing variant calls, running annotations, inferring sequence types,
@@ -224,9 +211,9 @@ public final class Musial {
 
             // Check and run SnpEff annotation if applicable.
             if (storage.getSkipSnpEff()) {
-                Logging.logInfo("Skip SnpEff analysis as per user request.");
+                Logging.logInfo("Skip SnpEff analysis per user request.");
             } else if (storage.getHasMissingContigSequences()) {
-                Logging.logWarning("Skip SnpEff annotation; no reference sequence provided.");
+                Logging.logWarning("Skip SnpEff annotation; no reference sequence for contigs available.");
             } else if (storage.getFeatures().isEmpty()) {
                 Logging.logWarning("Skip SnpEff annotation; no features available.");
             } else if (storage.getFeatures().stream().allMatch(f -> f.type.equals("region"))) {
@@ -268,7 +255,7 @@ public final class Musial {
             // Ensure the output path is a file, not a directory.
             File outputFile = new File(outputPath);
             if (outputFile.isDirectory()) {
-                outputPath += File.separator + "musial_storage_%s_%s".formatted(Logging.getDate(), outputExtension);
+                outputPath += File.separator + "musial_storage_%s%s".formatted(Logging.getDate(), outputExtension);
                 outputFile = new File(outputPath);
             }
 
@@ -379,7 +366,7 @@ public final class Musial {
             Logging.logDone(
                     "Storage %s with %d samples, %d variants. Processed %d genotypes. Execution time: %.2f seconds."
                             .formatted(
-                                    write ? "expanded" : "expandable", // Indicate whether the storage was expanded or just expandable.
+                                    write ? "updated" : "updatable", // Indicate whether the storage was expanded or just expandable.
                                     storage.getSamples().size() - originalSampleCount, // Number of new samples added.
                                     storage.getVariantsCount() - originalVariantsCount, // Number of new variants added.
                                     storage.getProcessedGenotypesCount(), // Total number of genotypes processed.
@@ -390,15 +377,14 @@ public final class Musial {
     }
 
     /**
-     * Provides functionality to generate and display various types of tables based on the data stored in the `Storage` object.
+     * Inner utility class for extracting and displaying non-sequence data from a MUSIAL storage file.
      * <p>
-     * Supports filtering and formatting the output for different content types such as features, alleles, samples, and variants,
-     * as well as sequence types and variant calls per sample in a matrix format.
+     * Handles the {@code VIEW} and {@code PROFILE} tasks.
      */
-    public static class View {
+    public static class ContentUtility {
 
         /**
-         * Represents a table structure for storing and displaying data in a tabular format.
+         * Table structure for storing and displaying data in a tabular format.
          * <p>
          * This class provides functionality to manage rows and columns, add entries, and generate
          * a string representation of the table. It supports sorting of row identifiers using a
@@ -500,25 +486,19 @@ public final class Musial {
         }
 
         /**
-         * A set of supported content types for the `view` task.
+         * Set of supported content types for the table and profile tasks.
          * <p>
-         * This set defines the types of data that can be generated and displayed
-         * in tabular format by the `view` functionality of the MUSIAL application.
-         * Each string in the set corresponds to a specific type of content:
-         * <ul>
-         *     <li><b>feature</b>: Represents genomic features.</li>
-         *     <li><b>allele</b>: Represents alleles associated with features.</li>
-         *     <li><b>sample</b>: Represents sample-specific data.</li>
-         *     <li><b>type</b>: Represents sequence types for samples.</li>
-         *     <li><b>variant</b>: Represents genomic variants.</li>
-         *     <li><b>call</b>: Represents variant calls for samples.</li>
-         * </ul>
+         * Defines the types of data that can be generated and displayed in
+         * tabular format by the table and profile tasks of MUSIAL.
          */
         public static final Set<String> content = Set.of(
-                "features",
-                "samples",
-                "variants",
-                "calls"
+                "features", // Induces .run() to generate a table of features.
+                "samples", // ... samples.
+                "variants", // ... variants.
+                "alleles", // ... alleles of one feature.
+                "proteoforms", // ... proteoforms of one feature.
+                "calls", // Induces .run() to generate a sample profile of variant calls.
+                "types" // ... sequence types.
         );
 
         /**
@@ -539,20 +519,22 @@ public final class Musial {
 
             // Retrieve and validate the content type to view.
             String content = ((String) CLI.parameters.get("content")).toLowerCase();
-            if (!content.matches(String.join(Constants.pipe, Musial.View.content))) {
+            if (!content.matches(String.join(Constants.pipe, ContentUtility.content))) {
                 throw new MusialException("Content (-c) has to be one of %s, but %s was provided."
-                        .formatted(String.join(", ", Musial.View.content), content));
+                        .formatted(String.join(", ", ContentUtility.content), content));
             }
 
             // Initialize sets to store filters for features, samples, and positions.
             Set<String> features = new HashSet<>(), samples = new HashSet<>(), positions = new HashSet<>();
-            // Parse the `confine` parameter to populate the filter sets.
+            // Parse filter parameter to populate filter sets.
             //noinspection unchecked
             for (String value : (Set<String>) CLI.parameters.get("filter")) {
                 if (storage.hasFeature(value)) features.add(value);
                 if (storage.hasSample(value)) samples.add(value);
                 if (value.matches("\\d+")) positions.add(value);
             }
+
+            // sample.(gyrA.allele=[]10)
 
             // Retrieve and validate the output destination.
             String output = (String) CLI.parameters.get("output");
@@ -713,7 +695,7 @@ public final class Musial {
 
                             // Check if the variant is associated with any of the included samples.
                             boolean hasSample = includeSamples.isEmpty() || includeSamples.stream().anyMatch(
-                                    sample -> variantInfo.hasOccurrence(Attributable.sampleOccurrence, sample));
+                                    sample -> variantInfo.hasOccurrence(Attributes.sampleOccurrence, sample));
 
                             // If the variant matches the feature and sample filters, add it to the table.
                             if (hasFeature && hasSample) {
@@ -783,21 +765,12 @@ public final class Musial {
         }
     }
 
-    public static class Cluster {
-
-        public static void run() {
-
-        }
-
-    }
-
     /**
-     * Provides functionality for exporting nucleotide (nt) or amino acid (aa) sequences from genomic features and contigs
-     * in the MUSIAL application.
+     * Inner utility class for extracting sequence data from a MUSIAL storage file.
      * <p>
-     * It supports exporting sequences in FASTA format with options for alignment, merging, and including conserved reference content.
+     * Handles the {@code SEQUENCE} task.
      */
-    private static class Sequence {
+    public static class SequenceUtility {
 
         /**
          * Executes the sequence export task for the MUSIAL application.
@@ -1323,14 +1296,6 @@ public final class Musial {
                     }
                 }
             }
-        }
-
-    }
-
-    public static class Type {
-
-        public static void run() {
-
         }
 
     }
