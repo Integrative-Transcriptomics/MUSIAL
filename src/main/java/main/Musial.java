@@ -17,8 +17,13 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * Main class of MUSIAL (MUlti Sample varIant AnaLysis), a tool to calculate SNV, gene, and whole genome alignments,
- * together with other relevant statistics based on .vcf files.
+ * Main class of MUSIAL (MUlti Sample varIant AnaLysis).
+ * <p>
+ * MUSIAL is a Java command-line tool designed to analyze and summarize single nucleotide variants (SNVs) and insertions/deletions (indels)
+ * across multiple prokaryotic samples. The software aggregates and analyzes variant calls from multiple samples of a prokaryotic species
+ * and provides an interface to generate comprehensive statistics and alignments at the genome, gene and protein level. MUSIAL enables a
+ * comprehensive assessment of variability within a species at the genome, gene and protein level, providing insights into, for example,
+ * conserved and variable regions, diversity at the gene level and common proteoforms among samples.
  */
 public final class Musial {
 
