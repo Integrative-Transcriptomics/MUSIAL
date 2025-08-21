@@ -1115,15 +1115,15 @@ public class Storage {
             }
 
             // Update sample attributes with calculated statistics.
-            sample.setAttribute(Constants.$Sample_numberOfCalls, String.valueOf(totalCalls));
-            sample.setAttribute(Constants.$Sample_numberOfFiltered, String.valueOf(filteredCalls));
-            sample.setAttribute(Constants.$Sample_meanCoverage,
+            sample.addAttribute(Constants.$Sample_numberOfCalls, String.valueOf(totalCalls));
+            sample.addAttribute(Constants.$Sample_numberOfFiltered, String.valueOf(filteredCalls));
+            sample.addAttribute(Constants.$Sample_meanCoverage,
                     IO.formatNumber(coverages.stream().mapToInt(Integer::intValue).average().orElse(0))
             );
-            sample.setAttribute(Constants.$Sample_meanEntropy,
+            sample.addAttribute(Constants.$Sample_meanEntropy,
                     IO.formatNumber(entropy.stream().mapToDouble(Double::doubleValue).average().orElse(0))
             );
-            sample.setAttribute(Constants.$Attributable_frequencyReference,
+            sample.addAttribute(Constants.$Attributable_frequencyReference,
                     IO.formatFrequency(1 - (sample.getAlleleCount() / (float) features.size())));
 
             // Calculate proteoform statistics for coding features if proteoform inference is not skipped.
@@ -1141,7 +1141,7 @@ public class Storage {
                         }
                     }
                 }
-                sample.setAttribute(Constants.$Attributable_frequencyDisrupted,
+                sample.addAttribute(Constants.$Attributable_frequencyDisrupted,
                         IO.formatFrequency(disrupted / noCodingFeatures)
                 );
             }
@@ -1151,7 +1151,7 @@ public class Storage {
         for (Contig contig : contigs.values()) {
             contig.variants.forEach((position, innerMap) -> innerMap.forEach((altBases, variantInfo) -> {
                 int sampleCount = variantInfo.getSampleOccurrence().size();
-                variantInfo.setAttribute(Constants.$VariantInformation_frequency,
+                variantInfo.addAttribute(Constants.$VariantInformation_frequency,
                         IO.formatFrequency(sampleCount / (float) samples.size())
                 );
 
@@ -1167,9 +1167,9 @@ public class Storage {
 
         // Update sample attributes with aggregated substitution and indel counts.
         perSampleSubstitutions.forEach((sample, count) -> samples.get(sample)
-                .setAttribute(Constants.$Sample_numberOfSubstitutions, String.valueOf(count)));
+                .addAttribute(Constants.$Sample_numberOfSubstitutions, String.valueOf(count)));
         perSampleInDels.forEach((sample, count) -> samples.get(sample)
-                .setAttribute(Constants.$Sample_numberOfIndels, String.valueOf(count)));
+                .addAttribute(Constants.$Sample_numberOfIndels, String.valueOf(count)));
 
         // Initialize a map to store proteoform occurrences for each feature.
         Map<String, Integer> perProteoformOccurrence = new HashMap<>();
@@ -1183,7 +1183,7 @@ public class Storage {
             // Process alleles for the feature to calculate allelic frequencies and proteoform statistics.
             for (SequenceType allele : feature.getAlleles()) {
                 int alleleOccurrence = allele.getCount();
-                allele.setAttribute(Constants.$SequenceType_frequency,
+                allele.addAttribute(Constants.$SequenceType_frequency,
                         IO.formatFrequency(alleleOccurrence / (float) samples.size())
                 );
                 nonReferenceOccurrence += alleleOccurrence;
@@ -1201,20 +1201,20 @@ public class Storage {
             }
 
             // Update feature attributes with calculated statistics.
-            feature.setAttribute(Constants.$Attributable_frequencyReference,
+            feature.addAttribute(Constants.$Attributable_frequencyReference,
                     IO.formatFrequency(1 - (nonReferenceOccurrence / samples.size()))
             );
-            feature.setAttribute(Constants.$Feature_numberOfAlleles, String.valueOf(feature.getAlleleCount()));
+            feature.addAttribute(Constants.$Feature_numberOfAlleles, String.valueOf(feature.getAlleleCount()));
 
             if (!parameters.skipProteoformInference() && feature.isCoding()) {
                 int proteoformCount = feature.getProteoformCount();
                 float disruptedFrequency = proteoformCount == 0 ? 0 : disrupted / (float) proteoformCount;
-                feature.setAttribute(Constants.$Attributable_frequencyDisrupted,
+                feature.addAttribute(Constants.$Attributable_frequencyDisrupted,
                         IO.formatFrequency(disruptedFrequency)
                 );
-                feature.setAttribute(Constants.$Feature_numberOfProteoforms, String.valueOf(feature.getProteoformCount()));
+                feature.addAttribute(Constants.$Feature_numberOfProteoforms, String.valueOf(feature.getProteoformCount()));
                 perProteoformOccurrence.forEach((proteoformUid, count) ->
-                        feature.getProteoform(proteoformUid).setAttribute(Constants.$SequenceType_frequency,
+                        feature.getProteoform(proteoformUid).addAttribute(Constants.$SequenceType_frequency,
                                 IO.formatFrequency(count / (float) samples.size()))
                 );
             }
@@ -1350,7 +1350,7 @@ public class Storage {
 
                 // Add or extend the "children" attribute for the feature.
                 if (!feature.hasAttribute("children")) {
-                    feature.setAttribute("children", "%s:%d:%d".formatted(type, (int) start, (int) end));
+                    feature.addAttribute("children", "%s:%d:%d".formatted(type, (int) start, (int) end));
                 } else {
                     feature.extendAttribute("children", "%s:%d:%d".formatted(type, (int) start, (int) end));
                 }
@@ -1362,7 +1362,7 @@ public class Storage {
         } else {
             // Create a new feature if it does not already exist.
             feature = new Feature(name, chrom, start, end, strand, type, uid);
-            feature.setAttribute("children", ""); // Ensure the "children" attribute is initialized.
+            feature.addAttribute("children", ""); // Ensure the "children" attribute is initialized.
             this.features.put(name, feature);
         }
 
@@ -1397,7 +1397,7 @@ public class Storage {
 
             // Remove children for level 0 SO term types.
             if (SO.get(feature.type) == 0 && !children.isEmpty()) {
-                feature.setAttribute("children", "");
+                feature.addAttribute("children", "");
                 Logging.logWarningOnce("REMOVE_SO0_CHILDREN",
                         "Features of type(s) %s are not supported to have children and associated children of %s will be removed."
                                 .formatted(String.join(", ", getSOTerms(0)), feature.name));
@@ -1481,7 +1481,7 @@ public class Storage {
 
         // Create a new feature with the updated type, location, and attributes.
         Feature updatedFeature = new Feature(feature.name, feature.contig, start, end, feature.strand, "gene", feature.uid);
-        updatedFeature.setAttributes(feature.getAttributes());
+        updatedFeature.addAttributes(feature.getAttributes());
         updatedFeature.setChildren(children);
 
         // Store the updated feature back into the features map.

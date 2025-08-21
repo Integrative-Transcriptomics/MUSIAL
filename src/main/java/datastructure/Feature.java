@@ -19,13 +19,13 @@ import static utility.Constants.tab;
  * Representation of a genomic feature that is subject to analysis.
  * <p>
  * This class models a genomic feature, such as a gene, exon, or coding sequence (CDS),
- * that is analyzed in the context of genomic data processing. It extends the {@link Attributable}
+ * that is analyzed in the context of genomic data processing. It extends the {@link Attributes}
  * class to inherit functionality for managing attributes associated with the feature.
  * <p>
  * Each instance of this class is uniquely identified by its {@code name} and contains
  * information about its type, location on the reference genome, and other relevant properties.
  */
-public class Feature extends Attributable {
+public class Feature extends Attributes {
 
     /**
      * The type of this genomic feature.
@@ -167,7 +167,7 @@ public class Feature extends Attributable {
      * <p>
      * This constructor initializes a genomic feature with its name, location, strand orientation,
      * type, and unique identifier. The feature's start and end positions are converted to integers
-     * to ensure proper indexing. The {@link Attributable} superclass is also initialized.
+     * to ensure proper indexing. The {@link Attributes} superclass is also initialized.
      *
      * @param name   The name of the feature, used as its internal identifier.
      * @param contig The name of the reference location (e.g., contig, chromosome, plasmid) where the feature is located.
@@ -231,12 +231,12 @@ public class Feature extends Attributable {
             // Add default attributes for effects and net-shift.
             int lengthVariation = SequenceType.computeLengthVariation(variants);
             int netFrameshift = Math.abs(lengthVariation % 3);
-            allele.setAttribute(Constants.$SequenceType_sequenceLengthVariation, String.valueOf(SequenceType.computeLengthVariation(variants)));
+            allele.addAttribute(Constants.$SequenceType_sequenceLengthVariation, String.valueOf(SequenceType.computeLengthVariation(variants)));
             Set<String> effects = contig.getVariantsEffects(variants);
             if (netFrameshift != 0) {
                 effects.add(lengthVariation > 0 ? "plus_%d_frameshift".formatted(netFrameshift) : "minus_%d_frameshift".formatted(netFrameshift));
             }
-            allele.setAttribute(Constants.$SequenceType_effects, String.join(Constants.comma, effects));
+            allele.addAttribute(Constants.$SequenceType_effects, String.join(Constants.comma, effects));
         }
 
         // Add the sample occurrence to the allele.
@@ -366,7 +366,7 @@ public class Feature extends Attributable {
 
                 // Add default attributes for effects and net-shift.
                 int lengthVariation = SequenceType.computeLengthVariation(aaVariants);
-                proteoform.setAttribute(Constants.$SequenceType_sequenceLengthVariation, String.valueOf(lengthVariation));
+                proteoform.addAttribute(Constants.$SequenceType_sequenceLengthVariation, String.valueOf(lengthVariation));
 
                 Set<String> effects = new HashSet<>();
                 String alleleEffects = allele.getAttribute(Constants.$SequenceType_effects);
@@ -387,7 +387,7 @@ public class Feature extends Attributable {
                                 effects.add("redundant_inserted_stop_gained");
                             }
                         });
-                proteoform.setAttribute(Constants.$SequenceType_effects, String.join(Constants.comma, effects));
+                proteoform.addAttribute(Constants.$SequenceType_effects, String.join(Constants.comma, effects));
 
             }
 
@@ -396,7 +396,7 @@ public class Feature extends Attributable {
         }
 
         // Associate the allele with the proteoform.
-        allele.setAttribute(Constants.$Allele_proteoform, proteoformUid);
+        allele.addAttribute(Constants.$Allele_proteoform, proteoformUid);
     }
 
     /**
@@ -505,7 +505,7 @@ public class Feature extends Attributable {
         }
 
         // Add the serialized "children" string as an attribute to this feature.
-        setAttribute(Constants.$Feature_children, sb.toString());
+        addAttribute(Constants.$Feature_children, sb.toString());
     }
 
     /**

@@ -12,13 +12,13 @@ import java.util.stream.Collectors;
  * Represents a reference sequence segment.
  * <p>
  * This class models a segment of a reference sequence, which can represent a complete genome,
- * a plasmid, a single contig, or a scaffold. It extends the {@link Attributable} class to
+ * a plasmid, a single contig, or a scaffold. It extends the {@link Attributes} class to
  * inherit functionality for managing attributes associated with the contig.
  * <p>
  * Each instance of this class is uniquely identified by its {@code name} and contains
  * information about its nucleotide sequence, variants, and other relevant properties.
  */
-public class Contig extends Attributable {
+public class Contig extends Attributes {
 
     /**
      * The name or internal identifier of this contig.
@@ -306,7 +306,7 @@ public class Contig extends Attributable {
         ArrayList<Tuple<Integer, String>> sampleVariants = new ArrayList<>();
         this.variants.forEach((position, innerMap) ->
                 innerMap.entrySet().stream()
-                        .filter(e -> e.getValue().hasOccurrence(Attributable.sampleOccurrence, sampleName))
+                        .filter(e -> e.getValue().hasOccurrence(Attributes.sampleOccurrence, sampleName))
                         .findFirst()
                         .ifPresent(e -> sampleVariants.add(new Tuple<>(position, e.getKey())))
         );
@@ -337,7 +337,7 @@ public class Contig extends Attributable {
         ArrayList<Tuple<Integer, String>> sampleVariants = new ArrayList<>();
         this.variants.subMap(start, end + 1).forEach((position, innerMap) ->
                 innerMap.entrySet().stream()
-                        .filter(e -> e.getValue().hasOccurrence(Attributable.sampleOccurrence, sampleName))
+                        .filter(e -> e.getValue().hasOccurrence(Attributes.sampleOccurrence, sampleName))
                         .findFirst()
                         .ifPresent(e -> sampleVariants.add(new Tuple<>(position, e.getKey())))
         );

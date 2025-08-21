@@ -16,7 +16,7 @@ import java.util.HashSet;
  * It provides methods to determine the type of the variant, check its canonical
  * or padded canonical status, and manage occurrences in samples and features.
  */
-public class VariantInformation extends Attributable {
+public class VariantInformation extends Attributes {
 
     /**
      * The reference base content of this variant.
@@ -28,7 +28,7 @@ public class VariantInformation extends Attributable {
      * <p>
      * The `occurrence` map is structured as follows:
      * <ul>
-     *     <li>The key is either {@link Attributable#sampleOccurrence} (representing sample occurrences)
+     *     <li>The key is either {@link Attributes#sampleOccurrence} (representing sample occurrences)
      *         or the name of a {@link Feature} (representing feature occurrences).</li>
      *     <li>The value is a {@link HashSet} containing names of {@link Sample} or {@link SequenceType}
      *         associated with the key.</li>
@@ -89,7 +89,7 @@ public class VariantInformation extends Attributable {
             );
         }
         this.reference = referenceContent;
-        this.occurrence.put(Attributable.sampleOccurrence, new HashSet<>());
+        this.occurrence.put(Attributes.sampleOccurrence, new HashSet<>());
     }
 
     /**
@@ -249,7 +249,7 @@ public class VariantInformation extends Attributable {
      * @param name The name of the sample to add.
      */
     protected void addSampleOccurrence(String name) {
-        this.occurrence.get(Attributable.sampleOccurrence).add(name);
+        this.occurrence.get(Attributes.sampleOccurrence).add(name);
     }
 
     /**
@@ -299,7 +299,7 @@ public class VariantInformation extends Attributable {
      * @return A {@link Collection} of sample names.
      */
     public Collection<String> getSampleOccurrence() {
-        return this.occurrence.get(Attributable.sampleOccurrence);
+        return this.occurrence.get(Attributes.sampleOccurrence);
     }
 
     /**

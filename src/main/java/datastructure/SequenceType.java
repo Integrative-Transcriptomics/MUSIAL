@@ -9,11 +9,11 @@ import java.util.stream.Collectors;
 /**
  * Represents a sequence type with associated variants, occurrences, and attributes.
  * <p>
- * This class extends {@link Attributable} to manage metadata.
+ * This class extends {@link Attributes} to manage metadata.
  * <p>
  * This class is extended by the {@link Feature.Allele} and {@link Feature.Proteoform} classes.
  */
-public class SequenceType extends Attributable {
+public class SequenceType extends Attributes {
 
     /**
      * The unique identifier of this entity.
@@ -169,7 +169,7 @@ public class SequenceType extends Attributable {
      * @return The name of this sequence type if it is set, or the unique identifier {@code uid} if not set.
      */
     public String getIdentifier() {
-        return getAttributeOrDefault("name", uid);
+        return getAttribute("name", uid);
     }
 
     /**
@@ -191,7 +191,7 @@ public class SequenceType extends Attributable {
      * The string representation includes:
      * <ul>
      *   <li>The identifier, which is either the {@code name} (if set) or the unique identifier {@code uid}.</li>
-     *   <li>The attributes of this sequence type, formatted using {@link Attributable#attributesAsString(String)}.</li>
+     *   <li>The attributes of this sequence type, formatted using {@link Attributes#attributesAsString(String)}.</li>
      *   <li>The variants associated with this sequence type, formatted using {@link #variantsAsString()}.</li>
      * </ul>
      *
@@ -285,10 +285,10 @@ public class SequenceType extends Attributable {
         Collection<String> properties = new HashSet<>();
 
         // Add the "allelic_frequency" property if it exists, or use "NaN" as the default value.
-        properties.add("[allelic_frequency=%s]".formatted(getAttributeOrDefault(Constants.$SequenceType_frequency, "NaN")));
+        properties.add("[allelic_frequency=%s]".formatted(getAttribute(Constants.$SequenceType_frequency, "NaN")));
 
         // Add the "so_effects" property if it exists, or use "NaN" as the default value.
-        properties.add("[so_effects=%s]".formatted(getAttributeOrDefault(Constants.$SequenceType_effects, "NaN")));
+        properties.add("[so_effects=%s]".formatted(getAttribute(Constants.$SequenceType_effects, "NaN")));
 
         // Construct and return the FASTA header, appending properties if they exist.
         return ">%s %s".formatted(sequenceId, String.join(" ", properties));

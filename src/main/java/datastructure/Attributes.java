@@ -9,30 +9,26 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 /**
- * Base class for entities that can have attributes.
+ * Base class for entities to store arbitrary attributes as {@link String}s.
  * <p>
  * This class provides methods to manage attributes associated with an entity. Attributes are stored
  * as key-value pairs in a {@link TreeMap}, allowing efficient retrieval, addition, extension, and removal
- * of attributes. It also supports operations like checking for the existence of attributes and converting
+ * of such. It also supports operations like checking for the existence of attributes and converting
  * attributes to a string representation.
  */
-public class Attributable {
+public class Attributes {
 
-    /**
-     * Key used to represent the occurrence of samples in classes that extend {@link Attributable}.
-     */
-    public final static String sampleOccurrence = "sample";
     /**
      * Attributes associated with this entity, stored as key-value pairs.
      */
     private final TreeMap<String, String> attributes = new TreeMap<>();
 
     /**
-     * Constructor of {@link Attributable}.
+     * Constructor of {@link Attributes}.
      * <p>
      * Initializes an empty attributes map for the entity.
      */
-    protected Attributable() {
+    protected Attributes() {
     }
 
     /**
@@ -41,7 +37,7 @@ public class Attributable {
      * @param key   The key of the attribute.
      * @param value The value of the attribute.
      */
-    public void setAttribute(String key, String value) {
+    public void addAttribute(String key, String value) {
         this.attributes.put(key, value);
     }
 
@@ -50,8 +46,8 @@ public class Attributable {
      *
      * @param attributes A map of attributes to associate with this entity.
      */
-    public void setAttributes(Map<String, String> attributes) {
-        attributes.forEach(this::setAttribute);
+    public void addAttributes(Map<String, String> attributes) {
+        attributes.forEach(this::addAttribute);
     }
 
     /**
@@ -119,7 +115,7 @@ public class Attributable {
      * @param value The default value to return if the attribute does not exist.
      * @return The value of the attribute, or the specified default value if the attribute does not exist.
      */
-    public String getAttributeOrDefault(String key, String value) {
+    public String getAttribute(String key, String value) {
         return this.attributes.getOrDefault(key, value);
     }
 

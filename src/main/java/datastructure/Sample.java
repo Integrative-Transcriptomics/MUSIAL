@@ -9,11 +9,11 @@ import java.util.regex.Pattern;
 /**
  * Represents a sample containing variant calls from a single biological sample.
  * <p>
- * This class extends {@link Attributable} to inherit functionality for managing attributes.
+ * This class extends {@link Attributes} to inherit functionality for managing attributes.
  * It provides fields and methods to store and manipulate variant calls, alleles, and other
  * sample-specific data. Each instance of this class is uniquely identified by its {@code name}.
  */
-public class Sample extends Attributable {
+public class Sample extends Attributes {
 
     /**
      * The name or internal identifier of this sample.
