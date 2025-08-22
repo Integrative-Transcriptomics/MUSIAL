@@ -106,10 +106,10 @@ public class Variant extends Attributes {
     /**
      * Associates a sample with this variant.
      *
-     * @param identifier The identifier of the sample to associate with this variant.
+     * @param sampleIdentifier The identifier of the sample to associate with this variant.
      */
-    protected void associateSample(String identifier) {
-        this.samples.add(identifier);
+    protected void setRelation(String sampleIdentifier) {
+        this.samples.add(sampleIdentifier);
     }
 
     /**
@@ -118,7 +118,7 @@ public class Variant extends Attributes {
      * @param featureIdentifier The identifier of the feature to associate with this variant.
      * @param alleleIdentifier  The identifier of the allele to associate with the feature.
      */
-    protected void associateAllele(String featureIdentifier, String alleleIdentifier) {
+    protected void setRelation(String featureIdentifier, String alleleIdentifier) {
         this.features.putIfAbsent(featureIdentifier, new HashSet<>(8));
         this.features.get(featureIdentifier).add(alleleIdentifier);
     }
@@ -132,7 +132,7 @@ public class Variant extends Attributes {
      * @param identifier The identifier to check for occurrences in this variant.
      * @return {@code true} if the identifier is found in samples or features, {@code false} otherwise.
      */
-    public boolean hasOccurrence(String identifier) {
+    public boolean hasRelation(String identifier) {
         return this.samples.contains(identifier) || this.features.containsKey(identifier)
                 || this.features.values().stream().anyMatch(alleles -> alleles.contains(identifier));
     }
@@ -142,7 +142,7 @@ public class Variant extends Attributes {
      *
      * @return A collection of sample identifiers that have occurrences of this variant.
      */
-    public Collection<String> getSampleOccurrence() {
+    public Collection<String> getRelatedSamples() {
         return this.samples;
     }
 
@@ -154,7 +154,7 @@ public class Variant extends Attributes {
      *
      * @return A collection of tuples representing the feature and allele occurrences.
      */
-    public Collection<Tuple<String, String>> getAlleleOccurrence() {
+    public Collection<Tuple<String, String>> getRelatedAlleles() {
         HashSet<Tuple<String, String>> alleles = new HashSet<>();
         for (String feature : this.features.keySet()) {
             for (String allele : this.features.get(feature)) {

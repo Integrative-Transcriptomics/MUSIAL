@@ -226,7 +226,7 @@ public class Contig extends Attributes {
         // Filter variants based on the provided set of sample names.
         return this.variants.values().stream()
                 .flatMap(Collection::stream)
-                .filter(variant -> Arrays.stream(relations).anyMatch(variant::hasOccurrence))
+                .filter(variant -> Arrays.stream(relations).anyMatch(variant::hasRelation))
                 .collect(Collectors.toList());
     }
 
@@ -246,7 +246,7 @@ public class Contig extends Attributes {
         // Retrieve variants within the specified range and filter them based on the provided set of sample names.
         return this.variants.subMap(start, end + 1).values().stream()
                 .flatMap(Collection::stream)
-                .filter(variant -> Arrays.stream(relations).anyMatch(variant::hasOccurrence))
+                .filter(variant -> Arrays.stream(relations).anyMatch(variant::hasRelation))
                 .collect(Collectors.toList());
     }
 
