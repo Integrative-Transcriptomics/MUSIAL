@@ -1,5 +1,7 @@
 package utility;
 
+import model.Variant;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -180,7 +182,7 @@ public final class Constants {
      * <ul>
      *     <li>{@link model.Feature.Allele} data structures to store or retrieve
      *     the effects associated with a specific allele, i.e., all distinct {@code snpeff_effect} values of
-     *     {@link model.VariantInformation} instances associated with the object.</li>
+     *     {@link Variant} instances associated with the object.</li>
      *     <li>{@link model.Feature.Proteoform} data structures to store or retrieve
      *     the effects derived in the constructor of the class.</li>
      * </ul>

@@ -1,15 +1,15 @@
 package utility;
 
 import com.google.common.base.Splitter;
-import model.Contig;
-import model.Feature;
-import model.Storage;
-import model.VariantInformation;
 import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;
 import htsjdk.variant.vcf.VCFFileReader;
 import htsjdk.variant.vcf.VCFUtils;
 import main.Musial;
+import model.Contig;
+import model.Feature;
+import model.Storage;
+import model.Variant;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.LineIterator;
@@ -29,9 +29,8 @@ import java.util.zip.GZIPOutputStream;
 /**
  * Utility class for input/output operations.
  * <p>
- * This final class provides static methods for various file and data handling operations,
- * such as reading, writing, compressing, and hashing files and strings. It also includes
- * methods for generating specific file formats like VCF, FASTA, and GFF.
+ * This final class provides static methods for various file and data handling operations, such as reading, writing, compressing, and
+ * hashing files and strings. It also includes methods for generating specific file formats like VCF, FASTA, and GFF.
  * <p>
  * The class is designed to be non-instantiable and serves as a collection of utility methods.
  */
@@ -40,25 +39,24 @@ public final class IO {
     /**
      * A DecimalFormat instance for formatting frequencies in scientific notation.
      * <p>
-     * The format uses one digit before the decimal point and two digits after,
-     * followed by an exponent (e.g., "1.23E4"). The locale is set to US for consistent
-     * decimal and grouping symbols.
+     * The format uses one digit before the decimal point and two digits after, followed by an exponent (e.g., "1.23E4"). The locale is set
+     * to US for consistent decimal and grouping symbols.
      */
     private static final DecimalFormat frequencyFormat = new DecimalFormat(".00E0", DecimalFormatSymbols.getInstance(Locale.US));
 
     /**
      * A DecimalFormat instance for formatting numbers with up to three decimal places.
      * <p>
-     * The format uses up to two digits before the decimal point and three digits after
-     * (e.g., "12.345"). The locale is set to US for consistent decimal and grouping symbols.
+     * The format uses up to two digits before the decimal point and three digits after (e.g., "12.345"). The locale is set to US for
+     * consistent decimal and grouping symbols.
      */
     private static final DecimalFormat decimalFormat = new DecimalFormat("##.###", DecimalFormatSymbols.getInstance(Locale.US));
 
     /**
      * Formats a frequency value into scientific notation.
      * <p>
-     * This method formats the given frequency value using the {@link #frequencyFormat}.
-     * If the formatted value equals ".10E1", it is replaced with "1.00E0" for consistency.
+     * This method formats the given frequency value using the {@link #frequencyFormat}. If the formatted value equals ".10E1", it is
+     * replaced with "1.00E0" for consistency.
      *
      * @param value The frequency value to format.
      * @return A {@link String} representing the formatted frequency in scientific notation.
@@ -76,8 +74,8 @@ public final class IO {
     /**
      * Formats a number to three decimal places.
      * <p>
-     * This method formats the given number using the {@link #decimalFormat}.
-     * The result is a string representation of the number with up to three decimal places.
+     * This method formats the given number using the {@link #decimalFormat}. The result is a string representation of the number with up to
+     * three decimal places.
      *
      * @param value The number to format.
      * @return A {@link String} representing the formatted number.
@@ -89,8 +87,8 @@ public final class IO {
     /**
      * Reads the content of a file line by line and returns a list of non-empty, trimmed lines.
      * <p>
-     * This method uses a {@link Scanner} to read the file with UTF-8 encoding. Each line is trimmed
-     * to remove leading and trailing whitespace, and empty lines are excluded from the result.
+     * This method uses a {@link Scanner} to read the file with UTF-8 encoding. Each line is trimmed to remove leading and trailing
+     * whitespace, and empty lines are excluded from the result.
      *
      * @param file The {@link File} object representing the file to read.
      * @return An {@link ArrayList} containing the non-empty, trimmed lines from the file.
@@ -112,9 +110,8 @@ public final class IO {
     /**
      * Writes the specified content to a file at the given path.
      * <p>
-     * This method ensures that the parent directories of the target file are created if they do not exist.
-     * It then writes the provided content to the file using UTF-8 encoding. If the file already exists,
-     * its content is overwritten.
+     * This method ensures that the parent directories of the target file are created if they do not exist. It then writes the provided
+     * content to the file using UTF-8 encoding. If the file already exists, its content is overwritten.
      *
      * @param path    The {@link Path} where the file will be written.
      * @param content The {@link String} content to write to the file.
@@ -129,13 +126,13 @@ public final class IO {
     /**
      * Reads a tabular file and converts its content into a nested map structure.
      * <p>
-     * This method reads a tabular file where the first row contains headers and each subsequent row contains data.
-     * The first column is treated as the key for the outer map, and the remaining columns are stored in an inner map
-     * with their corresponding headers as keys. The file can use tab or comma as delimiters.
+     * This method reads a tabular file where the first row contains headers and each subsequent row contains data. The first column is
+     * treated as the key for the outer map, and the remaining columns are stored in an inner map with their corresponding headers as keys.
+     * The file can use tab or comma as delimiters.
      *
      * @param file The {@link File} object representing the tabular file to read.
-     * @return A {@link HashMap} where the outer map's key is the first column's value, and the value is another
-     * {@link HashMap} containing the remaining columns as key-value pairs.
+     * @return A {@link HashMap} where the outer map's key is the first column's value, and the value is another {@link HashMap} containing
+     * the remaining columns as key-value pairs.
      * @throws IOException If an I/O error occurs or the file format is invalid.
      */
     public static HashMap<String, HashMap<String, String>> readTabularFileAsNestedMap(File file) throws IOException {
@@ -163,15 +160,13 @@ public final class IO {
     /**
      * Detects the separator used in a list of strings.
      * <p>
-     * This method analyzes the provided list of strings to determine the separator used in the content.
-     * It skips lines that start with a specific sign (defined by {@link Constants#sign}) and checks the first
-     * non-skipped line for the presence of either a tab character or a comma. If a tab is found, it returns
-     * the tab separator; if a comma is found, it returns the comma separator. If neither is found, it returns
-     * an empty string.
+     * This method analyzes the provided list of strings to determine the separator used in the content. It skips lines that start with a
+     * specific sign (defined by {@link Constants#sign}) and checks the first non-skipped line for the presence of either a tab character or
+     * a comma. If a tab is found, it returns the tab separator; if a comma is found, it returns the comma separator. If neither is found,
+     * it returns an empty string.
      *
      * @param content A {@link List} of {@link String} objects representing the content to analyze.
-     * @return A {@link String} representing the detected separator: either a tab, a comma, or an empty string
-     * if no separator is found.
+     * @return A {@link String} representing the detected separator: either a tab, a comma, or an empty string if no separator is found.
      */
     public static String detectSeparator(List<String> content) {
         return content.stream()
@@ -186,13 +181,13 @@ public final class IO {
     /**
      * Generates the content of a plain VCF (Variant Call Format) file.
      * <p>
-     * This method constructs a VCF file content as a {@link String} from a list of variants.
-     * The VCF content includes the file format, source, and a header line, followed by the variant data.
-     * Each variant is represented by its chromosome, position, reference base, and alternate base.
+     * This method constructs a VCF file content as a {@link String} from a list of variants. The VCF content includes the file format,
+     * source, and a header line, followed by the variant data. Each variant is represented by its chromosome, position, reference base, and
+     * alternate base.
      * <p>
      * The generated VCF content follows the VCFv4.3 specification and includes the following fields:
      * <ul>
-     *   <li>CHROM: Chromosome name</li>
+     *   <li>CHROM: Chromosome id</li>
      *   <li>POS: Position of the variant</li>
      *   <li>ID: Variant identifier (set to ".")</li>
      *   <li>REF: Reference base(s)</li>
@@ -204,21 +199,21 @@ public final class IO {
      *
      * @param variants A list of {@link Tuple} objects, where each tuple contains:
      *                 <ul>
-     *                   <li>A {@link Triple} with the chromosome name, position, and alternate base.</li>
-     *                   <li>A {@link VariantInformation} object containing the reference base.</li>
+     *                   <li>A {@link Triple} with the chromosome id, position, and alternate base.</li>
+     *                   <li>A {@link Variant} object containing the reference base.</li>
      *                 </ul>
      * @return A {@link String} representing the VCF content.
      */
-    public static String generateVcfContent(ArrayList<Tuple<Triple<String, Integer, String>, VariantInformation>> variants) {
+    public static String generateVcfContent(ArrayList<Tuple<Triple<String, Integer, String>, Variant>> variants) {
         StringBuilder content = new StringBuilder();
         content.append("##fileformat=VCFv4.3").append(Constants.lineSeparator)
                 .append("##source=MUSIAL").append(Constants.lineSeparator)
                 .append("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO").append(Constants.lineSeparator);
-        for (Tuple<Triple<String, Integer, String>, VariantInformation> variant : variants) {
+        for (Tuple<Triple<String, Integer, String>, Variant> variant : variants) {
             content.append(variant.a.getLeft()).append("\t") // CHROM
                     .append(variant.a.getMiddle()).append("\t") // POS
                     .append(".\t") // ID
-                    .append(variant.b.getReferenceBaseString(true)).append("\t") // REF
+                    .append(variant.b.getReferenceStripped()).append("\t") // REF
                     .append(SequenceOperations.stripGaps(variant.a.getRight())).append("\t") // ALT
                     .append("100\t") // QUAL
                     .append(".\t") // FILTER
@@ -230,9 +225,9 @@ public final class IO {
     /**
      * Generates the content of a reference FASTA file from the given {@link Storage} object.
      * <p>
-     * This method constructs a FASTA file content as a {@link String} by iterating over the contigs
-     * in the provided {@link Storage} object. Each contig's name is used as the header (prefixed with '>'),
-     * and its sequence is split into lines of 80 characters for proper FASTA formatting.
+     * This method constructs a FASTA file content as a {@link String} by iterating over the contigs in the provided {@link Storage} object.
+     * Each contig's id is used as the header (prefixed with '>'), and its sequence is split into lines of 80 characters for proper FASTA
+     * formatting.
      *
      * @param storage The {@link Storage} object containing the contigs and their sequences.
      * @return A {@link String} representing the content of the reference FASTA file.
@@ -244,7 +239,7 @@ public final class IO {
             throw new IllegalArgumentException("No reference sequence information is stored in the specified storage.");
         StringBuilder content = new StringBuilder();
         for (Contig contig : storage.getContigs()) {
-            content.append(">").append(contig.name).append(Constants.lineSeparator);
+            content.append(">").append(contig._id).append(Constants.lineSeparator);
             Splitter.fixedLength(80).split(contig.getSequence()).forEach(line -> content.append(line).append(Constants.lineSeparator));
         }
         return content.toString();
@@ -253,15 +248,14 @@ public final class IO {
     /**
      * Generates the content of a GFF (General Feature Format) file from the given {@link Storage} object.
      * <p>
-     * This method constructs a GFF file content as a {@link String} by iterating over the features
-     * in the provided {@link Storage} object. The GFF content includes the version, processor information,
-     * and the feature data. Each feature is converted to its GFF string representation using the
-     * {@link Feature#toGffString()} method.
+     * This method constructs a GFF file content as a {@link String} by iterating over the features in the provided {@link Storage} object.
+     * The GFF content includes the version, processor information, and the feature data. Each feature is converted to its GFF string
+     * representation using the {@link Feature#toGffString()} method.
      * <p>
      * The generated GFF content follows the GFF3 specification and includes the following:
      * <ul>
      *   <li>##gff-version: Specifies the GFF version.</li>
-     *   <li>##processor: Includes the software name and version used to generate the file.</li>
+     *   <li>##processor: Includes the software id and version used to generate the file.</li>
      *   <li>Feature data: Each feature is represented in GFF format.</li>
      * </ul>
      *
@@ -294,9 +288,8 @@ public final class IO {
     /**
      * Copies a resource from the application's classpath to a specified target {@link Path}.
      * <p>
-     * This method retrieves a resource as an {@link InputStream} from the application's classpath
-     * using the specified resource path. The resource is then copied to the target file path,
-     * overwriting any existing file at the target location.
+     * This method retrieves a resource as an {@link InputStream} from the application's classpath using the specified resource path. The
+     * resource is then copied to the target file path, overwriting any existing file at the target location.
      *
      * @param resourceName The path to the resource within the application's classpath.
      * @param targetPath   The file path where the resource should be copied.
@@ -313,9 +306,8 @@ public final class IO {
     /**
      * Compresses a string using GZIP compression and encodes the result in Base64.
      * <p>
-     * This method compresses the input string using the GZIP algorithm and then encodes
-     * the compressed byte array into a Base64 string. The method ensures proper resource
-     * management by using a try-with-resources block for the output streams.
+     * This method compresses the input string using the GZIP algorithm and then encodes the compressed byte array into a Base64 string. The
+     * method ensures proper resource management by using a try-with-resources block for the output streams.
      *
      * @param content The {@link String} to be compressed.
      * @return A Base64-encoded {@link String} representing the GZIP-compressed content.
@@ -333,9 +325,8 @@ public final class IO {
     /**
      * Decompresses a Base64-encoded GZIP-compressed string.
      * <p>
-     * This method decodes the input string from Base64, decompresses the resulting GZIP-compressed data,
-     * and returns the decompressed content as a string. It uses a buffer to read the decompressed data
-     * in chunks and appends it to a {@link StringBuilder}.
+     * This method decodes the input string from Base64, decompresses the resulting GZIP-compressed data, and returns the decompressed
+     * content as a string. It uses a buffer to read the decompressed data in chunks and appends it to a {@link StringBuilder}.
      *
      * @param content The Base64-encoded GZIP-compressed string to decompress.
      * @return A {@link String} containing the decompressed content.
@@ -357,9 +348,9 @@ public final class IO {
     /**
      * Generates the MD5 hash of the given string.
      * <p>
-     * This method computes the MD5 hash of the input string and returns it as a hexadecimal string.
-     * It uses the {@link org.apache.commons.codec.digest.DigestUtils#md5Hex(String)} method from the
-     * Apache Commons Codec library to perform the hashing.
+     * This method computes the MD5 hash of the input string and returns it as a hexadecimal string. It uses the
+     * {@link org.apache.commons.codec.digest.DigestUtils#md5Hex(String)} method from the Apache Commons Codec library to perform the
+     * hashing.
      *
      * @param content The {@link String} to hash.
      * @return A {@link String} representing the MD5 hash of the input content in hexadecimal format.

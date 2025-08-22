@@ -85,9 +85,7 @@ public final class CLI {
             case BUILD -> CLI.Build.options();
             case EXPAND -> CLI.Expand.options();
             case VIEW -> CLI.View.options();
-            case CLUSTER -> CLI.Cluster.options();
             case SEQUENCE -> CLI.Sequence.options();
-            case TYPE -> CLI.Type.options();
         }
 
         // Initialize help message formatter and default command line parser.
@@ -147,9 +145,7 @@ public final class CLI {
                 case BUILD -> CLI.Build.transfer();
                 case EXPAND -> CLI.Expand.transfer();
                 case VIEW -> CLI.View.transfer();
-                case CLUSTER -> CLI.Cluster.transfer();
                 case SEQUENCE -> CLI.Sequence.transfer();
-                case TYPE -> CLI.Type.transfer();
                 default -> exitNotRecognized(args);
             }
         } catch (ParseException | IOException | ProcessingException e) {
@@ -346,69 +342,7 @@ public final class CLI {
          * This method adds the following options:
          * <ul>
          *   <li>`-I` or `--input`: Path to the input `.json(.gz)` file generated with the build task.</li>
-         *   <li>`-C` or `--content`: Specifies the content type (`features`, `samples`, `variants`, `alleles`, `sampleSequenceTypes`, or `variantCalls`).</li>
-         *   <li>`-f` or `--filter`: List of feature/sample names or positions to filter the output (default is no filters).</li>
-         *   <li>`-o` or `--output`: Path to write the output file (default is stdout).</li>
-         * </ul>
-         */
-        private static void options() {
-            options.addOption(Option.builder("I")
-                    .longOpt("storage")
-                    .desc("Path to a .json(.gz) file generated with the build task of MUSIAL.")
-                    .hasArg()
-                    .required()
-                    .build());
-            options.addOption(Option.builder("C")
-                    .longOpt("content")
-                    .desc("One of %s.".formatted(String.join(", ", Musial.ContentUtility.content)))
-                    .hasArg()
-                    .required()
-                    .build());
-            options.addOption(Option.builder("f")
-                    .longOpt("filter")
-                    .desc("List of feature-, sample names, and/or positions for which the output is to be filtered (default: no filters). Entries may be ignored depending on the content.")
-                    .hasArgs()
-                    .build());
-            options.addOption(Option.builder("o")
-                    .longOpt("output")
-                    .desc("Path to directory or file to write the output to (default: stdout).")
-                    .hasArg()
-                    .build());
-        }
-
-        /**
-         * Transfers the command-line arguments for the view task.
-         */
-        private static void transfer() {
-            parameters = new HashMap<>();
-            parameters.put("input", arguments.getOptionValue("I"));
-            parameters.put("content", arguments.getOptionValue("C").toLowerCase());
-            parameters.put("filter", arguments.hasOption("f")
-                    ? new HashSet<>(Arrays.asList(arguments.getOptionValues("f")))
-                    : new HashSet<>());
-            parameters.put("output", arguments.hasOption("o")
-                    ? arguments.getOptionValue("o")
-                    : "stdout");
-        }
-
-    }
-
-    /**
-     * Handles the cluster task CLI parameters.
-     * <p>
-     * This class defines the command-line options and validation logic for the view task.
-     * It allows users to specify input files, content types, filters, and output paths
-     * for viewing the content of a MUSIAL storage file.
-     */
-    private static class Cluster implements Task {
-
-        /**
-         * Defines the command-line options for the view task.
-         * <p>
-         * This method adds the following options:
-         * <ul>
-         *   <li>`-I` or `--input`: Path to the input `.json(.gz)` file generated with the build task.</li>
-         *   <li>`-C` or `--content`: Specifies the content type (`features`, `samples`, `variants`, `alleles`, `sampleSequenceTypes`, or `variantCalls`).</li>
+         *   <li>`-C` or `--content`: Specifies the content type (`features`, `samples`, `variants`, `alleles`, `sampleSequenceTypes`, or `calls`).</li>
          *   <li>`-f` or `--filter`: List of feature/sample names or positions to filter the output (default is no filters).</li>
          *   <li>`-o` or `--output`: Path to write the output file (default is stdout).</li>
          * </ul>
@@ -543,68 +477,6 @@ public final class CLI {
             parameters.put("output", arguments.hasOption("o")
                     ? arguments.getOptionValue("o")
                     : "parent");
-        }
-
-    }
-
-    /**
-     * Handles the view task CLI parameters.
-     * <p>
-     * This class defines the command-line options and validation logic for the view task.
-     * It allows users to specify input files, content types, filters, and output paths
-     * for viewing the content of a MUSIAL storage file.
-     */
-    private static class Type implements Task {
-
-        /**
-         * Defines the command-line options for the view task.
-         * <p>
-         * This method adds the following options:
-         * <ul>
-         *   <li>`-I` or `--input`: Path to the input `.json(.gz)` file generated with the build task.</li>
-         *   <li>`-C` or `--content`: Specifies the content type (`features`, `samples`, `variants`, `alleles`, `sampleSequenceTypes`, or `variantCalls`).</li>
-         *   <li>`-f` or `--filter`: List of feature/sample names or positions to filter the output (default is no filters).</li>
-         *   <li>`-o` or `--output`: Path to write the output file (default is stdout).</li>
-         * </ul>
-         */
-        private static void options() {
-            options.addOption(Option.builder("I")
-                    .longOpt("storage")
-                    .desc("Path to a .json(.gz) file generated with the build task of MUSIAL.")
-                    .hasArg()
-                    .required()
-                    .build());
-            options.addOption(Option.builder("C")
-                    .longOpt("content")
-                    .desc("One of %s.".formatted(String.join(", ", Musial.ContentUtility.content)))
-                    .hasArg()
-                    .required()
-                    .build());
-            options.addOption(Option.builder("f")
-                    .longOpt("filter")
-                    .desc("List of feature-, sample names, and/or positions for which the output is to be filtered (default: no filters). Entries may be ignored depending on the content.")
-                    .hasArgs()
-                    .build());
-            options.addOption(Option.builder("o")
-                    .longOpt("output")
-                    .desc("Path to directory or file to write the output to (default: stdout).")
-                    .hasArg()
-                    .build());
-        }
-
-        /**
-         * Transfers the command-line arguments for the view task.
-         */
-        private static void transfer() {
-            parameters = new HashMap<>();
-            parameters.put("input", arguments.getOptionValue("I"));
-            parameters.put("content", arguments.getOptionValue("C").toLowerCase());
-            parameters.put("filter", arguments.hasOption("f")
-                    ? new HashSet<>(Arrays.asList(arguments.getOptionValues("f")))
-                    : new HashSet<>());
-            parameters.put("output", arguments.hasOption("o")
-                    ? arguments.getOptionValue("o")
-                    : "stdout");
         }
 
     }

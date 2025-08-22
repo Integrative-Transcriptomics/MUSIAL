@@ -1,9 +1,9 @@
 package utility;
 
-import model.Contig;
-import model.Feature;
 import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;
+import model.Contig;
+import model.Feature;
 import org.apache.commons.lang3.tuple.Triple;
 import org.biojava.nbio.core.sequence.DNASequence;
 import org.biojava.nbio.core.sequence.compound.AmbiguityDNACompoundSet;
@@ -22,17 +22,17 @@ import java.util.Objects;
 /**
  * Utility class for performing various sequence operations.
  * <p>
- * This class provides static methods for sequence alignment, variant integration,
- * sequence translation, and other related operations. It includes methods for
- * handling nucleotide and protein sequences, as well as utilities for working
- * with gaps and variants.
+ * This class provides static methods for sequence alignment, variant integration, sequence translation, and other related operations. It
+ * includes methods for handling nucleotide and protein sequences, as well as utilities for working with gaps and variants.
  */
 public final class SequenceOperations {
 
     /**
      * A transcription engine for translating DNA sequences.
      * <p>
-     * See <a href="https://github.com/biojava/biojava-tutorial/blob/master/core/translating.md">https://github.com/biojava/biojava-tutorial/blob/master/core/translating.md</a>
+     * See <a
+     * href="https://github.com/biojava/biojava-tutorial/blob/master/core/translating.md">https://github
+     * .com/biojava/biojava-tutorial/blob/master/core/translating.md</a>
      */
     private final static TranscriptionEngine transcriptionEngine = new TranscriptionEngine.Builder()
             .dnaCompounds(AmbiguityDNACompoundSet.getDNACompoundSet())
@@ -42,10 +42,9 @@ public final class SequenceOperations {
     /**
      * A cache for storing translated DNA sequences.
      * <p>
-     * This static {@link HashMap} is used to store previously translated DNA sequences
-     * to improve performance by avoiding redundant translations. The key is the hash code
-     * of the translation request (including sequence and direction), and the value is the
-     * translated amino acid sequence.
+     * This static {@link HashMap} is used to store previously translated DNA sequences to improve performance by avoiding redundant
+     * translations. The key is the hash code of the translation request (including sequence and direction), and the value is the translated
+     * amino acid sequence.
      */
     private final static HashMap<Integer, String> translationCache = new HashMap<>();
 
@@ -63,7 +62,8 @@ public final class SequenceOperations {
      * @param bandWidth        The width of the band for banded alignment; if <= 0, the full length of sequence B is used.
      * @return A {@link Tuple} containing the aligned sequences.
      */
-    public static Tuple<String, String> globalNucleotideSequenceAlignment(String sequenceA, String sequenceB, int gapOpenPenalty, int gapExtendPenalty,
+    public static Tuple<String, String> globalNucleotideSequenceAlignment(String sequenceA, String sequenceB, int gapOpenPenalty,
+                                                                          int gapExtendPenalty,
                                                                           boolean noGapPrefix, boolean noGapSuffix, int bandWidth) {
         HashMap<Character, Integer> simpleNucleotideScoringMatrixIndexMap = new HashMap<>() {{
             put('A', 0);
@@ -97,7 +97,8 @@ public final class SequenceOperations {
      * @param bandWidth        The width of the band for banded alignment; if <= 0, the full length of sequence B is used.
      * @return A {@link Tuple} containing the aligned sequences.
      */
-    public static Tuple<String, String> globalProteinSequenceAlignment(String sequenceA, String sequenceB, int gapOpenPenalty, int gapExtendPenalty,
+    public static Tuple<String, String> globalProteinSequenceAlignment(String sequenceA, String sequenceB, int gapOpenPenalty,
+                                                                       int gapExtendPenalty,
                                                                        boolean noGapPrefix, boolean noGapSuffix, int bandWidth) {
         HashMap<Character, Integer> blosum80IndexMap = new HashMap<>() {{
             put('A', 0);
@@ -309,7 +310,8 @@ public final class SequenceOperations {
                         } else if (D[i][j] == Q[i][j]) {
                             matrix = "Q";
                         } else {
-                            throw new IllegalStateException("Invalid alignment matrix state at cell D[%d][%d]: %d".formatted(i, j, D[i][j]));
+                            throw new IllegalStateException("Invalid alignment matrix state at cell D[%d][%d]: %d".formatted(i, j,
+                                    D[i][j]));
                         }
                     }
                     case "P" -> {
@@ -341,9 +343,8 @@ public final class SequenceOperations {
     /**
      * Pads a string with gap characters to reach a specified length.
      * <p>
-     * This method appends gap characters (defined by {@link Constants#gap})
-     * to the input string until it reaches the desired length. If the input string
-     * is already equal to or longer than the specified length, no padding is added.
+     * This method appends gap characters (defined by {@link Constants#gap}) to the input string until it reaches the desired length. If the
+     * input string is already equal to or longer than the specified length, no padding is added.
      *
      * @param s      The input string to be padded.
      * @param length The desired length of the resulting string.
@@ -356,8 +357,8 @@ public final class SequenceOperations {
     /**
      * Removes all gap characters from the input string.
      * <p>
-     * This method replaces all occurrences of the gap character (defined by {@link Constants#gap})
-     * in the input string with an empty string (defined by {@link Constants#empty}).
+     * This method replaces all occurrences of the gap character (defined by {@link Constants#gap}) in the input string with an empty string
+     * (defined by {@link Constants#empty}).
      *
      * @param s The input string from which gaps should be removed.
      * @return A new string with all gap characters removed.
@@ -369,9 +370,8 @@ public final class SequenceOperations {
     /**
      * Integrates variants into a reference sequence for a given feature.
      * <p>
-     * This method processes a reference sequence from a specified contig and feature, integrating
-     * variants provided in a map. Variants can include single nucleotide variants (SNVs),
-     * insertions, and deletions. The resulting sequence can optionally have gaps stripped.
+     * This method processes a reference sequence from a specified contig and feature, integrating variants provided in a map. Variants can
+     * include single nucleotide variants (SNVs), insertions, and deletions. The resulting sequence can optionally have gaps stripped.
      * <p>
      * Upstream deletions are handled by skipping affected positions and logging a warning.
      *
@@ -386,10 +386,10 @@ public final class SequenceOperations {
     public static String integrateVariants(Contig contig, Feature feature, NavigableMap<Integer, String> variants, boolean stripGaps) throws IOException {
         // Validate contig and feature compatibility.
         if (!contig.hasSequence()) {
-            throw new IllegalArgumentException("Contig %s does not have a sequence.".formatted(contig.name));
+            throw new IllegalArgumentException("Contig %s does not have a sequence.".formatted(contig._id));
         }
-        if (!Objects.equals(feature.contig, contig.name)) {
-            throw new IllegalArgumentException("Contig %s is not the parent of feature %s.".formatted(feature.name, contig.name));
+        if (!Objects.equals(feature.contig, contig._id)) {
+            throw new IllegalArgumentException("Contig %s is not the parent of feature %s.".formatted(feature.name, contig._id));
         }
 
         // Initialize variables for processing.
@@ -411,7 +411,7 @@ public final class SequenceOperations {
                 }
 
                 // Process variant types.
-                switch (contig.getVariantInformation(pos, variant).type) {
+                switch (contig.getVariant(pos, variant).type) {
                     case SNV, INSERTION -> result.append(variant);
                     case DELETION -> {
                         result.append(variant.charAt(0));
@@ -434,8 +434,8 @@ public final class SequenceOperations {
     }
 
     /**
-     * Translates a DNA sequence into an amino-acid sequence. The translation is always performed in the 1-frame.
-     * Utilizes the <a href="https://github.com/biojava/biojava">BioJava library</a> for translation.
+     * Translates a DNA sequence into an amino-acid sequence. The translation is always performed in the 1-frame. Utilizes the <a
+     * href="https://github.com/biojava/biojava">BioJava library</a> for translation.
      *
      * @param sequence The DNA sequence to translate.
      * @param reverse  Whether to translate the reverse complement of the sequence.
@@ -454,7 +454,8 @@ public final class SequenceOperations {
             Sequence<NucleotideCompound> dna = new DNASequence(sequence);
             String translatedSequence;
             if (reverse)
-                translatedSequence = transcriptionEngine.multipleFrameTranslation(dna, Frame.REVERSED_ONE).get(Frame.REVERSED_ONE).getSequenceAsString();
+                translatedSequence =
+                        transcriptionEngine.multipleFrameTranslation(dna, Frame.REVERSED_ONE).get(Frame.REVERSED_ONE).getSequenceAsString();
             else
                 translatedSequence = transcriptionEngine.multipleFrameTranslation(dna, Frame.ONE).get(Frame.ONE).getSequenceAsString();
             // Add translated stop codon if present at the end of the sequence.
@@ -477,7 +478,8 @@ public final class SequenceOperations {
      * Transforms two sequences into canonical VCF variants.
      * <p>
      * The specified reference and alternative are expected to be aligned sequences. Variants are formatted as triples of relative position,
-     * reference-, and variant content. The relative position is the 0-based position of the variant in the reference sequence without gaps.
+     * reference-, and variant content. The relative position is the 0-based position of the variant in the reference sequence without
+     * gaps.
      *
      * @param reference   {@link String} representation of the reference sequence.
      * @param alternative {@link String} representation of the variant/alternative sequence.
