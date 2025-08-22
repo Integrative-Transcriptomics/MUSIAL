@@ -11,10 +11,9 @@ import java.util.stream.Collectors;
 /**
  * Base class for entities to store arbitrary attributes as {@link String}s.
  * <p>
- * This class provides methods to manage attributes associated with an entity. Attributes are stored
- * as key-value pairs in a {@link TreeMap}, allowing efficient retrieval, addition, extension, and removal
- * of such. It also supports operations like checking for the existence of attributes and converting
- * attributes to a string representation.
+ * This class provides methods to manage attributes associated with an entity. Attributes are stored as key-value pairs in a
+ * {@link TreeMap}, allowing efficient retrieval, addition, extension, and removal of such. It also supports operations like checking for
+ * the existence of attributes and converting attributes to a string representation.
  */
 public class Attributes {
 
@@ -70,8 +69,8 @@ public class Attributes {
     }
 
     /**
-     * Extends an attribute by appending a value to the existing value. Commas are used to separate values.
-     * If the value already exists, it will not be added again.
+     * Extends an attribute by appending a value to the existing value. Commas are used to separate values. If the value already exists, it
+     * will not be added again.
      *
      * @param key   The key of the attribute.
      * @param value The value to append to the attribute.
@@ -97,8 +96,8 @@ public class Attributes {
     }
 
     /**
-     * Retrieves the value of an attribute associated with this entity. If the attribute does not exist,
-     * {@link Constants#empty} is returned.
+     * Retrieves the value of an attribute associated with this entity. If the attribute does not exist, {@link Constants#empty} is
+     * returned.
      *
      * @param key The key of the attribute to retrieve.
      * @return The value of the attribute, or {@link Constants#empty} if the attribute does not exist.
@@ -108,25 +107,14 @@ public class Attributes {
     }
 
     /**
-     * Retrieves the value of an attribute associated with this entity. If the attribute does not exist,
-     * the specified default value is returned.
-     *
-     * @param key   The key of the attribute to retrieve.
-     * @param value The default value to return if the attribute does not exist.
-     * @return The value of the attribute, or the specified default value if the attribute does not exist.
-     */
-    public String getAttribute(String key, String value) {
-        return this.attributes.getOrDefault(key, value);
-    }
-
-    /**
      * Retrieves the value of an attribute as a collection of strings.
      * <p>
-     * The attribute value is split into individual elements using the comma (`,`) as a delimiter.
-     * If the attribute does not exist, an empty collection is returned.
+     * The attribute value is split into individual elements using the comma (`,`) as a delimiter. If the attribute does not exist, an empty
+     * collection is returned.
      *
      * @param key The key of the attribute to retrieve.
-     * @return A collection of strings representing the split values of the attribute, or an empty collection if the attribute does not exist.
+     * @return A collection of strings representing the split values of the attribute, or an empty collection if the attribute does not
+     * exist.
      */
     public Collection<String> getAttributeAsCollection(String key) {
         return Arrays.stream(this.attributes.getOrDefault(key, Constants.empty).split(Constants.comma))

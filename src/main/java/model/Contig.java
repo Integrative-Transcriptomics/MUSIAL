@@ -12,17 +12,18 @@ import java.util.stream.Collectors;
  * Representation of a genomic location.
  * <p>
  * Models a segment of a genomic sequence, i.e., a complete genome, plasmid, single contig or scaffold. It extends the {@link Attributes}
- * class to inherit functionality for managing attributes associated with the contig. In addition, an inner map is used to store variants
- * associated with the contig.
+ * class to inherit functionality for managing attributes associated with the contig. In addition, an inner map is used to store
+ * {@link Variant}s associated with the contig.
  * <p>
- * In the model, contigs are stored in the {@link Storage#contigs} property of a {@link Storage} instance.
+ * Contigs are stored in the {@link Storage#contigs} property in the model.
  */
 public class Contig extends Attributes {
 
     /**
      * Unique identifier of this contig.
      * <p>
-     * This field serves as the unique identifier for the contig and is used to reference it in the model.
+     * This field serves as the unique identifier for the contig and is used to reference it in the model. This should be at best a database
+     * identifier, such as a NCBI accession number.
      */
     public final String _id;
 
@@ -159,7 +160,7 @@ public class Contig extends Attributes {
      * @param alternative The alternative base sequence of the variant.
      * @return The newly created {@link Variant} instance.
      */
-    public Variant addVariant(int position, String reference, String alternative) {
+    protected Variant addVariant(int position, String reference, String alternative) {
         Variant variant = new Variant(position, reference, alternative);
         this.variants.computeIfAbsent(position, k -> new ArrayList<>()).add(variant);
         return variant;

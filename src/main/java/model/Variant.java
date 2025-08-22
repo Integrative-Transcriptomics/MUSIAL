@@ -15,7 +15,7 @@ import java.util.HashSet;
  * extends the {@link Attributes} class to inherit functionality for managing attributes associated with the variant.
  * <p>
  * In contrast to other entities in the model, this class does not implement an identifier, but the combination of {@code position},
- * {@code reference}, and {@code alternative} is used as such.
+ * {@code reference}, and {@code alternative} is used as such. Variants are stored in the {@link Contig#variants} property of the model.
  */
 public class Variant extends Attributes {
 
@@ -108,7 +108,7 @@ public class Variant extends Attributes {
      *
      * @param sampleIdentifier The identifier of the sample to associate with this variant.
      */
-    protected void setRelation(String sampleIdentifier) {
+    protected void addRelation(String sampleIdentifier) {
         this.samples.add(sampleIdentifier);
     }
 
@@ -118,13 +118,13 @@ public class Variant extends Attributes {
      * @param featureIdentifier The identifier of the feature to associate with this variant.
      * @param alleleIdentifier  The identifier of the allele to associate with the feature.
      */
-    protected void setRelation(String featureIdentifier, String alleleIdentifier) {
+    protected void addRelation(String featureIdentifier, String alleleIdentifier) {
         this.features.putIfAbsent(featureIdentifier, new HashSet<>(8));
         this.features.get(featureIdentifier).add(alleleIdentifier);
     }
 
     /**
-     * Checks if this variant has an occurrence of a given identifier.
+     * Checks if this variant has a related sample of the given identifier.
      * <p>
      * This method checks if the provided identifier is present in the samples associated with this variant or in the features and their
      * alleles.

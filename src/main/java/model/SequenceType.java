@@ -7,86 +7,74 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Represents a sequence type with associated variants, occurrences, and attributes.
+ * Represents a sequence type with associated variants, samples, and attributes.
  * <p>
- * This class extends {@link Attributes} to manage metadata.
+ * It extends the {@link Attributes} class to inherit functionality for managing attributes associated with the sample. This class is
+ * extended by the {@link Feature.Allele} and {@link Feature.Proteoform} classes.
  * <p>
- * This class is extended by the {@link Feature.Allele} and {@link Feature.Proteoform} classes.
+ * Sequence types are stored in the {@link Feature#alleles} and {@link Feature#proteoforms} properties of the model.
  */
 public class SequenceType extends Attributes {
 
     /**
-     * The unique identifier of this entity.
+     * Unique identifier of this sequence type.
      * <p>
-     * This field serves as a final and immutable unique identifier for the sequence type.
-     * It is assigned during the construction of the {@link SequenceType} instance and cannot
-     * be modified afterward. The identifier is used to uniquely distinguish this entity
-     * from other sequence types.
+     * This field serves as the unique identifier for the feature and is used to reference it in the model.
      */
-    public final String uid;
+    public final String _id;
 
     /**
-     * Variants defining this entity.
+     * Variants defining this sequence type.
      * <p>
-     * This field stores a map of variants associated with this sequence type. The map is ordered
-     * and navigable, with the keys representing the positions of the variants and the values
-     * representing the alternate alleles. All variants must be represented in their canonical form.
+     * Navigable map of positions to canonical variants that define this sequence type.
      */
-    protected final NavigableMap<Integer, String> variants;
+    protected final NavigableMap<Integer, String> variants = new TreeMap<>();
 
     /**
-     * A set representing the occurrences of this sequence type.
+     * A set of sample names associated with this sequence type.
      * <p>
-     * This field stores unique identifiers of entities where this sequence type occurs.
-     * It is used to track and manage the presence of this sequence type across different contexts.
+     * This set is used to track which samples correspond to this sequence type.
      */
-    protected final HashSet<String> occurrence = new HashSet<>();
+    protected final HashSet<String> samples = new HashSet<>();
 
     /**
-     * Constructs a new {@link SequenceType} instance with the specified unique identifier and variants.
+     * Constructs a new {@link SequenceType} instance with the specified identifier and variants.
      * <p>
-     * This constructor initializes a {@link SequenceType} object with a unique identifier and a list
-     * of variants. The variants are provided as a list of {@link Tuple} objects, where each tuple contains:
-     * <ul>
-     *   <li>The position of the variant (field {@code a} of the tuple).</li>
-     *   <li>The alternate allele of the variant (field {@code b} of the tuple).</li>
-     * </ul>
+     * This constructor initializes the sequence type with a unique identifier and a list of variants. The variants are sorted by their
+     * positions in ascending order and then added to the {@link #variants} map.
      *
-     * <p>
-     * The constructor populates the {@code variants} field, which is a {@link TreeMap}, by iterating
-     * through the provided list of tuples. The positions and alternate alleles are extracted from
-     * each tuple and added to the map, ensuring that the variants are stored in a sorted order
-     * based on their positions.
-     *
-     * @param uid      The unique identifier for this sequence type.
-     * @param variants A list of {@link Tuple} objects representing the variants associated
-     *                 with this sequence type.
+     * @param identifier The unique identifier for this sequence type.
+     * @param variants   A list of {@link Tuple} objects representing the variants, where each tuple contains:
+     *                   <ul>
+     *                     <li>{@code a}: The position of the variant.</li>
+     *                     <li>{@code b}: The variant's canonical base string.</li>
+     *                   </ul>
      */
-    public SequenceType(String uid, List<Tuple<Integer, String>> variants) {
+    public SequenceType(String identifier, List<Tuple<Integer, String>> variants) {
         super();
-        this.uid = uid;
-        this.variants = new TreeMap<>();
-        for (Tuple<Integer, String> variant : variants) {
-            this.variants.put(variant.a, variant.b);
-        }
+        this._id = identifier;
+        variants.sort(Comparator.comparingInt(variant -> variant.a));
+        variants.forEach(variant ->
+                this.variants.put(variant.a, variant.b)
+        );
     }
 
     /**
-     * Adds an occurrence to this sequence type.
+     * Associates a sample with this sequence type.
      *
-     * @param identifier The unique identifier of the entity to add as an occurrence.
+     * @param sampleIdentifier The identifier of the sample to associate with this sequence type.
      */
-    public void addOccurrence(String identifier) {
-        this.occurrence.add(identifier);
+    public void addRelation(String sampleIdentifier) {
+        this.samples.add(sampleIdentifier);
     }
 
     /**
-     * Retrieves the entities (by their unique identifiers) associated with this sequence type.
+     * Retrieves a collection of sample identifiers that are related to this sequence type.
      *
-     * @return A set of unique identifiers associated with this sequence type.
+     * @return A collection of sample identifiers that are related to this sequence type.
      */
-    public Set<String> getOccurrence() {
-        return this.occurrence;
+    public Collection<String> getRelatedSamples() {
+        return this.samples;
     }
 
     /**
@@ -94,8 +82,8 @@ public class SequenceType extends Attributes {
      *
      * @return The number of unique identifiers associated with this sequence type.
      */
-    public int getCount() {
-        return this.occurrence.size();
+    public int getRelatedSamplesCount() {
+        return this.samples.size();
     }
 
     /**
@@ -104,50 +92,42 @@ public class SequenceType extends Attributes {
      * @param identifier Unique identifier to check for.
      * @return {@code true} if the entity is associated with this sequence type, {@code false} otherwise.
      */
-    public boolean hasOccurrence(String identifier) {
-        return this.occurrence.contains(identifier);
-    }
-
-    /**
-     * Converts the occurrences of this sequence type to a comma-separated string.
-     * <p>
-     * This method joins all unique identifiers stored in the {@code occurrence} set
-     * into a single string, separated by commas. It uses the delimiter defined in
-     * {@link Constants#comma}.
-     *
-     * @return A {@link String} representation of the occurrences, separated by commas.
-     */
-    public String occurrenceAsString() {
-        return String.join(Constants.comma, this.occurrence);
+    public boolean hasRelation(String identifier) {
+        return this.samples.contains(identifier);
     }
 
     /**
      * Retrieves the variant at the specified position associated with this sequence type.
      * <p>
-     * This method looks up the variant at the given position in the {@code variants} map.
-     * If a variant exists at the specified position, it returns the corresponding alternate allele.
-     * If no variant is found, it returns {@code null}.
+     * This method looks up the variant at the given position in the {@link #variants} map. If a variant exists at the specified position,
+     * it returns the variant's canonical base string and returns {@code null} else.
      *
      * @param position The position to retrieve the variant for.
-     * @return The alternate allele at the specified position, or {@code null} if no variant is present.
+     * @return The variant's canonical base string at the specified position, or {@code null} if no variant is present.
      */
     public String getVariant(int position) {
         return this.variants.getOrDefault(position, null);
     }
 
     /**
-     * Retrieves the variants associated with this sequence type.
+     * Retrieves a list of variants associated with this sequence type.
      * <p>
-     * This method returns the map of variants that define this sequence type. The map is navigable,
-     * with the keys representing the positions of the variants and the values representing the
-     * alternate base sequences. The returned map is immutable and reflects the canonical form
-     * of the variants.
+     * This method converts the {@link #variants} map, which stores positions as keys and alternate alleles as values, into a list of
+     * {@link Tuple} objects. Each tuple contains a position and its corresponding variant's canonical base string. If the map is empty, an
+     * empty list is returned.
      *
-     * @return A {@link NavigableMap} of variants, where the keys are positions and the values are
-     * the alternate base sequences.
+     * @return A {@link List} of {@link Tuple} objects, where each tuple represents a variant with its position and alternate allele.
      */
-    public NavigableMap<Integer, String> getVariants() {
-        return this.variants;
+    public List<Tuple<Integer, String>> getVariants() {
+        // Convert the navigable map of variants to a list of tuples for easier access.
+        if (this.variants.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Tuple<Integer, String>> variants = new ArrayList<>(this.variants.size());
+        for (Map.Entry<Integer, String> entry : this.variants.entrySet()) {
+            variants.add(new Tuple<>(entry.getKey(), entry.getValue()));
+        }
+        return variants;
     }
 
     /**
@@ -161,76 +141,15 @@ public class SequenceType extends Attributes {
     }
 
     /**
-     * Retrieves the identifier of this sequence type (its unique identifier (uid) or name attribute value).
-     * <p>
-     * This method checks if the {@code name} field is set for the sequence type attributes. If not, the
-     * unique identifier {@code uid} is returned. Otherwise, the name attribute value is returned.
-     *
-     * @return The name of this sequence type if it is set, or the unique identifier {@code uid} if not set.
-     */
-    public String getIdentifier() {
-        return getAttribute("name", uid);
-    }
-
-    /**
-     * Converts the variants of this sequence type to a string representation.
-     * <p>
-     * This method uses {@link #variantsAsString(Map)} to convert the variants map
-     * into a string representation in the format {@code (POS0)(ALT0).(POS1)(ALT1)...}.
-     *
-     * @return A {@link String} representation of the variants in the format
-     * {@code (POS0)(ALT0).(POS1)(ALT1)...}.
-     */
-    public String variantsAsString() {
-        return variantsAsString(this.variants);
-    }
-
-    /**
-     * Returns a string representation of this sequence type in the format {@code identifier    attributes  variants}.
-     * <p>
-     * The string representation includes:
-     * <ul>
-     *   <li>The identifier, which is either the {@code name} (if set) or the unique identifier {@code uid}.</li>
-     *   <li>The attributes of this sequence type, formatted using {@link Attributes#attributesAsString(String)}.</li>
-     *   <li>The variants associated with this sequence type, formatted using {@link #variantsAsString()}.</li>
-     * </ul>
-     *
-     * @return A {@link String} representing this sequence type in the format {@code identifier    attributes  variants}.
-     */
-    public String toString() {
-        return "%s\t%s\t%s".formatted(
-                getIdentifier(),
-                this.attributesAsString(Constants.semicolon),
-                this.variantsAsString());
-    }
-
-    /**
-     * Converts a map of variants to a string representation.
-     * <p>
-     * This method takes a map of variants, where the keys are positions and the values are
-     * alternate alleles. It converts the map into a string representation in the format
-     * {@code (POS0)(ALT0).(POS1)(ALT1)...}.
-     *
-     * @param variants A map of variants, where the keys are positions and the values are alternate alleles.
-     * @return A {@link String} representation of the variants in the format {@code (POS0)(ALT0).(POS1)(ALT1)...}..
-     */
-    public static String variantsAsString(Map<Integer, String> variants) {
-        return variants.entrySet().stream()
-                .map(e -> e.getKey() + e.getValue())
-                .collect(Collectors.joining(Constants.dot));
-    }
-
-    /**
      * Converts a list of variants to a string representation.
      * <p>
-     * This method takes a list of {@link Tuple} objects, where each tuple contains a position
-     * and an alternate allele. It converts the list into a string representation in the format
-     * {@code (POS0)(ALT0).(POS1)(ALT1)...}.
+     * This method takes a list of {@link Tuple} objects, where each tuple contains a position and an alternate allele. It converts the list
+     * into a string representation in the format {@code (POS0)(ALT0).(POS1)(ALT1)...}.
      *
      * @param variants A list of {@link Tuple} objects representing the variants.
      * @return A {@link String} representation of the variants in the format {@code (POS0)(ALT0).(POS1)(ALT1)...}.
      */
-    public static String variantsAsString(List<Tuple<Integer, String>> variants) {
+    public static String variantsToString(List<Tuple<Integer, String>> variants) {
         return variants.stream()
                 .map(e -> e.a + e.b)
                 .collect(Collectors.joining(Constants.dot));
@@ -239,9 +158,8 @@ public class SequenceType extends Attributes {
     /**
      * Computes the net shift in sequence length caused by variants.
      * <p>
-     * This method calculates the cumulative effect of insertions and deletions
-     * on the sequence length. Each variant is analyzed to determine whether it
-     * represents an insertion or a deletion:
+     * This method calculates the cumulative effect of insertions and deletions on the sequence length. Each variant is analyzed to
+     * determine whether it represents an insertion or a deletion:
      * <ul>
      *   <li>If the variant is an insertion, its length (number of bases minus one) is added to the net shift.</li>
      *   <li>If the variant is a deletion, its length (number of bases minus one) is subtracted from the net shift.</li>
@@ -258,39 +176,8 @@ public class SequenceType extends Attributes {
     protected static int computeLengthVariation(List<Tuple<Integer, String>> variants) {
         return variants.stream().mapToInt(variant -> {
             int length = variant.b.length() - 1;
-            return VariantInformation.isInsertion(variant.b) ? length :
-                    VariantInformation.isDeletion(variant.b) ? -length : 0;
+            return Variant.isInsertion(variant.b) ? length :
+                    Variant.isDeletion(variant.b) ? -length : 0;
         }).sum();
-    }
-
-    /**
-     * Generates a FASTA header for the sequence type.
-     * <p>
-     * This method constructs a FASTA header string for the sequence type using the provided sequence identifier.
-     * The header includes the identifier in the format {@code >sequenceId} followed by optional properties.
-     * <p>
-     * Optional properties are appended to the header if they are present as attributes:
-     * <ul>
-     *   <li>{@code allelic_frequency}: The allelic frequency of the sequence type, retrieved from its attributes.</li>
-     *   <li>{@code so_effects}: Sequence ontology effects associated with the sequence type, retrieved from its attributes.</li>
-     * </ul>
-     * <p>
-     * If the attributes are not set, default values ("NaN") are used for the properties.
-     *
-     * @param sequenceId The identifier for the sequence, used as the primary part of the FASTA header.
-     * @return A {@link String} representing the FASTA header, including the identifier and optional properties.
-     */
-    public String getFastaHeader(String sequenceId) {
-        // Initialize a collection to store optional properties for the FASTA header.
-        Collection<String> properties = new HashSet<>();
-
-        // Add the "allelic_frequency" property if it exists, or use "NaN" as the default value.
-        properties.add("[allelic_frequency=%s]".formatted(getAttribute(Constants.$SequenceType_frequency, "NaN")));
-
-        // Add the "so_effects" property if it exists, or use "NaN" as the default value.
-        properties.add("[so_effects=%s]".formatted(getAttribute(Constants.$SequenceType_effects, "NaN")));
-
-        // Construct and return the FASTA header, appending properties if they exist.
-        return ">%s %s".formatted(sequenceId, String.join(" ", properties));
     }
 }
