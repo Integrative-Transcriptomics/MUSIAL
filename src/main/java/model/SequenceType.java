@@ -151,7 +151,7 @@ public class SequenceType extends Attributes {
      */
     public static String variantsToString(List<Tuple<Integer, String>> variants) {
         return variants.stream()
-                .map(e -> e.a + e.b)
+                .map(v -> v.a + v.b)
                 .collect(Collectors.joining(Constants.dot));
     }
 

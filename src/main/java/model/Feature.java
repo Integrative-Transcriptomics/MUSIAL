@@ -203,7 +203,7 @@ public class Feature extends Attributes {
      * @param sample   The {@link Sample} object representing the sample associated with this feature.
      * @return The unique identifier (UID) of the updated or created allele.
      */
-    protected String updateAllele(Contig contig, ArrayList<Tuple<Integer, String>> variants, Sample sample) {
+    protected String updateAllele(Contig contig, List<Tuple<Integer, String>> variants, Sample sample) {
         // Generate a unique identifier (UID) for the allele based on the variants.
         String alleleId = IO.md5Hash(SequenceType.variantsToString(variants));
         Allele allele;

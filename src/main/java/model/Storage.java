@@ -18,7 +18,6 @@ import main.Musial;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.MutableTriple;
 import org.apache.commons.lang3.tuple.Triple;
 import org.biojava.nbio.genome.parsers.gff.FeatureI;
@@ -43,49 +42,43 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 /**
- * The `Storage` class is a central component of the project, designed to manage genomic data, including contigs, features, and samples.
+ * Central component of the MUSIAL model, designed to manage genomic data, including contigs, features, and samples.
  * <p>
- * It provides methods for adding, retrieving, and processing genomic information, as well as handling variant calls and annotations.
- * The class is structured to support efficient storage and manipulation of data, leveraging Java collections and utility classes.
- * It integrates external tools like SnpEff for annotation and ensures data integrity through validation and compliance with Sequence Ontology rules.
+ * It provides methods for adding, retrieving, and processing genomic information, as well as handling variant calls and annotations. The
+ * class is structured to support efficient storage and manipulation of data, leveraging Java collections and utility classes. It integrates
+ * external tools like SnpEff for annotation and ensures data integrity through validation and compliance with Sequence Ontology rules.
  * <p>
  * <b>Core Data Structures:</b>
  * <ul>
- * <li>Contigs: Stored in a `Map (String, {@link Contig})`, contigs represent chromosomes or plasmids. Each contig can store its sequence and associated variants.</li>
- * <li>Features: Stored in a `Map (String, {@link Feature})`, features represent genomic elements like genes or mRNA. These are validated and processed using Sequence Ontology (SO) terms.</li>
- * <li>Samples: Stored in a `Map (String, {@link Sample}), samples represent variant calls from distinct biological samples. Metadata and variant calls are associated with each sample.</li>
- * </ul>
- * <b>Key Functionalities:</b>
- * <ul>
- * <li>Adding and Managing Contigs: Methods like `addContig` and `addContigIfAbsent` allow adding contigs with sequences or as placeholders.</li>
- * <li>Handling Features: Features are processed and validated using Sequence Ontology terms, with methods like `transferFeatureInformation` and `validateFeatures`.</li>
- * <li>Managing Samples and Variants: Samples are added using `addSample`, and variant calls are managed with methods like `addVariantCallToSample`.</li>
- * <li>Variant Processing and Annotation: The `updateVariants` method processes VCF files to extract variant information, while `runSnpEffAnalysis` integrates with SnpEff to annotate novel variants.</li>
- * </ul>
+ * <li>Contigs: Stored in a `Map (String, {@link Contig})`, contigs represent chromosomes or plasmids. Each contig can store its sequence
+ * and associated variants.</li>
+ * <li>Features: Stored in a `Map (String, {@link Feature})`, features represent genomic elements like genes or mRNA. These are validated
+ * and processed using Sequence Ontology (SO) terms.</li>
+ * <li>Samples: Stored in a `Map (String, {@link Sample}), samples represent variant calls from distinct biological samples. Metadata and
+ * variant calls are associated with each sample.</li>
  */
 public class Storage {
 
     /**
-     * Represents the parameters used for configuring the storage of variant data.
+     * The parameters used for configuring the storage of variant data.
      * <p>
-     * This record encapsulates various parameters that control the behavior of the storage system,
-     * including thresholds for coverage and frequency, as well as exclusions for specific positions
-     * and variants. These parameters are immutable once set.
+     * This record encapsulates various parameters that control the behavior of the storage system, including thresholds for coverage and
+     * frequency, as well as exclusions for specific positions and variants. These parameters are immutable once set.
      *
-     * @param minimalCoverage         The minimal coverage of a variant call to be accepted. Must be greater than or equal to 0.
-     *                                This ensures that only variant calls with sufficient read depth are considered.
-     * @param minimalFrequency        The minimal frequency of a variant call to be accepted. Must be between 0.0 and 1.0, inclusive.
-     *                                This parameter filters out low-frequency variants that may be due to sequencing errors.
-     * @param storeFiltered           Whether to retain filtered calls as ambiguous bases (N). If true, filtered calls are retained
-     *                                in the storage, allowing downstream analysis to consider them as ambiguous data.
-     * @param skipSnpEff              Whether to skip the SnpEff annotation process. If true, the annotation step is bypassed,
-     *                                which can save time if annotation is not required.
-     * @param skipProteoformInference Whether to skip proteoform inference. If true, the inference of proteoforms
-     *                                (protein isoforms) is not performed, which can be useful for non-coding regions.
-     * @param excludedPositions       A map associating contig names with sets of positions to exclude from storage. Cannot be null
-     *                                but can be empty. This allows specific genomic positions to be ignored during analysis.
-     * @param excludedVariants        A map associating contig names with sets of alternative variants to exclude from storage. Cannot
-     *                                be null but can be empty. This allows specific variants to be excluded from consideration.
+     * @param minimalCoverage         The minimal coverage of a variant call to be accepted. Must be greater than or equal to 0. This
+     *                                ensures that only variant calls with sufficient read depth are considered.
+     * @param minimalFrequency        The minimal frequency of a variant call to be accepted. Must be between 0.0 and 1.0, inclusive. This
+     *                                parameter filters out low-frequency variants that may be due to sequencing errors.
+     * @param storeFiltered           Whether to retain filtered calls as ambiguous bases (N). If true, filtered calls are retained in the
+     *                                storage, allowing downstream analysis to consider them as ambiguous data.
+     * @param skipSnpEff              Whether to skip the SnpEff annotation process. If true, the annotation step is bypassed, which can
+     *                                save time if annotation is not required.
+     * @param skipProteoformInference Whether to skip proteoform inference. If true, the inference of proteoforms (protein isoforms) is not
+     *                                performed, which can be useful for non-coding regions.
+     * @param excludedPositions       A map associating contig names with sets of positions to exclude from storage. Cannot be null but can
+     *                                be empty. This allows specific genomic positions to be ignored during analysis.
+     * @param excludedVariants        A map associating contig names with sets of alternative variants to exclude from storage. Cannot be
+     *                                null but can be empty. This allows specific variants to be excluded from consideration.
      */
     private record Parameters(
             double minimalCoverage, // Minimum read depth required for a variant call to be accepted.
@@ -102,9 +95,8 @@ public class Storage {
     /**
      * Static parameters used by this storage.
      * <p>
-     * This field holds an instance of {@link Parameters}, which contains the configuration
-     * for the storage system. The parameters are immutable and define the behavior of the
-     * storage, such as thresholds and exclusions.
+     * This field holds an instance of {@link Parameters}, which contains the configuration for the storage system. The parameters are
+     * immutable and define the behavior of the storage, such as thresholds and exclusions.
      */
     private final Parameters parameters;
 
@@ -114,7 +106,7 @@ public class Storage {
     private final Map<String, Contig> contigs;
 
     /**
-     * Maintained genomic features.
+     * Genomic features.
      */
     private final Map<String, Feature> features;
 
@@ -141,8 +133,8 @@ public class Storage {
     private transient List<File> vcfFiles = new ArrayList<>();
 
     /**
-     * Transient accessor to (indexed) reference sequences. <i>This should only be set by the
-     * {@link Factory} class during initialization of a storage.</i>
+     * Transient accessor to (indexed) reference sequences. <i>This should only be set by the {@link Factory} class during initialization of
+     * a storage.</i>
      */
     private transient ReferenceSequenceFile reference = null;
 
@@ -152,8 +144,7 @@ public class Storage {
     private transient VcfHandler vcfHandler = new VcfHandler();
 
     /**
-     * This flag is used to determine if the storage has no user-specified contigs and should instead
-     * parse contigs from VCF files.
+     * This flag is used to determine if the storage has no user-specified contigs and should instead parse contigs from VCF files.
      * <ul>
      *   <li>If set to {@code true}, the system assumes no contigs were explicitly provided by the user.</li>
      *   <li>If set to {@code false}, the system assumes contigs were specified and skips parsing them from VCF files.</li>
@@ -163,7 +154,7 @@ public class Storage {
 
     /**
      * Map of sequence ontology (SO) terms and their respective hierarchy levels as used by MUSIAL.
-     * TODO: Optional extension to support UTRs, etc.?
+     * TODO: Optional extension to support UTRs, etc.
      */
     public final static Map<String, Integer> SO = new HashMap<>() {{
         put("region", 0);
@@ -181,19 +172,21 @@ public class Storage {
     }};
 
     /**
-     * Factory class for creating and managing instances of {@link Storage}.
+     * Static factory class for creating and managing instances of {@link Storage}.
      * <p>
-     * This class provides methods to load storage from command line interface (CLI) parameters,
-     * files, and to save storage to files. It also handles the initialization of transient properties
-     * and manages the loading of reference sequences, features, and sample information.
+     * This class provides methods to load storage from command line interface (CLI) parameters, files, and to save storage to files. It
+     * also handles the initialization of transient properties and manages the loading of reference sequences, features, and sample
+     * information.
+     * <p>
+     * This is primarily implemented for better code segregation.
      */
     public static final class Factory {
 
         /**
          * Initializes a {@link Storage} from CLI parameters.
          * <p>
-         * This method initializes a new {@link Storage} instance using parameters from the command line interface (CLI).
-         * It also loads reference sequences, features, and sample information from the CLI parameters.
+         * This method initializes a new {@link Storage} instance using parameters from the command line interface (CLI). It also loads
+         * reference sequences, features, and sample information from the CLI parameters.
          *
          * @return A {@link Storage} object representing the loaded data.
          * @throws MusialException If an error occurs while loading or validating the data.
@@ -213,71 +206,10 @@ public class Storage {
         }
 
         /**
-         * Initializes a {@link Storage} from a file.
-         * <p>
-         * This method loads the storage from a specified file in JSON format. It handles both compressed
-         * and uncompressed files. The method also initializes transient properties after loading.
-         *
-         * @param file The file to load the storage from.
-         * @return A {@link Storage} object representing the loaded data.
-         * @throws IOException If an error occurs while reading the file or parsing the JSON data.
-         */
-        public static Storage deserialize(File file) throws IOException {
-            Validation.checkFile(file);
-
-            Function<BufferedReader, Storage> storageFromReader = reader ->
-                    new GsonBuilder().setPrettyPrinting().create().fromJson(reader, Storage.class);
-
-            try (BufferedReader bufferedReader = new BufferedReader(
-                    new InputStreamReader(file.getAbsolutePath().endsWith(".gz")
-                            ? new GZIPInputStream(Files.newInputStream(file.toPath()))
-                            : Files.newInputStream(file.toPath())))) {
-                Storage storage = storageFromReader.apply(bufferedReader);
-                storage.setTransientProperties();
-                return storage;
-            } catch (IOException e) {
-                throw new IOException("Failed to load MUSIAL storage from file %s; %s"
-                        .formatted(file.getAbsolutePath(), e.getMessage()));
-            }
-        }
-
-        /**
-         * Writes the given `Storage` object to a file in JSON format.
-         * <p>
-         * This method ensures that the file has the correct extension (`.json` or `.json.gz` for GZIP-compressed files),
-         * converts the `Storage` object to a JSON string, and writes it to the specified file. If the file path ends
-         * with `.gz`, the JSON data is compressed using GZIP before writing.
-         *
-         * @param storage The `Storage` object to be serialized and written to the file.
-         * @param file    The `File` object representing the target file.
-         * @throws IOException If an error occurs during file operations, such as writing or compression.
-         */
-        public static void serialize(Storage storage, File file) throws IOException {
-            // Ensure the file has the correct extension
-            if (!(file.getAbsolutePath().endsWith(".json") || file.getAbsolutePath().endsWith(".json.gz"))) {
-                file = new File(file.getAbsolutePath() + Musial.outputExtension);
-            }
-
-            // Convert the storage object to a JSON string
-            String jsonData = new GsonBuilder().setPrettyPrinting().create().toJson(storage, Storage.class);
-
-            // Write the JSON data to the file, using GZIP if necessary
-            try (Writer writer = file.getAbsolutePath().endsWith(".gz")
-                    ? new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(file)))
-                    : new FileWriter(file, StandardCharsets.UTF_8)) {
-                writer.write(jsonData);
-            } catch (IOException e) {
-                // Throw a new IOException with a detailed error message if writing fails
-                throw new IOException(String.format("Failed to write MUSIAL storage to file %s; %s.", file.getAbsolutePath(), e.getMessage()));
-            }
-        }
-
-        /**
          * Loads parameters from CLI.
          * <p>
-         * This method loads parameters from the command line interface (CLI) and validates them. It checks for
-         * the presence of required parameters and sets default values for optional ones. The method also handles
-         * exceptions related to invalid parameter values.
+         * This method loads parameters from the command line interface (CLI) and validates them. It checks for the presence of required
+         * parameters and sets default values for optional ones. The method also handles exceptions related to invalid parameter values.
          *
          * @return A {@link Parameters} object containing the loaded and validated parameters.
          * @throws IOException If an error occurs while reading or validating the parameters for excluded positions/variants.
@@ -301,7 +233,8 @@ public class Storage {
                 if (Validation.isPercentage(value)) {
                     minimalFrequency = Double.parseDouble(value);
                 } else {
-                    Logging.logWarning("Invalid value for `minimalFrequency`; expected a percentage between 0.0 and 1.0. Defaulting to 0.65.");
+                    Logging.logWarning("Invalid value for `minimalFrequency`; expected a percentage between 0.0 and 1.0. Defaulting to 0" +
+                            ".65.");
                 }
             } else {
                 Logging.logConfig("No value for `minimalFrequency` specified; defaulting to 0.65.");
@@ -353,18 +286,18 @@ public class Storage {
         /**
          * Loads excluded positions from CLI parameters.
          * <p>
-         * This method reads a file containing excluded positions and populates a map where the key is the contig name
-         * and the value is a set of excluded positions. The file is expected to have rows with at least three columns:
-         * the contig name, the start position, and the end position. The positions are inclusive.
+         * This method reads a file containing excluded positions and populates a map where the key is the contig id and the value is a set
+         * of excluded positions. The file is expected to have rows with at least three columns: the contig id, the start position, and the
+         * end position. The positions are inclusive.
          * <p>
-         * If the file path is null, blank, or the file is invalid, the method returns an empty map.
-         * If a line has fewer than three columns, an IOException is thrown.
+         * If the file path is null, blank, or the file is invalid, the method returns an empty map. If a line has fewer than three columns,
+         * an IOException is thrown.
          *
-         * @return A map where the key is the contig name and the value is a set of excluded positions.
+         * @return A map where the key is the contig id and the value is a set of excluded positions.
          * @throws IOException If the file is invalid or a line has fewer than three columns.
          */
         private static Map<String, Set<Integer>> excludedPositionsFromCLI() throws IOException {
-            // Initialize a map to store excluded positions, with the contig name as the key.
+            // Initialize a map to store excluded positions, with the contig id as the key.
             Map<String, Set<Integer>> excludedPositions = new LinkedHashMap<>();
 
             String path = (String) CLI.parameters.get("excludedPositions");
@@ -393,8 +326,10 @@ public class Storage {
                         }
                         // Add the range of positions to the map for the corresponding contig.
                         excludedPositions
-                                .computeIfAbsent(parts[0], k -> new HashSet<>()) // Create a new set if the contig is not already in the map.
-                                .addAll(IntStream.rangeClosed(Integer.parseInt(parts[1]), Integer.parseInt(parts[2])) // Generate a range of positions.
+                                .computeIfAbsent(parts[0], k -> new HashSet<>()) // Create a new set if the contig is not already in the
+                                // map.
+                                .addAll(IntStream.rangeClosed(Integer.parseInt(parts[1]), Integer.parseInt(parts[2])) // Generate a range
+                                        // of positions.
                                         .boxed() // Box the primitive int values into Integer objects.
                                         .collect(Collectors.toSet())); // Collect the range into a set.
                     }
@@ -412,17 +347,16 @@ public class Storage {
         /**
          * Loads excluded variants from CLI parameters.
          * <p>
-         * This method reads a file containing excluded variants and populates a map where the key is the contig name
-         * and the value is a set of excluded variants. Each excluded variant is represented as a string in the format:
-         * "position:reference:alternate".
+         * This method reads a file containing excluded variants and populates a map where the key is the contig id and the value is a set
+         * of excluded variants. Each excluded variant is represented as a string in the format: "position:reference:alternate".
          * <p>
          * If the file path is null, blank, or the file is invalid, the method returns an empty map.
          *
-         * @return A map where the key is the contig name and the value is a set of excluded variants.
+         * @return A map where the key is the contig id and the value is a set of excluded variants.
          * @throws IOException If the file is invalid or cannot be read.
          */
         private static Map<String, Set<String>> excludedVariantsFromCLI() throws IOException {
-            // Initialize a map to store excluded variants, with the contig name as the key.
+            // Initialize a map to store excluded variants, with the contig id as the key.
             Map<String, Set<String>> excludedVariants = new LinkedHashMap<>();
 
             String path = (String) CLI.parameters.get("excludedVariants");
@@ -449,7 +383,7 @@ public class Storage {
                             throw new IOException("Invalid number of columns in row %d of file %s."
                                     .formatted(content.indexOf(line) + 1, file.getAbsolutePath()));
                         }
-                        String chrom = parts[0]; // Contig name.
+                        String chrom = parts[0]; // Contig id.
                         String pos = parts[1];   // Position.
                         String ref = parts[2];   // Reference base.
                         String alt = parts[3];   // Alternate base.
@@ -471,9 +405,9 @@ public class Storage {
         /**
          * Loads the reference sequence from CLI parameters.
          * <p>
-         * This method loads the reference sequence from the command line interface (CLI) parameters. It checks
-         * if the reference sequence file is specified and validates its accessibility. If the file is valid,
-         * it creates an {@link IndexedFastaSequenceFile} instance and sets it as the reference for the storage.
+         * This method loads the reference sequence from the command line interface (CLI) parameters. It checks if the reference sequence
+         * file is specified and validates its accessibility. If the file is valid, it creates an {@link IndexedFastaSequenceFile} instance
+         * and sets it as the reference for the storage.
          *
          * @param storage The {@link Storage} instance to load the reference into.
          * @throws MusialException If an error occurs while loading or parsing the reference sequence.
@@ -498,93 +432,10 @@ public class Storage {
         }
 
         /**
-         * Loads sample information, i.e. metadata and variant information, from CLI parameters.
-         * <p>
-         * This method loads sample information from the command line interface (CLI) parameters. See the
-         * {@link #cacheSampleInformation} and {@link #updateVcfFiles} methods for details on
-         * how the sample information is loaded.
-         *
-         * @param storage The {@link Storage} instance to load sample information into.
-         * @throws IOException     If an error occurs while reading the sample metadata file or VCF files.
-         * @throws MusialException If an error occurs while validating the sample information or VCF files.
-         */
-        private static void sampleInformationFromCli(Storage storage) throws IOException, MusialException {
-            // Parse sample metadata file if available.
-            String path = (String) CLI.parameters.get("vcfMeta");
-            if (path != null && !path.isBlank()) {
-                File file = new File(path);
-                // File validation is handled in the setSampleInformation method.
-                cacheSampleInformation(storage, file);
-            }
-
-            // Collect VCF file paths from the specified list.
-            //noinspection unchecked
-            List<String> paths = (List<String>) CLI.parameters.get("vcfInput");
-            // File validation is handled in the setVcfFiles method.
-            updateVcfFiles(storage, paths);
-        }
-
-        /**
-         * Sets sample information in the storage from a specified file.
-         * <p>
-         * This method reads a tabular file containing sample metadata and populates the `sampleInfo` map
-         * in the provided `Storage` instance. The file is expected to be in a format that can be parsed
-         * into a nested map structure, where the outer map keys represent sample names and the inner map
-         * contains attribute-value pairs for each sample.
-         *
-         * @param storage The {@link Storage} instance where the sample information will be stored.
-         * @param file    The {@link File} object representing the input file containing sample metadata.
-         * @throws IOException If an error occurs while reading or parsing the file.
-         */
-        public static void cacheSampleInformation(Storage storage, File file) throws IOException {
-            Validation.checkFile(file);
-            storage.sampleInfo.putAll(IO.readTabularFileAsNestedMap(file));
-        }
-
-        /**
-         * Sets the VCF files in the storage from a list of file paths.
-         * <p>
-         * This method processes a list of file paths, adding valid VCF files or directories containing VCF files
-         * to the storage's `vcfFiles` list. It supports both uncompressed `.vcf` files and compressed `.vcf.gz` files.
-         * If no valid VCF files are found, an exception is thrown.
-         *
-         * @param storage The {@link Storage} instance where the VCF files will be stored.
-         * @param paths   A list of file paths to process. Each path can be a file or a directory.
-         * @throws MusialException If no valid VCF files are found in the provided paths.
-         * @throws IOException     If an error occurs while accessing the file system.
-         */
-        public static void updateVcfFiles(Storage storage, List<String> paths) throws MusialException, IOException {
-            for (String pathName : paths) {
-                Path path = Paths.get(pathName);
-                Function<Path, Boolean> isVcf = p -> (p.toString().endsWith(FileExtensions.VCF) ||
-                        p.toString().endsWith(FileExtensions.COMPRESSED_VCF));
-
-                if (Files.isDirectory(path)) {
-                    try (Stream<Path> stream = Files.list(path)) {
-                        List<File> files = stream.filter(isVcf::apply).map(Path::toFile).toList();
-                        for (File file : files) {
-                            Validation.checkFile(file);
-                            storage.vcfFiles.add(file);
-                        }
-                    }
-                } else if (isVcf.apply(path)) {
-                    File file = path.toFile();
-                    Validation.checkFile(file);
-                    storage.vcfFiles.add(path.toFile());
-                }
-            }
-
-            // Throw an exception if no valid VCF files were added to the storage.
-            if (storage.vcfFiles.isEmpty()) {
-                throw new MusialException("Expect at least one VCF file, but none was provided.");
-            }
-        }
-
-        /**
          * Loads features from CLI parameters.
          * <p>
-         * This method loads features from the command line interface (CLI) parameters. It supports loading
-         * and validating reference features from a file.
+         * This method loads features from the command line interface (CLI) parameters. It supports loading and validating reference
+         * features from a file.
          *
          * @param storage The {@link Storage} instance to load features into.
          * @throws MusialException If an error occurs while loading or parsing the features.
@@ -613,10 +464,11 @@ public class Storage {
             }
 
             // Helper to process attributes
-            Consumer<Map<String, String>> reprocessAttributes = attributes -> attributes.replaceAll((k, v) -> Arrays.stream(v.split(Constants.comma))
-                    .map(s -> s.split("\\|")[0])
-                    .filter(s -> !s.isEmpty())
-                    .collect(Collectors.joining(Constants.comma)));
+            Consumer<Map<String, String>> reprocessAttributes =
+                    attributes -> attributes.replaceAll((k, v) -> Arrays.stream(v.split(Constants.comma))
+                            .map(s -> s.split("\\|")[0])
+                            .filter(s -> !s.isEmpty())
+                            .collect(Collectors.joining(Constants.comma)));
 
             // Process reference features.
             String path = (String) CLI.parameters.get("features");
@@ -681,18 +533,159 @@ public class Storage {
                 }
             }
         }
+
+        /**
+         * Loads sample information, i.e. metadata and variant information, from CLI parameters.
+         * <p>
+         * This method loads sample information from the command line interface (CLI) parameters. See the {@link #cacheSampleInformation}
+         * and {@link #updateVcfFiles} methods for details on how the sample information is loaded.
+         *
+         * @param storage The {@link Storage} instance to load sample information into.
+         * @throws IOException     If an error occurs while reading the sample metadata file or VCF files.
+         * @throws MusialException If an error occurs while validating the sample information or VCF files.
+         */
+        private static void sampleInformationFromCli(Storage storage) throws IOException, MusialException {
+            // Parse sample metadata file if available.
+            String path = (String) CLI.parameters.get("vcfMeta");
+            if (path != null && !path.isBlank()) {
+                File file = new File(path);
+                // File validation is handled in the setSampleInformation method.
+                cacheSampleInformation(storage, file);
+            }
+
+            // Collect VCF file paths from the specified list.
+            //noinspection unchecked
+            List<String> paths = (List<String>) CLI.parameters.get("vcfInput");
+            // File validation is handled in the setVcfFiles method.
+            updateVcfFiles(storage, paths);
+        }
+
+        /**
+         * Sets sample information in the storage from a specified file.
+         * <p>
+         * This method reads a tabular file containing sample metadata and populates the `sampleInfo` map in the provided `Storage`
+         * instance. The file is expected to be in a format that can be parsed into a nested map structure, where the outer map keys
+         * represent sample names and the inner map contains attribute-value pairs for each sample.
+         *
+         * @param storage The {@link Storage} instance where the sample information will be stored.
+         * @param file    The {@link File} object representing the input file containing sample metadata.
+         * @throws IOException If an error occurs while reading or parsing the file.
+         */
+        public static void cacheSampleInformation(Storage storage, File file) throws IOException {
+            Validation.checkFile(file);
+            storage.sampleInfo.putAll(IO.readTabularFileAsNestedMap(file));
+        }
+
+        /**
+         * Sets the VCF files in the storage from a list of file paths.
+         * <p>
+         * This method processes a list of file paths, adding valid VCF files or directories containing VCF files to the storage's
+         * `vcfFiles` list. It supports both uncompressed `.vcf` files and compressed `.vcf.gz` files. If no valid VCF files are found, an
+         * exception is thrown.
+         *
+         * @param storage The {@link Storage} instance where the VCF files will be stored.
+         * @param paths   A list of file paths to process. Each path can be a file or a directory.
+         * @throws MusialException If no valid VCF files are found in the provided paths.
+         * @throws IOException     If an error occurs while accessing the file system.
+         */
+        public static void updateVcfFiles(Storage storage, List<String> paths) throws MusialException, IOException {
+            for (String pathName : paths) {
+                Path path = Paths.get(pathName);
+                Function<Path, Boolean> isVcf = p -> (p.toString().endsWith(FileExtensions.VCF) ||
+                        p.toString().endsWith(FileExtensions.COMPRESSED_VCF));
+
+                if (Files.isDirectory(path)) {
+                    try (Stream<Path> stream = Files.list(path)) {
+                        List<File> files = stream.filter(isVcf::apply).map(Path::toFile).toList();
+                        for (File file : files) {
+                            Validation.checkFile(file);
+                            storage.vcfFiles.add(file);
+                        }
+                    }
+                } else if (isVcf.apply(path)) {
+                    File file = path.toFile();
+                    Validation.checkFile(file);
+                    storage.vcfFiles.add(path.toFile());
+                }
+            }
+
+            // Throw an exception if no valid VCF files were added to the storage.
+            if (storage.vcfFiles.isEmpty()) {
+                throw new MusialException("Expect at least one VCF file, but none was provided.");
+            }
+        }
+
+        /**
+         * Initializes a {@link Storage} from a file.
+         * <p>
+         * This method loads the storage from a specified file in JSON format. It handles both compressed and uncompressed files. The method
+         * also initializes transient properties after loading.
+         *
+         * @param file The file to load the storage from.
+         * @return A {@link Storage} object representing the loaded data.
+         * @throws IOException If an error occurs while reading the file or parsing the JSON data.
+         */
+        public static Storage deserialize(File file) throws IOException {
+            Validation.checkFile(file);
+
+            Function<BufferedReader, Storage> storageFromReader = reader ->
+                    new GsonBuilder().setPrettyPrinting().create().fromJson(reader, Storage.class);
+
+            try (BufferedReader bufferedReader = new BufferedReader(
+                    new InputStreamReader(file.getAbsolutePath().endsWith(".gz")
+                            ? new GZIPInputStream(Files.newInputStream(file.toPath()))
+                            : Files.newInputStream(file.toPath())))) {
+                Storage storage = storageFromReader.apply(bufferedReader);
+                storage.setTransientProperties();
+                return storage;
+            } catch (IOException e) {
+                throw new IOException("Failed to load MUSIAL storage from file %s; %s"
+                        .formatted(file.getAbsolutePath(), e.getMessage()));
+            }
+        }
+
+        /**
+         * Writes the given `Storage` object to a file in JSON format.
+         * <p>
+         * This method ensures that the file has the correct extension (`.json` or `.json.gz` for GZIP-compressed files), converts the
+         * `Storage` object to a JSON string, and writes it to the specified file. If the file path ends with `.gz`, the JSON data is
+         * compressed using GZIP before writing.
+         *
+         * @param storage The `Storage` object to be serialized and written to the file.
+         * @param file    The `File` object representing the target file.
+         * @throws IOException If an error occurs during file operations, such as writing or compression.
+         */
+        public static void serialize(Storage storage, File file) throws IOException {
+            // Ensure the file has the correct extension
+            if (!(file.getAbsolutePath().endsWith(".json") || file.getAbsolutePath().endsWith(".json.gz"))) {
+                file = new File(file.getAbsolutePath() + Musial.outputExtension);
+            }
+
+            // Convert the storage object to a JSON string
+            String jsonData = new GsonBuilder().setPrettyPrinting().create().toJson(storage, Storage.class);
+
+            // Write the JSON data to the file, using GZIP if necessary
+            try (Writer writer = file.getAbsolutePath().endsWith(".gz")
+                    ? new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(file)))
+                    : new FileWriter(file, StandardCharsets.UTF_8)) {
+                writer.write(jsonData);
+            } catch (IOException e) {
+                // Throw a new IOException with a detailed error message if writing fails
+                throw new IOException(String.format("Failed to write MUSIAL storage to file %s; %s.", file.getAbsolutePath(),
+                        e.getMessage()));
+            }
+        }
     }
 
     /**
      * Constructs a new {@link Storage} instance with the specified parameters.
      * <p>
-     * This constructor initializes the {@link Storage} object with the provided configuration
-     * parameters. It also initializes empty containers for contigs, features, and samples
-     * using {@link LinkedTreeMap}, ensuring that the data is stored in a sorted and efficient manner.
+     * This constructor initializes the {@link Storage} object with the provided configuration parameters. It also initializes empty
+     * containers for contigs, features, and samples using {@link LinkedTreeMap}, ensuring that the data is stored in a sorted and efficient
+     * manner.
      *
-     * @param parameters The {@link Parameters} object containing the configuration for the storage.
-     *                   This includes thresholds, exclusions, and other settings for managing
-     *                   genomic data.
+     * @param parameters The {@link Parameters} object containing the configuration for the storage. This includes thresholds, exclusions,
+     *                   and other settings for managing genomic data.
      */
     private Storage(Parameters parameters) {
         this.parameters = parameters;
@@ -768,7 +761,7 @@ public class Storage {
     /**
      * Whether {@code position} is excluded on {@code contig}.
      *
-     * @param contig   Contig (name) to check for exclusion.
+     * @param contig   Contig (id) to check for exclusion.
      * @param position Position to check for exclusion.
      * @return True if {@code position} on {@code contig} is excluded from analysis.
      */
@@ -779,7 +772,7 @@ public class Storage {
     /**
      * Whether {@code variant} is excluded on {@code contig} at {@code position}.
      *
-     * @param contig    Contig (name) to check for exclusion.
+     * @param contig    Contig (id) to check for exclusion.
      * @param position  Position to check for exclusion.
      * @param reference Reference base at {@code position}.
      * @param variant   Variant base at {@code position}.
@@ -793,9 +786,8 @@ public class Storage {
     /**
      * Retrieves the number of processed genotype records.
      * <p>
-     * This method returns the value of the `processedGenotypes` field from the `VcfHandler` class.
-     * The field keeps track of the total number of genotype records that have been processed
-     * during the analysis of VCF files.
+     * This method returns the value of the `processedGenotypes` field from the `VcfHandler` class. The field keeps track of the total
+     * number of genotype records that have been processed during the analysis of VCF files.
      *
      * @return The total number of processed genotype records as a {@code long}.
      */
@@ -806,9 +798,8 @@ public class Storage {
     /**
      * Retrieves the number of filtered genotype records.
      * <p>
-     * This method returns the value of the `filteredGenotypes` field from the `VcfHandler` class.
-     * The field keeps track of the total number of genotype records that have been filtered out
-     * during the analysis of VCF files.
+     * This method returns the value of the `filteredGenotypes` field from the `VcfHandler` class. The field keeps track of the total number
+     * of genotype records that have been filtered out during the analysis of VCF files.
      *
      * @return The total number of filtered genotype records as a {@code long}.
      */
@@ -819,9 +810,9 @@ public class Storage {
     /**
      * Retrieves the number of ignored genotype records.
      * <p>
-     * This method returns the value of the `ignoredGenotypes` field from the `VcfHandler` class.
-     * The field keeps track of the total number of genotype records that have been ignored
-     * during the analysis of VCF files, typically due to being excluded by filters or other criteria.
+     * This method returns the value of the `ignoredGenotypes` field from the `VcfHandler` class. The field keeps track of the total number
+     * of genotype records that have been ignored during the analysis of VCF files, typically due to being excluded by filters or other
+     * criteria.
      *
      * @return The total number of ignored genotype records as a {@code long}.
      */
@@ -839,51 +830,37 @@ public class Storage {
     }
 
     /**
-     * Adds a contig to the storage with the specified name and sequence.
+     * Adds a contig to the storage with the specified id and sequence.
      * <p>
-     * This method compresses the provided sequence using GZIP and calculates its length.
-     * If the sequence is null or empty, it assigns an empty string as the compressed sequence
-     * and sets the length to 0. The contig is then added to the storage with its attributes.
+     * This method compresses the provided sequence using GZIP and calculates its length. If the sequence is null or empty, it assigns an
+     * empty string as the compressed sequence and sets the length to 0. The contig is then added to the storage with its attributes.
      *
-     * @param name     The name of the contig to add.
+     * @param name     The id of the contig to add.
      * @param sequence The sequence of the contig. Can be null or empty.
      * @throws IOException If an error occurs during sequence compression.
      */
     public void addContig(String name, String sequence) throws IOException {
-        if (!hasContig(name)) {
-            String compressedSequence;
-            int length;
-            if (Objects.nonNull(sequence) && !sequence.isEmpty()) {
-                compressedSequence = IO.gzipCompress(sequence); // Compress the sequence using GZIP.
-                length = sequence.length(); // Calculate the length of the sequence.
-            } else {
-                compressedSequence = Constants.empty; // Assign an empty string if the sequence is null or empty.
-                length = 0; // Set the length to 0 for an empty sequence.
-            }
-            this.contigs.put(name, new Contig(name, compressedSequence)); // Add the contig to the storage.
-            this.contigs.get(name).addAttributeIfAbsent(Constants.$Contig_length, String.valueOf(length)); // Add the length attribute.
-        }
+        this.contigs.putIfAbsent(name, new Contig(name, sequence));
     }
 
     /**
-     * Retrieves a contig by its name.
+     * Retrieves a contig by its id.
      * <p>
-     * This method searches for a contig in the storage by its name. If the contig exists,
-     * it returns the corresponding {@link Contig} object. If the contig does not exist,
-     * it returns {@code null}.
+     * This method searches for a contig in the storage by its id. If the contig exists, it returns the corresponding {@link Contig} object.
+     * If the contig does not exist, it returns {@code null}.
      *
-     * @param name The name of the contig to retrieve.
-     * @return The {@link Contig} object associated with the specified name, or {@code null} if no such contig exists.
+     * @param name The id of the contig to retrieve.
+     * @return The {@link Contig} object associated with the specified id, or {@code null} if no such contig exists.
      */
     public Contig getContig(String name) {
         return this.contigs.getOrDefault(name, null);
     }
 
     /**
-     * Query whether a contig is stored in this instance by its name.
+     * Query whether a contig is stored in this instance by its id.
      *
-     * @param name The name of the contig.
-     * @return True if a contig is stored for {@code name}.
+     * @param name The id of the contig.
+     * @return True if a contig is stored for {@code id}.
      */
     public boolean hasContig(String name) {
         return this.contigs.containsKey(name);
@@ -892,8 +869,7 @@ public class Storage {
     /**
      * Checks if all contigs in the storage have a non-empty sequence.
      * <p>
-     * This method iterates through all contigs in the storage and checks if all of them have
-     * a sequence that is not empty.
+     * This method iterates through all contigs in the storage and checks if all of them have a sequence that is not empty.
      *
      * @return {@code true} if any contig has an empty sequence, {@code false} otherwise.
      */
@@ -913,9 +889,8 @@ public class Storage {
     /**
      * Checks if there are any novel variants stored in the storage.
      * <p>
-     * This method verifies whether the `novelVariants` list contains any entries.
-     * Novel variants are those that have been identified during variant call processing
-     * but are not yet annotated or processed further.
+     * This method verifies whether the `novelVariants` list contains any entries. Novel variants are those that have been identified during
+     * variant call processing but are not yet annotated or processed further.
      *
      * @return {@code true} if there are novel variants in the storage, {@code false} otherwise.
      */
@@ -924,10 +899,10 @@ public class Storage {
     }
 
     /**
-     * Retrieve a {@link Feature} by its name.
+     * Retrieve a {@link Feature} by its id.
      *
-     * @param name The name of the feature.
-     * @return The queried feature or null, if no feature is stored with {@code name}.
+     * @param name The id of the feature.
+     * @return The queried feature or null, if no feature is stored with {@code id}.
      */
     public Feature getFeature(String name) {
         return this.features.getOrDefault(name, null);
@@ -943,19 +918,19 @@ public class Storage {
     }
 
     /**
-     * Query whether a feature is stored in this instance by its name.
+     * Query whether a feature is stored in this instance by its id.
      *
-     * @param name The name of the feature.
-     * @return True if a feature is stored for {@code name}.
+     * @param name The id of the feature.
+     * @return True if a feature is stored for {@code id}.
      */
     public boolean hasFeature(String name) {
         return this.features.containsKey(name);
     }
 
     /**
-     * Retrieve a {@link Sample} by its name.
+     * Retrieve a {@link Sample} by its id.
      *
-     * @param name The name of the sample.
+     * @param name The id of the sample.
      * @return The queried sample.
      */
     public Sample getSample(String name) {
@@ -974,23 +949,22 @@ public class Storage {
     /**
      * Retrieves a collection of samples that need to be updated based on the presence of variant records.
      * <p>
-     * This method filters the samples stored in the `samples` map and returns only those samples
-     * whose names are present as keys in the `vcfAnalysis.records` map. These samples are considered
-     * to have associated variant records and require updates.
+     * This method filters the samples stored in the `samples` map and returns only those samples whose names are present as keys in the
+     * `vcfAnalysis.records` map. These samples are considered to have associated variant records and require updates.
      *
      * @return A collection of {@link Sample} objects that need to be updated.
      */
     public Collection<Sample> getSamplesToUpdate() {
         return samples.values().stream()
-                .filter(sample -> this.vcfHandler.novelSamples.contains(sample.name))
+                .filter(sample -> this.vcfHandler.novelSamples.contains(sample._id))
                 .collect(Collectors.toList());
     }
 
     /**
-     * Query whether a sample is stored in this instance by its name.
+     * Query whether a sample is stored in this instance by its id.
      *
-     * @param name The name of the sample.
-     * @return True if a sample is stored for {@code name}.
+     * @param name The id of the sample.
+     * @return True if a sample is stored for {@code id}.
      */
     public boolean hasSample(String name) {
         return this.samples.containsKey(name);
@@ -1023,9 +997,9 @@ public class Storage {
     /**
      * Annotates novel variants in the storage using SnpEff.
      * <p>
-     * This method invokes the SnpEff analysis process to annotate novel variants stored in the `Storage` instance.
-     * It delegates the annotation task to the `runSnpEffAnalysis` method of the `VcfHandler` class.
-     * The results of the annotation are integrated back into the storage.
+     * This method invokes the SnpEff analysis process to annotate novel variants stored in the `Storage` instance. It delegates the
+     * annotation task to the `runSnpEffAnalysis` method of the `VcfHandler` class. The results of the annotation are integrated back into
+     * the storage.
      *
      * @throws IOException     If an error occurs during file operations required for the SnpEff analysis.
      * @throws MusialException If the SnpEff annotation process encounters an error.
@@ -1037,17 +1011,15 @@ public class Storage {
     /**
      * Updates sequence types for all samples and features in the storage.
      * <p>
-     * This method iterates through all samples that need to be updated and all features in the storage.
-     * For each feature, it retrieves the associated contig and filters the variants for the sample
-     * within the feature's start and end positions. The filtered variants are reduced to a map
-     * containing the variant positions and their corresponding alternative allele base strings.
+     * This method iterates through all samples that need to be updated and all features in the storage. For each feature, it retrieves the
+     * associated contig and filters the variants for the sample within the feature's start and end positions. The filtered variants are
+     * reduced to a map containing the variant positions and their corresponding alternative allele base strings.
      * <p>
-     * If the filtered variants are not empty, the method updates the allele for the feature using
-     * the contig, variants, and sample. If the feature is coding and the contig has a sequence,
-     * the proteoform for the feature is also updated.
+     * If the filtered variants are not empty, the method updates the allele for the feature using the contig, variants, and sample. If the
+     * feature is coding and the contig has a sequence, the proteoform for the feature is also updated.
      * <p>
-     * Finally, the method performs HDBSCAN clustering for alleles and proteoforms per feature,
-     * updating their attributes with the clustering results.
+     * Finally, the method performs HDBSCAN clustering for alleles and proteoforms per feature, updating their attributes with the
+     * clustering results.
      *
      * @throws IOException     If an error occurs during sequence processing.
      * @throws MusialException If an error occurs during allele or proteoform updates.
@@ -1060,7 +1032,7 @@ public class Storage {
             // Iterate through all samples that need to be updated.
             for (Sample sample : getSamplesToUpdate()) {
                 // Filter variants for the sample within the feature's start and end positions.
-                ArrayList<Tuple<Integer, String>> variants = contig.getVariantsBySampleAndLocation(sample.name, feature.start, feature.end);
+                List<Tuple<Integer, String>> variants = Contig.reduceVariants(contig.getVariants(feature.start, feature.end, sample._id));
                 if (variants.isEmpty()) continue; // Skip if no variants are found.
                 // Update allele information for the feature with respect to the sample.
                 String alleleUid = feature.updateAllele(contig, variants, sample);
@@ -1096,21 +1068,20 @@ public class Storage {
             int totalCalls = 0, filteredCalls = 0;
             List<Integer> coverages = new ArrayList<>();
             List<Double> entropy = new ArrayList<>();
-            perSampleSubstitutions.put(sample.name, 0);
-            perSampleInDels.put(sample.name, 0);
+            perSampleSubstitutions.put(sample._id, 0);
+            perSampleInDels.put(sample._id, 0);
 
             // Process variant calls for the sample to calculate coverage and quality statistics.
-            for (Map<Integer, String> variantCalls : sample.variantCalls.values()) {
-                totalCalls += variantCalls.size();
-                for (String variantCall : variantCalls.values()) {
-                    String[] callParts = variantCall.split(Constants.semicolon);
-                    coverages.add(Integer.parseInt(callParts[1]));
-                    if (variantCall.startsWith(Constants.lowCoverageCallPrefix) || variantCall.startsWith(Constants.lowFrequencyCallPrefix)
-                            || variantCall.startsWith(Constants.missingUpstreamDeletionCallPrefix)) {
-                        filteredCalls++;
-                    } else {
-                        entropy.add(Double.parseDouble(callParts[2]));
-                    }
+            for (MutableTriple<String, Integer, String> call : sample.getVariantCalls()) {
+                String callString = call.getRight();
+                totalCalls += 1;
+                String[] callParts = callString.split(Constants.semicolon);
+                coverages.add(Integer.parseInt(callParts[1]));
+                if (callString.startsWith(Constants.lowCoverageCallPrefix) || callString.startsWith(Constants.lowFrequencyCallPrefix)
+                        || callString.startsWith(Constants.missingUpstreamDeletionCallPrefix)) {
+                    filteredCalls++;
+                } else {
+                    entropy.add(Double.parseDouble(callParts[2]));
                 }
             }
 
@@ -1124,15 +1095,15 @@ public class Storage {
                     IO.formatNumber(entropy.stream().mapToDouble(Double::doubleValue).average().orElse(0))
             );
             sample.addAttribute(Constants.$Attributable_frequencyReference,
-                    IO.formatFrequency(1 - (sample.getAlleleCount() / (float) features.size())));
+                    IO.formatFrequency(1 - (sample.getRelatedAllelesCount() / (float) features.size())));
 
             // Calculate proteoform statistics for coding features if proteoform inference is not skipped.
             if (!parameters.skipProteoformInference()) {
                 int disrupted = 0;
-                for (var entry : sample.alleles.entrySet()) {
-                    Feature feature = getFeature(entry.getKey());
+                for (Tuple<String, String> relatedAllele : sample.getRelatedAlleles()) {
+                    Feature feature = getFeature(relatedAllele.a);
                     if (feature.isCoding()) {
-                        String proteoformUid = feature.getAllele(entry.getValue()).getAttribute(Constants.$Allele_proteoform);
+                        String proteoformUid = feature.getAllele(relatedAllele.b).getAttribute(Constants.$Allele_proteoform);
                         if (!Constants.synonymous.equals(proteoformUid)) {
                             var effects = feature.getProteoform(proteoformUid).getAttributeAsCollection(Constants.$SequenceType_effects);
                             if (effects.contains("start_lost") || effects.contains("stop_gained")) {
@@ -1149,20 +1120,19 @@ public class Storage {
 
         // Update variant frequency and aggregate substitution/indel counts for each contig.
         for (Contig contig : contigs.values()) {
-            contig.variants.forEach((position, innerMap) -> innerMap.forEach((altBases, variantInfo) -> {
-                int sampleCount = variantInfo.getSampleOccurrence().size();
-                variantInfo.addAttribute(Constants.$VariantInformation_frequency,
+            for (Variant variant : contig.getVariants()) {
+                int sampleCount = variant.getRelatedSamples().size();
+                variant.addAttribute(Constants.$VariantInformation_frequency,
                         IO.formatFrequency(sampleCount / (float) samples.size())
                 );
-
-                variantInfo.getSampleOccurrence().forEach(sampleName -> {
-                    Map<String, Integer> targetMap = switch (variantInfo.type) {
+                for (String sampleIdentifier : variant.getRelatedSamples()) {
+                    Map<String, Integer> targetMap = switch (variant.type) {
                         case SNV -> perSampleSubstitutions;
                         case INSERTION, DELETION -> perSampleInDels;
                     };
-                    targetMap.put(sampleName, targetMap.get(sampleName) + 1);
-                });
-            }));
+                    targetMap.put(sampleIdentifier, targetMap.get(sampleIdentifier) + 1);
+                }
+            }
         }
 
         // Update sample attributes with aggregated substitution and indel counts.
@@ -1182,7 +1152,7 @@ public class Storage {
 
             // Process alleles for the feature to calculate allelic frequencies and proteoform statistics.
             for (SequenceType allele : feature.getAlleles()) {
-                int alleleOccurrence = allele.getCount();
+                int alleleOccurrence = allele.getRelatedSamplesCount();
                 allele.addAttribute(Constants.$SequenceType_frequency,
                         IO.formatFrequency(alleleOccurrence / (float) samples.size())
                 );
@@ -1191,7 +1161,8 @@ public class Storage {
                 if (!parameters.skipProteoformInference() && feature.isCoding()) {
                     String proteoformUid = allele.getAttribute(Constants.$Allele_proteoform);
                     if (!Objects.equals(proteoformUid, Constants.synonymous)) {
-                        Collection<String> effects = feature.getProteoform(proteoformUid).getAttributeAsCollection(Constants.$SequenceType_effects);
+                        Collection<String> effects =
+                                feature.getProteoform(proteoformUid).getAttributeAsCollection(Constants.$SequenceType_effects);
                         if (effects.contains("start_lost") || effects.contains("stop_gained")) {
                             disrupted++;
                         }
@@ -1224,8 +1195,8 @@ public class Storage {
     /**
      * Initializes transient properties of the {@link Storage} instance.
      * <p>
-     * This method initializes transient properties such as {@link #novelVariants}, {@link #sampleInfo},
-     * and {@link #vcfFiles}. It also ensures that the contigs have their sequence caches initialized.
+     * This method initializes transient properties such as {@link #novelVariants}, {@link #sampleInfo}, and {@link #vcfFiles}. It also
+     * ensures that the contigs have their sequence caches initialized.
      */
     private void setTransientProperties() {
         if (this.vcfHandler == null)
@@ -1237,7 +1208,7 @@ public class Storage {
         if (this.vcfFiles == null)
             this.vcfFiles = new ArrayList<>();
         contigs.values().forEach(contig -> {
-            if (contig.sequenceCache == null) contig.sequenceCache = new HashMap<>();
+            if (contig.cache == null) contig.cache = new HashMap<>();
         });
     }
 
@@ -1262,12 +1233,11 @@ public class Storage {
     /**
      * Transfers feature information from a {@link FeatureI} object to the storage.
      * <p>
-     * This method extracts the necessary details from the provided {@link FeatureI} object, such as
-     * the sequence name, start and end positions, strand, and type, and delegates the processing
-     * to the overloaded {@code transferFeatureInformation} method.
+     * This method extracts the necessary details from the provided {@link FeatureI} object, such as the sequence id, start and end
+     * positions, strand, and type, and delegates the processing to the overloaded {@code transferFeatureInformation} method.
      *
      * @param featureI   The {@link FeatureI} object containing the feature information to transfer.
-     * @param name       The name of the feature.
+     * @param name       The id of the feature.
      * @param attributes A map of attributes associated with the feature.
      */
     private void addFeature(FeatureI featureI, String name, Map<String, String> attributes) {
@@ -1278,14 +1248,14 @@ public class Storage {
     /**
      * Transfers feature information to the storage.
      * <p>
-     * This method processes and validates the provided feature information, including its type, location, and attributes.
-     * It checks if the feature type is supported by the Sequence Ontology (SO) map and determines a unique identifier (UID)
-     * for the feature. If a feature with the same UID already exists, it validates compatibility with the parent feature
-     * and updates the "children" attribute if applicable. Otherwise, it creates a new feature and adds it to the storage.
-     * Processed attributes are removed from the attributes map, and the remaining attributes are extended for the feature.
+     * This method processes and validates the provided feature information, including its type, location, and attributes. It checks if the
+     * feature type is supported by the Sequence Ontology (SO) map and determines a unique identifier (UID) for the feature. If a feature
+     * with the same UID already exists, it validates compatibility with the parent feature and updates the "children" attribute if
+     * applicable. Otherwise, it creates a new feature and adds it to the storage. Processed attributes are removed from the attributes map,
+     * and the remaining attributes are extended for the feature.
      *
-     * @param name       The name of the feature.
-     * @param chrom      The chromosome or contig name where the feature is located.
+     * @param name       The id of the feature.
+     * @param chrom      The chromosome or contig id where the feature is located.
      * @param start      The start position of the feature.
      * @param end        The end position of the feature.
      * @param strand     The strand of the feature ('+' or '-').
@@ -1334,7 +1304,7 @@ public class Storage {
         }
 
         // Check if a feature with the same UID already exists.
-        Optional<Feature> optionalFeature = this.features.values().stream().filter(feature -> feature.uid.equals(uid)).findFirst();
+        Optional<Feature> optionalFeature = this.features.values().stream().filter(feature -> feature._id.equals(uid)).findFirst();
         Feature feature;
 
         if (optionalFeature.isPresent()) {
@@ -1343,8 +1313,9 @@ public class Storage {
             // Validate compatibility with the parent feature if the "Parent" attribute is present.
             if (attributes.containsKey("Parent") && attributes.get("Parent").matches("^.*-%s$".formatted(uid))) {
                 if ((int) start < feature.start || (int) end > feature.end || !feature.contig.equals(chrom) || feature.strand != strand) {
-                    Logging.logWarning("Feature update failed; feature %s with UID %s has an incompatible location with its parent feature %s."
-                            .formatted(feature.name, feature.uid, name));
+                    Logging.logWarning(("Feature update failed; feature %s with UID %s has an incompatible location with its parent " +
+                            "feature %s.")
+                            .formatted(feature.name, feature._id, name));
                     return;
                 }
 
@@ -1356,7 +1327,7 @@ public class Storage {
                 }
             } else {
                 Logging.logWarning("Feature update failed; feature %s with UID %s already exists, but is not the parent of feature %s."
-                        .formatted(feature.name, feature.uid, name));
+                        .formatted(feature.name, feature._id, name));
                 return;
             }
         } else {
@@ -1434,8 +1405,7 @@ public class Storage {
     }
 
     /**
-     * Counts the number of Sequence Ontology (SO) terms at a specific hierarchy level
-     * for a given feature and its children.
+     * Counts the number of Sequence Ontology (SO) terms at a specific hierarchy level for a given feature and its children.
      * <p>
      * This method calculates the total count of SO terms at the specified level by:
      * <ul>
@@ -1455,9 +1425,9 @@ public class Storage {
     /**
      * Adjusts a feature to represent a "gene" type by updating its type, location, and children.
      * <p>
-     * This method recalculates the start and end positions of the feature based on its children's ranges,
-     * removes children with level 1 Sequence Ontology (SO) terms, and updates the feature's type to "gene".
-     * The updated feature is then stored back into the `features` map.
+     * This method recalculates the start and end positions of the feature based on its children's ranges, removes children with level 1
+     * Sequence Ontology (SO) terms, and updates the feature's type to "gene". The updated feature is then stored back into the `features`
+     * map.
      *
      * @param feature  The {@link Feature} object to adjust.
      * @param children A sorted map of child features, where the key is the SO term and the value is a list of position ranges.
@@ -1480,7 +1450,7 @@ public class Storage {
         children.put(feature.type, Collections.singletonList(new Tuple<>(feature.start, feature.end)));
 
         // Create a new feature with the updated type, location, and attributes.
-        Feature updatedFeature = new Feature(feature.name, feature.contig, start, end, feature.strand, "gene", feature.uid);
+        Feature updatedFeature = new Feature(feature.name, feature.contig, start, end, feature.strand, "gene", feature._id);
         updatedFeature.addAttributes(feature.getAttributes());
         updatedFeature.setChildren(children);
 
@@ -1489,10 +1459,9 @@ public class Storage {
     }
 
     /**
-     * Imputes a feature's children (e.g. mRNA of a gene) based on the location ranges of an existing source children type.
-     * I.e., if the source type exists in the children of the given feature and the target type does not,
-     * this method calculates the minimum start and maximum end positions from the source type's ranges
-     * and creates a new source children of the specified type.
+     * Imputes a feature's children (e.g. mRNA of a gene) based on the location ranges of an existing source children type. I.e., if the
+     * source type exists in the children of the given feature and the target type does not, this method calculates the minimum start and
+     * maximum end positions from the source type's ranges and creates a new source children of the specified type.
      * <p>
      * This procedure is used to correct, for example, missing mRNA children of a gene, if a CDS child is present.
      *
@@ -1523,53 +1492,28 @@ public class Storage {
     }
 
     /**
-     * Adds a sample to the storage with the specified name, if not already present.
+     * Adds a sample to the storage with the specified id, if not already present.
      * <p>
-     * This method creates a new {@link Sample} object with the given name and the current number of features.
-     * It then adds the sample to the {@link #samples} map. If there is any sample-specific metadata available
-     * in {@link #sampleInfo}, it is added to the sample as attributes.
+     * This method creates a new {@link Sample} object with the given id and the current number of features. It then adds the sample to the
+     * {@link #samples} map. If there is any sample-specific metadata available in {@link #sampleInfo}, it is added to the sample as
+     * attributes.
      *
-     * @param name The name of the sample to add.
+     * @param name The id of the sample to add.
      */
     private void addSample(String name) {
         if (!hasSample(name)) {
             this.samples.put(name, new Sample(name, features.size())); // Create and add a new sample to the map.
-            this.samples.get(name).addAttributesIfAbsent(this.sampleInfo.getOrDefault(name, Collections.emptyMap())); // Add metadata if available.
-        }
-    }
-
-    /**
-     * Adds a variant call to the sample stored in {@link #samples} with the key {@code sampleName}. The call is expected to be in the
-     * format specified by {@link Sample#variantCallPattern}, where {@code CALL_INDEX} is one of {@code f} (low frequency), {@code x} (low coverage),
-     * or the index of the alternative call (starting at 0 for the reference allele). {@code DP, AD} as defined in VCF specification
-     * (<a href="https://samtools.github.io/hts-specs/VCFv4.2.pdf">samtools.github.io/hts-specs/VCFv4.2.pdf</a>).
-     * <p>
-     * If a call is already present at the specified position, it will be overwritten!
-     *
-     * @param sampleName The name of the sample.
-     * @param contigName The name of the contig.
-     * @param position   The position of the variant call on the contig.
-     * @param call       The variant call to add.
-     */
-    private void addCallContextToSample(String sampleName, String contigName, int position, String call) {
-        if (!Sample.variantCallPattern.matcher(call).matches())
-            throw new IllegalArgumentException("Invalid call format %s for sample %s at position %d on contig %s. Expected: %s."
-                    .formatted(call, sampleName, position, contigName, Sample.variantCallPattern.pattern()));
-        if (this.hasSample(sampleName)) {
-            Sample sample = this.getSample(sampleName);
-            if (!sample.variantCalls.containsKey(contigName)) sample.variantCalls.put(contigName, new TreeMap<>());
-            sample.variantCalls.get(contigName).put(position, call);
-        } else {
-            throw new IllegalArgumentException(String.format("Failed to add variant call; Sample %s not found.", sampleName));
+            this.samples.get(name).addAttributesIfAbsent(this.sampleInfo.getOrDefault(name, Collections.emptyMap())); // Add metadata if
+            // available.
         }
     }
 
     /**
      * Transfers sample attributes from the `sampleInfo` map to the corresponding samples in the `samples` map.
      * <p>
-     * This method iterates through the entries in the `sampleInfo` map. For each entry, it checks if a sample
-     * with the corresponding name exists in the `samples` map. If the sample exists, it adds any attributes
-     * from the `sampleInfo` entry that are not already present in the sample.
+     * This method iterates through the entries in the `sampleInfo` map. For each entry, it checks if a sample with the corresponding id
+     * exists in the `samples` map. If the sample exists, it adds any attributes from the `sampleInfo` entry that are not already present in
+     * the sample.
      */
     private void updateSampleAttributes() {
         for (Map.Entry<String, Map<String, String>> entry : this.sampleInfo.entrySet()) {
@@ -1582,14 +1526,13 @@ public class Storage {
     /**
      * Transfers variant information from sample variant call contexts to contigs in the storage.
      * <p>
-     * This method processes variant calls for each sample and contig, resolving conflicts and handling
-     * deletions, insertions, and mixed InDels. It ensures that variants are stored in a canonical format
-     * and accounts for the effects of upstream deletions on downstream variants. Variants are added to
-     * the contig's variant map, and warnings are logged for conflicts or unhandled cases.
+     * This method processes variant calls for each sample and contig, resolving conflicts and handling deletions, insertions, and mixed
+     * InDels. It ensures that variants are stored in a canonical format and accounts for the effects of upstream deletions on downstream
+     * variants. Variants are added to the contig's variant map, and warnings are logged for conflicts or unhandled cases.
      */
     public void transferVariantsInformation() {
         for (Sample sample : getSamplesToUpdate()) {
-            for (String contigName : sample.variantCalls.keySet()) {
+            for (MutableTriple<String, Integer, String> call : sample.getVariantCalls()) {
                 // Establish a sorted list of canonical variants for the sample and contig.
                 TreeMap<Integer, Tuple<String, String>> variants = new TreeMap<>();
 
@@ -1603,38 +1546,37 @@ public class Storage {
                             variants.put(position, content);
                         } else {
                             Logging.logSevere("Conflict of variants %s (stored) and %s for sample %s (contig %s, position %d)."
-                                    .formatted(previousContent, content, sample.name, contigName, position));
+                                    .formatted(previousContent, content, sample._id, call.left, position));
                         }
                     }
                 };
 
                 // Process each variant call for the contig.
-                for (Map.Entry<Integer, String> callContext : sample.variantCalls.get(contigName).entrySet()) {
-                    int POS = callContext.getKey();
-                    String[] context = callContext.getValue().split(Constants.semicolon);
-                    // Skip reference calls.
-                    if (context[0].startsWith("0")) continue;
+                int POS = call.getMiddle();
+                String[] context = call.getRight().split(Constants.semicolon);
+                // Skip reference calls.
+                if (context[0].startsWith("0")) continue;
 
-                    boolean isAmbiguous = (context[0].startsWith(Constants.lowFrequencyCallPrefix)
-                            || context[0].startsWith(Constants.lowCoverageCallPrefix)
-                            || context[0].startsWith(Constants.missingUpstreamDeletionCallPrefix));
-                    // Skip ambiguous calls, if not to be stored.
-                    if (!getStoreFiltered() && isAmbiguous) continue;
+                boolean isAmbiguous = (context[0].startsWith(Constants.lowFrequencyCallPrefix)
+                        || context[0].startsWith(Constants.lowCoverageCallPrefix)
+                        || context[0].startsWith(Constants.missingUpstreamDeletionCallPrefix));
+                // Skip ambiguous calls, if not to be stored.
+                if (!getStoreFiltered() && isAmbiguous) continue;
 
-                    String[] genotype = context[3].split(Constants.comma)[0].split(Constants.colon);
-                    String REF = genotype[0];
-                    String ALT = isAmbiguous ? (Constants.anyNucleotide.repeat(REF.length())) : genotype[1];
+                String[] genotype = context[3].split(Constants.comma)[0].split(Constants.colon);
+                String REF = genotype[0];
+                String ALT = isAmbiguous ? (Constants.anyNucleotide.repeat(REF.length())) : genotype[1];
 
-                    // Skip calls representing missing alleles due to upstream deletions.
-                    if (ALT.equals("*")) continue;
+                // Skip calls representing missing alleles due to upstream deletions.
+                if (ALT.equals("*")) continue;
 
-                    if (VariantInformation.isPaddedCanonicalVariant(REF, ALT)) {
-                        addVariant.accept(POS, new Tuple<>(REF, ALT));
-                    } else {
-                        // Resolve mixed variants in canonical padded format.
-                        for (Triple<Integer, String, String> canonicalVariant : SequenceOperations.getCanonicalVariants(REF, ALT)) {
-                            addVariant.accept(POS + canonicalVariant.getLeft(), new Tuple<>(canonicalVariant.getMiddle(), canonicalVariant.getRight()));
-                        }
+                if (Variant.isPaddedCanonicalVariant(REF, ALT)) {
+                    addVariant.accept(POS, new Tuple<>(REF, ALT));
+                } else {
+                    // Resolve mixed variants in canonical padded format.
+                    for (Triple<Integer, String, String> canonicalVariant : SequenceOperations.getCanonicalVariants(REF, ALT)) {
+                        addVariant.accept(POS + canonicalVariant.getLeft(), new Tuple<>(canonicalVariant.getMiddle(),
+                                canonicalVariant.getRight()));
                     }
                 }
 
@@ -1646,7 +1588,7 @@ public class Storage {
 
                 // Helper function to resolve and add a variant to the contig.
                 Consumer<Integer> resolveVariant = (position) -> {
-                    if (!VariantInformation.isPaddedCanonicalVariant(referenceBuilder.toString(), alternativeBuilder.toString())) {
+                    if (!Variant.isPaddedCanonicalVariant(referenceBuilder.toString(), alternativeBuilder.toString())) {
                         Tuple<String, String> realignedMixedIndel =
                                 SequenceOperations.globalNucleotideSequenceAlignment(
                                         SequenceOperations.stripGaps(referenceBuilder.toString()),
@@ -1657,12 +1599,14 @@ public class Storage {
                                         false,
                                         0
                                 );
-                        ArrayList<Triple<Integer, String, String>> resolvedVariants = SequenceOperations.getCanonicalVariants(realignedMixedIndel.a, realignedMixedIndel.b);
+                        ArrayList<Triple<Integer, String, String>> resolvedVariants =
+                                SequenceOperations.getCanonicalVariants(realignedMixedIndel.a, realignedMixedIndel.b);
                         for (Triple<Integer, String, String> resolvedVariant : resolvedVariants) {
-                            addVariantToContig(contigName, sample.name, position + resolvedVariant.getLeft(), resolvedVariant.getMiddle(), resolvedVariant.getRight());
+                            addVariantToContig(call.left, sample._id, position + resolvedVariant.getLeft(), resolvedVariant.getMiddle(),
+                                    resolvedVariant.getRight());
                         }
                     } else {
-                        addVariantToContig(contigName, sample.name, position, referenceBuilder.toString(), alternativeBuilder.toString());
+                        addVariantToContig(call.left, sample._id, position, referenceBuilder.toString(), alternativeBuilder.toString());
                     }
                 };
 
@@ -1682,7 +1626,7 @@ public class Storage {
                     }
 
                     if (deletionExtension == 0 && referenceBuilder.length() == 0 && alternativeBuilder.length() == 0) {
-                        if (VariantInformation.isDeletion(referenceContent, alternativeContent, true)) {
+                        if (Variant.isDeletion(referenceContent, alternativeContent, true)) {
                             referenceBuilder.append(referenceContent);
                             alternativeBuilder.append(alternativeContent);
                             variantStartPosition = position;
@@ -1698,28 +1642,30 @@ public class Storage {
                     }
 
                     if (position <= deletionExtension) {
-                        if (VariantInformation.isSubstitution(referenceContent, alternativeContent)) {
+                        if (Variant.isSubstitution(referenceContent, alternativeContent)) {
                             continue;
                         }
-                        if (VariantInformation.isDeletion(referenceContent, alternativeContent, true)) {
+                        if (Variant.isDeletion(referenceContent, alternativeContent, true)) {
                             int updatedDeletionExtension = position + alternativeContent.length() - 1;
                             if (updatedDeletionExtension > deletionExtension) {
                                 referenceBuilder.append(StringUtils.right(referenceContent, updatedDeletionExtension - deletionExtension));
-                                alternativeBuilder.append(StringUtils.right(alternativeContent, updatedDeletionExtension - deletionExtension));
+                                alternativeBuilder.append(StringUtils.right(alternativeContent,
+                                        updatedDeletionExtension - deletionExtension));
                                 deletionExtension = updatedDeletionExtension;
                             }
                             continue;
                         }
-                        if (VariantInformation.isInsertion(referenceContent, alternativeContent, true)) {
+                        if (Variant.isInsertion(referenceContent, alternativeContent, true)) {
                             int offset = position - variantStartPosition;
-                            alternativeBuilder.replace(offset, offset + 1, alternativeBuilder.charAt(offset) + alternativeContent.substring(1));
+                            alternativeBuilder.replace(offset, offset + 1,
+                                    alternativeBuilder.charAt(offset) + alternativeContent.substring(1));
                             referenceBuilder.replace(offset, offset + 1, referenceBuilder.charAt(offset) + referenceContent.substring(1));
                             continue;
                         }
                     }
 
                     Logging.logWarning("Failed to handle variant %s at position %d on contig %s for sample %s."
-                            .formatted(referenceContent + ">" + alternativeContent, position, contigName, sample.name));
+                            .formatted(referenceContent + ">" + alternativeContent, position, call.left, sample._id));
                 }
 
                 if (referenceBuilder.length() > 0 && alternativeBuilder.length() > 0) {
@@ -1732,43 +1678,30 @@ public class Storage {
     /**
      * Adds a variant to the specified contig in the storage.
      * <p>
-     * This method validates the variant to ensure it is in a canonical padded format. It then retrieves all features
-     * annotated for the given position and checks if the contig, sample, and features exist in the storage. If valid,
-     * the variant is added to the contig's variant map, and its occurrences in the sample and features are updated.
-     * If the variant is novel, it is added to the `novelVariants` list.
+     * This method validates the variant to ensure it is in a canonical padded format. It then retrieves all features annotated for the
+     * given position and checks if the contig, sample, and features exist in the storage. If valid, the variant is added to the contig's
+     * variant map, and its occurrences in the sample and features are updated. If the variant is novel, it is added to the `novelVariants`
+     * list.
      *
-     * @param contigName         The name of the contig to which the variant belongs.
-     * @param sampleName         The name of the sample associated with the variant.
+     * @param contigName         The id of the contig to which the variant belongs.
+     * @param sampleName         The id of the sample associated with the variant.
      * @param position           The position of the variant on the contig.
      * @param referenceContent   The reference base(s) for the variant.
      * @param alternativeContent The alternative base(s) for the variant.
      * @throws IllegalArgumentException If the variant is not in canonical format, or if the contig, sample, or features are not found.
      */
-    private void addVariantToContig(String contigName, String sampleName, int position, String referenceContent, String alternativeContent) {
-        if (!VariantInformation.isPaddedCanonicalVariant(referenceContent, alternativeContent)) {
+    private void addVariantToContig(String contigName, String sampleName, int position, String referenceContent,
+                                    String alternativeContent) {
+        if (!Variant.isPaddedCanonicalVariant(referenceContent, alternativeContent)) {
             throw new IllegalArgumentException("Failed to add non-canonical variant %s > %s at position %d on contig %s."
                     .formatted(referenceContent, alternativeContent, position, contigName));
         }
         if (this.hasContig(contigName) && this.hasSample(sampleName)) {
-            VariantInformation variantInformation;
-            Contig contig = this.getContig(contigName);
-            contig.variants.putIfAbsent(position, new HashMap<>());
-            variantInformation = contig.variants.get(position)
-                    .putIfAbsent(alternativeContent, new VariantInformation(referenceContent, alternativeContent));
-            contig.variants.get(position).get(alternativeContent).addSampleOccurrence(sampleName);
-            // Get all features that are annotated for the position and add the variant occurrence to them.
-            Set<String> featureNames = features.values().stream()
-                    .filter(feature -> feature.start <= position && feature.end >= position)
-                    .map(feature -> feature.name).collect(Collectors.toSet());
-            featureNames.forEach(featureName -> contig.variants.get(position).get(alternativeContent).addFeatureOccurrence(featureName));
-            if (Objects.nonNull(variantInformation) && !variantInformation.reference.equals(referenceContent)) {
-                Logging.logWarning("Variant call %s at position %d on contig %s occurred with different reference bases %s and %s."
-                        .formatted(alternativeContent, position, contigName, variantInformation.reference, referenceContent));
-            }
-            if (Objects.isNull(variantInformation))
-                novelVariants.add(new ImmutableTriple<>(contigName, position, alternativeContent));
+            Variant variant = this.contigs.get(contigName).addVariant(position, referenceContent, alternativeContent);
+            variant.addRelation(sampleName);
         } else {
-            throw new IllegalArgumentException(String.format("Failed to add variant to contig %s as either the contig or sample (%s) were not found.",
+            throw new IllegalArgumentException(String.format("Failed to add variant to contig %s as either the contig or sample (%s) were" +
+                            " not found.",
                     contigName, sampleName));
         }
     }
@@ -1776,9 +1709,8 @@ public class Storage {
     /**
      * Encapsulates utility methods for analyzing and processing variant call format (VCF) files.
      * <p>
-     * This class implements methods and data structures for handling VCF file analysis,
-     * including allele information storage, variant context processing, and integration with
-     * external tools like SnpEff for annotation.
+     * This class implements methods and data structures for handling VCF file analysis, including allele information storage, variant
+     * context processing, and integration with external tools like SnpEff for annotation.
      */
     private class VcfHandler {
 
@@ -1796,27 +1728,24 @@ public class Storage {
         /**
          * Counter for processed genotype records.
          * <p>
-         * This is used to keep track of the number of genotype records that have been processed during
-         * the analysis of VCF files. It is initialized to 0 and is incremented as files are being
-         * processed.
+         * This is used to keep track of the number of genotype records that have been processed during the analysis of VCF files. It is
+         * initialized to 0 and is incremented as files are being processed.
          */
         private long processedGenotypes = 0;
 
         /**
          * Counter for ignored genotype records.
          * <p>
-         * This is used to keep track of the number of genotype records that have been ignored during
-         * the analysis of VCF files. It is initialized to 0 and is incremented as files are
-         * being processed.
+         * This is used to keep track of the number of genotype records that have been ignored during the analysis of VCF files. It is
+         * initialized to 0 and is incremented as files are being processed.
          */
         private long ignoredGenotypes = 0;
 
         /**
          * Counter for filtered genotype records.
          * <p>
-         * This is used to keep track of the number of genotype records that have been filtered during
-         * the analysis of VCF files. It is initialized to 0 and is incremented as files are being
-         * processed.
+         * This is used to keep track of the number of genotype records that have been filtered during the analysis of VCF files. It is
+         * initialized to 0 and is incremented as files are being processed.
          */
         private long filteredGenotypes = 0;
 
@@ -1861,10 +1790,10 @@ public class Storage {
         private void processVariantContexts(Iterator<VariantContext> variantContextIterator) {
             while (variantContextIterator.hasNext()) {
                 VariantContext variantContext = variantContextIterator.next();
-                String contigName = variantContext.getContig();
+                String contigIdentifier = variantContext.getContig();
                 int position = variantContext.getStart();
                 // Skip excluded positions based on the build configuration.
-                if (getIsPositionExcluded(contigName, variantContext.getStart())) continue;
+                if (getIsPositionExcluded(contigIdentifier, variantContext.getStart())) continue;
                 // Process each genotype in the VariantContext.
                 for (Genotype genotype : variantContext.getGenotypes()) {
                     // Count processed genotype records.
@@ -1879,16 +1808,18 @@ public class Storage {
                     // Log a one-time warning if AD and DP attributes are missing.
                     if (!(genotype.hasDP() && (genotype.hasAD() || genotype.hasAnyAttribute("COV")))) {
                         Logging.logWarningOnce("MISSING_AD_DP_ATTRIBUTES",
-                                String.format("Some variants may be ignored. AD/COV and DP attributes are missing for at least one genotype "
+                                String.format("Some variants may be ignored. AD/COV and DP attributes are missing for at least one " +
+                                                "genotype "
                                                 + "(%s %d sample %s in file %s).",
-                                        contigName, variantContext.getStart(), genotype.getSampleName(), filePath));
+                                        contigIdentifier, variantContext.getStart(), genotype.getSampleName(), filePath));
                     }
 
-                    // Extract the sample name and ensure the sample and contig exist in storage.
+                    // Extract the sample id and ensure the sample and contig exist in storage.
                     // TODO: Sample names in the VCF can have a "$" suffix to be merged within one sample in musial.
                     String sampleName = genotype.getSampleName().split("\\$")[0];
                     novelSamples.add(sampleName);
                     Storage.this.addSample(sampleName);
+                    Sample sample = Storage.this.getSample(sampleName);
 
                     // Extract allelic depth (AD) information for the genotype.
                     int[] ADs;
@@ -1918,14 +1849,16 @@ public class Storage {
                     if (genotype.hasDP()) {
                         if (ADSum > genotype.getDP()) {
                             Logging.logWarningOnce("AD_SUM_GREATER_THAN_DP",
-                                    String.format("Possible error in genotype data. Summed allelic depth (%d) is greater than total depth (%d). "
+                                    String.format("Possible error in genotype data. Summed allelic depth (%d) is greater than total depth" +
+                                                    " (%d). "
                                                     + "(%s %d sample %s in file %s).",
-                                            ADSum, genotype.getDP(), contigName, variantContext.getStart(), sampleName, filePath));
+                                            ADSum, genotype.getDP(), contigIdentifier, variantContext.getStart(), sampleName, filePath));
                         } else if (ADSum < 0.5 * genotype.getDP()) {
                             Logging.logWarningOnce("AD_SUM_LOWER_THAN_DP",
-                                    String.format("Allegedly low-quality data. Summed allelic depth (%d) is much lower than total depth (%d). "
+                                    String.format("Allegedly low-quality data. Summed allelic depth (%d) is much lower than total depth " +
+                                                    "(%d). "
                                                     + "(%s %d sample %s in file %s).",
-                                            ADSum, genotype.getDP(), contigName, variantContext.getStart(), sampleName, filePath));
+                                            ADSum, genotype.getDP(), contigIdentifier, variantContext.getStart(), sampleName, filePath));
                         }
                     }
 
@@ -1935,13 +1868,8 @@ public class Storage {
                     int AD;
 
                     // Create a map to store alternatives for the current genotype.
-                    List<MutableTriple<String, String, Integer>> alternatives;
-                    // Check if any call information already exists in the storage.
-                    if (Storage.this.getSample(sampleName).getVariantCalls(contigName).containsKey(position)) {
-                        alternatives = samples.get(sampleName).getCallAlternatives(contigName, position);
-                    } else {
-                        alternatives = new ArrayList<>();
-                    }
+                    List<MutableTriple<String, String, Integer>> alternatives =
+                            Sample.callStringToAlternatives(sample.getVariantCall(contigIdentifier, position));
 
                     for (int i = 0; i < ADs.length; i++) {
                         // Access the allelic depth for the current allele.
@@ -1962,7 +1890,7 @@ public class Storage {
                             // Handle upstream-deletion cases where ALT is "*".
                             if (ALT.equals("*")) {
                                 REF = REF.substring(0, 1);
-                            } else if (VariantInformation.isCanonicalVariant(REF, ALT)) {
+                            } else if (Variant.isCanonicalVariant(REF, ALT)) {
                                 // If already canonical, pad gaps to align their lengths.
                                 REF = SequenceOperations.padGaps(REF, ALT.length());
                                 ALT = SequenceOperations.padGaps(ALT, REF.length());
@@ -1975,7 +1903,7 @@ public class Storage {
                                 ALT = StringUtils.removeEnd(ALT, commonSuffix);
 
                                 // Ensure REF and ALT are in a canonical padded format for true alternatives.
-                                if (VariantInformation.isCanonicalVariant(REF, ALT)) {
+                                if (Variant.isCanonicalVariant(REF, ALT)) {
                                     // If already canonical, pad gaps to align their lengths.
                                     REF = SequenceOperations.padGaps(REF, ALT.length());
                                     ALT = SequenceOperations.padGaps(ALT, REF.length());
@@ -2003,7 +1931,7 @@ public class Storage {
 
                     // Transfer alternatives to the storage.
                     // To validate deleted downstream positions.
-                    String downstreamDeletionKey = sampleName + Constants.colon + contigName;
+                    String downstreamDeletionKey = sampleName + Constants.colon + contigIdentifier;
                     MutableTriple<Integer, Integer, Boolean> downstreamDeletion = downstreamDeletions
                             .getOrDefault(downstreamDeletionKey, new MutableTriple<>(0, 0, false));
 
@@ -2027,14 +1955,16 @@ public class Storage {
 
                     // Handle missing allele due to an upstream deletion.
                     if (ALT.equals("*")) {
-                        boolean isUnexplainedDeletion = (downstreamDeletion.left <= position && position <= downstreamDeletion.middle && downstreamDeletion.right)
-                                || position > downstreamDeletion.middle;
+                        boolean isUnexplainedDeletion =
+                                (downstreamDeletion.left <= position && position <= downstreamDeletion.middle && downstreamDeletion.right)
+                                        || position > downstreamDeletion.middle;
 
                         if (isUnexplainedDeletion) {
                             Logging.logWarningOnce("UNEXPLAINED_MISSING_ALLELE",
-                                    String.format("Ambiguous genotype. A called missing allele (*) is not explained by an upstream deletion "
+                                    String.format("Ambiguous genotype. A called missing allele (*) is not explained by an upstream " +
+                                                    "deletion "
                                                     + "(%s %d sample %s).",
-                                            contigName, position, sampleName));
+                                            contigIdentifier, position, sampleName));
 
                             // Fallback to the next allele if available, otherwise mark call as filtered.
                             if (alternatives.size() > 1) {
@@ -2055,7 +1985,7 @@ public class Storage {
                     boolean isReferenceCall = alternatives.get(callIndex).middle.equals(Constants.dot);
 
                     // Skip the variant, if it is excluded.
-                    if (getIsVariantExcluded(contigName, position, SequenceOperations.stripGaps(alternatives.get(0).left),
+                    if (getIsVariantExcluded(contigIdentifier, position, SequenceOperations.stripGaps(alternatives.get(0).left),
                             SequenceOperations.stripGaps(alternatives.get(0).middle))) {
                         ignoredGenotypes++;
                         continue;
@@ -2077,10 +2007,11 @@ public class Storage {
                     }
 
                     // Set deleted downstream positions if the current accepted call is a deletion.
-                    if (VariantInformation.isDeletion(REF, ALT, true)) {
+                    if (Variant.isDeletion(REF, ALT, true)) {
                         downstreamDeletions.computeIfAbsent(downstreamDeletionKey, k -> new MutableTriple<>(0, 0, false));
                         downstreamDeletions.get(downstreamDeletionKey).setLeft(position + StringUtils.indexOf(ALT, Constants.gapChar));
-                        downstreamDeletions.get(downstreamDeletionKey).setMiddle(position + StringUtils.lastIndexOf(ALT, Constants.gapChar));
+                        downstreamDeletions.get(downstreamDeletionKey).setMiddle(position + StringUtils.lastIndexOf(ALT,
+                                Constants.gapChar));
                         downstreamDeletions.get(downstreamDeletionKey).setRight(!prefix.equals(Constants.empty));
                     }
 
@@ -2094,7 +2025,7 @@ public class Storage {
                     callContextBuilder.deleteCharAt(callContextBuilder.length() - 1);
 
                     // Add the variant call to the sample.
-                    addCallContextToSample(sampleName, contigName, position, callContextBuilder.toString());
+                    sample.addVariantCall(contigIdentifier, position, callContextBuilder.toString());
                 }
             }
         }
@@ -2113,7 +2044,8 @@ public class Storage {
          *   <li>Builds the SnpEff database using the reference genome information.</li>
          *   <li>Runs the SnpEff annotation on the temporary VCF file.</li>
          *   <li>Processes the annotation results and updates the storage with the annotated data.</li>
-         *   <li>Handles errors during the SnpEff build and annotation processes, logging them and saving error logs to the output directory.</li>
+         *   <li>Handles errors during the SnpEff build and annotation processes, logging them and saving error logs to the output
+         *   directory.</li>
          *   <li>Cleans up the temporary directory after the analysis is complete.</li>
          * </ul>
          *
@@ -2126,9 +2058,10 @@ public class Storage {
             Path temp = Files.createTempDirectory(prefix);
             try {
                 // Create map to store variant pointers and write storage variants to temporary VCF file.
-                ArrayList<Tuple<Triple<String, Integer, String>, VariantInformation>> variants = new ArrayList<>(Storage.this.novelVariants.size());
+                ArrayList<Tuple<Triple<String, Integer, String>, Variant>> variants = new ArrayList<>(Storage.this.novelVariants.size());
                 for (Triple<String, Integer, String> variant : Storage.this.novelVariants) {
-                    variants.add(new Tuple<>(variant, Storage.this.getContig(variant.getLeft()).getVariantInformation(variant.getMiddle(), variant.getRight())));
+                    variants.add(new Tuple<>(variant, Storage.this.getContig(variant.getLeft()).getVariant(variant.getMiddle(),
+                            variant.getRight())));
                 }
                 IO.writeFile(Path.of(temp + "/variants" + FileExtensions.VCF), IO.generateVcfContent(variants));
 
@@ -2144,7 +2077,7 @@ public class Storage {
                 // Add reference .fasta and .gff information to snpEff.config.
                 String codonTableConfig = Storage.this.getContigs()
                         .stream()
-                        .map(contig -> "reference.genome.%s : Bacterial_and_Plant_Plastid".formatted(contig.name))
+                        .map(contig -> "reference.genome.%s : Bacterial_and_Plant_Plastid".formatted(contig._id))
                         .collect(Collectors.joining("\n"));
                 Files.writeString(snpEffConfigPath, "\n# reference genome\nreference.genome : reference\n%s".formatted(codonTableConfig),
                         StandardOpenOption.APPEND);
@@ -2194,13 +2127,15 @@ public class Storage {
             } finally {
                 File buildErrorFile = new File(temp + "/snpEff.build.err");
                 if (buildErrorFile.exists() && buildErrorFile.length() != 0) {
-                    Logging.logSevere("SnpEff `build` has raised an error or warning; a copy of the log file is in the output directory - the annotations may be incorrect.");
+                    Logging.logSevere("SnpEff `build` has raised an error or warning; a copy of the log file is in the output directory -" +
+                            " the annotations may be incorrect.");
                     FileUtils.copyFile(buildErrorFile, new File(Musial.outputDirectory.getAbsolutePath()
                             + "/musial_snpeff_build_%s.error".formatted(Logging.getDate())));
                 }
                 File annErrorFile = new File(temp + "/snpEff.ann.err");
                 if (annErrorFile.exists() && annErrorFile.length() != 0) {
-                    Logging.logSevere("SnpEff `ann` has raised an error or warning; a copy of the log file is in the output directory - the annotations may be incorrect.");
+                    Logging.logSevere("SnpEff `ann` has raised an error or warning; a copy of the log file is in the output directory - " +
+                            "the annotations may be incorrect.");
                     FileUtils.copyFile(annErrorFile, new File(Musial.outputDirectory.getAbsolutePath()
                             + "/musial_snpeff_ann_%s.error".formatted(Logging.getDate())));
                 }

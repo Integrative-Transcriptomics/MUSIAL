@@ -3,6 +3,7 @@ package model;
 import htsjdk.samtools.util.Tuple;
 import utility.Constants;
 import utility.IO;
+import utility.Logging;
 
 import java.io.IOException;
 import java.util.*;
@@ -42,7 +43,7 @@ public class Contig extends Attributes {
      * <p>
      * The map organizes {@link Variant} instances by their positions to allow more efficient queries.
      */
-    private final TreeMap<Integer, ArrayList<Variant>> variants;
+    private final TreeMap<Integer, HashMap<String, Variant>> variants;
 
     /**
      * Cache to store the (sub-)sequence of this contig given a start and end position.
@@ -162,7 +163,12 @@ public class Contig extends Attributes {
      */
     protected Variant addVariant(int position, String reference, String alternative) {
         Variant variant = new Variant(position, reference, alternative);
-        this.variants.computeIfAbsent(position, k -> new ArrayList<>()).add(variant);
+        this.variants.computeIfAbsent(position, p -> new HashMap<>());
+        Variant v = this.variants.get(position).putIfAbsent(alternative, variant);
+        if (Objects.nonNull(v) && !variant.reference.equals(v.reference)) {
+            Logging.logWarning("Variant %s at position %d on contig %s occurred with different reference bases %s and %s."
+                    .formatted(alternative, position, _id, variant.reference, v.reference));
+        }
         return variant;
     }
 
@@ -179,7 +185,7 @@ public class Contig extends Attributes {
      */
     public Variant getVariant(int position, String alternative) {
         if (!this.variants.containsKey(position)) return null;
-        return this.variants.get(position).stream().findFirst().filter(v -> v.alternative.equals(alternative)).orElse(null);
+        return this.variants.get(position).get(alternative);
     }
 
     /**
@@ -191,9 +197,8 @@ public class Contig extends Attributes {
      * @return A {@link List} containing all {@link Variant} objects associated with this contig.
      */
     public List<Variant> getVariants() {
-        // Flatten the variants map into a single list.
         return this.variants.values().stream()
-                .flatMap(Collection::stream)
+                .flatMap(variantMap -> variantMap.values().stream())
                 .collect(Collectors.toList());
     }
 
@@ -208,9 +213,8 @@ public class Contig extends Attributes {
      * @return A {@link List} of {@link Variant} objects within the specified range.
      */
     public List<Variant> getVariants(int start, int end) {
-        // Retrieve variants within the specified range and flatten them into a single list.
         return this.variants.subMap(start, end + 1).values().stream()
-                .flatMap(Collection::stream)
+                .flatMap(variantMap -> variantMap.values().stream())
                 .collect(Collectors.toList());
     }
 
@@ -224,9 +228,8 @@ public class Contig extends Attributes {
      * @return A {@link List} of {@link Variant} objects that match the specified sample names.
      */
     public List<Variant> getVariants(String... relations) {
-        // Filter variants based on the provided set of sample names.
         return this.variants.values().stream()
-                .flatMap(Collection::stream)
+                .flatMap(variantMap -> variantMap.values().stream())
                 .filter(variant -> Arrays.stream(relations).anyMatch(variant::hasRelation))
                 .collect(Collectors.toList());
     }
@@ -244,9 +247,8 @@ public class Contig extends Attributes {
      * @return A {@link List} of {@link Variant} objects within the specified range and matching the specified sample names.
      */
     public List<Variant> getVariants(int start, int end, String... relations) {
-        // Retrieve variants within the specified range and filter them based on the provided set of sample names.
         return this.variants.subMap(start, end + 1).values().stream()
-                .flatMap(Collection::stream)
+                .flatMap(variantMap -> variantMap.values().stream())
                 .filter(variant -> Arrays.stream(relations).anyMatch(variant::hasRelation))
                 .collect(Collectors.toList());
     }
@@ -260,7 +262,27 @@ public class Contig extends Attributes {
      * @return The total number of {@link Variant} objects associated with this contig.
      */
     public int getVariantsCount() {
-        return this.variants.values().stream().mapToInt(ArrayList::size).sum();
+        return this.variants.values().stream().mapToInt(Map::size).sum();
+    }
+
+    /**
+     * Reduces a list of {@link Variant} objects to a list of tuples containing their positions and alternative base sequences.
+     * <p>
+     * This method processes a list of {@link Variant} objects and maps each variant to a {@link Tuple} containing:
+     * <ul>
+     *   <li>The position of the variant ({@code variant.position}).</li>
+     *   <li>The alternative base sequence of the variant ({@code variant.alternative}).</li>
+     * </ul>
+     * The resulting tuples are collected into a list and returned.
+     *
+     * @param variants A list of {@link Variant} objects to be reduced.
+     * @return A {@link List} of {@link Tuple} objects, where each tuple contains the position and alternative base sequence of a variant.
+     */
+    public static List<Tuple<Integer, String>> reduceVariants(List<Variant> variants) {
+        // Reduce the list of variants to a list of tuples containing position and canonical base string.
+        return variants.stream()
+                .map(variant -> new Tuple<>(variant.position, variant.alternative))
+                .collect(Collectors.toList());
     }
 
 }

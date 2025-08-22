@@ -83,8 +83,8 @@ public class Sample extends Attributes {
      * with the specified initial capacity. The {@link #_id} field is set to the provided id, and the superclass constructor is invoked to
      * initialize inherited properties.
      *
-     * @param identifier      The id of the sample, used as its unique identifier.
-     * @param capacity The expected initial capacity of the {@link #alleles} map.
+     * @param identifier The id of the sample, used as its unique identifier.
+     * @param capacity   The expected initial capacity of the {@link #alleles} map.
      */
     protected Sample(String identifier, int capacity) {
         super();
@@ -204,6 +204,28 @@ public class Sample extends Attributes {
     public String getVariantCall(String contigIdentifier, int position) {
         if (!hasVariantCall(contigIdentifier)) return Constants.empty;
         return calls.get(contigIdentifier).getOrDefault(position, Constants.empty);
+    }
+
+    /**
+     * Retrieves a list of variant calls associated with this sample.
+     * <p>
+     * This method processes the {@link #calls} map, which organizes variant calls by contig identifiers and positions, and converts it into
+     * a list of {@link MutableTriple} objects. Each triple contains:
+     * <ul>
+     *   <li>The contig identifier as a {@link String}.</li>
+     *   <li>The position of the variant as an {@link Integer}.</li>
+     *   <li>The variant call string as a {@link String}.</li>
+     * </ul>
+     * The resulting list provides a flattened representation of all variant calls in the sample.
+     *
+     * @return A {@link List} of {@link MutableTriple} objects, where each triple represents a variant call with its contig identifier,
+     * position, and call string.
+     */
+    public List<MutableTriple<String, Integer, String>> getVariantCalls() {
+        return this.calls.entrySet().stream()
+                .flatMap(entry -> entry.getValue().entrySet().stream()
+                        .map(callEntry -> new MutableTriple<>(entry.getKey(), callEntry.getKey(), callEntry.getValue())))
+                .toList();
     }
 
     /**
