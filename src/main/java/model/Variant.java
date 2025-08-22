@@ -1,5 +1,6 @@
 package model;
 
+import htsjdk.samtools.util.Tuple;
 import utility.Constants;
 
 import java.util.Collection;
@@ -7,16 +8,21 @@ import java.util.HashMap;
 import java.util.HashSet;
 
 /**
- * Stores information associated with a nucleotide variant.
+ * Representation of a nucleotide variant.
  * <p>
- * The actual alternative content is not stored in this class!
+ * This class represents a nucleotide variant, including its reference base content, type (e.g., SNV, insertion, deletion), and occurrences
+ * in samples and alleles. It provides methods to determine the type of the variant, check its canonical or padded canonical status. It
+ * extends the {@link Attributes} class to inherit functionality for managing attributes associated with the variant.
  * <p>
- * This class represents a nucleotide variant, including its reference base content,
- * type (e.g., SNV, insertion, deletion), and occurrences in samples and alleles.
- * It provides methods to determine the type of the variant, check its canonical
- * or padded canonical status, and manage occurrences in samples and features.
+ * In contrast to other entities in the model, this class does not implement an identifier, but the combination of {@code position},
+ * {@code reference}, and {@code alternative} is used as such.
  */
-public class VariantInformation extends Attributes {
+public class Variant extends Attributes {
+
+    /**
+     * The 1-based position of this variant on a contig.
+     */
+    public final int position;
 
     /**
      * The reference base content of this variant.
@@ -24,23 +30,9 @@ public class VariantInformation extends Attributes {
     public final String reference;
 
     /**
-     * A mapping of occurrences of this variant in samples and alleles.
-     * <p>
-     * The `occurrence` map is structured as follows:
-     * <ul>
-     *     <li>The key is either {@link Attributes#sampleOccurrence} (representing sample occurrences)
-     *         or the name of a {@link Feature} (representing feature occurrences).</li>
-     *     <li>The value is a {@link HashSet} containing names of {@link Sample} or {@link SequenceType}
-     *         associated with the key.</li>
-     * </ul>
-     * This structure allows efficient tracking of where the variant occurs in terms of samples and features.
+     * The alternative base content of this variant.
      */
-    protected final HashMap<String, HashSet<String>> occurrence = new HashMap<>(2);
-
-    /**
-     * The type of this variant (e.g., SNV, insertion, deletion).
-     */
-    public final Type type;
+    public final String alternative;
 
     /**
      * Enum representing the type of variant.
@@ -61,40 +53,138 @@ public class VariantInformation extends Attributes {
     }
 
     /**
-     * Constructor for {@link VariantInformation}.
-     * <p>
-     * Initializes the variant with its reference and alternative content, determining
-     * its type (SNV, insertion, or deletion) based on the provided content.
-     * <p>
-     * This constructor checks if the reference and alternative content match any padded
-     * canonical content type. If they do not, an {@link IllegalArgumentException} is thrown.
-     *
-     * @param referenceContent   The reference base content of the variant.
-     * @param alternativeContent The alternative base content of the variant.
-     * @throws IllegalArgumentException If the reference and alternative content do not match
-     *                                  any padded canonical content type.
+     * The type of this variant (e.g., SNV, insertion, deletion).
      */
-    protected VariantInformation(String referenceContent, String alternativeContent) {
+    public final Type type;
+
+    /**
+     * A set of sample names associated with this variant.
+     * <p>
+     * This set is used to track which samples have occurrences of this variant.
+     */
+    private final HashSet<String> samples = new HashSet<>();
+
+    /**
+     * A map of feature occurrences associated with this variant.
+     * <p>
+     * The keys are feature names, and the values are sets of allele identifiers associated with those features. The initial capacity is set
+     * to one, as variants typically have a single feature associated with them.
+     */
+    private final HashMap<String, HashSet<String>> features = new HashMap<>(1);
+
+    /**
+     * Constructs a new {@link Variant} instance, based on the provided position, reference, and alternative content.
+     * <p>
+     * The constructor determines the type of variant based on the reference and alternative content as well as if the reference and
+     * alternative content match any padded canonical content type. If they do not, an {@link IllegalArgumentException} is thrown.
+     *
+     * @param position    The 1-based position of the variant on a contig.
+     * @param reference   The reference base content of the variant.
+     * @param alternative The alternative base content of the variant.
+     * @throws IllegalArgumentException If the reference and alternative content do not match any padded canonical content type.
+     */
+    protected Variant(int position, String reference, String alternative) {
         super();
-        if (isSubstitution(referenceContent, alternativeContent)) {
+        this.position = position;
+        this.reference = reference;
+        this.alternative = alternative;
+        if (isSubstitution(reference, alternative)) {
             this.type = Type.SNV;
-        } else if (isInsertion(referenceContent, alternativeContent, true)) {
+        } else if (isInsertion(reference, alternative, true)) {
             this.type = Type.INSERTION;
-        } else if (isDeletion(referenceContent, alternativeContent, true)) {
+        } else if (isDeletion(reference, alternative, true)) {
             this.type = Type.DELETION;
         } else {
             throw new IllegalArgumentException(
-                    "Failed to construct `VariantInformation` instance. Contents (ref) %s and (alt) %s do not match any padded canonical content type."
-                            .formatted(referenceContent, alternativeContent)
+                    ("Failed to construct `VariantInformation` instance. Contents (ref) %s and (alt) %s do not match any padded canonical" +
+                            " content type.")
+                            .formatted(reference, alternative)
             );
         }
-        this.reference = referenceContent;
-        this.occurrence.put(Attributes.sampleOccurrence, new HashSet<>());
     }
 
     /**
-     * Determines whether a variant is a substitution; i.e., both the reference and alternative base
-     * content match a single base of {@link Constants#baseSymbols}.
+     * Associates a sample with this variant.
+     *
+     * @param identifier The identifier of the sample to associate with this variant.
+     */
+    protected void associateSample(String identifier) {
+        this.samples.add(identifier);
+    }
+
+    /**
+     * Associates an allele and its parent feature with this variant.
+     *
+     * @param featureIdentifier The identifier of the feature to associate with this variant.
+     * @param alleleIdentifier  The identifier of the allele to associate with the feature.
+     */
+    protected void associateAllele(String featureIdentifier, String alleleIdentifier) {
+        this.features.putIfAbsent(featureIdentifier, new HashSet<>(8));
+        this.features.get(featureIdentifier).add(alleleIdentifier);
+    }
+
+    /**
+     * Checks if this variant has an occurrence of a given identifier.
+     * <p>
+     * This method checks if the provided identifier is present in the samples associated with this variant or in the features and their
+     * alleles.
+     *
+     * @param identifier The identifier to check for occurrences in this variant.
+     * @return {@code true} if the identifier is found in samples or features, {@code false} otherwise.
+     */
+    public boolean hasOccurrence(String identifier) {
+        return this.samples.contains(identifier) || this.features.containsKey(identifier)
+                || this.features.values().stream().anyMatch(alleles -> alleles.contains(identifier));
+    }
+
+    /**
+     * Retrieves a collection of sample identifiers that have occurrences of this variant.
+     *
+     * @return A collection of sample identifiers that have occurrences of this variant.
+     */
+    public Collection<String> getSampleOccurrence() {
+        return this.samples;
+    }
+
+    /**
+     * Retrieves a collection of tuples representing the feature and allele occurrences associated with this variant.
+     * <p>
+     * Each tuple contains a feature identifier and an allele identifier, representing the association of alleles with their parent
+     * features.
+     *
+     * @return A collection of tuples representing the feature and allele occurrences.
+     */
+    public Collection<Tuple<String, String>> getAlleleOccurrence() {
+        HashSet<Tuple<String, String>> alleles = new HashSet<>();
+        for (String feature : this.features.keySet()) {
+            for (String allele : this.features.get(feature)) {
+                alleles.add(new Tuple<>(feature, allele));
+            }
+        }
+        return alleles;
+    }
+
+    /**
+     * Retrieves the reference base content of this variant with all gap symbols removed.
+     *
+     * @return The reference base content with gap symbols removed.
+     */
+    public String getReferenceStripped() {
+        return this.reference.replaceAll("-", "");
+    }
+
+    /**
+     * Retrieves the alternative base content of this variant with all gap symbols removed.
+     *
+     * @return The alternative base content with gap symbols removed.
+     */
+    public String getAlternativeStripped() {
+        return this.alternative.replaceAll("-", "");
+    }
+
+    /**
+     * Determines whether a variant is a substitution; i.e., both the reference and alternative base content match a single base of
+     * {@link Constants#baseSymbols}.
      *
      * @param ref The reference base content.
      * @param alt The alternative base content.
@@ -108,8 +198,7 @@ public class VariantInformation extends Attributes {
     /**
      * Determines whether a given alternative base content represents a substitution.
      * <p>
-     * A substitution is defined as a single base from the set of valid nucleotide symbols
-     * defined in {@link Constants#baseSymbols}.
+     * A substitution is defined as a single base from the set of valid nucleotide symbols defined in {@link Constants#baseSymbols}.
      *
      * @param alt The alternative base content to check.
      * @return {@code true} if the alternative content represents a substitution, {@code false} otherwise.
@@ -149,9 +238,8 @@ public class VariantInformation extends Attributes {
     /**
      * Determines whether a variant is an insertion based on its alternative content.
      * <p>
-     * This method checks if the alternative base content represents an insertion.
-     * An insertion is defined as a string of at least two consecutive bases
-     * from the set of valid nucleotide symbols defined in {@link Constants#baseSymbols}.
+     * This method checks if the alternative base content represents an insertion. An insertion is defined as a string of at least two
+     * consecutive bases from the set of valid nucleotide symbols defined in {@link Constants#baseSymbols}.
      *
      * @param alt The alternative base content to check.
      * @return {@code true} if the alternative content represents an insertion, {@code false} otherwise.
@@ -191,10 +279,8 @@ public class VariantInformation extends Attributes {
     /**
      * Determines whether a variant is a deletion based on its alternative content.
      * <p>
-     * This method checks if the alternative base content represents a deletion.
-     * A deletion is defined as a string that starts with a valid nucleotide base
-     * (from {@link Constants#baseSymbols}) followed by one or more gap symbols
-     * (defined in {@link Constants#gap}).
+     * This method checks if the alternative base content represents a deletion. A deletion is defined as a string that starts with a valid
+     * nucleotide base (from {@link Constants#baseSymbols}) followed by one or more gap symbols (defined in {@link Constants#gap}).
      *
      * @param alt The alternative base content to check.
      * @return {@code true} if the alternative content represents a deletion, {@code false} otherwise.
@@ -243,73 +329,4 @@ public class VariantInformation extends Attributes {
                 || isDeletion(referenceContent, alternativeContent, true);
     }
 
-    /**
-     * Adds a sample occurrence to this variant.
-     *
-     * @param name The name of the sample to add.
-     */
-    protected void addSampleOccurrence(String name) {
-        this.occurrence.get(Attributes.sampleOccurrence).add(name);
-    }
-
-    /**
-     * Adds a feature occurrence to this variant.
-     *
-     * @param name The name of the feature to add.
-     */
-    protected void addFeatureOccurrence(String name) {
-        this.occurrence.putIfAbsent(name, new HashSet<>(2));
-    }
-
-    /**
-     * Adds an allele occurrence to this variant for a specific feature.
-     *
-     * @param featureName The name of the feature.
-     * @param alleleUid   The unique identifier of the allele to add.
-     */
-    protected void addAlleleOccurrence(String featureName, String alleleUid) {
-        addFeatureOccurrence(featureName);
-        this.occurrence.get(featureName).add(alleleUid);
-    }
-
-    /**
-     * Checks whether this variant has an occurrence in a sample or allele.
-     *
-     * @param of   Either {@code samples} or the name of a {@link Feature}.
-     * @param name The name of the sample or allele to check for.
-     * @return {@code true} if the sample or allele is associated with this variant, {@code false} otherwise.
-     */
-    public boolean hasOccurrence(String of, String name) {
-        return this.occurrence.containsKey(of) && this.occurrence.get(of).contains(name);
-    }
-
-    /**
-     * Checks whether this variant has an occurrence in a specific feature.
-     *
-     * @param name The name of the feature to check for.
-     * @return {@code true} if the feature is associated with this variant, {@code false} otherwise.
-     */
-    public boolean hasOccurrence(String name) {
-        return this.occurrence.containsKey(name);
-    }
-
-    /**
-     * Retrieves the occurrences of this variant in samples.
-     *
-     * @return A {@link Collection} of sample names.
-     */
-    public Collection<String> getSampleOccurrence() {
-        return this.occurrence.get(Attributes.sampleOccurrence);
-    }
-
-    /**
-     * Retrieves the reference base content of this variant.
-     *
-     * @param strip Whether to strip gap symbols from the reference base content.
-     * @return The reference base content of this variant.
-     */
-    public String getReferenceBaseString(boolean strip) {
-        if (strip) return this.reference.replaceAll("-", "");
-        else return this.reference;
-    }
 }
