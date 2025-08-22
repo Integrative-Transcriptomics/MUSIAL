@@ -631,7 +631,7 @@ to attach them to the start of each source file to most effectively
 state the exclusion of warranty; and each file should have at least
 the "copyright" line and a pointer to where the full notice is found.
 
-    MUSIAL (MUlti Sample varIant AnaLysis) is a Java command-line tool to process genomic variants of multiple
+    MUSIAL is a Java command-line tool to process genomic variants of multiple
     prokaryotic samples.
     Copyright (C) 2025  Simon Hackl
 
