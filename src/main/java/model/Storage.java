@@ -18,6 +18,7 @@ import main.Musial;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.MutableTriple;
 import org.apache.commons.lang3.tuple.Triple;
 import org.biojava.nbio.genome.parsers.gff.FeatureI;
@@ -1086,15 +1087,15 @@ public class Storage {
             }
 
             // Update sample attributes with calculated statistics.
-            sample.addAttribute(Constants.$Sample_numberOfCalls, String.valueOf(totalCalls));
-            sample.addAttribute(Constants.$Sample_numberOfFiltered, String.valueOf(filteredCalls));
-            sample.addAttribute(Constants.$Sample_meanCoverage,
+            sample.addAttribute(Constants.Sample$numberOfCalls, String.valueOf(totalCalls));
+            sample.addAttribute(Constants.Sample$numberOfFiltered, String.valueOf(filteredCalls));
+            sample.addAttribute(Constants.Sample$meanCoverage,
                     IO.formatNumber(coverages.stream().mapToInt(Integer::intValue).average().orElse(0))
             );
-            sample.addAttribute(Constants.$Sample_meanEntropy,
+            sample.addAttribute(Constants.Sample$meanEntropy,
                     IO.formatNumber(entropy.stream().mapToDouble(Double::doubleValue).average().orElse(0))
             );
-            sample.addAttribute(Constants.$Attributable_frequencyReference,
+            sample.addAttribute(Constants.Attributes$frequencyReference,
                     IO.formatFrequency(1 - (sample.getRelatedAllelesCount() / (float) features.size())));
 
             // Calculate proteoform statistics for coding features if proteoform inference is not skipped.
@@ -1103,16 +1104,16 @@ public class Storage {
                 for (Tuple<String, String> relatedAllele : sample.getRelatedAlleles()) {
                     Feature feature = getFeature(relatedAllele.a);
                     if (feature.isCoding()) {
-                        String proteoformUid = feature.getAllele(relatedAllele.b).getAttribute(Constants.$Allele_proteoform);
+                        String proteoformUid = feature.getAllele(relatedAllele.b).getProteoform();
                         if (!Constants.synonymous.equals(proteoformUid)) {
-                            var effects = feature.getProteoform(proteoformUid).getAttributeAsCollection(Constants.$SequenceType_effects);
+                            var effects = feature.getProteoform(proteoformUid).getAttributeAsCollection(Constants.SequenceType$effects);
                             if (effects.contains("start_lost") || effects.contains("stop_gained")) {
                                 disrupted++;
                             }
                         }
                     }
                 }
-                sample.addAttribute(Constants.$Attributable_frequencyDisrupted,
+                sample.addAttribute(Constants.Attributes$frequencyDisrupted,
                         IO.formatFrequency(disrupted / noCodingFeatures)
                 );
             }
@@ -1122,7 +1123,7 @@ public class Storage {
         for (Contig contig : contigs.values()) {
             for (Variant variant : contig.getVariants()) {
                 int sampleCount = variant.getRelatedSamples().size();
-                variant.addAttribute(Constants.$VariantInformation_frequency,
+                variant.addAttribute(Constants.VariantInformation$frequency,
                         IO.formatFrequency(sampleCount / (float) samples.size())
                 );
                 for (String sampleIdentifier : variant.getRelatedSamples()) {
@@ -1137,9 +1138,9 @@ public class Storage {
 
         // Update sample attributes with aggregated substitution and indel counts.
         perSampleSubstitutions.forEach((sample, count) -> samples.get(sample)
-                .addAttribute(Constants.$Sample_numberOfSubstitutions, String.valueOf(count)));
+                .addAttribute(Constants.Sample$numberOfSubstitutions, String.valueOf(count)));
         perSampleInDels.forEach((sample, count) -> samples.get(sample)
-                .addAttribute(Constants.$Sample_numberOfIndels, String.valueOf(count)));
+                .addAttribute(Constants.Sample$numberOfIndels, String.valueOf(count)));
 
         // Initialize a map to store proteoform occurrences for each feature.
         Map<String, Integer> perProteoformOccurrence = new HashMap<>();
@@ -1151,18 +1152,18 @@ public class Storage {
             perProteoformOccurrence.clear();
 
             // Process alleles for the feature to calculate allelic frequencies and proteoform statistics.
-            for (SequenceType allele : feature.getAlleles()) {
+            for (Feature.Allele allele : feature.getAlleles()) {
                 int alleleOccurrence = allele.getRelatedSamplesCount();
-                allele.addAttribute(Constants.$SequenceType_frequency,
+                allele.addAttribute(Constants.SequenceType$frequency,
                         IO.formatFrequency(alleleOccurrence / (float) samples.size())
                 );
                 nonReferenceOccurrence += alleleOccurrence;
 
                 if (!parameters.skipProteoformInference() && feature.isCoding()) {
-                    String proteoformUid = allele.getAttribute(Constants.$Allele_proteoform);
+                    String proteoformUid = allele.getProteoform();
                     if (!Objects.equals(proteoformUid, Constants.synonymous)) {
                         Collection<String> effects =
-                                feature.getProteoform(proteoformUid).getAttributeAsCollection(Constants.$SequenceType_effects);
+                                feature.getProteoform(proteoformUid).getAttributeAsCollection(Constants.SequenceType$effects);
                         if (effects.contains("start_lost") || effects.contains("stop_gained")) {
                             disrupted++;
                         }
@@ -1172,20 +1173,20 @@ public class Storage {
             }
 
             // Update feature attributes with calculated statistics.
-            feature.addAttribute(Constants.$Attributable_frequencyReference,
+            feature.addAttribute(Constants.Attributes$frequencyReference,
                     IO.formatFrequency(1 - (nonReferenceOccurrence / samples.size()))
             );
-            feature.addAttribute(Constants.$Feature_numberOfAlleles, String.valueOf(feature.getAlleleCount()));
+            feature.addAttribute(Constants.Feature$numberOfAlleles, String.valueOf(feature.getAlleleCount()));
 
             if (!parameters.skipProteoformInference() && feature.isCoding()) {
                 int proteoformCount = feature.getProteoformCount();
                 float disruptedFrequency = proteoformCount == 0 ? 0 : disrupted / (float) proteoformCount;
-                feature.addAttribute(Constants.$Attributable_frequencyDisrupted,
+                feature.addAttribute(Constants.Attributes$frequencyDisrupted,
                         IO.formatFrequency(disruptedFrequency)
                 );
-                feature.addAttribute(Constants.$Feature_numberOfProteoforms, String.valueOf(feature.getProteoformCount()));
+                feature.addAttribute(Constants.Feature$numberOfProteoforms, String.valueOf(feature.getProteoformCount()));
                 perProteoformOccurrence.forEach((proteoformUid, count) ->
-                        feature.getProteoform(proteoformUid).addAttribute(Constants.$SequenceType_frequency,
+                        feature.getProteoform(proteoformUid).addAttribute(Constants.SequenceType$frequency,
                                 IO.formatFrequency(count / (float) samples.size()))
                 );
             }
@@ -1285,7 +1286,7 @@ public class Storage {
                     .formatted(name, chrom));
             return;
         } else {
-            int chromLength = Integer.parseInt(this.getContig(chrom).getAttribute(Constants.$Contig_length));
+            int chromLength = Integer.parseInt(this.getContig(chrom).getAttribute(Constants.Contig$length));
             if (chromLength != 0 && chromLength < (int) end) {
                 Logging.logWarning("Feature %s specifies a location (%s:%d..%d) that exceeds the length of its parent locus (%s)."
                         .formatted(name, chrom, (int) start, (int) end, chromLength));
@@ -1699,6 +1700,7 @@ public class Storage {
         if (this.hasContig(contigName) && this.hasSample(sampleName)) {
             Variant variant = this.contigs.get(contigName).addVariant(position, referenceContent, alternativeContent);
             variant.addRelation(sampleName);
+            novelVariants.add(new ImmutableTriple<>(contigName, position, alternativeContent));
         } else {
             throw new IllegalArgumentException(String.format("Failed to add variant to contig %s as either the contig or sample (%s) were" +
                             " not found.",
