@@ -485,6 +485,26 @@ public class Feature extends Attributes {
     }
 
     /**
+     * Extends the serialized string representation of child features by appending a new child feature.
+     * <p>
+     * This method adds a new child feature to the `_children` string, which stores serialized child features in the format
+     * "type:start:end". If the `_children` string is not empty, a comma is added before appending the new child feature.
+     * <p>
+     * The `_children` string is used to represent the hierarchical structure of genomic features, where a feature can have multiple child
+     * features, such as coding sequences (CDS) or exons.
+     *
+     * @param type  The type of the child feature (e.g., "CDS", "exon").
+     * @param start The 1-based start position of the child feature.
+     * @param end   The 1-based end position of the child feature.
+     */
+    public void addChildren(String type, int start, int end) {
+        if (!_children.isEmpty()) {
+            _children += Constants.comma;
+        }
+        _children += "%s:%d:%d".formatted(type, start, end);
+    }
+
+    /**
      * Retrieves a sorted map of child features associated with this feature.
      * <p>
      * This method parses the "children" attribute of the feature, if present, and constructs a sorted map of child features. Each child
