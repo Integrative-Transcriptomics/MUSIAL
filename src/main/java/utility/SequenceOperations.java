@@ -30,8 +30,7 @@ public final class SequenceOperations {
     /**
      * A transcription engine for translating DNA sequences.
      * <p>
-     * See <a
-     * href="https://github.com/biojava/biojava-tutorial/blob/master/core/translating.md">https://github
+     * See <a href="https://github.com/biojava/biojava-tutorial/blob/master/core/translating.md">https://github
      * .com/biojava/biojava-tutorial/blob/master/core/translating.md</a>
      */
     private final static TranscriptionEngine transcriptionEngine = new TranscriptionEngine.Builder()
@@ -406,7 +405,7 @@ public final class SequenceOperations {
                 if (deletionCount > 0) {
                     result.append(Constants.gap);
                     deletionCount--;
-                    Logging.logWarning("Skip variant %s at position %d due to upstream deletion.".formatted(variant, pos));
+                    Logging.logDebug("Skip variant %s at position %d due to upstream deletion.".formatted(variant, pos));
                     continue;
                 }
 

@@ -11,9 +11,8 @@ import java.util.logging.*;
 /**
  * Logging utility class for printing messages to the console with different severity levels.
  * <p>
- * This class provides methods to log messages with different severity levels (INFO, DONE, ERROR, WARNING) along with
- * timestamps. It also includes a method to print software information and a set to manage warning keys to prevent
- * excessive logging.
+ * This class provides methods to log messages with different severity levels (INFO, DONE, ERROR, WARNING) along with timestamps. It also
+ * includes a method to print software information and a set to manage warning keys to prevent excessive logging.
  */
 public final class Logging {
 
@@ -25,20 +24,19 @@ public final class Logging {
     /**
      * Logger instance for the application.
      * <p>
-     * This logger is used to log messages for the application. It is configured to use the name of the
-     * {@link Musial} class as its identifier, which helps in categorizing and filtering log messages.
+     * This logger is used to log messages for the application. It is configured to use the name of the {@link Musial} class as its
+     * identifier, which helps in categorizing and filtering log messages.
      */
     public static Logger logger = Logger.getLogger(Musial.class.getName());
 
     /**
      * Initializes the logging system with a specified logging level.
      * <p>
-     * This method configures the logger to use a custom `ConsoleHandler` with a formatter
-     * that styles log messages using ANSI escape codes for different log levels (INFO, CONFIG, WARNING, SEVERE).
-     * It also disables the default parent handlers to prevent duplicate logging.
+     * This method configures the logger to use a custom `ConsoleHandler` with a formatter that styles log messages using ANSI escape codes
+     * for different log levels (INFO, CONFIG, WARNING, SEVERE). It also disables the default parent handlers to prevent duplicate logging.
      * <p>
-     * The logging level can be adjusted by passing a `Level` parameter, which determines
-     * the minimum severity of messages that will be logged.
+     * The logging level can be adjusted by passing a `Level` parameter, which determines the minimum severity of messages that will be
+     * logged.
      *
      * @param level The logging level to set for the logger (e.g., Level.INFO, Level.WARNING).
      */
@@ -61,10 +59,11 @@ public final class Logging {
             public String format(LogRecord record) {
                 String prefix;
                 switch (record.getLevel().getName()) {
+                    case "SEVERE" -> prefix = "\033[93mSEVERE\033[0m  ";
+                    case "WARNING" -> prefix = "\033[33mWARNING\033[0m ";
                     case "INFO" -> prefix = "\033[34mINFO\033[0m    ";
                     case "CONFIG" -> prefix = "\033[94mCONFIG\033[0m  ";
-                    case "WARNING" -> prefix = "\033[33mWARNING\033[0m ";
-                    case "SEVERE" -> prefix = "\033[93mSEVERE\033[0m  ";
+                    case "FINE" -> prefix = "\033[1;35mDEBUG\033[0m   ";
                     default -> prefix = "LOG     "; // Default
                 }
                 prefix += "%s ".formatted(getTimestamp());
@@ -83,8 +82,8 @@ public final class Logging {
     /**
      * Prints the software information to the console.
      * <p>
-     * This method displays the software name, version, and license in a formatted manner.
-     * The output is styled using ANSI escape codes for background and text color.
+     * This method displays the software name, version, and license in a formatted manner. The output is styled using ANSI escape codes for
+     * background and text color.
      * <p>
      * Note: The software information is retrieved from the {@link Musial} class.
      */
@@ -95,9 +94,8 @@ public final class Logging {
     /**
      * Logs an informational message to the console with a timestamp.
      * <p>
-     * This method logs messages at the INFO level, which is typically used for general informational
-     * messages that highlight the progress of the application at a coarse-grained level.
-     * The message is automatically formatted and logged using the application's logger.
+     * This method logs messages at the INFO level, which is typically used for general informational messages that highlight the progress
+     * of the application at a coarse-grained level. The message is automatically formatted and logged using the application's logger.
      *
      * @param msg The informational message to be logged.
      */
@@ -108,9 +106,8 @@ public final class Logging {
     /**
      * Logs a message indicating completion with a timestamp.
      * <p>
-     * This method logs messages at the INFO level, indicating that a specific task or operation
-     * has been successfully completed. The message is formatted with a "DONE" label styled using
-     * ANSI escape codes for visual emphasis.
+     * This method logs messages at the INFO level, indicating that a specific task or operation has been successfully completed. The
+     * message is formatted with a "DONE" label styled using ANSI escape codes for visual emphasis.
      *
      * @param msg The message indicating completion to be logged.
      */
@@ -121,9 +118,9 @@ public final class Logging {
     /**
      * Logs a configuration message to the console with a timestamp.
      * <p>
-     * This method logs messages at the CONFIG level, which is typically used for static configuration
-     * information or messages that help in understanding the application's setup. The message is
-     * automatically formatted with a timestamp and logged using the application's logger.
+     * This method logs messages at the CONFIG level, which is typically used for static configuration information or messages that help in
+     * understanding the application's setup. The message is automatically formatted with a timestamp and logged using the application's
+     * logger.
      *
      * @param msg The configuration message to be logged.
      */
@@ -134,9 +131,8 @@ public final class Logging {
     /**
      * Logs an error message to the console with a timestamp.
      * <p>
-     * This method logs messages at the SEVERE level, which is typically used for critical error messages
-     * that indicate a failure in the application. The message is automatically formatted and logged
-     * using the application's logger.
+     * This method logs messages at the SEVERE level, which is typically used for critical error messages that indicate a failure in the
+     * application. The message is automatically formatted and logged using the application's logger.
      *
      * @param msg The error message to be logged.
      */
@@ -145,11 +141,23 @@ public final class Logging {
     }
 
     /**
+     * Logs an error message to the console with a timestamp.
+     * <p>
+     * This method logs messages at the FINE level, which is used for debug messages. The message is automatically formatted and logged
+     * using the application's logger.
+     *
+     * @param msg The error message to be logged.
+     */
+    public static void logDebug(String msg) {
+        logger.log(Level.FINE, msg);
+    }
+
+    /**
      * Logs a critical exit message to the console with a timestamp.
      * <p>
-     * This method is used to log messages indicating a critical application exit.
-     * The message is formatted with a timestamp and an "EXIT" label styled using ANSI escape codes
-     * for visual emphasis. The log level is set to SEVERE, which is the highest level of logging severity.
+     * This method is used to log messages indicating a critical application exit. The message is formatted with a timestamp and an "EXIT"
+     * label styled using ANSI escape codes for visual emphasis. The log level is set to SEVERE, which is the highest level of logging
+     * severity.
      *
      * @param msg The exit message to be logged.
      */
@@ -160,9 +168,8 @@ public final class Logging {
     /**
      * Logs a warning message to the console with a timestamp.
      * <p>
-     * This method logs messages at the WARNING level, which is typically used to indicate
-     * potential issues or situations that require attention but are not critical errors.
-     * The message is automatically formatted and logged using the application's logger.
+     * This method logs messages at the WARNING level, which is typically used to indicate potential issues or situations that require
+     * attention but are not critical errors. The message is automatically formatted and logged using the application's logger.
      *
      * @param msg The warning message to be logged.
      */
@@ -173,9 +180,8 @@ public final class Logging {
     /**
      * Logs a warning message to the console with a timestamp, but only once for each unique key.
      * <p>
-     * This method ensures that a warning message associated with a specific key is logged only once.
-     * It uses a set (`cache`) to track keys of already logged warnings. If the key is not present
-     * in the set, the warning message is logged, and the key is added to the set.
+     * This method ensures that a warning message associated with a specific key is logged only once. It uses a set (`cache`) to track keys
+     * of already logged warnings. If the key is not present in the set, the warning message is logged, and the key is added to the set.
      * <p>
      * This is useful for avoiding repetitive logging of the same warning message.
      *
@@ -191,8 +197,7 @@ public final class Logging {
     /**
      * Returns the current timestamp formatted as a string.
      * <p>
-     * This method retrieves the current date and time, formats it using the specified date format,
-     * and returns it as a string.
+     * This method retrieves the current date and time, formats it using the specified date format, and returns it as a string.
      *
      * @return The current timestamp formatted as a string.
      */
@@ -203,8 +208,8 @@ public final class Logging {
     /**
      * Returns the current date formatted as a string.
      * <p>
-     * This method retrieves the current date, formats it using the pattern "dd-MM-yy",
-     * and returns it as a string. The format includes the day, month, and year in a two-digit format.
+     * This method retrieves the current date, formats it using the pattern "dd-MM-yy", and returns it as a string. The format includes the
+     * day, month, and year in a two-digit format.
      *
      * @return The current date formatted as "dd-MM-yy".
      */
