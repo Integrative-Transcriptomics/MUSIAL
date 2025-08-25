@@ -1321,11 +1321,7 @@ public class Storage {
                 }
 
                 // Add or extend the "children" attribute for the feature.
-                if (!feature.hasAttribute("children")) {
-                    feature.addAttribute("children", "%s:%d:%d".formatted(type, (int) start, (int) end));
-                } else {
-                    feature.extendAttribute("children", "%s:%d:%d".formatted(type, (int) start, (int) end));
-                }
+                feature.addChildren(type, (int) start, (int) end);
             } else {
                 Logging.logWarning("Feature update failed; feature %s with UID %s already exists, but is not the parent of feature %s."
                         .formatted(feature.name, feature._id, name));
@@ -1533,64 +1529,77 @@ public class Storage {
      */
     public void transferVariantsInformation() {
         for (Sample sample : getSamplesToUpdate()) {
-            for (MutableTriple<String, Integer, String> call : sample.getVariantCalls()) {
+            for (Contig contig : getContigs()) {
+                String contigIdentifier = contig._id;
+
                 // Establish a sorted list of canonical variants for the sample and contig.
                 TreeMap<Integer, Tuple<String, String>> variants = new TreeMap<>();
 
-                // Add variants to the list, resolving conflicts by keeping the more specific reference content.
-                BiConsumer<Integer, Tuple<String, String>> addVariant = (position, content) -> {
-                    Tuple<String, String> previousContent = variants.get(position);
-                    if (previousContent == null) {
+                // Helper function to add variants to the list, resolving conflicts by keeping the more specific reference content.
+                BiConsumer<Integer, Tuple<String, String>> add = (position, content) -> {
+                    Tuple<String, String> previous = variants.get(position);
+                    if (previous == null) {
                         variants.put(position, content);
-                    } else if (!previousContent.equals(content) && !previousContent.a.contains(content.a)) {
-                        if (content.a.contains(previousContent.a)) {
+                    } else if (!previous.equals(content) && !previous.a.contains(content.a)) {
+                        if (content.a.contains(previous.a)) {
+                            Logging.logDebug("Overwrite variant %s with %s for sample %s (contig %s, position %d)."
+                                    .formatted(previous, content, sample._id, contigIdentifier, position));
                             variants.put(position, content);
                         } else {
                             Logging.logSevere("Conflict of variants %s (stored) and %s for sample %s (contig %s, position %d)."
-                                    .formatted(previousContent, content, sample._id, call.left, position));
+                                    .formatted(previous, content, sample._id, contigIdentifier, position));
                         }
                     }
                 };
 
-                // Process each variant call for the contig.
-                int POS = call.getMiddle();
-                String[] context = call.getRight().split(Constants.semicolon);
-                // Skip reference calls.
-                if (context[0].startsWith("0")) continue;
+                for (MutableTriple<String, Integer, String> call : sample.getVariantCalls()) {
+                    // Extract position and call string.
+                    int position = call.getMiddle();
+                    String[] variantCallString = call.getRight().split(Constants.semicolon);
 
-                boolean isAmbiguous = (context[0].startsWith(Constants.lowFrequencyCallPrefix)
-                        || context[0].startsWith(Constants.lowCoverageCallPrefix)
-                        || context[0].startsWith(Constants.missingUpstreamDeletionCallPrefix));
-                // Skip ambiguous calls, if not to be stored.
-                if (!getStoreFiltered() && isAmbiguous) continue;
+                    // Skip reference calls.
+                    if (variantCallString[0].startsWith("0")) continue;
 
-                String[] genotype = context[3].split(Constants.comma)[0].split(Constants.colon);
-                String REF = genotype[0];
-                String ALT = isAmbiguous ? (Constants.anyNucleotide.repeat(REF.length())) : genotype[1];
+                    // Skip ambiguous calls, if not to be stored.
+                    boolean isAmbiguous = (variantCallString[0].startsWith(Constants.lowFrequencyCallPrefix)
+                            || variantCallString[0].startsWith(Constants.lowCoverageCallPrefix)
+                            || variantCallString[0].startsWith(Constants.missingUpstreamDeletionCallPrefix));
+                    if (!getStoreFiltered() && isAmbiguous) continue;
 
-                // Skip calls representing missing alleles due to upstream deletions.
-                if (ALT.equals("*")) continue;
+                    // Extract the call's genotype information, i.e., the alternative with the highest frequency.
+                    String[] genotype = variantCallString[3].split(Constants.comma)[0].split(Constants.colon);
+                    String reference = genotype[0];
+                    String alternative = isAmbiguous ? (Constants.anyNucleotide.repeat(reference.length())) : genotype[1];
 
-                if (Variant.isPaddedCanonicalVariant(REF, ALT)) {
-                    addVariant.accept(POS, new Tuple<>(REF, ALT));
-                } else {
-                    // Resolve mixed variants in canonical padded format.
-                    for (Triple<Integer, String, String> canonicalVariant : SequenceOperations.getCanonicalVariants(REF, ALT)) {
-                        addVariant.accept(POS + canonicalVariant.getLeft(), new Tuple<>(canonicalVariant.getMiddle(),
-                                canonicalVariant.getRight()));
+                    // Skip calls representing missing alleles due to upstream deletions.
+                    if (alternative.equals("*")) continue;
+
+                    // Resolve non-canonical variants and add them to the sorted list of variants.
+                    if (Variant.isPaddedCanonicalVariant(reference, alternative)) {
+                        add.accept(position, new Tuple<>(reference, alternative));
+                    } else {
+                        // Resolve mixed variants in canonical padded format.
+                        for (Triple<Integer, String, String> canonicalVariant : SequenceOperations.getCanonicalVariants(reference,
+                                alternative)) {
+                            add.accept(position + canonicalVariant.getLeft(), new Tuple<>(canonicalVariant.getMiddle(),
+                                    canonicalVariant.getRight()));
+                        }
                     }
                 }
 
-                // Process variants to account for deletions and mixed InDels.
+                // Process variants to account for deletions and mixed InDels, before transferring them to the storage.
                 StringBuilder referenceBuilder = new StringBuilder();
                 StringBuilder alternativeBuilder = new StringBuilder();
                 int variantStartPosition = 0;
                 int deletionExtension = 0;
 
-                // Helper function to resolve and add a variant to the contig.
-                Consumer<Integer> resolveVariant = (position) -> {
-                    if (!Variant.isPaddedCanonicalVariant(referenceBuilder.toString(), alternativeBuilder.toString())) {
-                        Tuple<String, String> realignedMixedIndel =
+                // Helper function to resolve variants.
+                Consumer<Integer> resolve = (_position) -> {
+                    String _reference = referenceBuilder.toString();
+                    String _alternative = alternativeBuilder.toString();
+
+                    if (!Variant.isPaddedCanonicalVariant(_reference, _alternative)) {
+                        Tuple<String, String> alignment =
                                 SequenceOperations.globalNucleotideSequenceAlignment(
                                         SequenceOperations.stripGaps(referenceBuilder.toString()),
                                         SequenceOperations.stripGaps(alternativeBuilder.toString()),
@@ -1601,76 +1610,79 @@ public class Storage {
                                         0
                                 );
                         ArrayList<Triple<Integer, String, String>> resolvedVariants =
-                                SequenceOperations.getCanonicalVariants(realignedMixedIndel.a, realignedMixedIndel.b);
-                        for (Triple<Integer, String, String> resolvedVariant : resolvedVariants) {
-                            addVariantToContig(call.left, sample._id, position + resolvedVariant.getLeft(), resolvedVariant.getMiddle(),
-                                    resolvedVariant.getRight());
+                                SequenceOperations.getCanonicalVariants(alignment.a, alignment.b);
+                        for (Triple<Integer, String, String> _variant : resolvedVariants) {
+                            addVariantToContig(contigIdentifier, sample._id, _position + _variant.getLeft(), _variant.getMiddle(),
+                                    _variant.getRight());
                         }
                     } else {
-                        addVariantToContig(call.left, sample._id, position, referenceBuilder.toString(), alternativeBuilder.toString());
+                        addVariantToContig(contigIdentifier, sample._id, _position, _reference, _alternative);
                     }
                 };
 
-                // Iterate through the sorted variants and handle deletions and insertions.
+                // Iterate through the (sorted) variants, handling deletions and mixed InDels.
                 for (Map.Entry<Integer, Tuple<String, String>> variant : variants.entrySet()) {
                     int position = variant.getKey();
-                    Tuple<String, String> variantContent = variant.getValue();
+                    String reference = variant.getValue().a;
+                    String alternative = variant.getValue().b;
 
-                    String referenceContent = variantContent.a;
-                    String alternativeContent = variantContent.b;
-
+                    // The variant is outside an ongoing deletion and can be resolved, resetting the builders and deletion extension.
                     if (position > deletionExtension && referenceBuilder.length() > 0 && alternativeBuilder.length() > 0) {
-                        resolveVariant.accept(variantStartPosition);
+                        resolve.accept(variantStartPosition);
                         referenceBuilder.setLength(0);
                         alternativeBuilder.setLength(0);
                         deletionExtension = 0;
                     }
 
+                    // All builders are empty, so we can start processing a new variant.
                     if (deletionExtension == 0 && referenceBuilder.length() == 0 && alternativeBuilder.length() == 0) {
-                        if (Variant.isDeletion(referenceContent, alternativeContent, true)) {
-                            referenceBuilder.append(referenceContent);
-                            alternativeBuilder.append(alternativeContent);
+                        if (Variant.isDeletion(reference, alternative, true)) {
+                            referenceBuilder.append(reference);
+                            alternativeBuilder.append(alternative);
                             variantStartPosition = position;
-                            deletionExtension = position + alternativeContent.length() - 1;
+                            deletionExtension = position + alternative.length() - 1;
                         } else {
-                            referenceBuilder.append(referenceContent);
-                            alternativeBuilder.append(alternativeContent);
-                            resolveVariant.accept(position);
+                            referenceBuilder.append(reference);
+                            alternativeBuilder.append(alternative);
+                            resolve.accept(position);
                             referenceBuilder.setLength(0);
                             alternativeBuilder.setLength(0);
                         }
                         continue;
                     }
 
+                    // The variant is within an ongoing deletion, so we need to extend the deletion or handle insertions.
                     if (position <= deletionExtension) {
-                        if (Variant.isSubstitution(referenceContent, alternativeContent)) {
+                        if (Variant.isSubstitution(reference, alternative)) {
+                            // TODO: Validate that the substitution can not be at the same position as the deletion start.
                             continue;
                         }
-                        if (Variant.isDeletion(referenceContent, alternativeContent, true)) {
-                            int updatedDeletionExtension = position + alternativeContent.length() - 1;
+                        if (Variant.isDeletion(reference, alternative, true)) {
+                            int updatedDeletionExtension = position + alternative.length() - 1;
                             if (updatedDeletionExtension > deletionExtension) {
-                                referenceBuilder.append(StringUtils.right(referenceContent, updatedDeletionExtension - deletionExtension));
-                                alternativeBuilder.append(StringUtils.right(alternativeContent,
+                                referenceBuilder.append(StringUtils.right(reference, updatedDeletionExtension - deletionExtension));
+                                alternativeBuilder.append(StringUtils.right(alternative,
                                         updatedDeletionExtension - deletionExtension));
                                 deletionExtension = updatedDeletionExtension;
                             }
                             continue;
                         }
-                        if (Variant.isInsertion(referenceContent, alternativeContent, true)) {
+                        if (Variant.isInsertion(reference, alternative, true)) {
                             int offset = position - variantStartPosition;
                             alternativeBuilder.replace(offset, offset + 1,
-                                    alternativeBuilder.charAt(offset) + alternativeContent.substring(1));
-                            referenceBuilder.replace(offset, offset + 1, referenceBuilder.charAt(offset) + referenceContent.substring(1));
+                                    alternativeBuilder.charAt(offset) + reference.substring(1));
+                            referenceBuilder.replace(offset, offset + 1, referenceBuilder.charAt(offset) + reference.substring(1));
                             continue;
                         }
                     }
 
-                    Logging.logWarning("Failed to handle variant %s at position %d on contig %s for sample %s."
-                            .formatted(referenceContent + ">" + alternativeContent, position, call.left, sample._id));
+                    Logging.logWarning("Failed to handle variant %s at site %s %d for sample %s."
+                            .formatted(reference + " > " + alternative, contigIdentifier, position, sample._id));
                 }
 
+                // Resolve any remaining variant in the builders after processing all variants.
                 if (referenceBuilder.length() > 0 && alternativeBuilder.length() > 0) {
-                    resolveVariant.accept(variantStartPosition);
+                    resolve.accept(variantStartPosition);
                 }
             }
         }
@@ -1810,9 +1822,8 @@ public class Storage {
                     // Log a one-time warning if AD and DP attributes are missing.
                     if (!(genotype.hasDP() && (genotype.hasAD() || genotype.hasAnyAttribute("COV")))) {
                         Logging.logWarningOnce("MISSING_AD_DP_ATTRIBUTES",
-                                String.format("Some variants may be ignored. AD/COV and DP attributes are missing for at least one " +
-                                                "genotype "
-                                                + "(%s %d sample %s in file %s).",
+                                String.format("Some variants may be ignored as AD/COV/DP4 and DP attributes are unavailable. Detected at" +
+                                                " at site %s %d for sample %s in file %s.",
                                         contigIdentifier, variantContext.getStart(), genotype.getSampleName(), filePath));
                     }
 
@@ -1852,14 +1863,12 @@ public class Storage {
                         if (ADSum > genotype.getDP()) {
                             Logging.logWarningOnce("AD_SUM_GREATER_THAN_DP",
                                     String.format("Possible error in genotype data. Summed allelic depth (%d) is greater than total depth" +
-                                                    " (%d). "
-                                                    + "(%s %d sample %s in file %s).",
+                                                    " (%d) at site %s %d for sample %s in file %s.",
                                             ADSum, genotype.getDP(), contigIdentifier, variantContext.getStart(), sampleName, filePath));
                         } else if (ADSum < 0.5 * genotype.getDP()) {
                             Logging.logWarningOnce("AD_SUM_LOWER_THAN_DP",
                                     String.format("Allegedly low-quality data. Summed allelic depth (%d) is much lower than total depth " +
-                                                    "(%d). "
-                                                    + "(%s %d sample %s in file %s).",
+                                                    "(%d) at site %s %d for sample %s in file %s.",
                                             ADSum, genotype.getDP(), contigIdentifier, variantContext.getStart(), sampleName, filePath));
                         }
                     }
@@ -1951,44 +1960,21 @@ public class Storage {
 
                     // Access the allele with the highest depth of coverage.
                     int callIndex = 0;
-                    REF = alternatives.get(callIndex).left;
-                    ALT = alternatives.get(callIndex).middle;
+                    MutableTriple<String, String, Integer> alternative = alternatives.get(callIndex);
+                    REF = alternative.left;
+                    ALT = alternative.middle;
                     String prefix = Constants.empty; // To indicate filtered variants.
 
-                    // Handle missing allele due to an upstream deletion.
-                    if (ALT.equals("*")) {
-                        boolean isUnexplainedDeletion =
-                                (downstreamDeletion.left <= position && position <= downstreamDeletion.middle && downstreamDeletion.right)
-                                        || position > downstreamDeletion.middle;
-
-                        if (isUnexplainedDeletion) {
-                            Logging.logWarningOnce("UNEXPLAINED_MISSING_ALLELE",
-                                    String.format("Ambiguous genotype. A called missing allele (*) is not explained by an upstream " +
-                                                    "deletion "
-                                                    + "(%s %d sample %s).",
-                                            contigIdentifier, position, sampleName));
-
-                            // Fallback to the next allele if available, otherwise mark call as filtered.
-                            if (alternatives.size() > 1) {
-                                callIndex = 1;
-                                REF = alternatives.get(callIndex).left;
-                                ALT = alternatives.get(callIndex).middle;
-                            } else {
-                                prefix = Constants.missingUpstreamDeletionCallPrefix;
-                            }
-                        }
-                    }
-
                     // Compute the actual frequency of the selected allele.
-                    AD = alternatives.get(callIndex).right;
+                    AD = alternative.right;
                     float frequency = AD / (float) DP;
 
                     // Determine whether the call is a reference call.
-                    boolean isReferenceCall = alternatives.get(callIndex).middle.equals(Constants.dot);
+                    boolean isReferenceCall = alternative.middle.equals(Constants.dot);
 
                     // Skip the variant, if it is excluded.
-                    if (getIsVariantExcluded(contigIdentifier, position, SequenceOperations.stripGaps(alternatives.get(0).left),
-                            SequenceOperations.stripGaps(alternatives.get(0).middle))) {
+                    if (getIsVariantExcluded(contigIdentifier, position, SequenceOperations.stripGaps(alternative.left),
+                            SequenceOperations.stripGaps(alternative.middle))) {
                         ignoredGenotypes++;
                         continue;
                     }
@@ -1996,6 +1982,18 @@ public class Storage {
                     // Set call prefix for low frequency or coverage.
                     if (frequency < getMinimumFrequency()) prefix = Constants.lowFrequencyCallPrefix;
                     if (AD < getMinimumCoverage()) prefix = Constants.lowCoverageCallPrefix;
+
+                    // Handle missing allele due to an upstream deletion.
+                    if (prefix.isEmpty() && ALT.equals("*")) {
+                        if ((downstreamDeletion.left <= position && position <= downstreamDeletion.middle && downstreamDeletion.right)
+                                || position > downstreamDeletion.middle) {
+                            prefix = Constants.missingUpstreamDeletionCallPrefix;
+                            Logging.logWarningOnce("UNEXPLAINED_DELETION",
+                                    String.format("Possible error in genotype data. Called deleted allele (*) is not explained by an " +
+                                                    "upstream deletion at site %s %d for sample %s in file %s.",
+                                            contigIdentifier, variantContext.getStart(), sampleName, filePath));
+                        }
+                    }
 
                     // Skip passing reference calls.
                     if (isReferenceCall && prefix.isEmpty()) {
@@ -2021,8 +2019,8 @@ public class Storage {
                     StringBuilder callContextBuilder = new StringBuilder();
                     callContextBuilder.append(prefix).append(isReferenceCall ? "0" : "1").append(Constants.semicolon)
                             .append(DP).append(Constants.semicolon).append(IO.formatNumber(HN)).append(Constants.semicolon);
-                    alternatives.forEach(alternative -> callContextBuilder.append(alternative.left).append(Constants.colon)
-                            .append(alternative.middle).append(Constants.colon).append(alternative.right)
+                    alternatives.forEach(_alternative -> callContextBuilder.append(_alternative.left).append(Constants.colon)
+                            .append(_alternative.middle).append(Constants.colon).append(_alternative.right)
                             .append(Constants.comma));
                     callContextBuilder.deleteCharAt(callContextBuilder.length() - 1);
 
