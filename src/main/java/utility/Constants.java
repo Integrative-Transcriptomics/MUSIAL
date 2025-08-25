@@ -190,21 +190,6 @@ public final class Constants {
     public final static String $SequenceType_effects = "so_effects";
 
     /**
-     * Key used to represent the cluster label of a sequence type.
-     */
-    public final static String $SequenceType_clusterLabel = "cluster_label";
-
-    /**
-     * Key used to represent the cluster index of a sequence type.
-     */
-    public final static String $SequenceType_clusterIndex = "cluster_index";
-
-    /**
-     * Key used to represent the outlier score of a sequence type.
-     */
-    public final static String $SequenceType_clusterOutlierScore = "cluster_outlier_score";
-
-    /**
      * Key used to represent the net shift in sequence length of a sequence type.
      * <p>
      * This constant is used as a key in data structures to store or retrieve
