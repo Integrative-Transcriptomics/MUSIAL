@@ -85,7 +85,7 @@ public class Contig extends Attributes {
         }
 
         // Add the length of the sequence as an attribute to the contig.
-        addAttribute(Constants.$Contig_length, String.valueOf(length));
+        addAttribute(Constants.Contig$length, String.valueOf(length));
 
         this.sequence = compressedSequence; // Store the compressed sequence.
         this.variants = new TreeMap<>(Integer::compare); // Initialize the map to store variants.

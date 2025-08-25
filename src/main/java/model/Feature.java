@@ -90,6 +90,8 @@ public class Feature extends Attributes {
      */
     public class Allele extends SequenceType {
 
+        private String proteoform;
+
         /**
          * Constructs a new {@link Allele} instance associated with a genomic feature.
          * <p>
@@ -107,6 +109,24 @@ public class Feature extends Attributes {
             super(uid, variants);
             // Add the allele to the feature, if it is not already present.
             Feature.this.alleles.putIfAbsent(uid, this);
+        }
+
+        /**
+         * Sets the proteoform identifier associated with this allele.
+         *
+         * @param identifier The unique identifier of the proteoform to associate with this allele.
+         */
+        private void setProteoform(String identifier) {
+            this.proteoform = identifier;
+        }
+
+        /**
+         * Retrieves the proteoform identifier associated with this allele.
+         *
+         * @return The unique identifier of the proteoform associated with this allele, or {@code null} if no proteoform is associated.
+         */
+        public String getProteoform() {
+            return this.proteoform;
         }
     }
 
@@ -226,7 +246,7 @@ public class Feature extends Attributes {
             // Add default attributes for effects and net-shift.
             int lengthVariation = SequenceType.computeLengthVariation(variants);
             int netFrameshift = Math.abs(lengthVariation % 3);
-            allele.addAttribute(Constants.$SequenceType_sequenceLengthVariation,
+            allele.addAttribute(Constants.SequenceType$sequenceLengthVariation,
                     String.valueOf(SequenceType.computeLengthVariation(variants)));
             // The allele inherits all effects from the variants.
             Set<String> effects = variants.stream()
@@ -239,7 +259,7 @@ public class Feature extends Attributes {
                         : "minus_%d_frameshift".formatted(netFrameshift);
                 effects.add(frameshiftEffect);
             }
-            allele.addAttribute(Constants.$SequenceType_effects, String.join(Constants.comma, effects));
+            allele.addAttribute(Constants.SequenceType$effects, String.join(Constants.comma, effects));
         }
 
         // Add relation between the allele, sample, and variants.
@@ -364,10 +384,10 @@ public class Feature extends Attributes {
 
                 // Add default attributes for effects and net-shift.
                 int lengthVariation = SequenceType.computeLengthVariation(aminoAcidVariants);
-                proteoform.addAttribute(Constants.$SequenceType_sequenceLengthVariation, String.valueOf(lengthVariation));
+                proteoform.addAttribute(Constants.SequenceType$sequenceLengthVariation, String.valueOf(lengthVariation));
 
                 Set<String> effects = new HashSet<>();
-                String alleleEffects = allele.getAttribute(Constants.$SequenceType_effects);
+                String alleleEffects = allele.getAttribute(Constants.SequenceType$effects);
 
                 if (alleleEffects.contains("frameshift")) effects.add("frameshift_sequence_variation");
                 if (aminoAcidVariants.stream().anyMatch(variant -> Variant.isInsertion(variant.b))) effects.add("amino_acid_insertion");
@@ -385,7 +405,7 @@ public class Feature extends Attributes {
                                 effects.add("redundant_inserted_stop_gained");
                             }
                         });
-                proteoform.addAttribute(Constants.$SequenceType_effects, String.join(Constants.comma, effects));
+                proteoform.addAttribute(Constants.SequenceType$effects, String.join(Constants.comma, effects));
 
             }
 
@@ -394,7 +414,7 @@ public class Feature extends Attributes {
         }
 
         // Associate the allele with the proteoform.
-        allele.addAttribute(Constants.$Allele_proteoform, proteoformId);
+        allele.setProteoform(proteoformId);
     }
 
     /**
@@ -532,14 +552,12 @@ public class Feature extends Attributes {
      * @return A {@link String} representing the feature in a tab-delimited format.
      */
     public String toString() {
-        Set<String> exclude = new HashSet<>(List.of(Constants.$Feature_children));
         return contig + "\t" +
                 type + "\t" +
                 name + "\t" +
                 start + "\t" +
                 end + "\t" +
-                strand + "\t" +
-                attributesAsString(exclude, Constants.semicolon);
+                strand;
     }
 
     /**
