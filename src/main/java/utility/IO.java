@@ -273,19 +273,6 @@ public final class IO {
     }
 
     /**
-     * Initializes a {@link VCFFileReader} instance for the passed VCF file. For this, a temporary indexed VCF file is created.
-     *
-     * @param file A {@link File} object pointing to a .vcf file.
-     * @return A {@link VCFFileReader} instance for the passed .vcf file.
-     * @throws IOException In case of an error during the initialization of the VCFFileReader.
-     */
-    public static VCFFileReader initializeVCFFileReader(File file) throws IOException {
-        File vcfFile = VCFUtils.createTemporaryIndexedVcfFromInput(file, String.valueOf(file.hashCode()));
-        vcfFile.deleteOnExit();
-        return new VCFFileReader(vcfFile);
-    }
-
-    /**
      * Copies a resource from the application's classpath to a specified target {@link Path}.
      * <p>
      * This method retrieves a resource as an {@link InputStream} from the application's classpath using the specified resource path. The
