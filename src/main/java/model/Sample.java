@@ -229,6 +229,27 @@ public class Sample extends Attributes {
     }
 
     /**
+     * Retrieves a list of variant calls for a specific contig.
+     * <p>
+     * This method processes the {@link #calls} map to extract variant calls associated with the specified contig identifier. It converts
+     * the entries into a list of {@link MutableTriple} objects, where each triple contains:
+     * <ul>
+     *   <li>The contig identifier as a {@link String}.</li>
+     *   <li>The position of the variant as an {@link Integer}.</li>
+     *   <li>The variant call string as a {@link String}.</li>
+     * </ul>
+     * If the contig identifier does not exist in the {@link #calls} map, an empty {@link TreeMap} is used as a default.
+     *
+     * @param contigIdentifier The unique identifier of the contig to retrieve variant calls for.
+     * @return A {@link List} of {@link MutableTriple} objects representing the variant calls for the specified contig.
+     */
+    public List<MutableTriple<String, Integer, String>> getVariantCalls(String contigIdentifier) {
+        return this.calls.getOrDefault(contigIdentifier, new TreeMap<>()).entrySet().stream()
+                .map(callEntry -> new MutableTriple<>(contigIdentifier, callEntry.getKey(), callEntry.getValue()))
+                .toList();
+    }
+
+    /**
      * Parses a variant call string into a list of alternative alleles.
      * <p>
      * This method splits the provided variant call string into its components and extracts the alternative alleles. Each alternative is
