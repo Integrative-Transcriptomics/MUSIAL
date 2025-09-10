@@ -1,14 +1,13 @@
 package model;
 
 import htsjdk.samtools.util.Tuple;
-import utility.Constants;
+import util.Bio;
+import util.Constants;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.*;
 
 /**
- * Representation of a nucleotide variant.
+ * Represents a nucleotide variant.
  * <p>
  * This class represents a nucleotide variant, including its reference base content, type (e.g., SNV, insertion, deletion), and occurrences
  * in samples and alleles. It provides methods to determine the type of the variant, check its canonical or padded canonical status. It
@@ -18,6 +17,60 @@ import java.util.HashSet;
  * {@code reference}, and {@code alternative} is used as such. Variants are stored in the {@link Contig#variants} property of the model.
  */
 public class Variant extends Attributes {
+
+    /**
+     * Represents a simplified variant stub with position and alternative allele information.
+     * <p>
+     * This record encapsulates the position and alternative allele of a variant and provides methods for generating its string
+     * representation, computing its hash code, and checking equality.
+     * <p>
+     * Variant stubs are used to represent variants in a simplified form, to be precisely identify, they constitute the index of a variant
+     * in a contig, as variants do not have their own identifiers.
+     *
+     * @param position    The 1-based position of the variant on a contig.
+     * @param alternative The alternative allele of the variant.
+     */
+    public record Stub(int position, String alternative) {
+
+        /**
+         * Converts the variant stub to its string representation.
+         * <p>
+         * The string representation is formatted as "position + alternative".
+         *
+         * @return A {@link String} representing the variant stub.
+         */
+        public String toString() {
+            return "%d?%s%s".formatted(position, Constants.GREATER_THAN, alternative);
+        }
+
+        /**
+         * Computes the hash code for this variant stub.
+         * <p>
+         * The hash code is calculated based on the string representation of the variant stub.
+         *
+         * @return The hash code of the variant stub.
+         */
+        public int hashCode() {
+            return this.toString().hashCode();
+        }
+
+        /**
+         * Compares this variant stub to another object for equality.
+         * <p>
+         * This method checks if the provided object is the same instance as this object. If not, it verifies that the object is of the same
+         * class and compares their string representations.
+         *
+         * @param obj The object to compare with this {@link Stub} instance.
+         * @return {@code true} if the objects are the same instance or if their string representations are equal; {@code false} otherwise.
+         */
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            Stub that = (Stub) obj;
+            return Objects.equals(this.toString(), that.toString());
+        }
+
+    }
 
     /**
      * The 1-based position of this variant on a contig.
@@ -62,7 +115,7 @@ public class Variant extends Attributes {
      * <p>
      * This set is used to track which samples have occurrences of this variant.
      */
-    private final HashSet<String> samples = new HashSet<>();
+    private final Set<String> samples = new HashSet<>();
 
     /**
      * A map of feature occurrences associated with this variant.
@@ -70,7 +123,7 @@ public class Variant extends Attributes {
      * The keys are feature names, and the values are sets of allele identifiers associated with those features. The initial capacity is set
      * to one, as variants typically have a single feature associated with them.
      */
-    private final HashMap<String, HashSet<String>> features = new HashMap<>(1);
+    private final Map<String, Set<String>> features = new HashMap<>(1);
 
     /**
      * Constructs a new {@link Variant} instance, based on the provided position, reference, and alternative content.
@@ -88,11 +141,11 @@ public class Variant extends Attributes {
         this.position = position;
         this.reference = reference;
         this.alternative = alternative;
-        if (isSubstitution(reference, alternative)) {
+        if (Bio.isSubstitution(reference, alternative)) {
             this.type = Type.SNV;
-        } else if (isInsertion(reference, alternative, true)) {
+        } else if (Bio.isInsertion(reference, alternative, true)) {
             this.type = Type.INSERTION;
-        } else if (isDeletion(reference, alternative, true)) {
+        } else if (Bio.isDeletion(reference, alternative, true)) {
             this.type = Type.DELETION;
         } else {
             throw new IllegalArgumentException(
@@ -104,30 +157,10 @@ public class Variant extends Attributes {
     }
 
     /**
-     * Associates a sample with this variant.
-     *
-     * @param sampleIdentifier The identifier of the sample to associate with this variant.
-     */
-    protected void addRelation(String sampleIdentifier) {
-        this.samples.add(sampleIdentifier);
-    }
-
-    /**
-     * Associates an allele and its parent feature with this variant.
-     *
-     * @param featureIdentifier The identifier of the feature to associate with this variant.
-     * @param alleleIdentifier  The identifier of the allele to associate with the feature.
-     */
-    protected void addRelation(String featureIdentifier, String alleleIdentifier) {
-        this.features.putIfAbsent(featureIdentifier, new HashSet<>(8));
-        this.features.get(featureIdentifier).add(alleleIdentifier);
-    }
-
-    /**
-     * Checks if this variant has a related sample of the given identifier.
+     * Checks if this variant has a related sample, feature or allele of the given identifier.
      * <p>
-     * This method checks if the provided identifier is present in the samples associated with this variant or in the features and their
-     * alleles.
+     * This method checks if the provided identifier is present in the entities associated with this variant, i.e., {@link #samples} or
+     * {@link #features}.
      *
      * @param identifier The identifier to check for occurrences in this variant.
      * @return {@code true} if the identifier is found in samples or features, {@code false} otherwise.
@@ -138,195 +171,121 @@ public class Variant extends Attributes {
     }
 
     /**
-     * Retrieves a collection of sample identifiers that have occurrences of this variant.
+     * Retrieves a set of sample identifiers that have occurrences of this variant.
+     * <p>
+     * This method returns an unmodifiable set of sample identifiers associated with this variant. The collection ensures that external
+     * modifications are not allowed, preserving the integrity of the data.
      *
-     * @return A collection of sample identifiers that have occurrences of this variant.
+     * @return A set of sample identifiers that have occurrences of this variant.
      */
-    public Collection<String> getRelatedSamples() {
-        return this.samples;
+    public Set<String> getRelatedSamples() {
+        return Collections.unmodifiableSet(this.samples);
     }
 
     /**
      * Retrieves a collection of tuples representing the feature and allele occurrences associated with this variant.
      * <p>
-     * Each tuple contains a feature identifier and an allele identifier, representing the association of alleles with their parent
-     * features.
+     * This method creates tuples of feature and allele identifiers from the features map and ensures uniqueness by using a set. The
+     * resulting set is returned as an unmodifiable collection.
      *
-     * @return A collection of tuples representing the feature and allele occurrences.
+     * @return A set of tuples where each tuple contains:
+     * <ul>
+     *   <li>The feature identifier as a {@link String}.</li>
+     *   <li>The allele identifier as a {@link String}.</li>
+     * </ul>
      */
-    public Collection<Tuple<String, String>> getRelatedAlleles() {
-        HashSet<Tuple<String, String>> alleles = new HashSet<>();
-        for (String feature : this.features.keySet()) {
-            for (String allele : this.features.get(feature)) {
-                alleles.add(new Tuple<>(feature, allele));
-            }
+    public Set<Tuple<String, String>> getRelatedAlleles() {
+        // Create a set to store unique tuples of feature and allele identifiers
+        Set<Tuple<String, String>> alleles = new HashSet<>();
+
+        // Populate the set with tuples of feature and allele identifiers
+        this.features.forEach((feature, alleleSet) ->
+                alleleSet.forEach(allele -> alleles.add(new Tuple<>(feature, allele)))
+        );
+
+        // Return an unmodifiable set of the tuples
+        return Collections.unmodifiableSet(alleles);
+    }
+
+    /**
+     * Associates a sample with this variant.
+     *
+     * @param sampleIdentifier The identifier of the sample to associate with this variant.
+     */
+    public void addRelation(String sampleIdentifier) {
+        this.samples.add(sampleIdentifier);
+    }
+
+    /**
+     * Associates an allele and its parent feature with this variant.
+     *
+     * @param featureIdentifier The identifier of the feature to associate with this variant.
+     * @param alleleIdentifier  The identifier of the allele to associate with the feature.
+     */
+    public void addRelation(String featureIdentifier, String alleleIdentifier) {
+        this.features.putIfAbsent(featureIdentifier, new HashSet<>(8));
+        this.features.get(featureIdentifier).add(alleleIdentifier);
+    }
+
+    /**
+     * Converts this variant to a simplified stub representation.
+     * <p>
+     * This method creates a {@link Variant.Stub} object that encapsulates the position and alternative allele of this variant. The stub
+     * serves as a simplified representation of the variant, which can be used for indexing or identification purposes.
+     *
+     * @return A {@link Variant.Stub} object containing the position and alternative allele of this variant.
+     */
+    public Variant.Stub toStub() {
+        return new Variant.Stub(this.position, this.alternative);
+    }
+
+    /**
+     * Converts the variant to its string representation.
+     * <p>
+     * This method generates a string representation of the variant based on its type:
+     * <ul>
+     *   <li>For {@link Type#SNV}, the format is: "prefix + position + reference + '>' + alternative".</li>
+     *   <li>For {@link Type#INSERTION}, the format is: "prefix + position + '_' + (position + 1) + 'ins' + alternative".</li>
+     *   <li>For {@link Type#DELETION}, the format is: "prefix + position + '_' + (position + reference.length() - 1) + 'del'".</li>
+     * </ul>
+     *
+     * @return A {@link String} representing the variant.
+     */
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        switch (type) {
+            case SNV -> sb.append(position).append(reference).append(Constants.GREATER_THAN).append(alternative);
+            case INSERTION -> sb.append(position).append(Constants.UNDER_SCORE).append(position + 1).append("ins").append(alternative);
+            case DELETION -> sb.append(position).append(Constants.UNDER_SCORE).append(position + reference.length() - 1).append("del");
         }
-        return alleles;
+        return sb.toString();
     }
 
     /**
-     * Retrieves the reference base content of this variant with all gap symbols removed.
-     *
-     * @return The reference base content with gap symbols removed.
-     */
-    public String getReferenceStripped() {
-        return this.reference.replaceAll("-", "");
-    }
-
-    /**
-     * Retrieves the alternative base content of this variant with all gap symbols removed.
-     *
-     * @return The alternative base content with gap symbols removed.
-     */
-    public String getAlternativeStripped() {
-        return this.alternative.replaceAll("-", "");
-    }
-
-    /**
-     * Determines whether a variant is a substitution; i.e., both the reference and alternative base content match a single base of
-     * {@link Constants#baseSymbols}.
-     *
-     * @param ref The reference base content.
-     * @param alt The alternative base content.
-     * @return {@code true} if the variant is a substitution, {@code false} otherwise.
-     */
-    public static boolean isSubstitution(String ref, String alt) {
-        return ref.matches("^[%s]$".formatted(Constants.baseSymbols))
-                && isSubstitution(alt);
-    }
-
-    /**
-     * Determines whether a given alternative base content represents a substitution.
+     * Computes the hash code for this variant.
      * <p>
-     * A substitution is defined as a single base from the set of valid nucleotide symbols defined in {@link Constants#baseSymbols}.
+     * This method calculates the hash code of the variant based on its string representation.
      *
-     * @param alt The alternative base content to check.
-     * @return {@code true} if the alternative content represents a substitution, {@code false} otherwise.
+     * @return The hash code of the variant.
      */
-    public static boolean isSubstitution(String alt) {
-        return alt.matches("^[%s]$".formatted(Constants.baseSymbols));
+    public int hashCode() {
+        return this.toString().hashCode();
     }
 
     /**
-     * Determines whether a variant is an insertion, i.e.,
-     * <ul>
-     *     <li>either the alternative base content is a string of any length of {@link Constants#baseSymbols}
-     *     and the reference base content is a single base of {@link Constants#baseSymbols} followed by {@link Constants#gap}s
-     *     matching the alternative content's length (padded canonical),</li>
-     *     <li>or the reference base content is a single base of {@link Constants#baseSymbols} and the alternative
-     *     content is a string of any length of {@link Constants#baseSymbols} (un-padded canonical).</li>
-     * </ul>
-     *
-     * @param ref    The reference base content.
-     * @param alt    The alternative base content.
-     * @param padded Whether the variant is padded by gap symbols.
-     * @return {@code true} if the variant is an insertion, {@code false} otherwise.
-     */
-    public static boolean isInsertion(String ref, String alt, boolean padded) {
-        if (padded) {
-            return ref.length() == alt.length()
-                    && ref.matches("^[%s]%s+$".formatted(Constants.baseSymbols, Constants.gap))
-                    && isInsertion(alt);
-        } else {
-            return ref.length() == 1
-                    && alt.length() > 1
-                    && ref.matches("^[%s]$".formatted(Constants.baseSymbols))
-                    && alt.matches("^[%s]+$".formatted(Constants.baseSymbols));
-        }
-    }
-
-    /**
-     * Determines whether a variant is an insertion based on its alternative content.
+     * Compares this variant to another object for equality.
      * <p>
-     * This method checks if the alternative base content represents an insertion. An insertion is defined as a string of at least two
-     * consecutive bases from the set of valid nucleotide symbols defined in {@link Constants#baseSymbols}.
+     * This method checks if the provided object is the same instance as this object. If not, it verifies that the object is of the same
+     * class and compares their string representations for equality.
      *
-     * @param alt The alternative base content to check.
-     * @return {@code true} if the alternative content represents an insertion, {@code false} otherwise.
+     * @param obj The object to compare with this {@link Variant} instance.
+     * @return {@code true} if the objects are the same instance or if their string representations are equal; {@code false} otherwise.
      */
-    public static boolean isInsertion(String alt) {
-        return alt.matches("^[%s]{2,}$".formatted(Constants.baseSymbols));
-    }
-
-    /**
-     * Determines whether a variant is a deletion, i.e.,
-     * <ul>
-     *     <li>either the reference base content is a string of any length of {@link Constants#baseSymbols}
-     *     and the alternative base content is a single base of {@link Constants#baseSymbols} followed by {@link Constants#gap}s
-     *     matching the reference content's length (padded canonical),</li>
-     *     <li>or the reference base content is a string of any length of {@link Constants#baseSymbols} and the
-     *     alternative content is a single base of {@link Constants#baseSymbols} (un-padded canonical).</li>
-     * </ul>
-     *
-     * @param ref    The reference base content.
-     * @param alt    The alternative base content.
-     * @param padded Whether the variant is padded by gap symbols.
-     * @return {@code true} if the variant is a deletion, {@code false} otherwise.
-     */
-    public static boolean isDeletion(String ref, String alt, boolean padded) {
-        if (padded) {
-            return ref.length() == alt.length()
-                    && ref.matches("^[%s]+$".formatted(Constants.baseSymbols))
-                    && isDeletion(alt);
-        } else {
-            return ref.length() > 1
-                    && alt.length() == 1
-                    && ref.matches("^[%s]+$".formatted(Constants.baseSymbols))
-                    && alt.matches("^[%s]$".formatted(Constants.baseSymbols));
-        }
-    }
-
-    /**
-     * Determines whether a variant is a deletion based on its alternative content.
-     * <p>
-     * This method checks if the alternative base content represents a deletion. A deletion is defined as a string that starts with a valid
-     * nucleotide base (from {@link Constants#baseSymbols}) followed by one or more gap symbols (defined in {@link Constants#gap}).
-     *
-     * @param alt The alternative base content to check.
-     * @return {@code true} if the alternative content represents a deletion, {@code false} otherwise.
-     */
-    public static boolean isDeletion(String alt) {
-        return alt.matches("^[%s]%s+$".formatted(Constants.baseSymbols, Constants.gap));
-    }
-
-    /**
-     * Determines whether a variant is canonical.
-     * <p>
-     * A variant is canonical if it is:
-     * <ul>
-     *     <li>a single nucleotide variant (SNV) ({@link #isSubstitution}),</li>
-     *     <li>an un-padded canonical insertion ({@link #isInsertion}), or</li>
-     *     <li>an un-padded canonical deletion ({@link #isDeletion}).</li>
-     * </ul>
-     *
-     * @param referenceContent   The reference base content.
-     * @param alternativeContent The alternative base content.
-     * @return {@code true} if the variant is canonical, {@code false} otherwise.
-     */
-    public static boolean isCanonicalVariant(String referenceContent, String alternativeContent) {
-        return isSubstitution(referenceContent, alternativeContent)
-                || isInsertion(referenceContent, alternativeContent, false)
-                || isDeletion(referenceContent, alternativeContent, false);
-    }
-
-    /**
-     * Determines whether a variant is padded canonical.
-     * <p>
-     * A variant is padded canonical if it is:
-     * <ul>
-     *     <li>a single nucleotide variant (SNV) ({@link #isSubstitution}),</li>
-     *     <li>a padded canonical insertion ({@link #isInsertion}), or</li>
-     *     <li>a padded canonical deletion ({@link #isDeletion}).</li>
-     * </ul>
-     *
-     * @param referenceContent   The reference base content.
-     * @param alternativeContent The alternative base content.
-     * @return {@code true} if the variant is padded canonical, {@code false} otherwise.
-     */
-    public static boolean isPaddedCanonicalVariant(String referenceContent, String alternativeContent) {
-        return isSubstitution(referenceContent, alternativeContent)
-                || isInsertion(referenceContent, alternativeContent, true)
-                || isDeletion(referenceContent, alternativeContent, true);
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        Variant that = (Variant) obj;
+        return Objects.equals(this.toString(), that.toString());
     }
 
 }

@@ -1,19 +1,9 @@
 package model;
 
 import exceptions.MusialException;
-import htsjdk.samtools.util.Tuple;
-import main.Musial;
-import utility.Constants;
-import utility.IO;
-import utility.Logging;
-import utility.SequenceOperations;
+import util.Constants;
 
-import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
-
-import static utility.Constants.dot;
-import static utility.Constants.tab;
 
 /**
  * Representation of a genomic feature.
@@ -46,7 +36,7 @@ public class Feature extends Attributes {
     public final String type;
 
     /**
-     * An additional human-readable identifier for this feature.
+     * An additional (human-readable) name for this feature.
      * <p>
      * This should be at best a database identifier or common gene name.
      */
@@ -73,90 +63,55 @@ public class Feature extends Attributes {
     public final char strand;
 
     /**
-     * Serialized string representation of child features.
+     * A list of sub-features associated with this genomic feature.
      * <p>
-     * This field stores a serialized string representation of child features associated with this feature. The string is formatted as
-     * "type:start:end" for each child, separated by commas. It is used to reconstruct the child features when needed. Child features are
-     * introduces to reflect the hierarchical structure of genomic features, where a feature can have multiple child features, such as
-     * coding sequences (CDS) or exons.
+     * This list stores {@link SubFeature} objects, each representing a sub-feature of the genomic feature, such as exons or coding
+     * sequences (CDS). Sub-features are defined by their type and genomic location (start and end positions).
      */
-    private String _children = Constants.empty;
+    private final List<SubFeature> subFeatures = new ArrayList<>();
 
     /**
-     * Represents an allele associated with a genomic feature.
+     * Represents a sub-feature of a genomic feature.
      * <p>
-     * An allele is a specific variant of a sequence type that is associated with a genomic feature. This class extends {@link SequenceType}
-     * and provides functionality for managing alleles, including their unique identifiers, variants, and attributes.
+     * This record encapsulates the type and genomic location of a sub-feature, such as an exon or CDS, within a parent genomic feature. It
+     * includes:
+     * <ul>
+     *   <li>The type of the sub-feature (e.g., "exon", "CDS").</li>
+     *   <li>The 1-based start position of the sub-feature on the reference genome.</li>
+     *   <li>The 1-based end position of the sub-feature on the reference genome.</li>
+     * </ul>
+     *
+     * @param type  The type of the sub-feature (e.g., "exon", "CDS").
+     * @param start The 1-based start position of the sub-feature.
+     * @param end   The 1-based end position of the sub-feature.
      */
-    public class Allele extends SequenceType {
-
-        private String proteoform;
+    public record SubFeature(String type, int start, int end) {
 
         /**
-         * Constructs a new {@link Allele} instance associated with a genomic feature.
+         * Generates a GFF3 conform identifier (ID) for a sub-feature based on its type and a parent identifier.
          * <p>
-         * This constructor initializes an allele with a unique identifier and a list of variants. Default attributes are set in the
-         * {@link Feature#updateAllele} method.
+         * This method constructs an ID string for the sub-feature using its type and the provided parent identifier. The format of the ID
+         * depends on the type of the sub-feature:
+         * <ul>
+         *   <li>If the type is "CDS", the ID is formatted as "ID=cds-{parentIdentifier};Parent=transcript-{parentIdentifier}".</li>
+         *   <li>If the type is "exon", the ID is formatted as "ID=exon-{parentIdentifier};Parent=transcript-{parentIdentifier}".</li>
+         *   <li>If the type contains "RNA", the ID is formatted as "ID=transcript-{parentIdentifier};Parent={parentIdentifier}".</li>
+         *   <li>For other types, the ID is formatted as "ID={type}-{parentIdentifier};Parent={parentIdentifier}".</li>
+         * </ul>
          *
-         * @param uid      The unique identifier for the allele.
-         * @param variants A list of {@link Tuple} objects representing the variants associated with the allele. Each tuple contains:
-         *                 <ul>
-         *                   <li>The position of the variant.</li>
-         *                   <li>The alternate base string of the variant.</li>
-         *                 </ul>
+         * @param parentIdentifier The identifier of the parent feature.
+         * @return A formatted string representing the GFF3 ID value of the sub-feature.
          */
-        private Allele(String uid, List<Tuple<Integer, String>> variants) {
-            super(uid, variants);
-            // Add the allele to the feature, if it is not already present.
-            Feature.this.alleles.putIfAbsent(uid, this);
+        public String ID(String parentIdentifier) {
+            return switch (this.type) {
+                case "CDS" -> "ID=cds-%s;Parent=transcript-%s".formatted(parentIdentifier, parentIdentifier);
+                case "exon" -> "ID=exon-%s;Parent=transcript-%s".formatted(parentIdentifier, parentIdentifier);
+                default -> this.type.contains("RNA")
+                        ? "ID=transcript-%s;Parent=%s".formatted(parentIdentifier, parentIdentifier)
+                        : "ID=%s-%s;Parent=%s".formatted(this.type, parentIdentifier, parentIdentifier);
+            };
         }
 
-        /**
-         * Sets the proteoform identifier associated with this allele.
-         *
-         * @param identifier The unique identifier of the proteoform to associate with this allele.
-         */
-        private void setProteoform(String identifier) {
-            this.proteoform = identifier;
-        }
-
-        /**
-         * Retrieves the proteoform identifier associated with this allele.
-         *
-         * @return The unique identifier of the proteoform associated with this allele, or {@code null} if no proteoform is associated.
-         */
-        public String getProteoform() {
-            return this.proteoform;
-        }
-    }
-
-    /**
-     * Represents a proteoform associated with a genomic feature.
-     * <p>
-     * A proteoform is a specific variant of a protein sequence that is derived from the genomic feature. This class extends
-     * {@link SequenceType} and provides functionality for managing proteoforms, including their unique identifiers, variants, and
-     * attributes.
-     */
-    public class Proteoform extends SequenceType {
-
-        /**
-         * Constructs a new {@link Proteoform} instance associated with a genomic feature.
-         * <p>
-         * This constructor initializes a proteoform with a unique identifier and a list of variants. Default attributes are set in the
-         * {@link Feature#updateProteoform} method.
-         *
-         * @param uid      The unique identifier for the proteoform.
-         * @param variants A list of {@link Tuple} objects representing the variants associated with the proteoform. Each tuple contains:
-         *                 <ul>
-         *                   <li>The position of the variant.</li>
-         *                   <li>The alternate base string of the variant.</li>
-         *                 </ul>
-         */
-        private Proteoform(String uid, List<Tuple<Integer, String>> variants) {
-            super(uid, variants);
-            // Add the proteoform to the feature.
-            Feature.this.proteoforms.putIfAbsent(uid, this);
-        }
     }
 
     /**
@@ -168,7 +123,7 @@ public class Feature extends Attributes {
      * Alleles are used to track and manage sequence variations resulting from genomic changes. Each allele is linked to its unique
      * identifier and contains information about its sequence and attributes.
      */
-    private final HashMap<String, Allele> alleles = new HashMap<>();
+    private final Map<String, Allele> alleles = new HashMap<>();
 
     /**
      * Proteoforms ({@link SequenceType} instances) associated with this feature.
@@ -180,7 +135,7 @@ public class Feature extends Attributes {
      * Proteoforms are only relevant for coding features and are used to track and manage protein sequence variations resulting from genomic
      * changes.
      */
-    private final HashMap<String, Proteoform> proteoforms = new HashMap<>();
+    private final Map<String, Proteoform> proteoforms = new HashMap<>();
 
     /**
      * Constructs a new {@link Feature} instance with the specified properties.
@@ -196,7 +151,7 @@ public class Feature extends Attributes {
      * @param type       The type of the feature (e.g., coding, non-coding).
      * @param identifier The unique identifier of the feature.
      */
-    protected Feature(String name, String contig, Number start, Number end, char strand, String type, String identifier) {
+    public Feature(String name, String contig, Number start, Number end, char strand, String type, String identifier) {
         super();
         this.name = name;
         this.contig = contig;
@@ -208,89 +163,142 @@ public class Feature extends Attributes {
     }
 
     /**
-     * Updates or creates an allele associated with a given contig and sample.
+     * Determines if this feature is a coding feature.
      * <p>
-     * This method checks if the specified allele is already associated with the feature. If it is, the existing allele is retrieved.
-     * Otherwise, a new allele is created based on the provided variants and contig. The method validates the input parameters, adds the
-     * sample samples to the allele, and updates the contig with the sequence type occurrences for each variant.
+     * This method checks whether the feature is of type "CDS" (coding sequence) or if any of its sub-features are of type "CDS". A feature
+     * is considered coding if it directly represents a coding sequence or contains sub-features that do.
      *
-     * @param contig   The {@link Contig} object containing the reference sequence.
-     * @param variants A list of {@link Tuple} objects representing the variants associated with the allele. Each tuple contains:
-     *                 <ul>
-     *                   <li>The position of the variant.</li>
-     *                   <li>The alternate allele sequence.</li>
-     *                 </ul>
-     * @param sample   The {@link Sample} object representing the sample associated with this feature.
-     * @return The unique identifier (UID) of the updated or created allele.
+     * @return {@code true} if the feature is of type "CDS" or has sub-features of type "CDS"; {@code false} otherwise.
      */
-    protected String updateAllele(Contig contig, List<Tuple<Integer, String>> variants, Sample sample) {
-        // Generate a unique identifier (UID) for the allele based on the variants.
-        String alleleId = IO.md5Hash(SequenceType.variantsToString(variants));
-        Allele allele;
+    public boolean isCoding() {
+        return this.type.equals("CDS") || subFeatures.stream().anyMatch(sf -> sf.type.equals("CDS"));
+    }
 
-        // Check if the allele already exists in the feature.
-        if (this.alleles.containsKey(alleleId)) {
-            allele = getAllele(alleleId);
-        } else {
-            // Validate that the contig id matches the feature's contig.
-            if (!Objects.equals(contig._id, this.contig))
-                throw new IllegalArgumentException("Contig does not match feature contig.");
+    /**
+     * Returns if this feature is on the reverse strand.
+     * <p>
+     * This method determines whether the strand orientation of the feature is reverse by checking if the strand character is {@code '-'}.
+     *
+     * @return {@code true} if this feature is on the reverse strand, {@code false} otherwise.
+     */
+    public boolean isReverse() {
+        return this.strand == '-';
+    }
 
-            // Validate that the variants map is not empty.
-            if (variants.isEmpty())
-                throw new IllegalArgumentException("Variants cannot be empty.");
+    /**
+     * Adds a sub-feature to this genomic feature.
+     * <p>
+     * This method validates and adds a sub-feature to the list of sub-features associated with this genomic feature. The sub-feature is
+     * defined by its type, start position, and end position. Validation ensures that:
+     * <ul>
+     *   <li>The sub-feature type is recognized in the {@link Storage#SEQUENCE_ONTOLOGY_HIERARCHY} map.</li>
+     *   <li>The sub-feature's start and end positions are within the bounds of the parent feature.</li>
+     * </ul>
+     * If validation fails, an {@link IllegalArgumentException} is thrown.
+     *
+     * @param type  The type of the sub-feature (e.g., "exon", "CDS").
+     * @param start The 1-based start position of the sub-feature.
+     * @param end   The 1-based end position of the sub-feature.
+     * @throws MusialException if the sub-feature type is unrecognized or if its positions are out of bounds.
+     */
+    public void addSubFeature(String type, int start, int end) throws MusialException {
+        if (!Storage.SEQUENCE_ONTOLOGY_HIERARCHY.containsKey(type))
+            throw new MusialException("Sub-features of type '%s' are not recognized.".formatted(type));
+        if (start < this.start || end > this.end)
+            throw new MusialException("Sub-feature %s (%s:g.%d_%d=) is out of bounds of its parent feature %s (%s:g.%d_%d=)."
+                    .formatted(type, this.contig, start, end, this.name, this.contig, this.start, this.end));
+        if (start > end)
+            throw new MusialException("Sub-feature %s (%s:g.%d_%d=) has an invalid location (start > end)."
+                    .formatted(type, this.contig, start, end));
+        this.subFeatures.add(new SubFeature(type, start, end));
+        // Sort the sub-features based on their Sequence Ontology hierarchy level after adding a new one.
+        // Note: The repeated sorting could be optimized if performance becomes an issue.
+        this.subFeatures.sort(Comparator.comparingInt(sf -> Storage.SEQUENCE_ONTOLOGY_HIERARCHY.get(sf.type)));
+    }
 
-            // Create a new allele if it does not already exist.
-            allele = new Allele(alleleId, variants);
+    /**
+     * Retrieves all sub-features associated with this genomic feature.
+     * <p>
+     * This method provides an unmodifiable view of the list of sub-features associated with this genomic feature. Sub-features represent
+     * smaller components of the feature, such as exons or coding sequences (CDS), and include their type and genomic location (start and
+     * end positions).
+     * <p>
+     * The unmodifiable list ensures that the original list cannot be modified externally, preserving data integrity.
+     *
+     * @return An unmodifiable {@link List} of {@link SubFeature} objects representing the sub-features of this genomic feature.
+     */
+    public List<SubFeature> getSubFeatures() {
+        return Collections.unmodifiableList(this.subFeatures);
+    }
 
-            // Add default attributes for effects and net-shift.
-            int lengthVariation = SequenceType.computeLengthVariation(variants);
-            int netFrameshift = Math.abs(lengthVariation % 3);
-            allele.addAttribute(Constants.SequenceType$sequenceLengthVariation,
-                    String.valueOf(SequenceType.computeLengthVariation(variants)));
-            // The allele inherits all effects from the variants.
-            Set<String> effects = variants.stream()
-                    .flatMap(variant -> contig.getVariant(variant.a, variant.b)
-                            .getAttributeAsCollection("snpeff_effect").stream())
-                    .collect(Collectors.toSet());
-            if (netFrameshift != 0) {
-                String frameshiftEffect = lengthVariation > 0
-                        ? "plus_%d_frameshift".formatted(netFrameshift)
-                        : "minus_%d_frameshift".formatted(netFrameshift);
-                effects.add(frameshiftEffect);
-            }
-            allele.addAttribute(Constants.SequenceType$effects, String.join(Constants.comma, effects));
-        }
+    /**
+     * Clears all sub-features associated with this genomic feature.
+     * <p>
+     * This method removes all sub-features from the list of sub-features associated with this genomic feature. After calling this method,
+     * the list of sub-features will be empty.
+     */
+    public void clearSubFeatures() {
+        this.subFeatures.clear();
+    }
 
-        // Add relation between the allele, sample, and variants.
-        allele.addRelation(sample._id);
-        sample.addRelation(this.name, allele._id);
-        variants.forEach(variant -> contig.getVariant(variant.a, variant.b).addRelation(this.name, allele._id));
+    /**
+     * Clears all sub-features of a specific Sequence Ontology (SO) hierarchy level associated with this genomic feature.
+     * <p>
+     * This method removes all sub-features from the list of sub-features that match the specified SO hierarchy level. The hierarchy level
+     * is determined using the {@link Storage#SEQUENCE_ONTOLOGY_HIERARCHY} map.
+     * <p>
+     * After calling this method, only sub-features that do not match the specified level will remain in the list.
+     *
+     * @param level The SO hierarchy level of the sub-features to remove (e.g., 0 for "region", 1 for "gene").
+     */
+    public void clearSubFeatures(int level) {
+        this.subFeatures.removeIf(sf -> Storage.SEQUENCE_ONTOLOGY_HIERARCHY.get(sf.type) == level);
+    }
 
-        return alleleId;
+    /**
+     * Checks if an allele with the specified identifier exists in this feature.
+     *
+     * @param alleleIdentifier The identifier of the allele to check for.
+     * @return {@code true} if an allele with the given identifier exists, {@code false} otherwise.
+     */
+    public boolean hasAllele(String alleleIdentifier) {
+        return this.alleles.containsKey(alleleIdentifier);
+    }
+
+    /**
+     * Adds an allele to this feature.
+     * <p>
+     * This method adds the specified {@link Allele} object to the internal map of alleles associated with this feature. The allele is
+     * stored using its unique identifier as the key.
+     * <p>
+     * <i>Note: No internal validation is performed based on the coordinates of the feature.</i>
+     *
+     * @param allele The {@link Allele} object to be added to this feature.
+     */
+    public void addAllele(Allele allele) {
+        this.alleles.put(allele._id, allele);
     }
 
     /**
      * Retrieves an allele associated with this feature by its unique identifier (_id) or {@code null}.
      *
-     * @param uid The unique identifier of the allele to retrieve.
+     * @param alleleIdentifier The identifier of the allele to retrieve.
      * @return The {@link Allele} object associated with the given UID or {@code null} if not found.
      */
-    public Allele getAllele(String uid) {
-        // Check if the UID exists as a key in the alleles map.
-        return alleles.getOrDefault(uid, null);
+    public Allele getAllele(String alleleIdentifier) {
+        return alleles.getOrDefault(alleleIdentifier, null);
     }
 
     /**
      * Retrieves all alleles associated with this feature.
      * <p>
-     * This method returns a collection of {@link Allele} objects that are associated with this feature. The alleles are stored as values in
-     * the internal map of alleles.
+     * This method provides an unmodifiable view of the collection of alleles associated with this feature. The alleles are stored as values
+     * in the internal map, ensuring that the original collection cannot be modified externally.
      *
-     * @return A {@link Collection} of {@link Allele} objects associated with this feature.
+     * @return An unmodifiable {@link Collection} of {@link Allele} objects associated with this feature.
      */
     public Collection<Allele> getAlleles() {
-        return this.alleles.values();
+        return Collections.unmodifiableCollection(this.alleles.values());
     }
 
     /**
@@ -306,138 +314,50 @@ public class Feature extends Attributes {
     }
 
     /**
-     * Updates or creates a proteoform associated with a given allele and contig.
-     * <p>
-     * This method checks if the specified allele is already associated with a proteoform. If it is, the existing proteoform is retrieved.
-     * Otherwise, a new proteoform is created based on the allele's variants and the contig's sequence. The method validates the input
-     * parameters, computes the proteoform sequence, and associates the allele with the proteoform.
+     * Checks if a proteoform with the specified identifier exists in this feature.
      *
-     * @param contig           The {@link Contig} object containing the reference sequence.
-     * @param alleleIdentifier The unique identifier of the allele to update or associate with a proteoform.
-     * @throws IOException              If an I/O error occurs during sequence operations.
-     * @throws MusialException          If an error occurs during sequence alignment or translation.
-     * @throws IllegalArgumentException If the allele does not exist, the contig does not match the feature's contig, the contig lacks a
-     *                                  sequence, the feature is not coding, or the variants map is empty.
+     * @param proteoformIdentifier The identifier of the proteoform to check for.
+     * @return {@code true} if a proteoform with the given identifier exists, {@code false} otherwise.
      */
-    protected void updateProteoform(Contig contig, String alleleIdentifier) throws IOException, MusialException {
-        // Ensure that the allele (identifier) is valid.
-        Allele allele = getAllele(alleleIdentifier);
-        if (allele == null)
-            throw new IllegalArgumentException("Allele %s does not exist.".formatted(alleleIdentifier));
+    public boolean hasProteoform(String proteoformIdentifier) {
+        return this.proteoforms.containsKey(proteoformIdentifier);
+    }
 
-        // Validate that the contig matches the feature's contig.
-        if (!Objects.equals(contig._id, this.contig))
-            throw new IllegalArgumentException("Contig does not match feature contig.");
-
-        // Validate that the contig has a sequence.
-        if (!contig.hasSequence())
-            throw new IllegalArgumentException("Contig does not have a sequence.");
-
-        // Validate that the feature is coding.
-        if (!Feature.this.isCoding())
-            throw new IllegalArgumentException("Feature is not coding.");
-
-        // Access the variants of the allele.
-        NavigableMap<Integer, String> variants = allele.variants;
-        // Validate that the variants map is not empty.
-        if (variants.isEmpty())
-            throw new IllegalArgumentException("Variants of an allele can't be empty.");
-
-        // Infer the reference and proteoform sequences.
-        String referenceSequence =
-                SequenceOperations.translateSequence(contig.getSubsequence(start, end), isReverse());
-        String proteoformSequence =
-                SequenceOperations.translateSequence(SequenceOperations.integrateVariants(contig, this, variants, true), isReverse());
-
-        // Generate a unique identifier for the proteoform out of its sequence; if no variants are present, use "synonymous".
-        String proteoformId;
-        if (Objects.equals(referenceSequence, proteoformSequence)) {
-            proteoformId = Constants.synonymous;
-        } else {
-            Proteoform proteoform;
-            proteoformId = IO.md5Hash(proteoformSequence);
-
-            // Check if the proteoform already exists in the feature.
-            if (this.proteoforms.containsKey(proteoformId)) {
-                proteoform = getProteoform(proteoformId);
-            } else {
-                // Perform global protein sequence alignment.
-                Tuple<String, String> alignment = SequenceOperations.globalProteinSequenceAlignment(
-                        referenceSequence,
-                        proteoformSequence,
-                        21,
-                        7,
-                        true,
-                        true,
-                        Math.abs(referenceSequence.length() - proteoformSequence.length())
-                );
-
-                // Extract canonical amino acid variants from the alignment.
-                List<Tuple<Integer, String>> aminoAcidVariants = SequenceOperations.getCanonicalVariants(alignment.a, alignment.b).stream()
-                        .map(entry -> new Tuple<>(entry.getLeft() + 1, entry.getRight()))
-                        .collect(Collectors.toList());
-                if (aminoAcidVariants.isEmpty()) // This should not happen, but in case it does, throw an exception.
-                    throw new IllegalArgumentException("Proteoform has no variants.");
-
-                // Create a new proteoform instance.
-                proteoform = new Proteoform(proteoformId, aminoAcidVariants);
-
-                // Add default attributes for effects and net-shift.
-                int lengthVariation = SequenceType.computeLengthVariation(aminoAcidVariants);
-                proteoform.addAttribute(Constants.SequenceType$sequenceLengthVariation, String.valueOf(lengthVariation));
-
-                Set<String> effects = new HashSet<>();
-                String alleleEffects = allele.getAttribute(Constants.SequenceType$effects);
-
-                if (alleleEffects.contains("frameshift")) effects.add("frameshift_sequence_variation");
-                if (aminoAcidVariants.stream().anyMatch(variant -> Variant.isInsertion(variant.b))) effects.add("amino_acid_insertion");
-                if (aminoAcidVariants.stream().anyMatch(variant -> Variant.isDeletion(variant.b))) effects.add("amino_acid_deletion");
-                if (proteoform.hasVariant(1) && proteoform.getVariant(1).charAt(0) != referenceSequence.charAt(0))
-                    effects.add("start_lost");
-                aminoAcidVariants.stream()
-                        .filter(variant -> variant.b.contains(Constants.stopCodon))
-                        .findFirst()
-                        .ifPresent(stopCodonVariant -> {
-                            int stopCodonPosition = stopCodonVariant.a + stopCodonVariant.b.indexOf(Constants.stopCodon);
-                            if (stopCodonPosition <= referenceSequence.length()) {
-                                effects.add("stop_gained");
-                            } else {
-                                effects.add("redundant_inserted_stop_gained");
-                            }
-                        });
-                proteoform.addAttribute(Constants.SequenceType$effects, String.join(Constants.comma, effects));
-
-            }
-
-            // Associate the proteoform with the allele.
-            proteoform.addRelation(alleleIdentifier);
-        }
-
-        // Associate the allele with the proteoform.
-        allele.setProteoform(proteoformId);
+    /**
+     * Adds a proteoform to this feature.
+     * <p>
+     * This method adds the specified {@link Proteoform} object to the internal map of proteoforms associated with this feature. The
+     * proteoform is stored using its unique identifier as the key.
+     * <p>
+     * <i>Note: No internal validation is performed based on the coordinates of the feature.</i>
+     *
+     * @param proteoform The {@link Proteoform} object to be added to this feature.
+     */
+    public void addProteoform(Proteoform proteoform) {
+        this.proteoforms.put(proteoform._id, proteoform);
     }
 
     /**
      * Retrieves a proteoform associated with this feature by its unique identifier or {@code null}.
      *
-     * @param uid The unique identifier of the proteoform to retrieve.
+     * @param proteoformIdentifier The unique identifier of the proteoform to retrieve.
      * @return The {@link Proteoform} object associated with the given UID or {@code null} if not found.
      */
-    public Proteoform getProteoform(String uid) {
-        // Check if the UID exists as a key in the proteoforms map.
-        return proteoforms.getOrDefault(uid, null);
+    public Proteoform getProteoform(String proteoformIdentifier) {
+        return proteoforms.getOrDefault(proteoformIdentifier, null);
     }
 
     /**
      * Retrieves all proteoforms associated with this feature.
      * <p>
-     * This method returns a collection of {@link Proteoform} objects that are associated with this feature. The proteoforms are stored as
-     * values in the internal map of alleles.
+     * This method provides an unmodifiable view of the collection of proteoforms associated with this feature. Proteoforms represent
+     * specific sequence variants of proteins derived from the feature. The unmodifiable collection ensures that the original data cannot be
+     * modified externally.
      *
-     * @return A {@link Collection} of {@link Proteoform} objects associated with this feature.
+     * @return An unmodifiable {@link Collection} of {@link Proteoform} objects associated with this feature.
      */
     public Collection<Proteoform> getProteoforms() {
-        return this.proteoforms.values();
+        return Collections.unmodifiableCollection(this.proteoforms.values());
     }
 
     /**
@@ -453,199 +373,43 @@ public class Feature extends Attributes {
     }
 
     /**
-     * Sets the child features of this feature (see {@link #_children}).
+     * Generates a string representation of this feature.
      * <p>
-     * This method serializes the child features into a string format where each child is represented as "type:start:end". Multiple child
-     * features are separated by commas..
+     * This method constructs a string representation of the feature using its contig, genomic coordinates, and name. The format includes
+     * the contig identifier, start and end positions, and the feature name, separated by specific constants.
      *
-     * @param children A {@link SortedMap} where the keys are child feature types (e.g., "CDS"), and the values are lists of {@link Tuple}
-     *                 objects representing the start and end positions of the child features.
-     */
-    public void setChildren(SortedMap<String, List<Tuple<Integer, Integer>>> children) {
-        // Initialize a StringBuilder to construct the serialized "children" attribute value.
-        StringBuilder sb = new StringBuilder();
-
-        // Iterate over each child type and its associated locations.
-        children.forEach((key, locations) ->
-                // For each location, append the type, start, and end positions to the StringBuilder.
-                locations.forEach(location ->
-                        sb.append(key).append(Constants.colon) // Append the child type.
-                                .append(location.a).append(Constants.colon) // Append the start position.
-                                .append(location.b).append(Constants.comma) // Append the end position and a comma.
-                )
-        );
-
-        // If the StringBuilder is not empty, remove the trailing comma.
-        if (sb.length() > 0) {
-            sb.setLength(sb.length() - 1);
-        }
-
-        // Add the serialized "children" string as an attribute to this feature.
-        _children = sb.toString();
-    }
-
-    /**
-     * Extends the serialized string representation of child features by appending a new child feature.
-     * <p>
-     * This method adds a new child feature to the `_children` string, which stores serialized child features in the format
-     * "type:start:end". If the `_children` string is not empty, a comma is added before appending the new child feature.
-     * <p>
-     * The `_children` string is used to represent the hierarchical structure of genomic features, where a feature can have multiple child
-     * features, such as coding sequences (CDS) or exons.
-     *
-     * @param type  The type of the child feature (e.g., "CDS", "exon").
-     * @param start The 1-based start position of the child feature.
-     * @param end   The 1-based end position of the child feature.
-     */
-    public void addChildren(String type, int start, int end) {
-        if (!_children.isEmpty()) {
-            _children += Constants.comma;
-        }
-        _children += "%s:%d:%d".formatted(type, start, end);
-    }
-
-    /**
-     * Retrieves a sorted map of child features associated with this feature.
-     * <p>
-     * This method parses the "children" attribute of the feature, if present, and constructs a sorted map of child features. Each child
-     * feature is represented by a key (child type) and a list of tuples, where each tuple contains the start and end positions of the child
-     * feature. The map is sorted using a custom comparator based on the order defined in {@link Storage#SO}. If a child type is not found
-     * in {@link Storage#SO}, it is assigned the maximum possible value.
-     *
-     * @return A {@link SortedMap} where the keys are child feature types (e.g., "CDS"), and the values are lists of {@link Tuple} objects
-     * representing the start and end positions of the child features.
-     */
-    public SortedMap<String, List<Tuple<Integer, Integer>>> getChildren() {
-        // Initialize a sorted map to store child features, sorted by a custom comparator.
-        SortedMap<String, List<Tuple<Integer, Integer>>> children =
-                new TreeMap<>(Comparator.comparingInt(k -> Storage.SO.getOrDefault(k, Integer.MAX_VALUE)));
-
-        // Split the _children property into individual child entries using a comma as the delimiter.
-        for (String child : _children.split(Constants.comma)) {
-
-            // Split each child entry into parts using a colon as the delimiter.
-            String[] parts = child.split(Constants.colon);
-
-            // Ensure the child entry has exactly three parts: type, start, and end.
-            if (parts.length == 3) {
-                // Add the child feature to the map. If the key (child type) does not exist,
-                // create a new list for it. Then, add a tuple containing the start and end positions.
-                children.computeIfAbsent(parts[0], k -> new ArrayList<>())
-                        .add(new Tuple<>(Integer.parseInt(parts[1]), Integer.parseInt(parts[2])));
-            }
-        }
-
-        // Return the sorted map of child features.
-        return children;
-    }
-
-    /**
-     * Returns if this feature is a coding feature.
-     * <p>
-     * This method checks whether the feature has child elements of type "CDS" (coding sequence) and ensures that the list of such child
-     * elements is not empty. A feature is considered coding if it contains at least one "CDS" child.
-     *
-     * @return {@code true} if the feature is a coding feature, {@code false} otherwise.
-     */
-    public boolean isCoding() {
-        SortedMap<String, List<Tuple<Integer, Integer>>> children = this.getChildren();
-        return children.containsKey("CDS") && !children.get("CDS").isEmpty();
-    }
-
-    /**
-     * Returns if this feature is on the reverse strand.
-     * <p>
-     * This method determines whether the strand orientation of the feature is reverse by checking if the strand character is {@code '-'}.
-     *
-     * @return {@code true} if this feature is on the reverse strand, {@code false} otherwise.
-     */
-    public boolean isReverse() {
-        return this.strand == '-';
-    }
-
-    /**
-     * Converts this feature into a tab-delimited string representation.
-     * <p>
-     * This method generates a string containing the contig, type, id, start position, end position, strand, and attributes of the feature.
-     * Certain attributes, such as "children", are excluded from the string representation.
-     *
-     * @return A {@link String} representing the feature in a tab-delimited format.
+     * @return A {@link String} representing the feature in the format: {@code contig:g.start_end=featureName}.
      */
     public String toString() {
-        return contig + "\t" +
-                type + "\t" +
-                name + "\t" +
-                start + "\t" +
-                end + "\t" +
-                strand;
+        return "%s%s%s%d%s%d%s%s".formatted(contig, Constants.COLON, Constants.GENOMIC_COORDINATES_PREFIX, start, Constants.UNDER_SCORE,
+                end, Constants.EQUAL, name);
     }
 
     /**
-     * Converts this feature and its child features into a GFF3 format string.
+     * Computes the hash code for this feature.
      * <p>
-     * This method generates a GFF3 representation of the feature, including its attributes and child features. The main feature is
-     * represented with its type, location, strand, and attributes. Child features are appended with their respective types, locations, and
-     * parent-child relationships.
+     * This method calculates the hash code of the feature based on its string representation.
      *
-     * @return A {@link String} containing the GFF3 representation of this feature and its children.
+     * @return The hash code of this feature.
      */
-    public String toGffString() {
-        StringBuilder contentBuilder = new StringBuilder();
-
-        // Determine GFF3 conforming ID attribute.
-        String id = type.contains("gene") ? "gene-%s".formatted(_id) : "%s-%s".formatted(type, _id);
-        if (!type.contains("gene")) {
-            Logging.logWarning("Feature %s type is not a gene; This may conflict with the GFF3 definition.".formatted(name));
-        }
-
-        // Append feature information.
-        contentBuilder.append(String.join(tab,
-                contig, Musial.name, type, String.valueOf(start), String.valueOf(end),
-                dot, String.valueOf(strand), dot, "ID=%s".formatted(id)));
-
-        // Append attributes if present.
-        if (hasAttributes()) {
-            contentBuilder.append(";%s".formatted(attributesAsString(Set.of(
-                    "children", "reference_proportion", "sequence_types_disrupted",
-                    "sequence_types_modified", "sequence_types_synonymous"), Constants.semicolon)));
-        }
-        contentBuilder.append(Constants.lineSeparator);
-
-        // Append child features.
-        getChildren().forEach((childType, locations) -> locations.forEach(location ->
-                contentBuilder.append(String.join(tab,
-                                contig, Musial.name, childType, String.valueOf(location.a), String.valueOf(location.b),
-                                dot, String.valueOf(strand), dot, constructChildId(childType, id)))
-                        .append(Constants.lineSeparator)
-        ));
-
-        return contentBuilder.toString();
+    public int hashCode() {
+        return this.toString().hashCode();
     }
 
     /**
-     * Generates a GFF3-compliant ID and Parent attribute string for a child feature.
+     * Compares this feature to another object for equality.
      * <p>
-     * This method constructs the ID and Parent attributes for a child feature based on its type. The format of the attributes depends on
-     * the child type:
-     * <ul>
-     *     <li>For "CDS", the ID is prefixed with "cds-" and the Parent is "transcript-".</li>
-     *     <li>For "exon", the ID is prefixed with "exon-" and the Parent is "transcript-".</li>
-     *     <li>For RNA types (e.g., "mRNA"), the ID is prefixed with "transcript-" and the Parent is the provided parent ID.</li>
-     *     <li>For other types, the ID is prefixed with the child type and the Parent is the provided parent ID.</li>
-     * </ul>
+     * This method checks if the provided object is the same instance as this feature. If not, it verifies that the object is of the same
+     * class and compares their string representations for equality.
      *
-     * @param childType The type of the child feature (e.g., "CDS", "exon", "mRNA").
-     * @param parentId  The ID of the parent feature.
-     * @return A formatted string containing the ID and Parent attributes for the child feature.
+     * @param obj The object to compare with this {@link Feature} instance.
+     * @return {@code true} if the objects are the same instance or if their string representations are equal; {@code false} otherwise.
      */
-    private String constructChildId(String childType, String parentId) {
-        return switch (childType) {
-            case "CDS" -> "ID=cds-%s;Parent=transcript-%s".formatted(_id, _id);
-            case "exon" -> "ID=exon-%s;Parent=transcript-%s".formatted(_id, _id);
-            default -> childType.contains("RNA")
-                    ? "ID=transcript-%s;Parent=%s".formatted(_id, parentId)
-                    : "ID=%s-%s;Parent=%s".formatted(childType, _id, parentId);
-        };
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        Feature that = (Feature) obj;
+        return this.toString().equals(that.toString());
     }
 
 }

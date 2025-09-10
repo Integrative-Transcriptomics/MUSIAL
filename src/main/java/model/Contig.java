@@ -1,16 +1,20 @@
 package model;
 
+import com.google.gson.Gson;
+import com.google.gson.TypeAdapter;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
 import htsjdk.samtools.util.Tuple;
-import utility.Constants;
-import utility.IO;
-import utility.Logging;
+import util.Constants;
+import util.IO;
+import util.Logging;
 
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Representation of a genomic location.
+ * Represents a reference genomic location.
  * <p>
  * Models a segment of a genomic sequence, i.e., a complete genome, plasmid, single contig or scaffold. It extends the {@link Attributes}
  * class to inherit functionality for managing attributes associated with the contig. In addition, an inner map is used to store
@@ -29,6 +33,11 @@ public class Contig extends Attributes {
     public final String _id;
 
     /**
+     * Length of the contig's sequence.
+     */
+    private final int length;
+
+    /**
      * Sequence of this contig.
      * <p>
      * This field stores the nucleotide sequence of the contig. The sequence is expected to be stored as a GZIP-compressed string to
@@ -43,7 +52,7 @@ public class Contig extends Attributes {
      * <p>
      * The map organizes {@link Variant} instances by their positions to allow more efficient queries.
      */
-    private final TreeMap<Integer, HashMap<String, Variant>> variants;
+    private final NavigableMap<Integer, Map<String, Variant>> variants;
 
     /**
      * Cache to store the (sub-)sequence of this contig given a start and end position.
@@ -55,41 +64,37 @@ public class Contig extends Attributes {
      * This is not intended to be serialized, as it is dynamically populated during runtime to optimize performance by avoiding redundant
      * sequence decompression or retrieval.
      */
-    protected transient HashMap<Tuple<Integer, Integer>, String> cache;
+    transient Map<Tuple<Integer, Integer>, String> sequenceCache;
 
     /**
      * Constructs a new {@link Contig} instance with the specified sequence (optionally empty).
      * <p>
      * This constructor initializes a contig with its identifier and nucleotide sequence. The {@link #variants} map to store variant
-     * information and the {@link #cache} map to cache subsequences for optimized retrieval are initialized as empty instances. If a
+     * information and the {@link #sequenceCache} map to cache subsequences for optimized retrieval are initialized as empty instances. If a
      * non-empty sequence is provided, it is compressed using GZIP to reduce storage requirements.
      *
      * @param identifier The unique identifier for this contig, which is used to reference it in the context of a {@link Storage} instance.
      * @param sequence   The nucleotide sequence of the contig, stored as a GZIP-compressed string.
      * @throws IOException If an error occurs during the compression of the sequence.
      */
-    protected Contig(String identifier, String sequence) throws IOException {
+    Contig(String identifier, String sequence) throws IOException {
         super(); // Call the constructor of the parent class (Attributes).
         this._id = identifier; // Assign the unique identifier to the contig.
 
         String compressedSequence; // Variable to store the compressed sequence.
-        int length; // Variable to store the length of the sequence.
 
         // Check if the sequence is non-null and not empty.
         if (Objects.nonNull(sequence) && !sequence.isEmpty()) {
             compressedSequence = IO.gzipCompress(sequence); // Compress the sequence using GZIP.
-            length = sequence.length(); // Calculate the length of the sequence.
+            this.length = sequence.length(); // Calculate the length of the sequence.
         } else {
-            compressedSequence = Constants.empty; // Assign an empty string if the sequence is null or empty.
-            length = 0; // Set the length to 0 for an empty sequence.
+            compressedSequence = Constants.EMPTY; // Assign an empty string if the sequence is null or empty.
+            this.length = 0; // Set the length to 0 for an empty sequence.
         }
-
-        // Add the length of the sequence as an attribute to the contig.
-        addAttribute(Constants.Contig$length, String.valueOf(length));
 
         this.sequence = compressedSequence; // Store the compressed sequence.
         this.variants = new TreeMap<>(Integer::compare); // Initialize the map to store variants.
-        this.cache = new HashMap<>(); // Initialize the cache for subsequences.
+        this.sequenceCache = new HashMap<>(); // Initialize the cache for subsequences.
     }
 
     /**
@@ -117,7 +122,7 @@ public class Contig extends Attributes {
         if (hasSequence())
             return IO.gzipDecompress(this.sequence);
         else
-            return Constants.empty;
+            return Constants.EMPTY;
     }
 
     /**
@@ -135,41 +140,33 @@ public class Contig extends Attributes {
      * @return The subsequence of this contig, or an empty string if no sequence is stored.
      * @throws IOException If an error occurs during the decompression of the sequence.
      */
-    public String getSubsequence(int start, int end) throws IOException {
+    public String getSequence(int start, int end) throws IOException {
+        if (Objects.isNull(sequenceCache)) sequenceCache = new HashMap<>();
         if (hasSequence()) {
             Tuple<Integer, Integer> cacheKey = new Tuple<>(start, end);
-            if (cache.containsKey(cacheKey)) {
-                return cache.get(cacheKey);
+            if (sequenceCache.containsKey(cacheKey)) {
+                return sequenceCache.get(cacheKey);
             } else {
                 String subsequence = getSequence().substring(start - 1, end);
-                cache.put(cacheKey, subsequence);
+                sequenceCache.put(cacheKey, subsequence);
                 return subsequence;
             }
         } else {
-            return Constants.empty;
+            return Constants.EMPTY;
         }
     }
 
     /**
-     * Adds a new {@link Variant} to this contig at the specified position with the given alternative bases and reference bases.
+     * Retrieves the length of the contig's sequence.
      * <p>
-     * This method creates a new {@link Variant} instance with the specified alternative bases and reference bases, and adds it to the
-     * {@link #variants} map.
+     * This method returns the length of the nucleotide sequence associated with this contig. The length is determined during the
+     * initialization of the contig and reflects the number of bases in the sequence. If the contig does not have an associated sequence,
+     * the length is 0.
      *
-     * @param position    The 1-based position of the variant on the contig.
-     * @param reference   The reference base sequence of the variant.
-     * @param alternative The alternative base sequence of the variant.
-     * @return The newly created {@link Variant} instance.
+     * @return The length of the contig's sequence as an integer.
      */
-    protected Variant addVariant(int position, String reference, String alternative) {
-        Variant variant = new Variant(position, reference, alternative);
-        this.variants.computeIfAbsent(position, p -> new HashMap<>());
-        Variant v = this.variants.get(position).putIfAbsent(alternative, variant);
-        if (Objects.nonNull(v) && !variant.reference.equals(v.reference)) {
-            Logging.logWarning("Variant %s at position %d on contig %s occurred with different reference bases %s and %s."
-                    .formatted(alternative, position, _id, variant.reference, v.reference));
-        }
-        return variant;
+    public int getSequenceLength() {
+        return this.length;
     }
 
     /**
@@ -192,21 +189,21 @@ public class Contig extends Attributes {
      * Retrieves all variants associated with this contig.
      * <p>
      * This method flattens the {@code variants} map, which organizes variants by their positions, into a single list of {@link Variant}
-     * objects.
+     * objects. The returned list is unmodifiable.
      *
      * @return A {@link List} containing all {@link Variant} objects associated with this contig.
      */
     public List<Variant> getVariants() {
         return this.variants.values().stream()
                 .flatMap(variantMap -> variantMap.values().stream())
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
      * Retrieves variants within the specified range of positions.
      * <p>
      * This method retrieves variants from the {@code variants} map that fall within the specified start and end positions (inclusive of
-     * start, exclusive of end). The resulting variants are flattened into a single list.
+     * start, exclusive of end). The resulting variants are flattened into a single list. The returned list is unmodifiable.
      *
      * @param start The 1-based start position of the range (inclusive).
      * @param end   The 1-based end position of the range (exclusive).
@@ -215,14 +212,14 @@ public class Contig extends Attributes {
     public List<Variant> getVariants(int start, int end) {
         return this.variants.subMap(start, end + 1).values().stream()
                 .flatMap(variantMap -> variantMap.values().stream())
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
      * Retrieves variants based on the provided set of sample names.
      * <p>
      * This method filters the {@code variants} map to include only those variants that are associated with at least one of the specified
-     * sample names.
+     * sample names. The returned list is unmodifiable.
      *
      * @param relations A variable-length array of identifiers to filter the variants.
      * @return A {@link List} of {@link Variant} objects that match the specified sample names.
@@ -231,7 +228,7 @@ public class Contig extends Attributes {
         return this.variants.values().stream()
                 .flatMap(variantMap -> variantMap.values().stream())
                 .filter(variant -> Arrays.stream(relations).anyMatch(variant::hasRelation))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -239,7 +236,7 @@ public class Contig extends Attributes {
      * <p>
      * This method retrieves variants from the {@code variants} map that fall within the specified start and end positions (inclusive of
      * start, exclusive of end), and filters them to include only those variants that are associated with at least one of the specified
-     * sample names.
+     * sample names. The returned list is unmodifiable.
      *
      * @param start     The 1-based start position of the range (inclusive).
      * @param end       The 1-based end position of the range (exclusive).
@@ -250,7 +247,7 @@ public class Contig extends Attributes {
         return this.variants.subMap(start, end + 1).values().stream()
                 .flatMap(variantMap -> variantMap.values().stream())
                 .filter(variant -> Arrays.stream(relations).anyMatch(variant::hasRelation))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -266,23 +263,130 @@ public class Contig extends Attributes {
     }
 
     /**
-     * Reduces a list of {@link Variant} objects to a list of tuples containing their positions and alternative base sequences.
+     * Retrieves the set of variant effects for a given list of variant stubs.
      * <p>
-     * This method processes a list of {@link Variant} objects and maps each variant to a {@link Tuple} containing:
-     * <ul>
-     *   <li>The position of the variant ({@code variant.position}).</li>
-     *   <li>The alternative base sequence of the variant ({@code variant.alternative}).</li>
-     * </ul>
-     * The resulting tuples are collected into a list and returned.
+     * This method processes a list of {@link Variant.Stub} objects, retrieves the corresponding {@link Variant} objects from the contig,
+     * and extracts their associated effects. The effects are determined by accessing the attribute set of each variant using a predefined
+     * key.
+     * </p>
      *
-     * @param variants A list of {@link Variant} objects to be reduced.
-     * @return A {@link List} of {@link Tuple} objects, where each tuple contains the position and alternative base sequence of a variant.
+     * @param variants A {@link List} of {@link Variant.Stub} objects representing the variants to process.
+     * @return A {@link Set} of {@link String} containing the effects associated with the given variants.
      */
-    public static List<Tuple<Integer, String>> reduceVariants(List<Variant> variants) {
-        // Reduce the list of variants to a list of tuples containing position and canonical base string.
+    public Set<String> getVariantsEffects(List<Variant.Stub> variants) {
         return variants.stream()
-                .map(variant -> new Tuple<>(variant.position, variant.alternative))
-                .collect(Collectors.toList());
+                .map(v -> getVariant(v.position(), v.alternative())) // Retrieve the Variant object for each stub.
+                .filter(Objects::nonNull) // Ensure only non-null Variant objects are processed.
+                .flatMap(V -> V.getAttributeSet(Constants.SNP_EFF_PREFIX + Constants.SNP_EFF_KEYS.get(1)).stream())
+                .collect(Collectors.toSet()); // Collect the effects into a set to ensure uniqueness.
+    }
+
+    /**
+     * Adds a variant to the contig's variant map.
+     * <p>
+     * This method ensures that the {@code variants} map contains an entry for the specified position. If no entry exists, a new
+     * {@link HashMap} is created for that position. The method then adds the provided {@link Variant} to the map at the specified position,
+     * using the variant's alternative base sequence as the key. If a variant with the same alternative base sequence already exists at the
+     * position, it checks whether the reference base of the existing variant matches the new variant. If the reference bases differ, a
+     * warning is logged.
+     *
+     * @param variant The {@link Variant} object to be added to the contig's variant map.
+     */
+    void addVariant(Variant variant) {
+        this.variants.computeIfAbsent(variant.position, p -> new HashMap<>());
+        Variant previous = this.variants.get(variant.position).putIfAbsent(variant.alternative, variant);
+        if (Objects.nonNull(previous) && !variant.reference.equals(previous.reference)) {
+            Logging.logWarning((("Variant at position %d on contig %s with alternative '%s' already exists with a different reference " +
+                    "base" +
+                    "(%s and %s).").formatted(variant.position, this._id, variant.alternative, previous.reference, variant.reference)));
+        }
+    }
+
+    /**
+     * Returns the string representation of this contig.
+     * <p>
+     * This method overrides the {@code toString} method to return the unique identifier of the contig.
+     *
+     * @return The unique identifier of this contig as a {@link String}.
+     */
+    public String toString() {
+        return "%s%s%s".formatted(this._id, Constants.COLON, IO.md5Hash(this.sequence));
+    }
+
+    /**
+     * Computes the hash code for this contig.
+     * <p>
+     * This method overrides the {@code hashCode} method to compute the hash code based on the unique identifier of the contig.
+     *
+     * @return The hash code of this contig.
+     */
+    public int hashCode() {
+        return this._id.hashCode();
+    }
+
+    /**
+     * Compares this contig to another object for equality.
+     * <p>
+     * This method overrides the {@code equals} method to compare the unique identifier of this contig with another object. Two contigs are
+     * considered equal if they are of the same class and have the same unique identifier.
+     *
+     * @param obj The object to compare with this contig.
+     * @return {@code true} if the objects are equal; {@code false} otherwise.
+     */
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        Contig that = (Contig) obj;
+        return this._id.equals(that._id);
+    }
+
+    /**
+     * Creates a custom {@link TypeAdapter} for the {@link Contig} class.
+     * <p>
+     * This method defines a custom {@link TypeAdapter} to handle the serialization and deserialization of {@link Contig} objects. The
+     * adapter uses Gson's default adapter for most operations but adds custom behavior during deserialization to initialize the transient
+     * {@code cache} field.
+     *
+     * @return A {@link TypeAdapter} for the {@link Contig} class.
+     */
+    public static TypeAdapter<Contig> typeAdapter() {
+
+        return new TypeAdapter<>() {
+
+            // Default adapter for Contig objects provided by Gson
+            final TypeAdapter<Contig> defaultAdapter = new Gson().getAdapter(Contig.class);
+
+            /**
+             * Serializes a {@link Contig} object to JSON.
+             * <p>
+             * This method delegates the serialization process to the default adapter.
+             *
+             * @param out   The {@link JsonWriter} to write the JSON output.
+             * @param value The {@link Contig} object to serialize.
+             * @throws IOException If an I/O error occurs during writing.
+             */
+            @Override
+            public void write(JsonWriter out, Contig value) throws IOException {
+                defaultAdapter.write(out, value);
+            }
+
+            /**
+             * Deserializes a {@link Contig} object from JSON.
+             * <p>
+             * This method delegates the deserialization process to the default adapter and then initializes
+             * the transient {@code cache} field to ensure the {@link Contig} object is fully functional.
+             *
+             * @param in The {@link JsonReader} to read the JSON input.
+             * @return The deserialized {@link Contig} object.
+             * @throws IOException If an I/O error occurs during reading.
+             */
+            @Override
+            public Contig read(JsonReader in) throws IOException {
+                Contig contig = defaultAdapter.read(in); // Deserialize using the default adapter
+                contig.sequenceCache = new HashMap<>(); // Initialize the transient cache field
+                return contig;
+            }
+        };
     }
 
 }

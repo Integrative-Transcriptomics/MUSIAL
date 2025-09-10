@@ -1,18 +1,16 @@
 package model;
 
-import htsjdk.samtools.util.Tuple;
-import utility.Constants;
+import util.Bio;
+import util.Constants;
+import util.IO;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
- * Represents a sequence type with associated variants, samples, and attributes.
+ * Represents a sequence type with associated variants and attributes.
  * <p>
- * It extends the {@link Attributes} class to inherit functionality for managing attributes associated with the sample. This class is
- * extended by the {@link Feature.Allele} and {@link Feature.Proteoform} classes.
- * <p>
- * Sequence types are stored in the {@link Feature#alleles} and {@link Feature#proteoforms} properties of the model.
+ * It extends the {@link Attributes} class to inherit functionality for managing attributes associated with the sequence type. This class is
+ * extended by the {@link Allele} and {@link Proteoform} classes.
  */
 public class SequenceType extends Attributes {
 
@@ -28,106 +26,64 @@ public class SequenceType extends Attributes {
      * <p>
      * Navigable map of positions to canonical variants that define this sequence type.
      */
-    protected final NavigableMap<Integer, String> variants = new TreeMap<>();
+    private final NavigableMap<Integer, String> variants = new TreeMap<>();
 
     /**
-     * A set of sample names associated with this sequence type.
+     * Constructs a new {@link SequenceType} instance with the specified variants.
      * <p>
-     * This set is used to track which samples correspond to this sequence type.
-     */
-    protected final HashSet<String> samples = new HashSet<>();
-
-    /**
-     * Constructs a new {@link SequenceType} instance with the specified identifier and variants.
-     * <p>
-     * This constructor initializes the sequence type with a unique identifier and a list of variants. The variants are sorted by their
-     * positions in ascending order and then added to the {@link #variants} map.
+     * This constructor initializes the sequence type by processing a list of {@link Variant.Stub} objects. It calculates the sequence
+     * length deviation, generates a unique identifier for the sequence type, and populates the {@link #variants} map with the provided
+     * variants.
      *
-     * @param identifier The unique identifier for this sequence type.
-     * @param variants   A list of {@link Tuple} objects representing the variants, where each tuple contains:
-     *                   <ul>
-     *                     <li>{@code a}: The position of the variant.</li>
-     *                     <li>{@code b}: The variant's canonical base string.</li>
-     *                   </ul>
+     * @param variants A {@link List} of {@link Variant.Stub} objects representing the variants that define this sequence type.
      */
-    public SequenceType(String identifier, List<Tuple<Integer, String>> variants) {
+    SequenceType(List<Variant.Stub> variants) {
         super();
-        this._id = identifier;
-        variants.sort(Comparator.comparingInt(variant -> variant.a));
-        variants.forEach(variant ->
-                this.variants.put(variant.a, variant.b)
-        );
-    }
+        int lengthDelta = 0;
 
-    /**
-     * Associates a sample with this sequence type.
-     *
-     * @param sampleIdentifier The identifier of the sample to associate with this sequence type.
-     */
-    public void addRelation(String sampleIdentifier) {
-        this.samples.add(sampleIdentifier);
-    }
+        // Builds a unique identifier for the sequence type based on the variants.
+        StringBuilder identifierBuilder = new StringBuilder(variants.size() * String.valueOf(variants.get(0).position()).length());
 
-    /**
-     * Retrieves a collection of sample identifiers that are related to this sequence type.
-     *
-     * @return A collection of sample identifiers that are related to this sequence type.
-     */
-    public Collection<String> getRelatedSamples() {
-        return this.samples;
-    }
+        // Sorts the variants by their position in ascending order.
+        variants.sort(Comparator.comparingInt(Variant.Stub::position));
 
-    /**
-     * Retrieves the count of occurrences of this sequence type.
-     *
-     * @return The number of unique identifiers associated with this sequence type.
-     */
-    public int getRelatedSamplesCount() {
-        return this.samples.size();
-    }
+        // Processes each variant to populate the variants map and calculate the length deviation.
+        for (Variant.Stub stub : variants) {
+            this.variants.put(stub.position(), stub.alternative());
+            identifierBuilder.append(stub.position()).append(stub.alternative());
+            int variantLength = stub.alternative().length();
 
-    /**
-     * Checks if this sequence type is associated with an entity by its {@code identifier}.
-     *
-     * @param identifier Unique identifier to check for.
-     * @return {@code true} if the entity is associated with this sequence type, {@code false} otherwise.
-     */
-    public boolean hasRelation(String identifier) {
-        return this.samples.contains(identifier);
-    }
-
-    /**
-     * Retrieves the variant at the specified position associated with this sequence type.
-     * <p>
-     * This method looks up the variant at the given position in the {@link #variants} map. If a variant exists at the specified position,
-     * it returns the variant's canonical base string and returns {@code null} else.
-     *
-     * @param position The position to retrieve the variant for.
-     * @return The variant's canonical base string at the specified position, or {@code null} if no variant is present.
-     */
-    public String getVariant(int position) {
-        return this.variants.getOrDefault(position, null);
-    }
-
-    /**
-     * Retrieves a list of variants associated with this sequence type.
-     * <p>
-     * This method converts the {@link #variants} map, which stores positions as keys and alternate alleles as values, into a list of
-     * {@link Tuple} objects. Each tuple contains a position and its corresponding variant's canonical base string. If the map is empty, an
-     * empty list is returned.
-     *
-     * @return A {@link List} of {@link Tuple} objects, where each tuple represents a variant with its position and alternate allele.
-     */
-    public List<Tuple<Integer, String>> getVariants() {
-        // Convert the navigable map of variants to a list of tuples for easier access.
-        if (this.variants.isEmpty()) {
-            return Collections.emptyList();
+            // Updates the length deviation based on the type of variant (insertion or deletion).
+            lengthDelta += Bio.isInsertion(stub.alternative()) ? variantLength - 1 :
+                    Bio.isDeletion(stub.alternative()) ? -(variantLength - 1) : 0;
         }
-        List<Tuple<Integer, String>> variants = new ArrayList<>(this.variants.size());
-        for (Map.Entry<Integer, String> entry : this.variants.entrySet()) {
-            variants.add(new Tuple<>(entry.getKey(), entry.getValue()));
-        }
-        return variants;
+
+        // Appends each variant's position and alternative allele to the identifier builder.
+        variants.forEach(variant -> {
+            this.variants.put(variant.position(), variant.alternative());
+            identifierBuilder.append(variant.position()).append(variant.alternative());
+        });
+
+        // Generates a unique identifier for the sequence type using an MD5 hash of the identifier string.
+        this._id = IO.md5Hash(identifierBuilder.toString());
+
+        // Adds an attribute for the sequence length deviation.
+        addAttribute(Constants.AttributesKeys.SEQUENCE_LENGTH_DEVIATION, String.valueOf(lengthDelta));
+    }
+
+    /**
+     * Checks if a specific variant exists at the given position.
+     * <p>
+     * This method verifies whether a variant with the specified position and alternative allele is present in the {@link #variants} map. It
+     * first checks if the position exists as a key in the map and then compares the associated value (alternative allele) with the provided
+     * alternative allele.
+     *
+     * @param position    The position of the variant to check.
+     * @param alternative The alternative allele to check for at the specified position.
+     * @return {@code true} if the variant exists at the given position with the specified alternative allele; {@code false} otherwise.
+     */
+    public boolean hasVariant(int position, String alternative) {
+        return this.variants.containsKey(position) && this.variants.get(position).equals(alternative);
     }
 
     /**
@@ -136,48 +92,82 @@ public class SequenceType extends Attributes {
      * @param position The position to check for a variant.
      * @return {@code true} if a variant exists at the specified position, {@code false} otherwise.
      */
-    public boolean hasVariant(int position) {
+    public boolean hasVariantAt(int position) {
         return this.variants.containsKey(position);
     }
 
     /**
-     * Converts a list of variants to a string representation.
+     * Retrieves the alternative allele at the specified position.
      * <p>
-     * This method takes a list of {@link Tuple} objects, where each tuple contains a position and an alternate allele. It converts the list
-     * into a string representation in the format {@code (POS0)(ALT0).(POS1)(ALT1)...}.
+     * This method fetches the alternative allele for a given position from the {@link #variants} map. If no variant exists at the specified
+     * position, it returns {@code null}.
      *
-     * @param variants A list of {@link Tuple} objects representing the variants.
-     * @return A {@link String} representation of the variants in the format {@code (POS0)(ALT0).(POS1)(ALT1)...}.
+     * @param position The position of the variant to retrieve.
+     * @return The alternative allele as a {@link String}, or {@code null} if no variant exists at the position.
      */
-    public static String variantsToString(List<Tuple<Integer, String>> variants) {
-        return variants.stream()
-                .map(v -> v.a + v.b)
-                .collect(Collectors.joining(Constants.dot));
+    public String getVariant(int position) {
+        return this.variants.getOrDefault(position, null);
     }
 
     /**
-     * Computes the net shift in sequence length caused by variants.
+     * Retrieves a variant object for a specific position and contig.
      * <p>
-     * This method calculates the cumulative effect of insertions and deletions on the sequence length. Each variant is analyzed to
-     * determine whether it represents an insertion or a deletion:
-     * <ul>
-     *   <li>If the variant is an insertion, its length (number of bases minus one) is added to the net shift.</li>
-     *   <li>If the variant is a deletion, its length (number of bases minus one) is subtracted from the net shift.</li>
-     *   <li>Other types of variants do not affect the net shift.</li>
-     * </ul>
+     * This method fetches the alternative allele at the specified position from the {@link #variants} map. If the alternative allele
+     * exists, it retrieves the corresponding {@link Variant} object from the provided {@link Contig}. If no alternative allele exists at
+     * the position, it returns {@code null}.
      *
-     * @param variants A list of {@link Tuple} objects, where each tuple contains:
-     *                 <ul>
-     *                   <li>{@code a}: The position of the variant (not used in this method).</li>
-     *                   <li>{@code b}: The alternate allele of the variant.</li>
-     *                 </ul>
-     * @return The net shift in sequence length as an {@code int}.
+     * @param position The position of the variant to retrieve.
+     * @param contig   The {@link Contig} object to retrieve the variant from.
+     * @return The {@link Variant} object, or {@code null} if no variant exists at the position.
      */
-    protected static int computeLengthVariation(List<Tuple<Integer, String>> variants) {
-        return variants.stream().mapToInt(variant -> {
-            int length = variant.b.length() - 1;
-            return Variant.isInsertion(variant.b) ? length :
-                    Variant.isDeletion(variant.b) ? -length : 0;
-        }).sum();
+    Variant getVariant(int position, Contig contig) {
+        String alternative = this.variants.getOrDefault(position, null);
+        if (alternative == null) return null;
+        return contig.getVariant(position, alternative);
     }
+
+    /**
+     * Retrieves all variants as stubs.
+     * <p>
+     * Converts the {@link #variants} map into a list of {@link Variant.Stub} objects, where each stub contains the position and alternative
+     * allele. Returns an empty list if no variants exist. The resulting list is unmodifiable.
+     *
+     * @return An unmodifiable {@link List} of {@link Variant.Stub} objects.
+     */
+    public List<Variant.Stub> getVariants() {
+        if (this.variants.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Convert map entries to Variant.Stub objects and collect into a list
+        return Collections.unmodifiableList(
+                this.variants.entrySet().stream()
+                        .map(entry -> new Variant.Stub(entry.getKey(), entry.getValue()))
+                        .toList()
+        );
+    }
+
+    /**
+     * Retrieves all variants as full objects for a specific contig.
+     * <p>
+     * Converts the {@link #variants} map into a list of {@link Variant} objects by fetching the corresponding variant from the provided
+     * {@link Contig}. Returns an unmodifiable list to ensure immutability.
+     *
+     * @param contig The {@link Contig} object to retrieve the variants from.
+     * @return A {@link List} of {@link Variant} objects representing all variants for the contig.
+     */
+    List<Variant> getVariants(Contig contig) {
+        if (this.variants.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Map entries to Variant objects, filter non-null, and collect into a list
+        return Collections.unmodifiableList(
+                this.variants.entrySet().stream()
+                        .map(entry -> contig.getVariant(entry.getKey(), entry.getValue()))
+                        .filter(Objects::nonNull)
+                        .toList()
+        );
+    }
+
 }

@@ -1,33 +1,112 @@
 package model;
 
-import utility.Constants;
+import util.Constants;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
  * Base class for entities to store arbitrary attributes as {@link String}s.
  * <p>
- * This class provides methods to manage attributes associated with an entity. Attributes are stored as key-value pairs in a
- * {@link TreeMap}, allowing efficient retrieval, addition, extension, and removal of such. It also supports operations like checking for
- * the existence of attributes and converting attributes to a string representation.
+ * This class provides methods to manage attributes associated with an entity. Attributes are stored as key-value pairs in a {@link Map},
+ * allowing efficient retrieval, addition, extension, and removal of such. It also supports operations like checking for the existence of
+ * attributes and converting attributes to a string representation.
  */
 public class Attributes {
 
     /**
      * Attributes associated with this entity, stored as key-value pairs.
      */
-    private final TreeMap<String, String> attributes = new TreeMap<>();
+    private final Map<String, String> attributes = new HashMap<>();
 
     /**
      * Constructor of {@link Attributes}.
      * <p>
      * Initializes an empty attributes map for the entity.
      */
-    protected Attributes() {
+    Attributes() {
+    }
+
+    /**
+     * Checks if an attribute with the specified key exists in this entity.
+     *
+     * @param key The key of the attribute to query.
+     * @return {@code true} if the attribute exists, {@code false} otherwise.
+     */
+    public boolean hasAttribute(String key) {
+        return this.attributes.containsKey(key);
+    }
+
+    /**
+     * Checks if this entity has any attribute.
+     *
+     * @return {@code true} if at least one attribute exists, {@code false} otherwise.
+     */
+    public boolean hasAnyAttribute() {
+        return !this.attributes.isEmpty();
+    }
+
+    /**
+     * Retrieves the value of an attribute associated with this entity. If the attribute does not exist, {@link Constants#EMPTY} is
+     * returned.
+     *
+     * @param key The key of the attribute to retrieve.
+     * @return The value of the attribute, or {@link Constants#EMPTY} if the attribute does not exist.
+     */
+    public String getAttribute(String key) {
+        return this.attributes.getOrDefault(key, Constants.EMPTY);
+    }
+
+    /**
+     * Retrieves the value of an attribute as a collection of strings.
+     * <p>
+     * This method fetches the value of the specified attribute key from the attributes map. The value is split into individual elements
+     * using a comma (`,`) as the delimiter. If the attribute does not exist, an empty collection is returned.
+     *
+     * @param key The key of the attribute to retrieve.
+     * @return A {@link Set} of strings representing the split values of the attribute, or an empty set if the attribute does not exist.
+     */
+    public Set<String> getAttributeSet(String key) {
+        return Arrays.stream(this.attributes.getOrDefault(key, Constants.EMPTY).split(Constants.COMMA))
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    /**
+     * Retrieves all attributes associated with this entity.
+     * <p>
+     * This method provides an unmodifiable view of the attributes map, ensuring that the original map cannot be modified externally. The
+     * attributes are stored as key-value pairs, where both the key and value are {@link String}.
+     *
+     * @return An unmodifiable {@link Map} containing all attributes associated with this entity.
+     */
+    public Map<String, String> getAttributes() {
+        return Collections.unmodifiableMap(this.attributes);
+    }
+
+    /**
+     * Converts the attributes of this entity to a string representation..
+     *
+     * @param separator The separator to use between key-value pairs.
+     * @return A string representation of the attributes.
+     */
+    public String attributesAsString(String separator) {
+        return this.attributes.entrySet().stream()
+                .map(entry -> entry.getKey() + Constants.EQUAL + entry.getValue())
+                .collect(Collectors.joining(separator));
+    }
+
+    /**
+     * Converts the attributes of this entity to a string representation, excluding attributes with keys in the specified collection.
+     *
+     * @param except    A collection of keys to exclude from the string representation.
+     * @param separator The separator to use between key-value pairs.
+     * @return A string representation of the attributes, excluding the specified keys.
+     */
+    public String attributesAsString(Collection<String> except, String separator) {
+        return this.attributes.entrySet().stream()
+                .filter(entry -> !except.contains(entry.getKey()))
+                .map(entry -> entry.getKey() + Constants.EQUAL + entry.getValue())
+                .collect(Collectors.joining(separator));
     }
 
     /**
@@ -79,7 +158,7 @@ public class Attributes {
         String currentValue = this.attributes.get(key);
         if (currentValue != null) {
             if (!currentValue.contains(value)) {
-                this.attributes.put(key, currentValue + Constants.comma + value);
+                this.attributes.put(key, currentValue + Constants.COMMA + value);
             }
         } else {
             this.attributes.put(key, value);
@@ -96,64 +175,9 @@ public class Attributes {
     }
 
     /**
-     * Retrieves the value of an attribute associated with this entity. If the attribute does not exist, {@link Constants#empty} is
-     * returned.
-     *
-     * @param key The key of the attribute to retrieve.
-     * @return The value of the attribute, or {@link Constants#empty} if the attribute does not exist.
-     */
-    public String getAttribute(String key) {
-        return this.attributes.getOrDefault(key, Constants.empty);
-    }
-
-    /**
-     * Retrieves the value of an attribute as a collection of strings.
-     * <p>
-     * The attribute value is split into individual elements using the comma (`,`) as a delimiter. If the attribute does not exist, an empty
-     * collection is returned.
-     *
-     * @param key The key of the attribute to retrieve.
-     * @return A collection of strings representing the split values of the attribute, or an empty collection if the attribute does not
-     * exist.
-     */
-    public Collection<String> getAttributeAsCollection(String key) {
-        return Arrays.stream(this.attributes.getOrDefault(key, Constants.empty).split(Constants.comma))
-                .collect(Collectors.toSet());
-    }
-
-    /**
-     * Retrieves all attributes associated with this entity.
-     *
-     * @return A map of all attributes.
-     */
-    public Map<String, String> getAttributes() {
-        return this.attributes;
-    }
-
-    /**
-     * Checks if an attribute with the specified key exists in this entity.
-     *
-     * @param key The key of the attribute to query.
-     * @return {@code true} if the attribute exists, {@code false} otherwise.
-     */
-    public boolean hasAttribute(String key) {
-        return this.attributes.containsKey(key);
-    }
-
-    /**
-     * Checks if this entity has any attributes.
-     *
-     * @return {@code true} if at least one attribute exists, {@code false} otherwise.
-     */
-    public boolean hasAttributes() {
-        return !this.attributes.isEmpty();
-    }
-
-    /**
      * Removes an attribute with the specified key from this entity.
      *
      * @param key The key of the attribute to remove.
-     * @noinspection unused
      */
     public void removeAttribute(String key) {
         this.attributes.remove(key);
@@ -161,36 +185,9 @@ public class Attributes {
 
     /**
      * Removes all attributes from this entity.
-     *
-     * @noinspection unused
      */
     public void clearAttributes() {
         this.attributes.clear();
     }
 
-    /**
-     * Converts the attributes of this entity to a string representation..
-     *
-     * @param separator The separator to use between key-value pairs.
-     * @return A string representation of the attributes.
-     */
-    public String attributesAsString(String separator) {
-        return this.attributes.entrySet().stream()
-                .map(entry -> entry.getKey() + Constants.equal + entry.getValue())
-                .collect(Collectors.joining(separator));
-    }
-
-    /**
-     * Converts the attributes of this entity to a string representation, excluding attributes with keys in the specified collection.
-     *
-     * @param except    A collection of keys to exclude from the string representation.
-     * @param separator The separator to use between key-value pairs.
-     * @return A string representation of the attributes, excluding the specified keys.
-     */
-    public String attributesAsString(Collection<String> except, String separator) {
-        return this.attributes.entrySet().stream()
-                .filter(entry -> !except.contains(entry.getKey()))
-                .map(entry -> entry.getKey() + Constants.equal + entry.getValue())
-                .collect(Collectors.joining(separator));
-    }
 }

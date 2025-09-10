@@ -1,4 +1,4 @@
-package utility;
+package util;
 
 import main.Musial;
 
@@ -15,6 +15,12 @@ import java.util.logging.*;
  * includes a method to print software information and a set to manage warning keys to prevent excessive logging.
  */
 public final class Logging {
+
+    /**
+     * Private constructor to prevent instantiation of this utility class.
+     */
+    private Logging() {
+    }
 
     /**
      * Set to keep track of logged warnings to avoid duplicate messages.

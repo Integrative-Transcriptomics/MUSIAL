@@ -1,9 +1,10 @@
-package utility;
+package util;
 
 import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;
 import model.Contig;
 import model.Feature;
+import model.Variant;
 import org.apache.commons.lang3.tuple.Triple;
 import org.biojava.nbio.core.sequence.DNASequence;
 import org.biojava.nbio.core.sequence.compound.AmbiguityDNACompoundSet;
@@ -14,18 +15,22 @@ import org.biojava.nbio.core.sequence.transcription.Frame;
 import org.biojava.nbio.core.sequence.transcription.TranscriptionEngine;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.NavigableMap;
-import java.util.Objects;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
- * Utility class for performing various sequence operations.
+ * Utility class for performing various sequence related operations.
  * <p>
  * This class provides static methods for sequence alignment, variant integration, sequence translation, and other related operations. It
  * includes methods for handling nucleotide and protein sequences, as well as utilities for working with gaps and variants.
  */
-public final class SequenceOperations {
+public final class Bio {
+
+    /**
+     * Private constructor to prevent instantiation of this utility class.
+     */
+    private Bio() {
+    }
 
     /**
      * A transcription engine for translating DNA sequences.
@@ -33,7 +38,7 @@ public final class SequenceOperations {
      * See <a href="https://github.com/biojava/biojava-tutorial/blob/master/core/translating.md">https://github
      * .com/biojava/biojava-tutorial/blob/master/core/translating.md</a>
      */
-    private final static TranscriptionEngine transcriptionEngine = new TranscriptionEngine.Builder()
+    private static final TranscriptionEngine transcriptionEngine = new TranscriptionEngine.Builder()
             .dnaCompounds(AmbiguityDNACompoundSet.getDNACompoundSet())
             .rnaCompounds(AmbiguityRNACompoundSet.getRNACompoundSet())
             .build();
@@ -45,7 +50,7 @@ public final class SequenceOperations {
      * translations. The key is the hash code of the translation request (including sequence and direction), and the value is the translated
      * amino acid sequence.
      */
-    private final static HashMap<Integer, String> translationCache = new HashMap<>();
+    private static final HashMap<Integer, String> translationCache = new HashMap<>();
 
     /**
      * Computes optimal pairwise global nucleotide sequence alignment using a gap-affine (Gotoh) banded Needleman-Wunsch algorithm.
@@ -58,7 +63,7 @@ public final class SequenceOperations {
      * @param gapExtendPenalty The penalty for extending an existing gap in the alignment.
      * @param noGapPrefix      Prevent (if true) gaps at the beginning of the aligned sequences.
      * @param noGapSuffix      Prevent (if true) gaps at the end of the aligned sequences.
-     * @param bandWidth        The width of the band for banded alignment; if <= 0, the full length of sequence B is used.
+     * @param bandWidth        The width of the band for banded alignment; if below or equal to 0, the full length of sequence B is used.
      * @return A {@link Tuple} containing the aligned sequences.
      */
     public static Tuple<String, String> globalNucleotideSequenceAlignment(String sequenceA, String sequenceB, int gapOpenPenalty,
@@ -93,7 +98,7 @@ public final class SequenceOperations {
      * @param gapExtendPenalty The penalty for extending an existing gap in the alignment.
      * @param noGapPrefix      Prevent (if true) gaps at the beginning of the aligned sequences.
      * @param noGapSuffix      Prevent (if true) gaps at the end of the aligned sequences.
-     * @param bandWidth        The width of the band for banded alignment; if <= 0, the full length of sequence B is used.
+     * @param bandWidth        The width of the band for banded alignment; if below or equal to 0, the full length of sequence B is used.
      * @return A {@link Tuple} containing the aligned sequences.
      */
     public static Tuple<String, String> globalProteinSequenceAlignment(String sequenceA, String sequenceB, int gapOpenPenalty,
@@ -185,9 +190,9 @@ public final class SequenceOperations {
                                                                  int bandWidth) {
         // Check if either sequence is empty and return accordingly.
         if (sequenceA.isEmpty())
-            return new Tuple<>(Constants.gap.repeat(sequenceB.length()), sequenceB);
+            return new Tuple<>(Constants.GAP.repeat(sequenceB.length()), sequenceB);
         if (sequenceB.isEmpty())
-            return new Tuple<>(sequenceA, Constants.gap.repeat(sequenceA.length()));
+            return new Tuple<>(sequenceA, Constants.GAP.repeat(sequenceA.length()));
 
         // Define constants for the algorithm.
         final int MIN = Integer.MIN_VALUE / 2;
@@ -286,13 +291,13 @@ public final class SequenceOperations {
         while (i > 0 || j > 0) {
             if (i == 0) {
                 // Add a gap in sequence A.
-                alignedA.append(Constants.gap);
+                alignedA.append(Constants.GAP);
                 alignedB.append(symbolsB[j - 1]);
                 j--;
             } else if (j == 0) {
                 // Add a gap in sequence B.
                 alignedA.append(symbolsA[i - 1]);
-                alignedB.append(Constants.gap);
+                alignedB.append(Constants.GAP);
                 i--;
             } else {
                 // Determine the current direction and update indices accordingly
@@ -318,14 +323,14 @@ public final class SequenceOperations {
                             matrix = "D";
                         }
                         alignedA.append(symbolsA[i - 1]);
-                        alignedB.append(Constants.gap);
+                        alignedB.append(Constants.GAP);
                         i--;
                     }
                     case "Q" -> {
                         if (Q[i][j] == D[i][j - 1] - gapOpenPenalty - gapExtendPenalty) {
                             matrix = "D";
                         }
-                        alignedA.append(Constants.gap);
+                        alignedA.append(Constants.GAP);
                         alignedB.append(symbolsB[j - 1]);
                         j--;
                     }
@@ -342,7 +347,7 @@ public final class SequenceOperations {
     /**
      * Pads a string with gap characters to reach a specified length.
      * <p>
-     * This method appends gap characters (defined by {@link Constants#gap}) to the input string until it reaches the desired length. If the
+     * This method appends gap characters (defined by {@link Constants#GAP}) to the input string until it reaches the desired length. If the
      * input string is already equal to or longer than the specified length, no padding is added.
      *
      * @param s      The input string to be padded.
@@ -350,20 +355,20 @@ public final class SequenceOperations {
      * @return The padded string, or the original string if no padding is needed.
      */
     public static String padGaps(String s, int length) {
-        return s + Constants.gap.repeat(Math.max(0, length - s.length()));
+        return s + Constants.GAP.repeat(Math.max(0, length - s.length()));
     }
 
     /**
      * Removes all gap characters from the input string.
      * <p>
-     * This method replaces all occurrences of the gap character (defined by {@link Constants#gap}) in the input string with an empty string
-     * (defined by {@link Constants#empty}).
+     * This method replaces all occurrences of the gap character (defined by {@link Constants#GAP}) in the input string with an empty string
+     * (defined by {@link Constants#EMPTY}).
      *
      * @param s The input string from which gaps should be removed.
      * @return A new string with all gap characters removed.
      */
     public static String stripGaps(String s) {
-        return s.replaceAll(Constants.gap, Constants.empty);
+        return s.replaceAll(Constants.GAP, Constants.EMPTY);
     }
 
     /**
@@ -392,7 +397,7 @@ public final class SequenceOperations {
         }
 
         // Initialize variables for processing.
-        char[] referenceChars = contig.getSubsequence(feature.start, feature.end).toCharArray();
+        char[] referenceChars = contig.getSequence(feature.start, feature.end).toCharArray();
         StringBuilder result = new StringBuilder(referenceChars.length);
         int deletionCount = 0;
 
@@ -403,7 +408,7 @@ public final class SequenceOperations {
 
                 // Handle upstream deletions.
                 if (deletionCount > 0) {
-                    result.append(Constants.gap);
+                    result.append(Constants.GAP);
                     deletionCount--;
                     Logging.logDebug("Skip variant %s at position %d due to upstream deletion.".formatted(variant, pos));
                     continue;
@@ -420,7 +425,7 @@ public final class SequenceOperations {
             } else {
                 // Handle gaps from deletions or append reference character.
                 if (deletionCount > 0) {
-                    result.append(Constants.gap);
+                    result.append(Constants.GAP);
                     deletionCount--;
                 } else {
                     result.append(referenceChars[idx]);
@@ -442,7 +447,7 @@ public final class SequenceOperations {
      * @throws MusialException If an error occurs during translation.
      */
     public static String translateSequence(String sequence, boolean reverse) throws MusialException {
-        if (sequence.isEmpty()) return Constants.empty;
+        if (sequence.isEmpty()) return Constants.EMPTY;
         String cachedTranslationKey = "%s-%s".formatted(reverse ? "rev" : "fwd", sequence);
         // Check if the translation result is already cached.
         if (translationCache.containsKey(cachedTranslationKey.hashCode())) {
@@ -460,10 +465,10 @@ public final class SequenceOperations {
             // Add translated stop codon if present at the end of the sequence.
             if (reverse) {
                 if (sequence.startsWith("CTA") || sequence.startsWith("TTA") || sequence.startsWith("TCA"))
-                    translatedSequence += Constants.stopCodon;
+                    translatedSequence += Constants.TERMINAL_AA;
             } else {
                 if (sequence.endsWith("TAG") || sequence.endsWith("TAA") || sequence.endsWith("TGA"))
-                    translatedSequence += Constants.stopCodon;
+                    translatedSequence += Constants.TERMINAL_AA;
             }
             // Cache the translation result.
             translationCache.put(cachedTranslationKey.hashCode(), translatedSequence);
@@ -506,7 +511,7 @@ public final class SequenceOperations {
                 }
                 isSubstitution = isInsertion = isDeletion = ambiguousSwitch = false;
                 lastNonGapIndex = i;
-            } else if (referenceChars[i] == Constants.gapChar) { // Insertion:
+            } else if (referenceChars[i] == Constants.GAP_CHAR) { // Insertion:
                 if (isDeletion) {
                     if (!ambiguousSwitch) Logging.logWarning("Skip variant %s > %s due to ambiguous deletion to insertion switch."
                             .formatted(reference, alternative));
@@ -517,13 +522,13 @@ public final class SequenceOperations {
                         referenceBuilder.append(referenceChars[lastNonGapIndex]);
                         alternativeBuilder.append(alternativeChars[lastNonGapIndex]);
                     }
-                    referenceBuilder.append(Constants.gapChar);
+                    referenceBuilder.append(Constants.GAP_CHAR);
                     alternativeBuilder.append(alternativeChars[i]);
                     isSubstitution = false;
                     isInsertion = true;
                 }
                 noInsertions++;
-            } else if (alternativeChars[i] == Constants.gapChar) { // Deletion
+            } else if (alternativeChars[i] == Constants.GAP_CHAR) { // Deletion
                 if (isInsertion) {
                     if (!ambiguousSwitch) Logging.logWarning("Skip variant %s > %s due to ambiguous deletion to insertion switch."
                             .formatted(reference, alternative));
@@ -535,7 +540,7 @@ public final class SequenceOperations {
                         alternativeBuilder.append(alternativeChars[lastNonGapIndex]);
                     }
                     referenceBuilder.append(referenceChars[i]);
-                    alternativeBuilder.append(Constants.gapChar);
+                    alternativeBuilder.append(Constants.GAP_CHAR);
                     isSubstitution = false;
                     isDeletion = true;
                 }
@@ -557,5 +562,166 @@ public final class SequenceOperations {
             variants.add(Triple.of(relativeStartPosition, referenceBuilder.toString(), alternativeBuilder.toString()));
         }
         return variants;
+    }
+
+    /**
+     * Determines whether a variant is a substitution; i.e., both the reference and alternative base content match a single base of
+     * {@link Constants#BASE_SYMBOLS}.
+     *
+     * @param ref The reference base content.
+     * @param alt The alternative base content.
+     * @return {@code true} if the variant is a substitution, {@code false} otherwise.
+     */
+    public static boolean isSubstitution(String ref, String alt) {
+        return ref.matches("^[%s]$".formatted(Constants.BASE_SYMBOLS))
+                && isSubstitution(alt);
+    }
+
+    /**
+     * Determines whether a given alternative base content represents a substitution.
+     * <p>
+     * A substitution is defined as a single base from the set of valid nucleotide symbols defined in {@link Constants#BASE_SYMBOLS}.
+     *
+     * @param alt The alternative base content to check.
+     * @return {@code true} if the alternative content represents a substitution, {@code false} otherwise.
+     */
+    public static boolean isSubstitution(String alt) {
+        return alt.matches("^[%s]$".formatted(Constants.BASE_SYMBOLS));
+    }
+
+    /**
+     * Determines whether a variant is an insertion, i.e.,
+     * <ul>
+     *     <li>either the alternative base content is a string of any length of {@link Constants#BASE_SYMBOLS}
+     *     and the reference base content is a single base of {@link Constants#BASE_SYMBOLS} followed by {@link Constants#GAP}s
+     *     matching the alternative content's length (padded canonical),</li>
+     *     <li>or the reference base content is a single base of {@link Constants#BASE_SYMBOLS} and the alternative
+     *     content is a string of any length of {@link Constants#BASE_SYMBOLS} (un-padded canonical).</li>
+     * </ul>
+     *
+     * @param ref    The reference base content.
+     * @param alt    The alternative base content.
+     * @param padded Whether the variant is padded by gap symbols.
+     * @return {@code true} if the variant is an insertion, {@code false} otherwise.
+     */
+    public static boolean isInsertion(String ref, String alt, boolean padded) {
+        if (padded) {
+            return ref.length() == alt.length()
+                    && ref.matches("^[%s]%s+$".formatted(Constants.BASE_SYMBOLS, Constants.GAP))
+                    && isInsertion(alt);
+        } else {
+            return ref.length() == 1
+                    && alt.length() > 1
+                    && ref.matches("^[%s]$".formatted(Constants.BASE_SYMBOLS))
+                    && alt.matches("^[%s]+$".formatted(Constants.BASE_SYMBOLS));
+        }
+    }
+
+    /**
+     * Determines whether a variant is an insertion based on its alternative content.
+     * <p>
+     * This method checks if the alternative base content represents an insertion. An insertion is defined as a string of at least two
+     * consecutive bases from the set of valid nucleotide symbols defined in {@link Constants#BASE_SYMBOLS}.
+     *
+     * @param alt The alternative base content to check.
+     * @return {@code true} if the alternative content represents an insertion, {@code false} otherwise.
+     */
+    public static boolean isInsertion(String alt) {
+        return alt.matches("^[%s]{2,}$".formatted(Constants.BASE_SYMBOLS));
+    }
+
+    /**
+     * Determines whether a variant is a deletion, i.e.,
+     * <ul>
+     *     <li>either the reference base content is a string of any length of {@link Constants#BASE_SYMBOLS}
+     *     and the alternative base content is a single base of {@link Constants#BASE_SYMBOLS} followed by {@link Constants#GAP}s
+     *     matching the reference content's length (padded canonical),</li>
+     *     <li>or the reference base content is a string of any length of {@link Constants#BASE_SYMBOLS} and the
+     *     alternative content is a single base of {@link Constants#BASE_SYMBOLS} (un-padded canonical).</li>
+     * </ul>
+     *
+     * @param ref    The reference base content.
+     * @param alt    The alternative base content.
+     * @param padded Whether the variant is padded by gap symbols.
+     * @return {@code true} if the variant is a deletion, {@code false} otherwise.
+     */
+    public static boolean isDeletion(String ref, String alt, boolean padded) {
+        if (padded) {
+            return ref.length() == alt.length()
+                    && ref.matches("^[%s]+$".formatted(Constants.BASE_SYMBOLS))
+                    && isDeletion(alt);
+        } else {
+            return ref.length() > 1
+                    && alt.length() == 1
+                    && ref.matches("^[%s]+$".formatted(Constants.BASE_SYMBOLS))
+                    && alt.matches("^[%s]$".formatted(Constants.BASE_SYMBOLS));
+        }
+    }
+
+    /**
+     * Determines whether a variant is a deletion based on its alternative content.
+     * <p>
+     * This method checks if the alternative base content represents a deletion. A deletion is defined as a string that starts with a valid
+     * nucleotide base (from {@link Constants#BASE_SYMBOLS}) followed by one or more gap symbols (defined in {@link Constants#GAP}).
+     *
+     * @param alt The alternative base content to check.
+     * @return {@code true} if the alternative content represents a deletion, {@code false} otherwise.
+     */
+    public static boolean isDeletion(String alt) {
+        return alt.matches("^[%s]%s+$".formatted(Constants.BASE_SYMBOLS, Constants.GAP));
+    }
+
+    /**
+     * Determines whether a variant is canonical.
+     * <p>
+     * A variant is canonical if it is:
+     * <ul>
+     *     <li>a single nucleotide variant (SNV) ({@link #isSubstitution}),</li>
+     *     <li>an un-padded canonical insertion ({@link #isInsertion}), or</li>
+     *     <li>an un-padded canonical deletion ({@link #isDeletion}).</li>
+     * </ul>
+     *
+     * @param referenceContent   The reference base content.
+     * @param alternativeContent The alternative base content.
+     * @return {@code true} if the variant is canonical, {@code false} otherwise.
+     */
+    public static boolean isCanonicalVariant(String referenceContent, String alternativeContent) {
+        return isSubstitution(referenceContent, alternativeContent)
+                || isInsertion(referenceContent, alternativeContent, false)
+                || isDeletion(referenceContent, alternativeContent, false);
+    }
+
+    /**
+     * Determines whether a variant is padded canonical.
+     * <p>
+     * A variant is padded canonical if it is:
+     * <ul>
+     *     <li>a single nucleotide variant (SNV) ({@link #isSubstitution}),</li>
+     *     <li>a padded canonical insertion ({@link #isInsertion}), or</li>
+     *     <li>a padded canonical deletion ({@link #isDeletion}).</li>
+     * </ul>
+     *
+     * @param referenceContent   The reference base content.
+     * @param alternativeContent The alternative base content.
+     * @return {@code true} if the variant is padded canonical, {@code false} otherwise.
+     */
+    public static boolean isPaddedCanonicalVariant(String referenceContent, String alternativeContent) {
+        return isSubstitution(referenceContent, alternativeContent)
+                || isInsertion(referenceContent, alternativeContent, true)
+                || isDeletion(referenceContent, alternativeContent, true);
+    }
+
+    /**
+     * Reduces a list of {@link Variant} objects to a mutable list of {@link Variant.Stub}s.
+     * <p>
+     * This method processes a list of {@link Variant} objects and maps each variant to a {@link Variant.Stub} containing only the position
+     * and alternative base sequence of the variant.
+     *
+     * @param variants A list of {@link Variant} objects to be reduced.
+     * @return A {@link List} of {@link Variant.Stub} objects.
+     */
+    public static List<Variant.Stub> variantsAsStub(List<Variant> variants) {
+        // Reduce the list of variants to a list of tuples containing position and canonical base string.
+        return variants.stream().map(Variant::toStub).collect(Collectors.toList());
     }
 }
