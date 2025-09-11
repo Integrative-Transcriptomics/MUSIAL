@@ -417,55 +417,5 @@ public class Sample extends Attributes {
         Sample that = (Sample) obj;
         return this._id.equals(that._id);
     }
-
-    /**
-     * Creates a custom {@link TypeAdapter} for the {@link Sample} class.
-     * <p>
-     * This method defines a custom {@link TypeAdapter} to handle the serialization and deserialization of {@link Sample} objects. The
-     * adapter uses Gson's default adapter for most operations but adds custom behavior during deserialization to initialize the transient
-     * {@link #novelCalls} field.
-     *
-     * @return A {@link TypeAdapter} for the {@link Sample} class.
-     */
-    public static TypeAdapter<Sample> typeAdapter() {
-
-        return new TypeAdapter<>() {
-
-            // Default adapter for Sample objects provided by Gson
-            final TypeAdapter<Sample> defaultAdapter = new Gson().getAdapter(Sample.class);
-
-            /**
-             * Serializes a {@link Sample} object to JSON.
-             * <p>
-             * This method delegates the serialization process to the default adapter.
-             *
-             * @param out   The {@link JsonWriter} to write the JSON output.
-             * @param value The {@link Sample} object to serialize.
-             * @throws IOException If an I/O error occurs during writing.
-             */
-            @Override
-            public void write(JsonWriter out, Sample value) throws IOException {
-                defaultAdapter.write(out, value);
-            }
-
-            /**
-             * Deserializes a {@link Sample} object from JSON.
-             * <p>
-             * This method delegates the deserialization process to the default adapter and then initializes
-             * the transient {@code cache} field to ensure the {@link Sample} object is fully functional.
-             *
-             * @param in The {@link JsonReader} to read the JSON input.
-             * @return The deserialized {@link Sample} object.
-             * @throws IOException If an I/O error occurs during reading.
-             */
-            @Override
-            public Sample read(JsonReader in) throws IOException {
-                Sample sample = defaultAdapter.read(in); // Deserialize using the default adapter
-                sample.novelCalls = new HashMap<>();
-                sample.upstreamDeletion = null;
-                return sample;
-            }
-        };
-    }
-
+    
 }

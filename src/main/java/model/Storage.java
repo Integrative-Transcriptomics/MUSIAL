@@ -663,6 +663,8 @@ public class Storage {
             @Override
             public Storage read(JsonReader in) throws IOException {
                 Storage storage = defaultAdapter.read(in); // Deserialize using the default adapter
+
+                // Initialize transient fields of the Storage object.
                 storage.novelVariants = new ArrayList<>(); // Initialize the transient cache field
                 try { // Build IndexedFastaSequenceFile from contigs if they have non-empty sequences
                     if (!storage.contigs.isEmpty()) {
@@ -689,6 +691,16 @@ public class Storage {
                 } catch (Exception e) {
                     throw new IOException("Failed to build IndexedFastaSequenceFile from contigs.", e);
                 }
+
+                // Initialize the transient sequence cache for each contig in the storage.
+                storage.contigs.values().forEach(contig -> contig.sequenceCache = new HashMap<>());
+
+                // Initialize transient fields in Sample objects.
+                storage.samples.values().forEach(sample -> {
+                    sample.novelCalls = new HashMap<>();
+                    sample.upstreamDeletion = null;
+                });
+
                 return storage;
             }
         };
