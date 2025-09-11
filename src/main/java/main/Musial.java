@@ -9,6 +9,7 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import task.ExecutorBuild;
+import task.ExecutorExpand;
 import util.Logging;
 
 import java.io.IOException;
@@ -153,8 +154,9 @@ public final class Musial {
                 }
                 case EXPAND -> {
                     Logging.logInfo("Execute task \033[1mexpand\033[0m");
-                    //CLIExpand cli = new CLIExpand(arguments);
-                    //ExecutorExpand.run(cli);
+                    CLIExpand cli = new CLIExpand(arguments);
+                    ExecutorExpand executor = new ExecutorExpand(cli);
+                    executor.run();
                 }
                 case VIEW -> {
                     Logging.logInfo("Execute task \033[1mtable\033[0m");
