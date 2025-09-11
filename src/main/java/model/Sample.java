@@ -72,7 +72,7 @@ public class Sample extends Attributes {
      * contig identifier, start and end positions, and whether the deletion is filtered. The field is marked as {@code transient} to exclude
      * it from serialization.
      */
-    private transient UpstreamDeletion upstreamDeletion = null;
+    transient UpstreamDeletion upstreamDeletion = null;
 
     /**
      * Represents an upstream deletion affecting a sample.
