@@ -68,11 +68,11 @@ public class VariantAnnotator {
      *   <li>Cleans up the temporary directory after the analysis is complete.</li>
      * </ul>
      *
-     * @param workingDirectory The working directory where temporary files will be created.
+     * @param outputDirectory The output directory to write log files to, if needed.
      * @throws MusialException If the SnpEff annotation process fails.
      * @throws IOException     If an error occurs while reading or writing files.
      */
-    public void runSnpEff(Path workingDirectory) throws MusialException, IOException {
+    public void runSnpEff(Path outputDirectory) throws MusialException, IOException {
         // Generate a temporary directory for snpEff.
         String prefix = "%s-%s".formatted("snpEff", RandomStringUtils.randomAlphanumeric(6));
         Path temp = Files.createTempDirectory(prefix);
@@ -150,14 +150,14 @@ public class VariantAnnotator {
             if (buildErrorFile.exists() && buildErrorFile.length() != 0) {
                 Logging.logSevere("SnpEff `build` has raised an error or warning; a copy of the log file is in the output directory -" +
                         " the annotations may be incorrect.");
-                FileUtils.copyFile(buildErrorFile, new File(workingDirectory.toAbsolutePath()
+                FileUtils.copyFile(buildErrorFile, new File(outputDirectory.toAbsolutePath()
                         + "/musial_snpeff_build_%s.error".formatted(Logging.getDate())));
             }
             File annErrorFile = new File(temp + "/snpEff.ann.err");
             if (annErrorFile.exists() && annErrorFile.length() != 0) {
                 Logging.logSevere("SnpEff `ann` has raised an error or warning; a copy of the log file is in the output directory - " +
                         "the annotations may be incorrect.");
-                FileUtils.copyFile(annErrorFile, new File(workingDirectory.toAbsolutePath()
+                FileUtils.copyFile(annErrorFile, new File(outputDirectory.toAbsolutePath()
                         + "/musial_snpeff_ann_%s.error".formatted(Logging.getDate())));
             }
             // Clean up temporary directory.
