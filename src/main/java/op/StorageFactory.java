@@ -4,6 +4,7 @@ import cli.CLIBuild;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import model.Contig;
+import model.Sample;
 import model.Storage;
 
 import java.io.BufferedReader;
@@ -31,6 +32,7 @@ public class StorageFactory {
      */
     private static final Gson gson = new GsonBuilder()
             .registerTypeAdapter(Contig.class, Contig.typeAdapter()) // Register custom TypeAdapter for Contig
+            .registerTypeAdapter(Sample.class, Sample.typeAdapter()) // Register custom TypeAdapter for Sample
             .create(); // Build the Gson instance
 
     /**
