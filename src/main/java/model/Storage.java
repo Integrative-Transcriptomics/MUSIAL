@@ -596,8 +596,8 @@ public class Storage {
      *
      * @return The total number of variants across all contigs as a {@code long}.
      */
-    public long getVariantsCount() {
-        return contigs.values().stream().mapToLong(Contig::getVariantsCount).sum();
+    public int getVariantsCount() {
+        return (int) contigs.values().stream().mapToLong(Contig::getVariantsCount).sum();
     }
 
     /**
