@@ -33,8 +33,6 @@ public class StorageFactory {
      */
     private static final Gson gson = new GsonBuilder()
             .registerTypeAdapter(Storage.class, Storage.typeAdapter()) // Register custom TypeAdapter for Storage
-            .registerTypeAdapter(Contig.class, Contig.typeAdapter()) // Register custom TypeAdapter for Contig
-            .registerTypeAdapter(Sample.class, Sample.typeAdapter()) // Register custom TypeAdapter for Sample
             .create(); // Build the Gson instance
 
     /**
