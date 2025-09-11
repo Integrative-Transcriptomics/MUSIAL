@@ -83,6 +83,9 @@ public class StorageUpdater {
             for (Contig contig : storage.getContigs()) {
                 String contigIdentifier = contig._id;
 
+                // Skip if the sample has no variant calls for the current contig.
+                if (!sample.hasVariantCalls(contigIdentifier, true)) continue;
+
                 // Create a sorted map to store canonical variants for the sample and contig.
                 TreeMap<Integer, Tuple<String, String>> variants = new TreeMap<>();
 
