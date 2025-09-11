@@ -172,17 +172,17 @@ public final class Musial {
         } catch (Exception e) {
             // Log the error message and stack trace, then exit with an error code.
             if (e.getClass().equals(MusialException.class))
-                Logging.logExit("An internal error has occurred.");
+                Logging.logExit("An internal error has occurred: %s".formatted(e.getMessage()));
             else
-                Logging.logExit("An unexpected error has occurred.");
-            e.printStackTrace();
+                Logging.logExit("An unexpected error has occurred: %s".formatted(e.getMessage()));
+            if (LOG_VERBOSITY.intValue() <= Level.FINE.intValue()) e.printStackTrace();
             System.exit(-1);
         } finally {
             // Log the total execution time if the verbosity level is set to FINE or lower.
             if (LOG_VERBOSITY.intValue() <= Level.FINE.intValue()) {
                 long endTime = System.currentTimeMillis();
                 long duration = endTime - startTime;
-                Logging.logDone("Total execution time: %d ms (%.2f min)".formatted(duration, duration / 60000.0));
+                Logging.logDebug("Total execution time: %d ms (%.2f min)".formatted(duration, duration / 60000.0));
             }
         }
     }

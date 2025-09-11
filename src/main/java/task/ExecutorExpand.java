@@ -36,13 +36,26 @@ public class ExecutorExpand {
      */
     private final VariantAnnotator variantAnnotator;
 
+    /**
+     * Initial count of variants in the storage before expansion.
+     */
+    private final long initialVariantCount;
+
+    /**
+     * Initial count of samples in the storage before expansion.
+     */
+    private final int initialSampleCount;
+
     public ExecutorExpand(CLIExpand cli) throws IOException {
         this.cli = cli;
         Logging.logInfo("Load storage.");
         this.storage = StorageFactory.fromPath(cli.input);
+        this.initialVariantCount = storage.getVariantsCount();
+        this.initialSampleCount = storage.getSamples().size();
         this.storageUpdater = new StorageUpdater(storage);
         vcfProcessor = new VCFProcessor(cli.vcfFiles, storage, storage.hasReference());
         variantAnnotator = new VariantAnnotator(storage);
+        Logging.logDone("");
     }
 
     /**
@@ -52,12 +65,10 @@ public class ExecutorExpand {
         // Process VCF files and load variants into storage.
         Logging.logInfo("Load variant calls.");
         vcfProcessor.analyzeFiles();
-        Logging.logInfo("Processed %d variant calls from %d VCF file(s). %d calls were ignored, %d calls were filtered.".formatted(
-                vcfProcessor.getProcessedCalls(), cli.vcfFiles.size(), vcfProcessor.getIgnoredCalls(), vcfProcessor.getFilteredCalls()));
-        Logging.logInfo("Total of %d samples were loaded.".formatted(storage.getSamples().size()));
         storageUpdater.updateSampleAttributes(cli.vcfMeta);
         storageUpdater.updateVariants();
-        Logging.logInfo("Total of %d variants were loaded.".formatted(storage.getVariantsCount()));
+        Logging.logDone("Processed %d variant calls from %d VCF file(s). %d calls were ignored, %d calls were filtered.".formatted(
+                vcfProcessor.getProcessedCalls(), cli.vcfFiles.size(), vcfProcessor.getIgnoredCalls(), vcfProcessor.getFilteredCalls()));
 
         // Determine working path for output files.
         Path path;
@@ -81,6 +92,7 @@ public class ExecutorExpand {
         } else {
             Logging.logInfo("Run variant annotation with SnpEff.");
             variantAnnotator.runSnpEff(path.getParent());
+            Logging.logDone("");
         }
 
         // Infer sequence types if reference sequences are available.
@@ -91,15 +103,19 @@ public class ExecutorExpand {
         } else {
             Logging.logInfo("Run sequence typing.");
             storageUpdater.updateSequenceTypes();
+            Logging.logDone("");
         }
 
         // Compute statistics for the storage.
         Logging.logInfo("Recompute statistics.");
         storageUpdater.updateStatistics();
+        Logging.logDone("");
 
         // Write the storage data to the specified output file.
         Logging.logInfo("Write storage to file: " + path.toAbsolutePath());
         StorageIO.toJSON(storage, path);
+        Logging.logDone("Storage expanded with %d samples and %d variants.".formatted(storage.getSamples().size() - initialSampleCount,
+                storage.getVariantsCount() - initialVariantCount));
     }
 
 }

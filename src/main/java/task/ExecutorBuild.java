@@ -69,6 +69,7 @@ public class ExecutorBuild {
         featureLoader = new FeatureLoader(storage, cli.featureList, cli.features);
         vcfProcessor = new VCFProcessor(cli.vcfFiles, storage, storage.hasReference());
         variantAnnotator = new VariantAnnotator(storage);
+        Logging.logDone("");
     }
 
     /**
@@ -86,22 +87,22 @@ public class ExecutorBuild {
      *
      * @throws MusialException If an error occurs during the processing of genomic data.
      * @throws IOException     If an I/O error occurs during file operations.
+     * @noinspection DuplicatedCode
      */
     public void run() throws MusialException, IOException {
         // Load and validate genomic features.
         Logging.logInfo("Load and validate genomic features.");
         featureLoader.loadFeatures();
         featureLoader.validateFeatures();
+        Logging.logDone("Loaded %d from %d annotated features.".formatted(storage.getFeatures().size(), cli.featureList.size()));
 
         // Process VCF files and load variants into storage.
         Logging.logInfo("Load variant calls.");
         vcfProcessor.analyzeFiles();
-        Logging.logInfo("Processed %d variant calls from %d VCF file(s). %d calls were ignored, %d calls were filtered.".formatted(
-                vcfProcessor.getProcessedCalls(), cli.vcfFiles.size(), vcfProcessor.getIgnoredCalls(), vcfProcessor.getFilteredCalls()));
-        Logging.logInfo("Total of %d samples were loaded.".formatted(storage.getSamples().size()));
         storageUpdater.updateSampleAttributes(cli.vcfMeta);
         storageUpdater.updateVariants();
-        Logging.logInfo("Total of %d variants were loaded.".formatted(storage.getVariantsCount()));
+        Logging.logDone("Processed %d variant calls from %d VCF file(s). %d calls were ignored, %d calls were filtered.".formatted(
+                vcfProcessor.getProcessedCalls(), cli.vcfFiles.size(), vcfProcessor.getIgnoredCalls(), vcfProcessor.getFilteredCalls()));
 
         // Check and run SnpEff annotation if applicable.
         if (storage.parameters.skipAnnotation()) {
@@ -117,6 +118,7 @@ public class ExecutorBuild {
         } else {
             Logging.logInfo("Run variant annotation with SnpEff.");
             variantAnnotator.runSnpEff(cli.output.getParent());
+            Logging.logDone("");
         }
 
         // Infer sequence types if reference sequences are available.
@@ -127,15 +129,19 @@ public class ExecutorBuild {
         } else {
             Logging.logInfo("Run sequence typing.");
             storageUpdater.updateSequenceTypes();
+            Logging.logDone("");
         }
 
         // Compute statistics for the storage.
         Logging.logInfo("Compute statistics.");
         storageUpdater.updateStatistics();
+        Logging.logDone("");
 
         // Write the storage data to the specified output file.
         Logging.logInfo("Write storage to file: " + cli.output.toAbsolutePath());
         StorageIO.toJSON(storage, cli.output);
+        Logging.logDone("Storage contains %d features, %d samples, and %d variants.".formatted(storage.getFeatures().size(),
+                storage.getSamples().size(), storage.getVariantsCount()));
     }
 
 }

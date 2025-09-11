@@ -367,7 +367,7 @@ public class CLIBuild implements CLI {
                     line = reader.readLine();
                 }
             }
-            Logging.logConfig("Parsed %d masked positions from %d contigs.".formatted(m, maskedPositions.size()));
+            Logging.logConfig("`mask` set to %d positions.".formatted(m));
         } else {
             throw new MusialException("File specified for `mask` %s is empty or no regular file.".formatted(path));
         }
@@ -445,7 +445,6 @@ public class CLIBuild implements CLI {
         if (PathUtils.isRegularFile(path) && !PathUtils.isDirectory(path) && !PathUtils.isEmptyFile(path)) {
             File file = path.toFile();
             FeatureList featureList = GFF3Reader.read(file.getCanonicalPath());
-            Logging.logConfig("Parsed %d features from annotation.".formatted(featureList.size()));
             return featureList;
         } else {
             throw new MusialException("File specified for `annotation` %s is empty or no regular file.".formatted(path));
@@ -482,7 +481,6 @@ public class CLIBuild implements CLI {
             Path path = Path.of((String) configuration.get("features"));
             if (PathUtils.isRegularFile(path) && !PathUtils.isDirectory(path) && !PathUtils.isEmptyFile(path)) {
                 features = IO.readTabularFileAsNestedMap(path.toFile());
-                Logging.logConfig("Parsed %d potential features to match.".formatted(features.size()));
             }
             if (features.values().stream().anyMatch(m -> !m.containsKey("key") || !m.containsKey("value")))
                 throw new MusialException("Each feature in `features` must contain at least a `key` and `value` attribute.");

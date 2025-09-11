@@ -82,10 +82,10 @@ public class FeatureLoader {
     public void loadFeatures() throws MusialException {
         // Validate input conditions
         if (!storage.hasReference() && !featureList.isEmpty()) {
-            throw new MusialException("Annotation (GFF3) specified without reference sequence (FASTA).");
+            throw new MusialException("`annotation` (GFF3) specified without `reference` sequence (FASTA).");
         }
         if (featureList.isEmpty() && !features.isEmpty()) {
-            throw new MusialException("Features specified without annotation (GFF3).");
+            throw new MusialException("`features` specified without `annotation` (GFF3).");
         }
 
         // Helper to process attributes
@@ -96,7 +96,6 @@ public class FeatureLoader {
                         .collect(Collectors.joining(Constants.COMMA)));
 
         if (!features.isEmpty()) { // Process specified features.
-            Logging.logConfig("Match %d specified features from annotation (GFF3).".formatted(features.size()));
             for (var feature : features.entrySet()) {
                 String featureName = feature.getKey();
                 Map<String, String> featureSpecification = feature.getValue();
@@ -121,7 +120,6 @@ public class FeatureLoader {
                 }
             }
         } else if (!featureList.isEmpty()) { // Process all annotated features.
-            Logging.logConfig("Load all %d annotated features from annotation (GFF3).".formatted(featureList.size()));
             for (FeatureI featureI : featureList) {
                 if (!"region".equals(featureI.type())) {
                     Map<String, String> attributes = featureI.getAttributes();

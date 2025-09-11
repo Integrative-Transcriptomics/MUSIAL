@@ -76,7 +76,6 @@ final class Common {
         if (vcfFiles.isEmpty()) {
             throw new MusialException("No valid VCF files found in `vcfFiles`.");
         }
-        Logging.logConfig("Parsed %d VCF files.".formatted(vcfFiles.size()));
         return vcfFiles;
     }
 
@@ -110,7 +109,6 @@ final class Common {
             Path path = Path.of((String) configuration.get("vcfMeta"));
             if (PathUtils.isRegularFile(path) && !PathUtils.isDirectory(path) && !PathUtils.isEmptyFile(path)) {
                 vcfMeta = IO.readTabularFileAsNestedMap(path.toFile());
-                Logging.logConfig("Parsed meta-data for %d potential samples.".formatted(vcfMeta.size()));
             }
         }
         return vcfMeta;
@@ -180,7 +178,7 @@ final class Common {
         if (!Files.exists(path) || Files.isDirectory(path) || !(path.toString().endsWith(".json") || path.toString().endsWith(".json.gz"))) {
             throw new MusialException("Input storage file must be a valid .json or .json.gz file.");
         }
-        Logging.logConfig("`storage` set to %s.".formatted(path));
+        Logging.logConfig("`input` set to %s.".formatted(path));
         return path;
     }
 }
