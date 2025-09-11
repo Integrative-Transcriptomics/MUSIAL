@@ -5,10 +5,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import htsjdk.samtools.util.Tuple;
 import main.Musial;
-import model.Contig;
-import model.Feature;
-import model.Storage;
-import model.Variant;
+import model.*;
 import org.apache.commons.lang3.tuple.Triple;
 import util.Bio;
 import util.Constants;
@@ -38,7 +35,9 @@ public class StorageIO {
     /**
      * Gson instance for JSON serialization and deserialization with pretty printing.
      */
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson gson = new GsonBuilder()
+            .setPrettyPrinting()
+            .create();
 
     /**
      * Serializes the given {@link Storage} object to a JSON file at the specified path.

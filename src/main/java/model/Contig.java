@@ -345,7 +345,7 @@ public class Contig extends Attributes {
      * <p>
      * This method defines a custom {@link TypeAdapter} to handle the serialization and deserialization of {@link Contig} objects. The
      * adapter uses Gson's default adapter for most operations but adds custom behavior during deserialization to initialize the transient
-     * {@code cache} field.
+     * {@link #sequenceCache} field.
      *
      * @return A {@link TypeAdapter} for the {@link Contig} class.
      */

@@ -6,6 +6,7 @@ import com.google.gson.GsonBuilder;
 import model.Contig;
 import model.Sample;
 import model.Storage;
+import model.VariantCall;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -31,6 +32,7 @@ public class StorageFactory {
      * A pre-configured {@link Gson} instance for JSON serialization and deserialization.
      */
     private static final Gson gson = new GsonBuilder()
+            .registerTypeAdapter(Storage.class, Storage.typeAdapter()) // Register custom TypeAdapter for Storage
             .registerTypeAdapter(Contig.class, Contig.typeAdapter()) // Register custom TypeAdapter for Contig
             .registerTypeAdapter(Sample.class, Sample.typeAdapter()) // Register custom TypeAdapter for Sample
             .create(); // Build the Gson instance
@@ -65,9 +67,7 @@ public class StorageFactory {
                 new InputStreamReader(file.getAbsolutePath().endsWith(".gz")
                         ? new GZIPInputStream(Files.newInputStream(file.toPath())) // Handle GZIP-compressed files
                         : Files.newInputStream(file.toPath())))) { // Handle regular files
-            Storage storage = gson.fromJson(bufferedReader, Storage.class);
-            storage.initializeTransientProperties(); // Initialize transient properties after deserialization.
-            return storage;
+            return gson.fromJson(bufferedReader, Storage.class);
         } catch (IOException e) {
             // Throw a new IOException with a detailed error message if reading fails
             throw new IOException("Failed to read storage from file %s; %s"

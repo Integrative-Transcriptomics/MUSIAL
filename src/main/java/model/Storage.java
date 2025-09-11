@@ -1,16 +1,24 @@
 package model;
 
+import com.google.gson.Gson;
+import com.google.gson.TypeAdapter;
 import com.google.gson.internal.LinkedTreeMap;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
 import exceptions.MusialException;
+import htsjdk.samtools.reference.FastaSequenceIndexCreator;
 import htsjdk.samtools.reference.IndexedFastaSequenceFile;
 import htsjdk.samtools.reference.ReferenceSequence;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.Triple;
 import org.biojava.nbio.genome.parsers.gff.FeatureI;
 import util.Bio;
+import util.IO;
 import util.Logging;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 
 /**
@@ -180,6 +188,8 @@ public class Storage {
      * <p>
      * The method iterates through all sequences in the reference file, adding each sequence as a contig to the storage if it does not
      * already exist. After processing all sequences, the reference file is reset to its initial state.
+     * <p>
+     * This method should only be called when creating new instances of {@link Storage} and not during deserialization!
      *
      * @param indexedFastaSequenceFile The {@link IndexedFastaSequenceFile} instance representing the reference sequence. Must not be null.
      * @throws IOException    If an error occurs while adding contigs to the storage.
@@ -286,7 +296,7 @@ public class Storage {
      * @param featureI   The {@link FeatureI} object containing the feature information to transfer.
      * @param name       The name of the feature.
      * @param attributes A map of attributes associated with the feature.
-     *                   @throws MusialException If an error occurs while adding the feature to the storage.
+     * @throws MusialException If an error occurs while adding the feature to the storage.
      */
     public void addFeature(FeatureI featureI, String name, Map<String, String> attributes) throws MusialException {
         addFeature(name, featureI.seqname(), featureI.location().bioStart(), featureI.location().bioEnd(),
@@ -318,8 +328,8 @@ public class Storage {
      * @param end              The end position of the feature.
      * @param strand           The strand of the feature ('+' or '-').
      * @param type             The type of the feature (e.g., "gene", "mRNA").
-     * @param attributes       A map of attributes associated with the feature.
-     *                         @throws MusialException If an error occurs while adding the feature to the storage.
+     * @param attributes       A map of attributes associated with the feature. @throws MusialException If an error occurs while adding the
+     *                         feature to the storage.
      */
     public void addFeature(String name, String contigIdentifier, Number start, Number end, char strand, String type,
                            Map<String, String> attributes) throws MusialException {
@@ -611,31 +621,77 @@ public class Storage {
     }
 
     /**
-     * Initializes transient properties for the storage.
+     * Creates a custom {@link TypeAdapter} for the {@link Storage} class.
      * <p>
-     * This method ensures that all transient properties in the storage are properly initialized. Transient properties are not serialized
-     * and need to be reinitialized at runtime. The method performs the following actions:
-     * <ul>
-     *   <li>Initializes {@link #novelVariants} if it is {@code null}.</li>
-     *   <li>Iterates through all {@link #contigs} and initializes {@link Contig#sequenceCache} if it is {@code null}.</li>
-     *   <li>Iterates through all {@link #samples} and initializes {@link Sample#novelCalls} if it is {@code null}.</li>
-     * </ul>
-     * This method is typically called after deserialization.
+     * This method defines a custom {@link TypeAdapter} to handle the serialization and deserialization of {@link Storage} objects. The
+     * adapter uses Gson's default adapter for most operations but adds custom behavior during deserialization to initialize the transient
+     * {@link #novelVariants} and {@link #reference} fields.
+     *
+     * @return A {@link TypeAdapter} for the {@link Storage} class.
      */
-    public void initializeTransientProperties() {
-        // Initialize the novel variants list if it is null.
-        if (this.novelVariants == null)
-            this.novelVariants = new ArrayList<>(128);
+    public static TypeAdapter<Storage> typeAdapter() {
 
-        // Initialize the sequence cache for each contig if it is null.
-        contigs.values().forEach(contig -> {
-            if (contig.sequenceCache == null) contig.sequenceCache = new HashMap<>(features.size());
-        });
+        return new TypeAdapter<>() {
 
-        // Initialize the novel call map for each sample if it is null.
-        samples.values().forEach(sample -> {
-            if (sample.novelCalls == null) sample.novelCalls = new HashMap<>(128);
-        });
+            // Default adapter for Contig objects provided by Gson
+            final TypeAdapter<Storage> defaultAdapter = new Gson().getAdapter(Storage.class);
+
+            /**
+             * Serializes a {@link Storage} object to JSON.
+             * <p>
+             * This method delegates the serialization process to the default adapter.
+             *
+             * @param out   The {@link JsonWriter} to write the JSON output.
+             * @param value The {@link Storage} object to serialize.
+             * @throws IOException If an I/O error occurs during writing.
+             */
+            @Override
+            public void write(JsonWriter out, Storage value) throws IOException {
+                defaultAdapter.write(out, value);
+            }
+
+            /**
+             * Deserializes a {@link Storage} object from JSON.
+             * <p>
+             * This method delegates the deserialization process to the default adapter and then initializes
+             * the transient {@code cache} field to ensure the {@link Storage} object is fully functional.
+             *
+             * @param in The {@link JsonReader} to read the JSON input.
+             * @return The deserialized {@link Storage} object.
+             * @throws IOException If an I/O error occurs during reading.
+             */
+            @Override
+            public Storage read(JsonReader in) throws IOException {
+                Storage storage = defaultAdapter.read(in); // Deserialize using the default adapter
+                storage.novelVariants = new ArrayList<>(); // Initialize the transient cache field
+                try { // Build IndexedFastaSequenceFile from contigs if they have non-empty sequences
+                    if (!storage.contigs.isEmpty()) {
+                        List<String> fastaEntries = new ArrayList<>();
+                        for (Contig contig : storage.contigs.values()) {
+                            if (contig.hasSequence()) {
+                                fastaEntries.add(">" + contig._id);
+                                fastaEntries.add(contig.getSequence());
+                            }
+                        }
+                        if (!fastaEntries.isEmpty()) {
+                            Path tempFasta = Files.createTempFile(IO.md5Hash(Logging.getTimestamp()), ".fasta");
+                            Logging.logDebug("Created temporary FASTA file at %s.".formatted(tempFasta));
+                            tempFasta.toFile().deleteOnExit();
+                            Files.writeString(tempFasta, String.join("\n", fastaEntries));
+                            storage.reference = new IndexedFastaSequenceFile(tempFasta,
+                                    FastaSequenceIndexCreator.buildFromFasta(tempFasta));
+                        } else {
+                            storage.reference = null;
+                        }
+                    } else {
+                        storage.reference = null;
+                    }
+                } catch (Exception e) {
+                    throw new IOException("Failed to build IndexedFastaSequenceFile from contigs.", e);
+                }
+                return storage;
+            }
+        };
     }
 
 }
