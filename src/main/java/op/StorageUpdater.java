@@ -288,7 +288,7 @@ public class StorageUpdater {
                             effects.add(lengthDelta > 0 ? "plus_%d_frameshift".formatted(netFrameshift)
                                     : "minus_%d_frameshift".formatted(netFrameshift));
                         }
-                        allele.addAttribute(Constants.AttributesKeys.SO_EFFECTS, String.join(Constants.COMMA, effects));
+                        allele.setAttribute(Constants.AttributesKeys.SO_EFFECTS, String.join(Constants.COMMA, effects));
 
                         // Add relations between variants and the allele.
                         for (Variant.Stub stub : variants) {
@@ -368,7 +368,7 @@ public class StorageUpdater {
                                         effects.add(stopCodonPosition <= referenceSequence.length() ? "stop_gained" :
                                                 "redundant_inserted_stop_gained");
                                     });
-                            proteoform.addAttribute(Constants.AttributesKeys.SO_EFFECTS, String.join(Constants.COMMA, effects));
+                            proteoform.setAttribute(Constants.AttributesKeys.SO_EFFECTS, String.join(Constants.COMMA, effects));
                             feature.addProteoform(proteoform);
                         }
 
@@ -416,7 +416,7 @@ public class StorageUpdater {
             perSampleInDels.put(sample._id, 0);
 
             // Process variant calls for the sample.
-            for (ImmutableTriple<String, Integer, VariantCall> item : sample.getVariantCalls()) {
+            for (ImmutableTriple<String, Integer, VariantCall> item : sample.getVariantCalls(false)) {
                 VariantCall variantCall = item.right;
                 totalCalls++;
                 coverages.add(variantCall.totalDepth());
@@ -425,13 +425,13 @@ public class StorageUpdater {
             }
 
             // Update sample attributes with calculated statistics.
-            sample.addAttribute(Constants.AttributesKeys.NUMBER_OF_CALLS, String.valueOf(totalCalls));
-            sample.addAttribute(Constants.AttributesKeys.NUMBER_OF_FILTERED_CALLS, String.valueOf(filteredCalls));
-            sample.addAttribute(Constants.AttributesKeys.MEAN_COVERAGE,
+            sample.setAttribute(Constants.AttributesKeys.NUMBER_OF_CALLS, String.valueOf(totalCalls));
+            sample.setAttribute(Constants.AttributesKeys.NUMBER_OF_FILTERED_CALLS, String.valueOf(filteredCalls));
+            sample.setAttribute(Constants.AttributesKeys.MEAN_COVERAGE,
                     IO.formatNumber(coverages.stream().mapToInt(Integer::intValue).average().orElse(0)));
-            sample.addAttribute(Constants.AttributesKeys.MEAN_ENTROPY,
+            sample.setAttribute(Constants.AttributesKeys.MEAN_ENTROPY,
                     IO.formatNumber(entropy.stream().mapToDouble(Double::doubleValue).average().orElse(0)));
-            sample.addAttribute(Constants.AttributesKeys.FREQUENCY_REFERENCE,
+            sample.setAttribute(Constants.AttributesKeys.FREQUENCY_REFERENCE,
                     IO.formatFrequency(1 - (sample.getRelatedAllelesCount() / (float) noFeatures)));
 
             // Calculate disrupted coding feature frequency if typing is not skipped.
@@ -448,7 +448,7 @@ public class StorageUpdater {
                         }
                     }
                 }
-                sample.addAttribute(Constants.AttributesKeys.FREQUENCY_DISRUPTED,
+                sample.setAttribute(Constants.AttributesKeys.FREQUENCY_DISRUPTED,
                         IO.formatFrequency(disrupted / (float) noCodingFeatures));
             }
         }
@@ -457,7 +457,7 @@ public class StorageUpdater {
         for (Contig contig : storage.getContigs()) {
             for (Variant variant : contig.getVariants()) {
                 int sampleCount = variant.getRelatedSamples().size();
-                variant.addAttribute(Constants.AttributesKeys.VARIANT_FREQUENCY,
+                variant.setAttribute(Constants.AttributesKeys.VARIANT_FREQUENCY,
                         IO.formatFrequency(sampleCount / (float) noSamples));
                 for (String sampleIdentifier : variant.getRelatedSamples()) {
                     Map<String, Integer> targetMap = switch (variant.type) {
@@ -471,9 +471,9 @@ public class StorageUpdater {
 
         // Update sample attributes with substitution and InDel counts.
         perSampleSubstitutions.forEach((sampleIdentifier, count) -> storage.getSample(sampleIdentifier)
-                .addAttribute(Constants.AttributesKeys.NUMBER_OF_SNVS, String.valueOf(count)));
+                .setAttribute(Constants.AttributesKeys.NUMBER_OF_SNVS, String.valueOf(count)));
         perSampleInDels.forEach((sampleIdentifier, count) -> storage.getSample(sampleIdentifier)
-                .addAttribute(Constants.AttributesKeys.NUMBER_OF_INDELS, String.valueOf(count)));
+                .setAttribute(Constants.AttributesKeys.NUMBER_OF_INDELS, String.valueOf(count)));
 
         // Initialize a map to store proteoform occurrences for features.
         Map<String, Integer> perProteoformOccurrence = new HashMap<>();
@@ -487,7 +487,7 @@ public class StorageUpdater {
             // Process alleles for the feature.
             for (Allele allele : feature.getAlleles()) {
                 int alleleOccurrence = allele.getRelatedSamplesCount();
-                allele.addAttribute(Constants.AttributesKeys.ALLELIC_FREQUENCY,
+                allele.setAttribute(Constants.AttributesKeys.ALLELIC_FREQUENCY,
                         IO.formatFrequency(alleleOccurrence / (float) noSamples));
                 nonReferenceOccurrence += alleleOccurrence;
 
@@ -504,18 +504,18 @@ public class StorageUpdater {
             }
 
             // Update feature attributes with calculated statistics.
-            feature.addAttribute(Constants.AttributesKeys.FREQUENCY_REFERENCE,
+            feature.setAttribute(Constants.AttributesKeys.FREQUENCY_REFERENCE,
                     IO.formatFrequency(1 - (nonReferenceOccurrence / noSamples)));
-            feature.addAttribute(Constants.AttributesKeys.NUMBER_OF_ALLELES, String.valueOf(feature.getAlleleCount()));
+            feature.setAttribute(Constants.AttributesKeys.NUMBER_OF_ALLELES, String.valueOf(feature.getAlleleCount()));
 
             if (!storage.parameters.skipTyping() && feature.isCoding()) {
                 int proteoformCount = feature.getProteoformCount();
                 float disruptedFrequency = proteoformCount == 0 ? 0 : disrupted / (float) proteoformCount;
-                feature.addAttribute(Constants.AttributesKeys.FREQUENCY_DISRUPTED,
+                feature.setAttribute(Constants.AttributesKeys.FREQUENCY_DISRUPTED,
                         IO.formatFrequency(disruptedFrequency));
-                feature.addAttribute(Constants.AttributesKeys.NUMBER_OF_PROTEOFORMS, String.valueOf(proteoformCount));
+                feature.setAttribute(Constants.AttributesKeys.NUMBER_OF_PROTEOFORMS, String.valueOf(proteoformCount));
                 perProteoformOccurrence.forEach((proteoformUid, count) ->
-                        feature.getProteoform(proteoformUid).addAttribute(Constants.AttributesKeys.ALLELIC_FREQUENCY,
+                        feature.getProteoform(proteoformUid).setAttribute(Constants.AttributesKeys.ALLELIC_FREQUENCY,
                                 IO.formatFrequency(count / (float) noSamples)));
             }
         }
