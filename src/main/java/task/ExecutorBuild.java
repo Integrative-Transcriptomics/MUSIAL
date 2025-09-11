@@ -67,7 +67,7 @@ public class ExecutorBuild {
         storage = StorageFactory.fromCli(this.cli);
         storageUpdater = new StorageUpdater(storage);
         featureLoader = new FeatureLoader(storage, cli.featureList, cli.features);
-        vcfProcessor = new VCFProcessor(cli.vcfFiles, storage, storage.hasReference());
+        vcfProcessor = new VCFProcessor(cli.vcfFiles, storage, !storage.hasReference());
         variantAnnotator = new VariantAnnotator(storage);
         Logging.logDone("");
     }
