@@ -265,7 +265,7 @@ public class FeatureLoader {
 
         // Create a new feature with the updated type, location, and attributes.
         Feature adjustedFeature = new Feature(feature.name, feature.contig, start, end, feature.strand, "gene", feature._id);
-        adjustedFeature.addAttributes(feature.getAttributes());
+        adjustedFeature.setAttributes(feature.getAttributes());
         for (Feature.SubFeature subFeature : subFeatures) {
             adjustedFeature.addSubFeature(subFeature.type(), subFeature.start(), subFeature.end());
         }

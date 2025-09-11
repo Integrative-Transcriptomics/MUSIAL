@@ -115,7 +115,7 @@ public class Attributes {
      * @param key   The key of the attribute.
      * @param value The value of the attribute.
      */
-    public void addAttribute(String key, String value) {
+    public void setAttribute(String key, String value) {
         this.attributes.put(key, value);
     }
 
@@ -124,8 +124,8 @@ public class Attributes {
      *
      * @param attributes A map of attributes to associate with this entity.
      */
-    public void addAttributes(Map<String, String> attributes) {
-        attributes.forEach(this::addAttribute);
+    public void setAttributes(Map<String, String> attributes) {
+        attributes.forEach(this::setAttribute);
     }
 
     /**

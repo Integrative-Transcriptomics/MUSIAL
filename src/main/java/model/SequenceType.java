@@ -68,7 +68,7 @@ public class SequenceType extends Attributes {
         this._id = IO.md5Hash(identifierBuilder.toString());
 
         // Adds an attribute for the sequence length deviation.
-        addAttribute(Constants.AttributesKeys.SEQUENCE_LENGTH_DEVIATION, String.valueOf(lengthDelta));
+        setAttribute(Constants.AttributesKeys.SEQUENCE_LENGTH_DEVIATION, String.valueOf(lengthDelta));
     }
 
     /**
