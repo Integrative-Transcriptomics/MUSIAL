@@ -677,7 +677,6 @@ public class Storage {
                         }
                         if (!fastaEntries.isEmpty()) {
                             Path tempFasta = Files.createTempFile(IO.md5Hash(Logging.getTimestamp()), ".fasta");
-                            Logging.logDebug("Created temporary FASTA file at %s.".formatted(tempFasta));
                             tempFasta.toFile().deleteOnExit();
                             Files.writeString(tempFasta, String.join("\n", fastaEntries));
                             storage.reference = new IndexedFastaSequenceFile(tempFasta,
