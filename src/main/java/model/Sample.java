@@ -166,25 +166,47 @@ public class Sample extends Attributes {
     /**
      * Checks if there are any variant calls associated with this sample.
      * <p>
-     * This method verifies whether the {@link #variantCalls} map contains any entries, indicating the presence of variant calls.
+     * This method determines whether the sample contains any variant calls by inspecting the relevant map based on the provided flag. If
+     * the {@code novel} flag is {@code true}, it checks the {@link #novelCalls} map for entries. Otherwise, it checks the
+     * {@link #variantCalls} map.
      *
-     * @return {@code true} if there are variant calls, {@code false} otherwise.
+     * @param novel A boolean flag indicating whether to check for novel variant calls ({@code true}) or all variant calls ({@code false}).
+     * @return {@code true} if there are variant calls in the respective map, {@code false} otherwise.
      */
-    public boolean hasVariantCalls() {
-        return !this.variantCalls.isEmpty();
+    public boolean hasVariantCalls(boolean novel) {
+        if (novel) {
+            // Check if the novelCalls map is not empty when the novel flag is true.
+            return !this.novelCalls.isEmpty();
+        } else {
+            // Check if the variantCalls map is not empty when the novel flag is false.
+            return !this.variantCalls.isEmpty();
+        }
     }
 
     /**
      * Checks if there are any variant calls for a specific contig.
      * <p>
-     * This method checks whether the {@link #variantCalls} map contains the specified contig identifier as a key and if the associated map
-     * of positions is not empty.
+     * This method determines whether the sample contains variant calls for a given contig identifier. It inspects either the
+     * {@link #novelCalls} map or the {@link #variantCalls} map based on the value of the {@code novel} parameter.
+     * <p>
+     * If {@code novel} is {@code true}, the method checks the {@link #novelCalls} map to see if it contains the specified contig identifier
+     * as a key and if the associated set of positions is not empty. If {@code novel} is {@code false}, the method checks the
+     * {@link #variantCalls} map to see if it contains the specified contig identifier as a key and if the associated map of positions is
+     * not empty.
      *
      * @param contigIdentifier The unique identifier of the contig to check for variant calls.
+     * @param novel            A boolean flag indicating whether to check for novel variant calls ({@code true}) or all variant calls
+     *                         ({@code false}).
      * @return {@code true} if there are variant calls for the specified contig, {@code false} otherwise.
      */
-    public boolean hasVariantCalls(String contigIdentifier) {
-        return this.variantCalls.containsKey(contigIdentifier) && !this.variantCalls.get(contigIdentifier).isEmpty();
+    public boolean hasVariantCalls(String contigIdentifier, boolean novel) {
+        if (novel) {
+            // Check if the novelCalls map contains the contig identifier and has non-empty positions.
+            return this.novelCalls.containsKey(contigIdentifier) && !this.novelCalls.get(contigIdentifier).isEmpty();
+        } else {
+            // Check if the variantCalls map contains the contig identifier and has non-empty positions.
+            return this.variantCalls.containsKey(contigIdentifier) && !this.variantCalls.get(contigIdentifier).isEmpty();
+        }
     }
 
     /**
@@ -295,13 +317,35 @@ public class Sample extends Attributes {
      *   <li>The {@link VariantCall} object representing the variant call.</li>
      * </ul>
      *
-     * @return A {@link List} of {@link ImmutableTriple} objects representing all variant calls in this sample.
+     * @param novel A boolean flag indicating whether to retrieve only novel variant calls ({@code true}) or all variant calls
+     *              ({@code false}). If {@code true}, the method retrieves variant calls from the {@link #novelCalls} map. Otherwise, it
+     *              retrieves all variant calls from the {@link #variantCalls} map.
+     * @return A {@link List} of {@link ImmutableTriple} objects representing all variant calls in this sample. Each triple contains:
+     * <ul>
+     *   <li>The contig identifier as a {@link String}.</li>
+     *   <li>The position of the variant as an {@link Integer}.</li>
+     *   <li>The {@link VariantCall} object representing the variant call.</li>
+     * </ul>
      */
-    public List<ImmutableTriple<String, Integer, VariantCall>> getVariantCalls() {
-        return this.variantCalls.entrySet().stream()
-                .flatMap(entry -> entry.getValue().entrySet().stream()
-                        .map(callEntry -> new ImmutableTriple<>(entry.getKey(), callEntry.getKey(), callEntry.getValue())))
-                .toList();
+    public List<ImmutableTriple<String, Integer, VariantCall>> getVariantCalls(boolean novel) {
+        if (novel) {
+            // If the 'novel' flag is true, retrieve only novel variant calls.
+            return this.novelCalls.entrySet().stream()
+                    // Stream through the entries of the 'novelCalls' map.
+                    .flatMap(entry -> entry.getValue().stream()
+                            // For each entry, map the contig identifier, position, and corresponding VariantCall object.
+                            .map(callEntry -> new ImmutableTriple<>(entry.getKey(), callEntry,
+                                    this.variantCalls.get(entry.getKey()).get(callEntry))))
+                    .toList(); // Collect the results into a list.
+        } else {
+            // If the 'novel' flag is false, retrieve all variant calls.
+            return this.variantCalls.entrySet().stream()
+                    // Stream through the entries of the 'variantCalls' map.
+                    .flatMap(entry -> entry.getValue().entrySet().stream()
+                            // For each entry, map the contig identifier, position, and corresponding VariantCall object.
+                            .map(callEntry -> new ImmutableTriple<>(entry.getKey(), callEntry.getKey(), callEntry.getValue())))
+                    .toList(); // Collect the results into a list.
+        }
     }
 
     /**
