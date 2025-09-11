@@ -418,6 +418,7 @@ public class Sample extends Attributes {
             public Sample read(JsonReader in) throws IOException {
                 Sample sample = defaultAdapter.read(in); // Deserialize using the default adapter
                 sample.novelCalls = new HashMap<>();
+                sample.upstreamDeletion = null;
                 return sample;
             }
         };
