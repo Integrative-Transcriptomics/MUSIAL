@@ -1,9 +1,5 @@
 package model;
 
-import com.google.gson.Gson;
-import com.google.gson.TypeAdapter;
-import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.JsonWriter;
 import htsjdk.samtools.util.Tuple;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
@@ -12,7 +8,6 @@ import util.Bio;
 import util.Constants;
 import util.Logging;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -226,6 +221,8 @@ public class Sample extends Attributes {
      */
     public VariantCall.Flag addVariantCall(String contigIdentifier, int position, List<VariantCall.CallAlternative> alternatives,
                                            Storage.Parameters parameters, Path origin) {
+        // Ensure that the list of alternatives is not empty.
+        assert !alternatives.isEmpty();
 
         // Retrieve the current upstream deletion affecting this sample.
         UpstreamDeletion upstreamDeletion = this.upstreamDeletion;
@@ -417,5 +414,5 @@ public class Sample extends Attributes {
         Sample that = (Sample) obj;
         return this._id.equals(that._id);
     }
-    
+
 }

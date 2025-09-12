@@ -223,13 +223,15 @@ public class VCFProcessor {
 
                 for (int i = 0; i < ADs.length; i++) {
                     AD = ADs[i]; // Retrieve the allelic depth for the current allele.
-                    if (AD == 0) continue; // Skip alleles with zero depth.
 
                     if (i == 0) {
                         // For the reference allele, set REF to the first base and ALT to a dot.
                         REF = variantContext.getReference().getBaseString().substring(0, 1);
                         ALT = Constants.DOT;
                     } else {
+                        // Skip alternative alleles with zero depth.
+                        if (AD == 0) continue;
+
                         // For alternative alleles, retrieve the full reference and alternative sequences.
                         REF = variantContext.getReference().getBaseString();
                         ALT = variantContext.getAlleles().get(i).getBaseString();
