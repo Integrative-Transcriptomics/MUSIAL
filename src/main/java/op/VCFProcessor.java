@@ -1,11 +1,15 @@
 package op;
 
-import htsjdk.samtools.util.IntervalList;
 import htsjdk.samtools.util.Tuple;
+import htsjdk.tribble.index.IndexFactory;
+import htsjdk.tribble.index.linear.LinearIndex;
 import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.VariantContext;
+import htsjdk.variant.vcf.VCFCodec;
+import htsjdk.variant.vcf.VCFContigHeaderLine;
 import htsjdk.variant.vcf.VCFFileReader;
-import htsjdk.variant.vcf.VCFUtils;
+import htsjdk.variant.vcf.VCFHeader;
+import model.Feature;
 import model.Sample;
 import model.Storage;
 import model.VariantCall;
@@ -25,6 +29,8 @@ import java.util.*;
  * This class handles the analysis of VCF files, including the extraction of variant data, imputation of contigs, and integration of the
  * processed data into the storage system. It provides methods to analyze VCF files, process variant contexts, and track statistics such as
  * the number of processed, ignored, and filtered variant calls.
+ *
+ * @noinspection DuplicatedCode
  */
 public class VCFProcessor {
 
@@ -73,6 +79,11 @@ public class VCFProcessor {
     private long filteredCallsCount = 0;
 
     /**
+     * Maps identifiers to {@link Sample} objects generated from the VCF files.
+     */
+    private final Map<String, Sample> samples;
+
+    /**
      * Constructs a new {@link VCFProcessor} instance for processing VCF files.
      * <p>
      * This constructor initializes the processor with the specified list of VCF file paths, a storage object for managing genomic data, and
@@ -87,6 +98,7 @@ public class VCFProcessor {
         this.paths = paths;
         this.storage = storage;
         this.imputeContigs = imputeContigs;
+        this.samples = new HashMap<>(1000);
     }
 
     /**
@@ -99,38 +111,50 @@ public class VCFProcessor {
      * @throws IOException If an I/O error occurs during file operations or VCF processing.
      */
     public void analyzeFiles() throws IOException {
+        int contigCount = storage.getContigs().size();
+        int featureCount = storage.getFeatures().size();
         for (Path path : paths) {
-            // Create temporary indexed VCF files for processing.
-            File file = VCFUtils.createTemporaryIndexedVcfFromInput(path.toFile(), String.valueOf(path.hashCode()));
-            File temporaryIndexedVcfFile = VCFUtils.createTemporaryIndexedVcfFromInput(file, String.valueOf(file.hashCode()));
-            try (VCFFileReader vcfFileReader = new VCFFileReader(temporaryIndexedVcfFile)) {
-                if (imputeContigs) {
-                    // Extract unique intervals from the VCF file.
-                    IntervalList intervalList = vcfFileReader.toIntervalList().uniqued();
-                    Set<String> vcfContigs = new HashSet<>();
-                    // Collect contig names from the intervals.
-                    intervalList.getIntervals().forEach(interval -> vcfContigs.add(interval.getContig()));
-                    // Add inferred contigs to the storage.
-                    for (String contig : vcfContigs) {
-                        storage.addContig(contig, Constants.EMPTY);
+            // Create temporary index for processing.
+            LinearIndex index = IndexFactory.createLinearIndex(path.toFile(), new VCFCodec());
+            File indexFile = new File(path + ".idx");
+            indexFile.deleteOnExit();
+            index.write(indexFile);
+            try (VCFFileReader vcfFileReader = new VCFFileReader(path)) {
+                // Extract the file's header.
+                VCFHeader vcfHeader = vcfFileReader.getHeader();
+                // Check if the VCF file contains genotyping data.
+                if (!vcfHeader.hasGenotypingData()) {
+                    Logging.logWarning("VCF file %s does not contain genotyping data.".formatted(path));
+                } else {
+                    // Impute contigs from the VCF file if the flag is set.
+                    if (imputeContigs) {
+                        for (VCFContigHeaderLine contigLine : vcfHeader.getContigLines()) {
+                            storage.addContig(contigLine.getID(), Constants.EMPTY);
+                        }
+                    }
+
+                    // Initialize samples from the VCF header.
+                    for (String sampleName : vcfHeader.getGenotypeSamples()) {
+                        String sampleIdentifier = sampleName.split("\\$")[0];
+                        samples.putIfAbsent(sampleIdentifier, new Sample(sampleIdentifier, contigCount, featureCount));
+                    }
+
+                    // Process variant contexts based on feature availability.
+                    if (!storage.getFeatures().isEmpty()) {
+                        // Process variants for each feature in the storage.
+                        for (Feature feature : storage.getFeatures()) {
+                            process(vcfFileReader.query(feature.contig, feature.start, feature.end), path);
+                        }
+                    } else {
+                        // Process all variants if no features are defined.
+                        process(vcfFileReader.iterator(), path);
                     }
                 }
-
-                // Process variant contexts based on feature availability.
-                if (!storage.getFeatures().isEmpty()) {
-                    // Process variants for each feature in the storage.
-                    storage.getFeatures().forEach(feature -> process(vcfFileReader.query(feature.contig, feature.start, feature.end),
-                            path.toAbsolutePath()));
-                } else {
-                    // Process all variants if no features are defined.
-                    process(vcfFileReader.iterator(), path.toAbsolutePath());
-                }
-            } finally {
-                // Delete the temporary indexed VCF file.
-                //noinspection ResultOfMethodCallIgnored
-                temporaryIndexedVcfFile.delete();
             }
         }
+
+        // Transfer samples to storage.
+        samples.values().forEach(storage::addSample);
     }
 
     /**
@@ -147,9 +171,8 @@ public class VCFProcessor {
         while (variantContextIterator.hasNext()) {
             VariantContext variantContext = variantContextIterator.next();
             String contigIdentifier = variantContext.getContig();
-            int position = variantContext.getStart();
 
-            // Skip positions excluded by the build configuration.
+            // Skip positions excluded by the configuration.
             if (storage.parameters.isPositionMasked(contigIdentifier, variantContext.getStart())) continue;
 
             // Process each genotype in the current VariantContext.
@@ -169,9 +192,8 @@ public class VCFProcessor {
                                     contigIdentifier, variantContext.getStart(), genotype.getSampleName(), path));
                 }
 
-                // Extract the sample identifier and ensure the sample exists in storage.
+                // Extract the sample identifier.
                 String sampleIdentifier = genotype.getSampleName().split("\\$")[0];
-                Sample sample = storage.addSample(sampleIdentifier);
 
                 // Extract allelic depth (AD) information for the genotype.
                 int[] ADs;
@@ -267,7 +289,8 @@ public class VCFProcessor {
                 }
 
                 // Add the variant call to the storage and handle the result.
-                VariantCall.Flag flag = sample.addVariantCall(contigIdentifier, position, alternatives, storage.parameters, path);
+                VariantCall.Flag flag = samples.get(sampleIdentifier).addVariantCall(contigIdentifier, variantContext.getStart(),
+                        alternatives, storage.parameters, path);
 
                 switch (flag) {
                     case PASS -> {

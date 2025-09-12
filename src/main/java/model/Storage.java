@@ -500,17 +500,10 @@ public class Storage {
      * creates a new {@link Sample} object, associates it with the storage, and adds it to the `samples` map. If the sample already exists,
      * the existing {@link Sample} object is returned.
      *
-     * @param identifier The unique identifier of the sample to add. This typically represents the name or ID of the biological sample.
-     * @return The {@link Sample} object associated with the given identifier, either newly created or already existing.
+     * @param sample The unique identifier of the sample to add. This typically represents the name or ID of the biological sample.
      */
-    public Sample addSample(String identifier) {
-        if (!hasSample(identifier)) {
-            Sample sample = new Sample(identifier, features.size());
-            samples.put(identifier, sample);
-            return sample;
-        } else {
-            return samples.get(identifier);
-        }
+    public void addSample(Sample sample) {
+        this.samples.putIfAbsent(sample._id, sample);
     }
 
     /**

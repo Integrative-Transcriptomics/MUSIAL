@@ -61,15 +61,6 @@ public class Sample extends Attributes {
     transient HashMap<String, HashSet<Integer>> novelCalls = new HashMap<>(2);
 
     /**
-     * Stores information about an upstream deletion affecting this sample.
-     * <p>
-     * This transient field holds an {@link UpstreamDeletion} object that represents details about an upstream deletion, including the
-     * contig identifier, start and end positions, and whether the deletion is filtered. The field is marked as {@code transient} to exclude
-     * it from serialization.
-     */
-    transient UpstreamDeletion upstreamDeletion = null;
-
-    /**
      * Represents an upstream deletion affecting a sample.
      * <p>
      * This record encapsulates the details of an upstream deletion, including:
@@ -89,20 +80,30 @@ public class Sample extends Attributes {
     }
 
     /**
-     * Constructs a new {@link Sample} instance with the specified id and initial capacity for the alleles map.
+     * Stores information about an upstream deletion affecting this sample.
      * <p>
-     * This constructor initializes a {@link Sample} object with the given id and allocates a {@link HashMap} for the {@link #alleles} field
-     * with the specified initial capacity. The {@link #_id} field is set to the provided id, and the superclass constructor is invoked to
-     * initialize inherited properties.
-     *
-     * @param identifier The id of the sample, used as its unique identifier.
-     * @param capacity   The expected initial capacity of the {@link #alleles} map.
+     * This transient field holds an {@link UpstreamDeletion} object that represents details about an upstream deletion, including the
+     * contig identifier, start and end positions, and whether the deletion is filtered. The field is marked as {@code transient} to exclude
+     * it from serialization.
      */
-    Sample(String identifier, int capacity) {
+    transient UpstreamDeletion upstreamDeletion = null;
+
+    /**
+     * Constructs a new {@link Sample} instance with the specified id and initial capacities for the alleles and variant calls maps.
+     * <p>
+     * This constructor initializes a {@link Sample} object with the given identifier and allocates {@link HashMap} instances for the
+     * {@link #variantCalls} and {@link #alleles} fields with the specified initial capacities. The {@link #_id} field is set to the
+     * provided identifier, and the superclass constructor is invoked to initialize inherited properties.
+     *
+     * @param identifier       The unique identifier of the sample, used as its unique key.
+     * @param capacityContigs  The initial capacity for the {@link #variantCalls} map, which stores variant calls by contig identifiers.
+     * @param capacityFeatures The initial capacity for the {@link #alleles} map, which stores feature-allele associations.
+     */
+    public Sample(String identifier, int capacityContigs, int capacityFeatures) {
         super();
         this._id = identifier;
-        this.variantCalls = new HashMap<>(2);
-        this.alleles = new HashMap<>(capacity);
+        this.variantCalls = new HashMap<>(capacityContigs);
+        this.alleles = new HashMap<>(capacityFeatures);
     }
 
     /**

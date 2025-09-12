@@ -98,13 +98,18 @@ public class ExecutorBuild {
                 cli.featureList.size()));
 
         // Process VCF files and load variants into storage.
-        Logging.logInfo("Load variant calls.");
+        Logging.logInfo("Analyze VCF files.");
         vcfProcessor.analyzeFiles();
-        storageUpdater.updateSampleAttributes(cli.vcfMeta);
-        storageUpdater.updateVariants();
+        System.gc();
         Logging.logDone("Processed %d variant calls from %d VCF file(s). %d calls were ignored, %d calls were filtered.".formatted(
                 vcfProcessor.getProcessedCallsCount(), cli.vcfFiles.size(), vcfProcessor.getIgnoredCallsCount(),
                 vcfProcessor.getFilteredCallsCount()));
+
+        // Update variants from the processed VCF data.
+        Logging.logInfo("Update variants.");
+        storageUpdater.updateSampleAttributes(cli.vcfMeta);
+        storageUpdater.updateVariants();
+        Logging.logDone("");
 
         // Check and run SnpEff annotation if applicable.
         if (storage.parameters.skipAnnotation()) {
