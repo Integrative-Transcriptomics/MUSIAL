@@ -444,8 +444,7 @@ public class CLIBuild implements CLI {
         Path path = Path.of((String) configuration.get("annotation"));
         if (PathUtils.isRegularFile(path) && !PathUtils.isDirectory(path) && !PathUtils.isEmptyFile(path)) {
             File file = path.toFile();
-            FeatureList featureList = GFF3Reader.read(file.getCanonicalPath());
-            return featureList;
+            return GFF3Reader.read(file.getCanonicalPath());
         } else {
             throw new MusialException("File specified for `annotation` %s is empty or no regular file.".formatted(path));
         }
