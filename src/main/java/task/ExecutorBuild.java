@@ -94,7 +94,8 @@ public class ExecutorBuild {
         Logging.logInfo("Load and validate genomic features.");
         featureLoader.loadFeatures();
         featureLoader.validateFeatures();
-        Logging.logDone("Loaded %d from %d annotated features.".formatted(featureLoader.getLoadedFeatureCount(), cli.featureList.size()));
+        Logging.logDone("Processed %d of %d annotated features.".formatted(featureLoader.getLoadedFeatureCount(),
+                cli.featureList.size()));
 
         // Process VCF files and load variants into storage.
         Logging.logInfo("Load variant calls.");

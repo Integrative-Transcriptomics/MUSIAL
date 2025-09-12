@@ -127,8 +127,8 @@ public class FeatureLoader {
             }
         } else if (!featureList.isEmpty()) { // Process all annotated features.
             for (FeatureI featureI : featureList) {
+                loadedFeatureCount++;
                 if (!"region".equals(featureI.type())) {
-                    loadedFeatureCount++;
                     Map<String, String> attributes = featureI.getAttributes();
                     reprocessAttributes.accept(attributes);
                     String name = attributes.getOrDefault("Name", "%s:g.%d_%d=".formatted(
