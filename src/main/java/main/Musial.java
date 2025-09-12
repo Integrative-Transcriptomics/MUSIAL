@@ -182,7 +182,7 @@ public final class Musial {
             if (LOG_VERBOSITY.intValue() <= Level.FINE.intValue()) {
                 long endTime = System.currentTimeMillis();
                 long duration = endTime - startTime;
-                Logging.logDebug("Total execution time: %d ms (%.2f min)".formatted(duration, duration / 60000.0));
+                Logging.logDebug("Total execution time: %.1f s (%.1f min)".formatted(duration / 1000.0, duration / 60000.0));
             }
         }
     }
