@@ -94,7 +94,7 @@ public class ExecutorBuild {
         Logging.logInfo("Load and validate genomic features.");
         featureLoader.loadFeatures();
         featureLoader.validateFeatures();
-        Logging.logDone("Loaded %d from %d annotated features.".formatted(storage.getFeatures().size(), cli.featureList.size()));
+        Logging.logDone("Loaded %d from %d annotated features.".formatted(featureLoader.getLoadedFeatureCount(), cli.featureList.size()));
 
         // Process VCF files and load variants into storage.
         Logging.logInfo("Load variant calls.");
@@ -102,7 +102,8 @@ public class ExecutorBuild {
         storageUpdater.updateSampleAttributes(cli.vcfMeta);
         storageUpdater.updateVariants();
         Logging.logDone("Processed %d variant calls from %d VCF file(s). %d calls were ignored, %d calls were filtered.".formatted(
-                vcfProcessor.getProcessedCalls(), cli.vcfFiles.size(), vcfProcessor.getIgnoredCalls(), vcfProcessor.getFilteredCalls()));
+                vcfProcessor.getProcessedCallsCount(), cli.vcfFiles.size(), vcfProcessor.getIgnoredCallsCount(),
+                vcfProcessor.getFilteredCallsCount()));
 
         // Check and run SnpEff annotation if applicable.
         if (storage.parameters.skipAnnotation()) {

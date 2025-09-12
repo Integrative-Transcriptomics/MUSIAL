@@ -68,7 +68,7 @@ public class ExecutorExpand {
         storageUpdater.updateSampleAttributes(cli.vcfMeta);
         storageUpdater.updateVariants();
         Logging.logDone("Processed %d variant calls from %d VCF file(s). %d calls were ignored, %d calls were filtered.".formatted(
-                vcfProcessor.getProcessedCalls(), cli.vcfFiles.size(), vcfProcessor.getIgnoredCalls(), vcfProcessor.getFilteredCalls()));
+                vcfProcessor.getProcessedCallsCount(), cli.vcfFiles.size(), vcfProcessor.getIgnoredCallsCount(), vcfProcessor.getFilteredCallsCount()));
 
         // Determine working path for output files.
         Path path;

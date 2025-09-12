@@ -54,7 +54,7 @@ public class VCFProcessor {
      * This field is used to count the number of variant calls that have been processed during the execution of the program. It is
      * incremented each time a variant call is processed, regardless of its outcome.
      */
-    private long processedCalls = 0;
+    private long processedCallsCount = 0;
 
     /**
      * Tracks the total number of ignored variant calls.
@@ -62,7 +62,7 @@ public class VCFProcessor {
      * This field is used to count the number of variant calls that were ignored during processing. A call may be ignored for various
      * reasons, such as missing data or being classified as a reference call.
      */
-    private long ignoredCalls = 0;
+    private long ignoredCallsCount = 0;
 
     /**
      * Tracks the total number of filtered variant calls.
@@ -70,7 +70,7 @@ public class VCFProcessor {
      * This field is used to count the number of variant calls that were filtered out during processing. Filtering may occur due to low
      * coverage, low frequency, or other criteria defined in the program.
      */
-    private long filteredCalls = 0;
+    private long filteredCallsCount = 0;
 
     /**
      * Constructs a new {@link VCFProcessor} instance for processing VCF files.
@@ -154,10 +154,10 @@ public class VCFProcessor {
 
             // Process each genotype in the current VariantContext.
             for (Genotype genotype : variantContext.getGenotypes()) {
-                processedCalls++; // Increment the count of processed genotype records.
+                processedCallsCount++; // Increment the count of processed genotype records.
 
                 if (genotype.isNoCall()) {
-                    ignoredCalls++; // Skip and count no-call genotypes.
+                    ignoredCallsCount++; // Skip and count no-call genotypes.
                     continue;
                 }
 
@@ -189,7 +189,7 @@ public class VCFProcessor {
                             DP4.get(2) + DP4.get(3)  // Alternative allele coverage.
                     };
                 } else {
-                    ignoredCalls++; // Skip genotypes with insufficient information.
+                    ignoredCallsCount++; // Skip genotypes with insufficient information.
                     continue;
                 }
 
@@ -273,8 +273,8 @@ public class VCFProcessor {
                     case PASS -> {
                         // Variant was added successfully.
                     }
-                    case REFERENCE_CALL -> ignoredCalls++;
-                    case LOW_COVERAGE, LOW_FREQUENCY, MISSING_UPSTREAM_DELETION -> filteredCalls++;
+                    case REFERENCE_CALL -> ignoredCallsCount++;
+                    case LOW_COVERAGE, LOW_FREQUENCY, MISSING_UPSTREAM_DELETION -> filteredCallsCount++;
                     default -> throw new IllegalStateException("Unexpected value: " + flag);
                 }
             }
@@ -286,8 +286,8 @@ public class VCFProcessor {
      *
      * @return The total number of processed variant calls as a {@code long}.
      */
-    public long getProcessedCalls() {
-        return processedCalls;
+    public long getProcessedCallsCount() {
+        return processedCallsCount;
     }
 
     /**
@@ -298,8 +298,8 @@ public class VCFProcessor {
      *
      * @return The total number of ignored variant calls as a {@code long}.
      */
-    public long getIgnoredCalls() {
-        return ignoredCalls;
+    public long getIgnoredCallsCount() {
+        return ignoredCallsCount;
     }
 
     /**
@@ -310,8 +310,8 @@ public class VCFProcessor {
      *
      * @return The total number of filtered variant calls as a {@code long}.
      */
-    public long getFilteredCalls() {
-        return filteredCalls;
+    public long getFilteredCallsCount() {
+        return filteredCallsCount;
     }
 
 }

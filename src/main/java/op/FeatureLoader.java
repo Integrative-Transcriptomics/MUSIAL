@@ -47,6 +47,11 @@ public class FeatureLoader {
     private final Map<String, Map<String, String>> features;
 
     /**
+     * The count of features successfully processed, including sub-features.
+     */
+    private long loadedFeatureCount = 0;
+
+    /**
      * Constructs a new instance of the {@link FeatureLoader} class.
      * <p>
      * This constructor initializes the {@link FeatureLoader} with the provided storage, feature list, and feature specifications. The
@@ -113,6 +118,7 @@ public class FeatureLoader {
                     continue;
                 }
                 for (FeatureI matchedFeature : matchedFeatures) {
+                    loadedFeatureCount++;
                     Map<String, String> attributes = matchedFeature.getAttributes();
                     attributes.putAll(featureSpecification);
                     reprocessAttributes.accept(attributes);
@@ -122,6 +128,7 @@ public class FeatureLoader {
         } else if (!featureList.isEmpty()) { // Process all annotated features.
             for (FeatureI featureI : featureList) {
                 if (!"region".equals(featureI.type())) {
+                    loadedFeatureCount++;
                     Map<String, String> attributes = featureI.getAttributes();
                     reprocessAttributes.accept(attributes);
                     String name = attributes.getOrDefault("Name", "%s:g.%d_%d=".formatted(
@@ -314,6 +321,15 @@ public class FeatureLoader {
                 feature.addSubFeature(targetType, start, end);
             }
         }
+    }
+
+    /**
+     * Retrieves the total number of features successfully processed, including sub-features.
+     *
+     * @return The count of processed features.
+     */
+    public long getLoadedFeatureCount() {
+        return loadedFeatureCount;
     }
 
 }
