@@ -22,7 +22,7 @@ import java.util.List;
  * @param callEntropy  The normalized entropy of the call.
  * @param alternatives A list of alternative alleles associated with the variant call.
  */
-public record VariantCall(Flag flag, int totalDepth, double callEntropy, List<CallAlternative> alternatives) {
+public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<CallAlternative> alternatives) {
 
     /**
      * Enumeration of flags representing the status of a variant call.
@@ -75,7 +75,7 @@ public record VariantCall(Flag flag, int totalDepth, double callEntropy, List<Ca
      * @param alternative  The alternative allele.
      * @param allelicDepth The number of reads supporting the alternative allele.
      */
-    public record CallAlternative(String reference, String alternative, int allelicDepth) {
+    public record CallAlternative(String reference, String alternative, short allelicDepth) {
 
         /**
          * Converts the alternative allele to its string representation.

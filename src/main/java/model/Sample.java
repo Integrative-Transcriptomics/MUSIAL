@@ -238,7 +238,7 @@ public class Sample extends Attributes {
                     // Update the allelic depth for an existing alternative allele.
                     VariantCall.CallAlternative existing = _alternatives.get(i);
                     _alternatives.set(i, new VariantCall.CallAlternative(existing.reference(), existing.alternative(),
-                            existing.allelicDepth() + alternative.allelicDepth()));
+                            (short) (existing.allelicDepth() + alternative.allelicDepth())));
                 } else {
                     // Add a new alternative allele to the list.
                     _alternatives.add(alternative);
@@ -248,16 +248,16 @@ public class Sample extends Attributes {
         }
 
         // Sort alleles in descending order by their allelic depth (AD).
-        alternatives.sort((a, b) -> Integer.compare(b.allelicDepth(), a.allelicDepth()));
+        alternatives.sort((a, b) -> Short.compare(b.allelicDepth(), a.allelicDepth()));
 
         // Calculate the total observed depth of coverage.
-        int totalDepth = alternatives.stream().mapToInt(VariantCall.CallAlternative::allelicDepth).sum();
+        short totalDepth = (short) alternatives.stream().mapToInt(VariantCall.CallAlternative::allelicDepth).sum();
 
         // Calculate normalized entropy for the call context.
-        double callEntropy = alternatives.size() == 1 ? 0.0 : -1 * (alternatives.stream().mapToDouble(alternative -> {
+        float callEntropy = alternatives.size() == 1 ? (float) 0.0 : (float) (-1 * (alternatives.stream().mapToDouble(alternative -> {
             float frequency = alternative.allelicDepth() / (float) totalDepth;
             return frequency == 0 ? 0 : frequency * (Math.log(frequency) / Constants.LOG2);
-        }).sum()) / (Math.log(alternatives.size()) / Constants.LOG2);
+        }).sum()) / (Math.log(alternatives.size()) / Constants.LOG2));
 
         // Access the allele with the highest depth of coverage.
         VariantCall.CallAlternative allele = alternatives.get(0);
