@@ -573,8 +573,7 @@ public final class Bio {
      * @return {@code true} if the variant is a substitution, {@code false} otherwise.
      */
     public static boolean isSubstitution(String ref, String alt) {
-        return ref.matches("^[%s]$".formatted(Constants.BASE_SYMBOLS))
-                && isSubstitution(alt);
+        return isSubstitution(ref) && isSubstitution(alt);
     }
 
     /**
@@ -586,7 +585,7 @@ public final class Bio {
      * @return {@code true} if the alternative content represents a substitution, {@code false} otherwise.
      */
     public static boolean isSubstitution(String alt) {
-        return alt.matches("^[%s]$".formatted(Constants.BASE_SYMBOLS));
+        return alt.length() == 1 && Constants.BASE_SYMBOLS.indexOf(alt.charAt(0)) != -1;
     }
 
     /**
@@ -605,16 +604,7 @@ public final class Bio {
      * @return {@code true} if the variant is an insertion, {@code false} otherwise.
      */
     public static boolean isInsertion(String ref, String alt, boolean padded) {
-        if (padded) {
-            return ref.length() == alt.length()
-                    && ref.matches("^[%s]%s+$".formatted(Constants.BASE_SYMBOLS, Constants.GAP))
-                    && isInsertion(alt);
-        } else {
-            return ref.length() == 1
-                    && alt.length() > 1
-                    && ref.matches("^[%s]$".formatted(Constants.BASE_SYMBOLS))
-                    && alt.matches("^[%s]+$".formatted(Constants.BASE_SYMBOLS));
-        }
+        return isDeletion(alt, ref, padded);
     }
 
     /**
@@ -627,7 +617,7 @@ public final class Bio {
      * @return {@code true} if the alternative content represents an insertion, {@code false} otherwise.
      */
     public static boolean isInsertion(String alt) {
-        return alt.matches("^[%s]{2,}$".formatted(Constants.BASE_SYMBOLS));
+        return alt != null && !alt.isEmpty() && alt.chars().noneMatch(c -> Constants.BASE_SYMBOLS.indexOf(c) == -1);
     }
 
     /**
@@ -648,13 +638,13 @@ public final class Bio {
     public static boolean isDeletion(String ref, String alt, boolean padded) {
         if (padded) {
             return ref.length() == alt.length()
-                    && ref.matches("^[%s]+$".formatted(Constants.BASE_SYMBOLS))
+                    && ref.chars().noneMatch(c -> Constants.BASE_SYMBOLS.indexOf(c) == -1)
                     && isDeletion(alt);
         } else {
             return ref.length() > 1
                     && alt.length() == 1
-                    && ref.matches("^[%s]+$".formatted(Constants.BASE_SYMBOLS))
-                    && alt.matches("^[%s]$".formatted(Constants.BASE_SYMBOLS));
+                    && ref.chars().noneMatch(c -> Constants.BASE_SYMBOLS.indexOf(c) == -1)
+                    && Constants.BASE_SYMBOLS.indexOf(alt.charAt(0)) != -1;
         }
     }
 
@@ -668,7 +658,10 @@ public final class Bio {
      * @return {@code true} if the alternative content represents a deletion, {@code false} otherwise.
      */
     public static boolean isDeletion(String alt) {
-        return alt.matches("^[%s]%s+$".formatted(Constants.BASE_SYMBOLS, Constants.GAP));
+        if (alt == null || alt.isEmpty()) {
+            return false;
+        }
+        return Constants.BASE_SYMBOLS.indexOf(alt.charAt(0)) != -1 && alt.chars().skip(1).noneMatch(c -> c != Constants.GAP_CHAR);
     }
 
     /**
