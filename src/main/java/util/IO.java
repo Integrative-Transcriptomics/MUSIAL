@@ -4,6 +4,7 @@ import exceptions.MusialException;
 import main.Musial;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.RandomStringUtils;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -50,6 +51,13 @@ public final class IO {
     private static final DecimalFormat decimalFormat = new DecimalFormat("##.###", DecimalFormatSymbols.getInstance(Locale.US));
 
     /**
+     * A RandomStringUtils instance for generating random strings.
+     * <p>
+     * This instance is used for generating random strings, typically for creating temporary file or directory names.
+     */
+    private static final RandomStringUtils randomStringUtils = RandomStringUtils.insecure();
+
+    /**
      * Formats a frequency value into scientific notation.
      * <p>
      * This method formats the given frequency value using the {@link #frequencyFormat}. If the formatted value equals ".10E1", it is
@@ -79,6 +87,19 @@ public final class IO {
      */
     public static String formatNumber(double value) {
         return decimalFormat.format(value);
+    }
+
+    /**
+     * Generates a random alphanumeric string of the specified length.
+     * <p>
+     * This method uses the {@link RandomStringUtils} instance to generate a random string consisting of both letters and digits. The
+     * generated string is suitable for use in scenarios where a random identifier or token is needed.
+     *
+     * @param length The length of the random alphanumeric string to generate.
+     * @return A {@link String} containing the generated random alphanumeric characters.
+     */
+    public static String randomAlphanumeric(int length) {
+        return randomStringUtils.nextAlphanumeric(length);
     }
 
     /**

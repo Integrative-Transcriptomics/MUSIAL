@@ -6,7 +6,6 @@ import htsjdk.samtools.util.Tuple;
 import model.Storage;
 import model.Variant;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.tuple.Triple;
 import util.Constants;
 import util.IO;
@@ -74,7 +73,7 @@ public class VariantAnnotator {
      */
     public void runSnpEff(Path outputDirectory) throws MusialException, IOException {
         // Generate a temporary directory for snpEff.
-        String prefix = "%s-%s".formatted("snpEff", RandomStringUtils.randomAlphanumeric(6));
+        String prefix = "%s-%s".formatted("snpEff", IO.randomAlphanumeric(6));
         Path temp = Files.createTempDirectory(prefix);
         try {
             // Create map to store variant pointers and write storage variants to temporary VCF file.
