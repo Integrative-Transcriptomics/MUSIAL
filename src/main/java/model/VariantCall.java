@@ -86,7 +86,7 @@ public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<C
          * @return A {@link String} representing the alternative allele.
          */
         public String toString() {
-            return reference + Constants.COLON + alternative + Constants.COLON + allelicDepth;
+            return reference + Constants.GREATER_THAN + alternative;
         }
 
         /**
