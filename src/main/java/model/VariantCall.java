@@ -78,10 +78,20 @@ public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<C
     public record CallAlternative(String reference, String alternative, short allelicDepth) {
 
         /**
+         * Converts the alternative allele to a string representation, i.e., the reference and alternative allele, and allelic depth
+         * separated by {@link Constants#COLON}.
+         *
+         * @return A {@link String} representing the alternative allele with allelic depth.
+         */
+        private String asString() {
+            return reference + Constants.COLON + alternative + Constants.COLON + allelicDepth;
+        }
+
+        /**
          * Converts the alternative allele to its string representation.
          * <p>
-         * This method generates a string representation of the alternative allele by concatenating the reference allele, the alternative
-         * allele, and the allelic depth, separated by colons.
+         * This method generates a string representation of the alternative allele by concatenating the reference and alternative allele
+         * separated by {@link Constants#GREATER_THAN}.
          *
          * @return A {@link String} representing the alternative allele.
          */
@@ -184,7 +194,7 @@ public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<C
                 new StringBuilder(flag.name().toLowerCase()).append(Constants.SEMICOLON).append(totalDepth).append(Constants.SEMICOLON)
                         .append(String.format("%.3f", callEntropy)).append(Constants.SEMICOLON);
         for (int i = 0; i < alternatives.size(); i++) {
-            sb.append(alternatives.get(i).toString());
+            sb.append(alternatives.get(i).asString());
             if (i < alternatives.size() - 1) sb.append(Constants.COMMA);
         }
         return sb.toString();
