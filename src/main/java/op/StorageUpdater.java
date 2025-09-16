@@ -413,8 +413,8 @@ public class StorageUpdater {
         // Iterate through all samples to calculate sample-specific statistics.
         for (Sample sample : storage.getSamples()) {
             int totalCalls = 0, filteredCalls = 0;
-            List<Integer> coverages = new ArrayList<>();
-            List<Double> entropy = new ArrayList<>();
+            List<Short> coverages = new ArrayList<>();
+            List<Float> entropy = new ArrayList<>();
             perSampleSubstitutions.put(sample._id, 0);
             perSampleInDels.put(sample._id, 0);
 
@@ -431,9 +431,9 @@ public class StorageUpdater {
             sample.setAttribute(Constants.AttributesKeys.NUMBER_OF_CALLS, String.valueOf(totalCalls));
             sample.setAttribute(Constants.AttributesKeys.NUMBER_OF_FILTERED_CALLS, String.valueOf(filteredCalls));
             sample.setAttribute(Constants.AttributesKeys.MEAN_COVERAGE,
-                    IO.formatNumber(coverages.stream().mapToInt(Integer::intValue).average().orElse(0)));
+                    IO.formatNumber((short) coverages.stream().mapToInt(Short::intValue).average().orElse(0)));
             sample.setAttribute(Constants.AttributesKeys.MEAN_ENTROPY,
-                    IO.formatNumber(entropy.stream().mapToDouble(Double::doubleValue).average().orElse(0)));
+                    IO.formatNumber((float) entropy.stream().mapToDouble(Float::doubleValue).average().orElse(0)));
             sample.setAttribute(Constants.AttributesKeys.FREQUENCY_REFERENCE,
                     IO.formatFrequency(1 - (sample.getRelatedAllelesCount() / (float) noFeatures)));
 

@@ -2,7 +2,6 @@ package op;
 
 import htsjdk.samtools.util.Tuple;
 import htsjdk.tribble.index.IndexFactory;
-import htsjdk.tribble.index.linear.LinearIndex;
 import htsjdk.variant.variantcontext.Genotype;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFCodec;
@@ -14,6 +13,7 @@ import model.Sample;
 import model.Storage;
 import model.VariantCall;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import util.Bio;
 import util.Constants;
 import util.Logging;
@@ -114,11 +114,11 @@ public class VCFProcessor {
         int contigCount = storage.getContigs().size();
         int featureCount = storage.getFeatures().size();
         for (Path path : paths) {
-            // Create temporary index for processing.
-            LinearIndex index = IndexFactory.createLinearIndex(path.toFile(), new VCFCodec());
+            // Create temporary index for processing, if needed.
             File indexFile = new File(path + ".idx");
-            indexFile.deleteOnExit();
-            index.write(indexFile);
+            if (!indexFile.exists()) {
+                IndexFactory.createLinearIndex(path.toFile(), new VCFCodec()).write(indexFile);
+            }
             try (VCFFileReader vcfFileReader = new VCFFileReader(path)) {
                 // Extract the file's header.
                 VCFHeader vcfHeader = vcfFileReader.getHeader();
@@ -193,7 +193,7 @@ public class VCFProcessor {
                 }
 
                 // Extract the sample identifier.
-                String sampleIdentifier = genotype.getSampleName().split("\\$")[0];
+                String sampleIdentifier = genotype.getSampleName();
 
                 // Extract allelic depth (AD) information for the genotype.
                 int[] ADs;
@@ -268,8 +268,8 @@ public class VCFProcessor {
                             String commonSuffix = StringUtils.reverse(
                                     StringUtils.getCommonPrefix(StringUtils.reverse(REF), StringUtils.reverse(ALT))
                             );
-                            REF = StringUtils.removeEnd(REF, commonSuffix);
-                            ALT = StringUtils.removeEnd(ALT, commonSuffix);
+                            REF = Strings.CS.removeEnd(REF, commonSuffix);
+                            ALT = Strings.CS.removeEnd(ALT, commonSuffix);
 
                             if (Bio.isCanonicalVariant(REF, ALT)) {
                                 REF = Bio.padGaps(REF, ALT.length());
@@ -285,7 +285,7 @@ public class VCFProcessor {
                     }
 
                     // Add the alternative allele to the list.
-                    alternatives.add(new VariantCall.CallAlternative(REF, ALT, AD));
+                    alternatives.add(new VariantCall.CallAlternative(REF, ALT, (short) AD));
                 }
 
                 // Add the variant call to the storage and handle the result.

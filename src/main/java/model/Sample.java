@@ -225,9 +225,6 @@ public class Sample extends Attributes {
         // Ensure that the list of alternatives is not empty.
         assert !alternatives.isEmpty();
 
-        // Retrieve the current upstream deletion affecting this sample.
-        UpstreamDeletion upstreamDeletion = this.upstreamDeletion;
-
         // Check if a variant call already exists for the given contig and position.
         if (variantCalls.containsKey(contigIdentifier) && variantCalls.get(contigIdentifier).containsKey(position)) {
             List<VariantCall.CallAlternative> _alternatives = variantCalls.get(contigIdentifier).get(position).alternatives();
@@ -273,9 +270,9 @@ public class Sample extends Attributes {
 
         // Handle missing allele due to an upstream deletion.
         if (!isFiltered && allele.alternative().equals("*")) {
-            if (Objects.isNull(upstreamDeletion)
-                    || (upstreamDeletion.contigIdentifier.equals(contigIdentifier) && upstreamDeletion.start <= position && position <= upstreamDeletion.end && upstreamDeletion.filtered)
-                    || (upstreamDeletion.contigIdentifier.equals(contigIdentifier) && position > upstreamDeletion.end)) {
+            if (Objects.isNull(this.upstreamDeletion)
+                    || (this.upstreamDeletion.contigIdentifier.equals(contigIdentifier) && this.upstreamDeletion.start <= position && position <= this.upstreamDeletion.end && this.upstreamDeletion.filtered)
+                    || (this.upstreamDeletion.contigIdentifier.equals(contigIdentifier) && position > this.upstreamDeletion.end)) {
                 flag = VariantCall.Flag.MISSING_UPSTREAM_DELETION;
                 isFiltered = true;
                 Logging.logWarningOnce("UNEXPLAINED_DELETION",
@@ -286,7 +283,7 @@ public class Sample extends Attributes {
         }
 
         // Set deleted downstream positions if the current accepted call is a deletion.
-        if (Bio.isDeletion(allele.reference(), allele.alternative(), true)) {
+        if (Bio.isDeletion(allele.alternative())) {
             this.upstreamDeletion = new UpstreamDeletion(
                     contigIdentifier, position + StringUtils.indexOf(allele.alternative(), Constants.GAP_CHAR),
                     position + StringUtils.lastIndexOf(allele.alternative(), Constants.GAP_CHAR), isFiltered);
@@ -296,7 +293,6 @@ public class Sample extends Attributes {
         if (!flag.equals(VariantCall.Flag.REFERENCE_CALL)) {
             variantCalls.computeIfAbsent(contigIdentifier, k -> new HashMap<>(128));
             variantCalls.get(contigIdentifier).put(position, new VariantCall(flag, totalDepth, callEntropy, alternatives));
-            // Todo: There may be a more efficient way to track novel variant calls.
             novelCalls.computeIfAbsent(contigIdentifier, k -> new HashSet<>(128));
             novelCalls.get(contigIdentifier).add(position);
         }
@@ -414,6 +410,10 @@ public class Sample extends Attributes {
         if (obj == null || getClass() != obj.getClass()) return false;
         Sample that = (Sample) obj;
         return this._id.equals(that._id);
+    }
+
+    public void clearCalls() {
+        this.variantCalls.clear();
     }
 
 }
