@@ -146,7 +146,7 @@ public class Storage {
     /**
      * Transient list of novel variants. <i>This is automatically filled during variant call processing.</i>
      */
-    transient ArrayList<Triple<String, Integer, String>> novelVariants = new ArrayList<>(128);
+    transient ArrayList<Triple<String, Integer, String>> novelVariants = new ArrayList<>(10_000);
 
     /**
      * Constructs a new {@link Storage} instance with the specified parameters.
@@ -497,13 +497,19 @@ public class Storage {
      * Adds a sample to the storage if it does not already exist.
      * <p>
      * This method checks whether a sample with the given identifier is already present in the storage. If the sample does not exist, it
-     * creates a new {@link Sample} object, associates it with the storage, and adds it to the `samples` map. If the sample already exists,
-     * the existing {@link Sample} object is returned.
+     * creates a new {@link Sample} object, associates it with the storage, and adds it to the `samples` map. The new {@link Sample} object
+     * is initialized with the current number of contigs and features in the storage. If the sample already exists, the method does
+     * nothing.
      *
-     * @param sample The unique identifier of the sample to add. This typically represents the name or ID of the biological sample.
+     * @param sampleIdentifier The unique identifier of the sample to add. This typically represents the name or ID of the biological
+     *                         sample.
      */
-    public void addSample(Sample sample) {
-        this.samples.putIfAbsent(sample._id, sample);
+    public void addSample(String sampleIdentifier) {
+        // Create a new Sample object with the given identifier, initialized with the current number of contigs and features.
+        Sample sample = new Sample(sampleIdentifier, contigs.size(), features.size());
+
+        // Add the sample to the samples map if it does not already exist.
+        samples.putIfAbsent(sample._id, sample);
     }
 
     /**
@@ -549,18 +555,21 @@ public class Storage {
     /**
      * Adds a variant to the specified contig in the storage.
      * <p>
-     * This method validates the variant to ensure it is in a canonical padded format. If the variant is not canonical, an
+     * This method ensures that the variant is in a canonical padded format. If the variant is not canonical, an
      * {@link IllegalArgumentException} is thrown. If the variant does not already exist in the contig, it is created and added. The method
      * also associates the variant with the specified sample and caches the variant for further processing.
      *
-     * @param contig           The {@link Contig} object to which the variant belongs.
-     * @param sampleIdentifier The unique identifier of the sample associated with the variant.
-     * @param position         The position of the variant within the contig.
-     * @param reference        The reference allele of the variant.
-     * @param alternative      The alternative allele of the variant.
-     * @throws IllegalArgumentException If the variant is not in a canonical padded format.
+     * @param contig           The {@link Contig} object to which the variant belongs. Represents the genomic region where the variant is
+     *                         located.
+     * @param sampleIdentifier The unique identifier of the sample associated with the variant. Used to track the sample's variant calls.
+     * @param position         The position of the variant within the contig. Represents the genomic coordinate of the variant.
+     * @param reference        The reference allele of the variant. This is the expected sequence at the given position.
+     * @param alternative      The alternative allele of the variant. This is the observed sequence differing from the reference.
+     * @param variantCalls     A set of {@link VariantCall} objects representing the variant calls associated with the sample.
+     * @throws IllegalArgumentException If the variant is not in a canonical padded format. Ensures data consistency and correctness.
      */
-    public void addVariant(Contig contig, String sampleIdentifier, int position, String reference, String alternative) {
+    public void addVariant(Contig contig, String sampleIdentifier, int position, String reference, String alternative,
+                           Set<VariantCall> variantCalls) {
         // Validate that the variant is in a canonical padded format.
         if (!Bio.isPaddedCanonicalVariant(reference, alternative)) {
             throw new IllegalArgumentException("Failed to add non-canonical variant %s > %s at position %d to contig %s."
@@ -575,7 +584,7 @@ public class Storage {
         }
 
         // Associate the variant with the sample and cache it for further processing.
-        variant.addRelation(sampleIdentifier);
+        variant.addRelation(sampleIdentifier, variantCalls);
         novelVariants.add(new ImmutableTriple<>(contig._id, position, alternative));
     }
 

@@ -74,9 +74,9 @@ public class Sample extends Attributes {
      * @param contigIdentifier The unique identifier of the contig where the deletion occurs.
      * @param start            The start position of the deletion.
      * @param end              The end position of the deletion.
-     * @param filtered         A boolean flag indicating whether the deletion is filtered.
+     * @param isFiltered         A boolean flag indicating whether the deletion is filtered.
      */
-    private record UpstreamDeletion(String contigIdentifier, int start, int end, boolean filtered) {
+    public record UpstreamDeletion(String contigIdentifier, int start, int end, boolean isFiltered) {
     }
 
     /**
@@ -271,7 +271,7 @@ public class Sample extends Attributes {
         // Handle missing allele due to an upstream deletion.
         if (!isFiltered && allele.alternative().equals("*")) {
             if (Objects.isNull(this.upstreamDeletion)
-                    || (this.upstreamDeletion.contigIdentifier.equals(contigIdentifier) && this.upstreamDeletion.start <= position && position <= this.upstreamDeletion.end && this.upstreamDeletion.filtered)
+                    || (this.upstreamDeletion.contigIdentifier.equals(contigIdentifier) && this.upstreamDeletion.start <= position && position <= this.upstreamDeletion.end && this.upstreamDeletion.isFiltered)
                     || (this.upstreamDeletion.contigIdentifier.equals(contigIdentifier) && position > this.upstreamDeletion.end)) {
                 flag = VariantCall.Flag.MISSING_UPSTREAM_DELETION;
                 isFiltered = true;
@@ -330,6 +330,7 @@ public class Sample extends Attributes {
                             // For each entry, map the contig identifier, position, and corresponding VariantCall object.
                             .map(callEntry -> new ImmutableTriple<>(entry.getKey(), callEntry,
                                     this.variantCalls.get(entry.getKey()).get(callEntry))))
+                    .sorted(Comparator.comparing(t -> t.middle))
                     .toList(); // Collect the results into a list.
         } else {
             // If the 'novel' flag is false, retrieve all variant calls.
@@ -338,6 +339,7 @@ public class Sample extends Attributes {
                     .flatMap(entry -> entry.getValue().entrySet().stream()
                             // For each entry, map the contig identifier, position, and corresponding VariantCall object.
                             .map(callEntry -> new ImmutableTriple<>(entry.getKey(), callEntry.getKey(), callEntry.getValue())))
+                    .sorted(Comparator.comparing(t -> t.middle))
                     .toList(); // Collect the results into a list.
         }
     }
@@ -367,10 +369,14 @@ public class Sample extends Attributes {
     public List<Tuple<Integer, VariantCall>> getVariantCalls(String contigIdentifier, boolean novel) {
         if (novel) {
             return this.novelCalls.getOrDefault(contigIdentifier, new HashSet<>()).stream()
-                    .map(position -> new Tuple<>(position, this.variantCalls.get(contigIdentifier).get(position))).toList();
+                    .map(position -> new Tuple<>(position, this.variantCalls.get(contigIdentifier).get(position)))
+                    .sorted(Comparator.comparingInt(t -> t.a))
+                    .toList();
         } else {
             return this.variantCalls.getOrDefault(contigIdentifier, new HashMap<>()).entrySet().stream()
-                    .map(callEntry -> new Tuple<>(callEntry.getKey(), callEntry.getValue())).toList();
+                    .map(callEntry -> new Tuple<>(callEntry.getKey(), callEntry.getValue()))
+                    .sorted(Comparator.comparingInt(t -> t.a))
+                    .toList();
         }
     }
 
@@ -410,10 +416,6 @@ public class Sample extends Attributes {
         if (obj == null || getClass() != obj.getClass()) return false;
         Sample that = (Sample) obj;
         return this._id.equals(that._id);
-    }
-
-    public void clearCalls() {
-        this.variantCalls.clear();
     }
 
 }

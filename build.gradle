@@ -96,6 +96,8 @@ dependencies {
     implementation 'com.google.guava:guava:33.4.8-android'
     implementation 'com.github.samtools:htsjdk:4.1.3'
     implementation 'com.github.java-json-tools:json-schema-validator:2.2.14'
+    implementation 'org.ehcache:ehcache:3.11.1'
+    implementation 'uk.co.omega-prime:btreemap:1.2.0'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
 }

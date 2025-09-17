@@ -8,20 +8,31 @@ import htsjdk.variant.vcf.VCFCodec;
 import htsjdk.variant.vcf.VCFContigHeaderLine;
 import htsjdk.variant.vcf.VCFFileReader;
 import htsjdk.variant.vcf.VCFHeader;
-import model.Feature;
-import model.Sample;
-import model.Storage;
-import model.VariantCall;
+import main.Musial;
+import model.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
+import org.apache.commons.lang3.tuple.Triple;
+import org.ehcache.Cache;
+import org.ehcache.CacheManager;
+import org.ehcache.config.builders.CacheConfigurationBuilder;
+import org.ehcache.config.builders.CacheManagerBuilder;
+import org.ehcache.config.builders.ExpiryPolicyBuilder;
+import org.ehcache.config.builders.ResourcePoolsBuilder;
+import org.ehcache.config.units.EntryUnit;
+import org.ehcache.config.units.MemoryUnit;
+import uk.co.omegaprime.btreemap.BTreeMap;
 import util.Bio;
 import util.Constants;
+import util.IO;
 import util.Logging;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.function.Consumer;
 
 /**
  * The {@code VCFProcessor} class is responsible for processing Variant Call Format (VCF) files.
@@ -32,7 +43,7 @@ import java.util.*;
  *
  * @noinspection DuplicatedCode
  */
-public class VCFProcessor {
+public class VCFProcessor implements Closeable {
 
     /**
      * The storage object for managing processed genomic data.
@@ -79,9 +90,169 @@ public class VCFProcessor {
     private long filteredCallsCount = 0;
 
     /**
-     * Maps identifiers to {@link Sample} objects generated from the VCF files.
+     * A map that tracks upstream deletions for each sample.
+     * <p>
+     * The key is the sample identifier, and the value is a {@link Sample.UpstreamDeletion} object that represents the details of the
+     * upstream deletion, including its genomic range and filter status. This map is used to handle cases where a deletion affects
+     * downstream positions in the genome.
      */
-    private final Map<String, Sample> samples;
+    private final Map<String, Sample.UpstreamDeletion> upstreamDeletions = new HashMap<>(1_000);
+
+    /**
+     * A cache for storing and managing variant calls.
+     * <p>
+     * The {@link VariantCallCache} is responsible for indexing, storing, and retrieving variant calls based on sample identifiers, contig
+     * identifiers, and genomic positions. It provides efficient access to variant data during processing and ensures that calls are merged
+     * and updated as needed.
+     */
+    private final VariantCallCache vcCache;
+
+    /**
+     * A cache for storing and managing variant calls.
+     * <p>
+     * This class provides methods to index, store, and retrieve variant calls based on sample identifiers, contig identifiers, and genomic
+     * positions. It uses a hierarchical map structure for efficient indexing and an Ehcache instance for caching the variant call objects.
+     */
+    private static class VariantCallCache {
+
+        /**
+         * A unique alias for the cache, generated as a random alphanumeric string.
+         */
+        final static String ALIAS = IO.randomAlphanumeric(4).toUpperCase();
+
+        /**
+         * Counter for indexing sample identifiers.
+         */
+        private int sampleIndex = 0;
+
+        /**
+         * Counter for indexing contig identifiers.
+         */
+        private int contigIndex = 0;
+
+        /**
+         * Counter for generating unique cache keys.
+         */
+        private long cacheKey = 0;
+
+        /**
+         * A map for storing sample identifiers and their corresponding indices.
+         */
+        final Map<String, Integer> sampleMap = new HashMap<>(1_000);
+
+        /**
+         * A map for storing contig identifiers and their corresponding indices.
+         */
+        final Map<String, Integer> contigMap = new HashMap<>(10);
+
+        /**
+         * A hierarchical map structure for indexing variant calls by sample, contig, and position.
+         */
+        final Map<Integer, Map<Integer, Map<Integer, Long>>> callMap = new HashMap<>(1_000);
+
+        /**
+         * The cache manager for managing the Ehcache instance.
+         */
+        final CacheManager manager = CacheManagerBuilder
+                .newCacheManagerBuilder()
+                .with(CacheManagerBuilder.persistence(Musial.tempDir))
+                .withCache(ALIAS,
+                        CacheConfigurationBuilder
+                                .newCacheConfigurationBuilder(Long.class, VariantCall.class,
+                                        ResourcePoolsBuilder.newResourcePoolsBuilder()
+                                                .heap(100_000_000, EntryUnit.ENTRIES)
+                                                .offheap(2, MemoryUnit.GB)
+                                                .disk(20, MemoryUnit.GB, false))
+                                .withValueSerializer(new VariantCall.VariantCallSerializer())
+                                .withExpiry(ExpiryPolicyBuilder.noExpiration()))
+                .build(true);
+
+        /**
+         * The Ehcache instance for storing variant calls.
+         */
+        private final Cache<Long, VariantCall> cache = manager.getCache(ALIAS, Long.class, VariantCall.class);
+
+        /**
+         * Private constructor to initialize the VariantCallCache.
+         */
+        private VariantCallCache() {
+        }
+
+        /**
+         * Indexes a sample identifier by assigning it a unique index.
+         *
+         * @param identifier The sample identifier to index.
+         */
+        void indexSample(String identifier) {
+            sampleMap.putIfAbsent(identifier, sampleIndex++);
+        }
+
+        /**
+         * Indexes a contig identifier by assigning it a unique index.
+         *
+         * @param identifier The contig identifier to index.
+         */
+        void indexContig(String identifier) {
+            contigMap.putIfAbsent(identifier, contigIndex++);
+        }
+
+        /**
+         * Stores a variant call in the cache.
+         *
+         * @param sampleIdentifier The sample identifier associated with the variant call.
+         * @param contigIdentifier The contig identifier associated with the variant call.
+         * @param position         The genomic position of the variant call.
+         * @param call             The {@link VariantCall} object to store.
+         */
+        void put(String sampleIdentifier, String contigIdentifier, int position, VariantCall call) {
+            Long key = callMap.computeIfAbsent(sampleMap.get(sampleIdentifier), k -> new HashMap<>(10))
+                    .computeIfAbsent(contigMap.get(contigIdentifier), k -> BTreeMap.create())
+                    .putIfAbsent(position, cacheKey);
+            if (Objects.nonNull(key))  // Replace existing call.
+                cache.put(key, call);
+            else  // New call.
+                cache.put(cacheKey++, call);
+        }
+
+        /**
+         * Retrieves a variant call from the cache based on sample, contig, and position.
+         *
+         * @param sampleIdentifier The sample identifier associated with the variant call.
+         * @param contigIdentifier The contig identifier associated with the variant call.
+         * @param position         The genomic position of the variant call.
+         * @return The {@link VariantCall} object if found, or {@code null} if not found.
+         */
+        VariantCall get(String sampleIdentifier, String contigIdentifier, int position) {
+            Map<Integer, Map<Integer, Long>> sampleMapEntry = callMap.get(sampleMap.get(sampleIdentifier));
+            if (sampleMapEntry == null) return null;
+
+            Map<Integer, Long> contigMapEntry = sampleMapEntry.get(contigMap.get(contigIdentifier));
+            if (contigMapEntry == null) return null;
+
+            Long positionKey = contigMapEntry.get(position);
+            return positionKey != null ? cache.get(positionKey) : null;
+        }
+
+        /**
+         * Retrieves all variant calls for a specific sample and contig.
+         *
+         * @param sampleIdentifier The sample identifier associated with the variant calls.
+         * @param contigIdentifier The contig identifier associated with the variant calls.
+         * @return A {@link List} of {@link Tuple} objects, where each tuple contains the position and the corresponding variant call.
+         */
+        List<Tuple<Integer, VariantCall>> get(String sampleIdentifier, String contigIdentifier) {
+            if (!sampleMap.containsKey(sampleIdentifier) || !contigMap.containsKey(contigIdentifier))
+                return Collections.emptyList();
+            Set<Map.Entry<Integer, Long>> entries = callMap.getOrDefault(sampleMap.get(sampleIdentifier), Collections.emptyMap())
+                    .getOrDefault(contigMap.get(contigIdentifier), Collections.emptyMap())
+                    .entrySet();
+            List<Tuple<Integer, VariantCall>> calls = new ArrayList<>(entries.size());
+            for (var entry : entries) {
+                calls.add(new Tuple<>(entry.getKey(), this.cache.get(entry.getValue())));
+            }
+            return calls;
+        }
+    }
 
     /**
      * Constructs a new {@link VCFProcessor} instance for processing VCF files.
@@ -97,8 +268,12 @@ public class VCFProcessor {
     public VCFProcessor(List<Path> paths, Storage storage, boolean imputeContigs) {
         this.paths = paths;
         this.storage = storage;
+        this.vcCache = new VariantCallCache();
         this.imputeContigs = imputeContigs;
-        this.samples = new HashMap<>(1000);
+    }
+
+    public void close() {
+        this.vcCache.manager.close();
     }
 
     /**
@@ -110,51 +285,84 @@ public class VCFProcessor {
      *
      * @throws IOException If an I/O error occurs during file operations or VCF processing.
      */
-    public void analyzeFiles() throws IOException {
-        int contigCount = storage.getContigs().size();
-        int featureCount = storage.getFeatures().size();
+    public void processFiles() throws IOException {
+        // Iterate over each VCF file path in the list of paths.
         for (Path path : paths) {
-            // Create temporary index for processing, if needed.
+            // Create a temporary index file for the VCF file if it does not already exist.
             File indexFile = new File(path + ".idx");
             if (!indexFile.exists()) {
                 IndexFactory.createLinearIndex(path.toFile(), new VCFCodec()).write(indexFile);
             }
+
+            // Open the VCF file for reading using a VCFFileReader.
             try (VCFFileReader vcfFileReader = new VCFFileReader(path)) {
-                // Extract the file's header.
+                // Extract the header of the VCF file.
                 VCFHeader vcfHeader = vcfFileReader.getHeader();
+
                 // Check if the VCF file contains genotyping data.
                 if (!vcfHeader.hasGenotypingData()) {
+                    // Log a warning if no genotyping data is found.
                     Logging.logWarning("VCF file %s does not contain genotyping data.".formatted(path));
                 } else {
-                    // Impute contigs from the VCF file if the flag is set.
-                    if (imputeContigs) {
-                        for (VCFContigHeaderLine contigLine : vcfHeader.getContigLines()) {
-                            storage.addContig(contigLine.getID(), Constants.EMPTY);
+                    // Index contigs from the VCF file and add them to the storage if the imputeContigs flag is set.
+                    for (VCFContigHeaderLine contigLine : vcfHeader.getContigLines()) {
+                        String contigId = contigLine.getID(); // Extract the contig ID.
+                        this.vcCache.indexContig(contigId); // Index the contig in the store.
+                        if (imputeContigs) {
+                            storage.addContig(contigId, Constants.EMPTY); // Add the contig to storage.
                         }
                     }
 
-                    // Initialize samples from the VCF header.
-                    for (String sampleName : vcfHeader.getGenotypeSamples()) {
-                        String sampleIdentifier = sampleName.split("\\$")[0];
-                        samples.putIfAbsent(sampleIdentifier, new Sample(sampleIdentifier, contigCount, featureCount));
-                    }
+                    // Index the sample identifiers from the VCF header.
+                    vcfHeader.getGenotypeSamples().forEach(this.vcCache::indexSample);
 
-                    // Process variant contexts based on feature availability.
+                    // Check if specific features are defined in the storage.
                     if (!storage.getFeatures().isEmpty()) {
                         // Process variants for each feature in the storage.
                         for (Feature feature : storage.getFeatures()) {
-                            process(vcfFileReader.query(feature.contig, feature.start, feature.end), path);
+                            processVariantContexts(vcfFileReader.query(feature.contig, feature.start, feature.end), path);
                         }
                     } else {
-                        // Process all variants if no features are defined.
-                        process(vcfFileReader.iterator(), path);
+                        // Process all variants if no specific features are defined.
+                        // Note: Optimization may be required for large files.
+                        processVariantContexts(vcfFileReader.iterator(), path);
                     }
                 }
             }
         }
+    }
 
-        // Transfer samples to storage.
-        samples.values().forEach(storage::addSample);
+    /**
+     * Retrieves the total number of processed variant calls.
+     *
+     * @return The total number of processed variant calls as a {@code long}.
+     */
+    public long getProcessedCallsCount() {
+        return processedCallsCount;
+    }
+
+    /**
+     * Retrieves the total number of ignored variant calls.
+     * <p>
+     * This method returns the count of variant calls that were ignored during processing. A variant call may be ignored for reasons such as
+     * missing data, being classified as a reference call, or lacking sufficient information for analysis.
+     *
+     * @return The total number of ignored variant calls as a {@code long}.
+     */
+    public long getIgnoredCallsCount() {
+        return ignoredCallsCount;
+    }
+
+    /**
+     * Retrieves the total number of filtered variant calls.
+     * <p>
+     * This method returns the count of variant calls that were filtered out during processing. Filtering may occur due to criteria such as
+     * low coverage, low frequency, or other conditions defined in the program.
+     *
+     * @return The total number of filtered variant calls as a {@code long}.
+     */
+    public long getFilteredCallsCount() {
+        return filteredCallsCount;
     }
 
     /**
@@ -167,7 +375,7 @@ public class VCFProcessor {
      * @param variantContextIterator An {@link Iterator} of {@link VariantContext} objects representing the variants to process.
      * @param path                   The {@link Path} to the VCF file being processed, used for logging and error reporting.
      */
-    private void process(Iterator<VariantContext> variantContextIterator, Path path) {
+    private void processVariantContexts(Iterator<VariantContext> variantContextIterator, Path path) {
         while (variantContextIterator.hasNext()) {
             VariantContext variantContext = variantContextIterator.next();
             String contigIdentifier = variantContext.getContig();
@@ -275,6 +483,8 @@ public class VCFProcessor {
                                 REF = Bio.padGaps(REF, ALT.length());
                                 ALT = Bio.padGaps(ALT, REF.length());
                             } else {
+                                Logging.logDebug("Realigning non-canonical variant call %s>%s at %s:g.%d".formatted(
+                                        REF, ALT, contigIdentifier, variantContext.getStart()));
                                 Tuple<String, String> alignment = Bio.globalNucleotideSequenceAlignment(
                                         REF, ALT, 5, 2, true, false, 0
                                 );
@@ -289,8 +499,8 @@ public class VCFProcessor {
                 }
 
                 // Add the variant call to the storage and handle the result.
-                VariantCall.Flag flag = samples.get(sampleIdentifier).addVariantCall(contigIdentifier, variantContext.getStart(),
-                        alternatives, storage.parameters, path);
+                VariantCall.Flag flag = processVariantCall(sampleIdentifier, contigIdentifier, variantContext.getStart(), alternatives,
+                        storage.parameters, path);
 
                 switch (flag) {
                     case PASS -> {
@@ -305,36 +515,242 @@ public class VCFProcessor {
     }
 
     /**
-     * Retrieves the total number of processed variant calls.
+     * Processes a variant call by merging it with existing calls, calculating statistics, and determining its flag.
      *
-     * @return The total number of processed variant calls as a {@code long}.
+     * @param sampleIdentifier The unique identifier of the sample associated with the variant call.
+     * @param contigIdentifier The unique identifier of the contig where the variant is located.
+     * @param position         The genomic position of the variant within the contig.
+     * @param alternatives     A list of {@link VariantCall.CallAlternative} objects representing the alleles and their depths.
+     * @param parameters       The {@link Storage.Parameters} object containing thresholds for filtering variant calls.
+     * @param origin           The {@link Path} to the source file where the variant call originated, used for logging.
+     * @return A {@link VariantCall.Flag} indicating the status of the processed variant call (e.g., PASS, LOW_COVERAGE).
      */
-    public long getProcessedCallsCount() {
-        return processedCallsCount;
+    private VariantCall.Flag processVariantCall(String sampleIdentifier, String contigIdentifier, int position,
+                                                List<VariantCall.CallAlternative> alternatives, Storage.Parameters parameters,
+                                                Path origin) {
+        // Ensure that the list of alternatives is not empty.
+        assert !alternatives.isEmpty();
+
+        // Retrieve existing alternatives and merge with new ones.
+        VariantCall existingCall = vcCache.get(sampleIdentifier, contigIdentifier, position);
+        if (existingCall != null) {
+            List<VariantCall.CallAlternative> existingAlternatives = existingCall.alternatives();
+
+            for (VariantCall.CallAlternative alternative : alternatives) {
+                int index = existingAlternatives.indexOf(alternative);
+
+                if (index >= 0) {
+                    // Update allelic depth for existing alternative.
+                    VariantCall.CallAlternative existing = existingAlternatives.get(index);
+                    existingAlternatives.set(index, new VariantCall.CallAlternative(
+                            existing.reference(),
+                            existing.alternative(),
+                            (short) (existing.allelicDepth() + alternative.allelicDepth())
+                    ));
+                } else {
+                    // Add new alternative to the list.
+                    existingAlternatives.add(alternative);
+                }
+            }
+
+            // Replace alternatives with the merged list.
+            alternatives = existingAlternatives;
+        }
+
+        // Sort alleles in descending order by their allelic depth (AD).
+        alternatives.sort((a, b) -> Short.compare(b.allelicDepth(), a.allelicDepth()));
+
+        // Calculate the total observed depth of coverage.
+        short totalDepth = (short) alternatives.stream().mapToInt(VariantCall.CallAlternative::allelicDepth).sum();
+
+        // Calculate normalized entropy for the call context.
+        float callEntropy = alternatives.size() == 1 ? (float) 0.0 : (float) (-1 * (alternatives.stream().mapToDouble(alternative -> {
+            float frequency = alternative.allelicDepth() / (float) totalDepth;
+            return frequency == 0 ? 0 : frequency * (Math.log(frequency) / Constants.LOG2);
+        }).sum()) / (Math.log(alternatives.size()) / Constants.LOG2));
+
+        // Access the allele with the highest depth of coverage.
+        VariantCall.CallAlternative allele = alternatives.get(0);
+        VariantCall.Flag flag = allele.alternative().equals(Constants.DOT) ? VariantCall.Flag.REFERENCE_CALL : VariantCall.Flag.PASS;
+
+        // Compute the actual frequency of the selected allele.
+        float frequency = allele.allelicDepth() / (float) totalDepth;
+
+        // Set call prefix for low frequency or coverage.
+        if (frequency < parameters.minimalFrequency()) flag = VariantCall.Flag.LOW_FREQUENCY;
+        if (totalDepth < parameters.minimalCoverage()) flag = VariantCall.Flag.LOW_COVERAGE;
+        boolean isFiltered = (flag.equals(VariantCall.Flag.LOW_FREQUENCY) || flag.equals(VariantCall.Flag.LOW_COVERAGE));
+
+        // Handle missing allele due to an upstream deletion.
+        Sample.UpstreamDeletion upstreamDeletion = this.upstreamDeletions.getOrDefault(sampleIdentifier, null);
+        if (!isFiltered && allele.alternative().equals("*")) {
+            if (Objects.isNull(upstreamDeletion)
+                    || (upstreamDeletion.contigIdentifier().equals(contigIdentifier) && upstreamDeletion.start() <= position && position <= upstreamDeletion.end() && upstreamDeletion.isFiltered())
+                    || (upstreamDeletion.contigIdentifier().equals(contigIdentifier) && position > upstreamDeletion.end())) {
+                flag = VariantCall.Flag.MISSING_UPSTREAM_DELETION;
+                isFiltered = true;
+                Logging.logWarningOnce("UNEXPLAINED_DELETION",
+                        String.format("Possible error in genotype data. Called deleted allele (*) is not explained by an " +
+                                        "upstream deletion at site %s %d for sample %s in file %s.",
+                                contigIdentifier, position, sampleIdentifier, origin));
+            }
+        }
+
+        // Set deleted downstream positions if the current accepted call is a deletion.
+        if (Bio.isDeletion(allele.alternative())) {
+            this.upstreamDeletions.put(sampleIdentifier,
+                    new Sample.UpstreamDeletion(contigIdentifier, position + StringUtils.indexOf(allele.alternative(),
+                            Constants.GAP_CHAR), position + StringUtils.lastIndexOf(allele.alternative(), Constants.GAP_CHAR), isFiltered)
+            );
+        }
+
+        // Store the variant call in the calls map if it is not a reference call.
+        if (!flag.equals(VariantCall.Flag.REFERENCE_CALL)) {
+            this.vcCache.put(sampleIdentifier, contigIdentifier, position, new VariantCall(flag, totalDepth, callEntropy, alternatives));
+        }
+
+        return flag;
     }
 
     /**
-     * Retrieves the total number of ignored variant calls.
+     * Updates the variants in the storage by processing variant calls from the cache.
      * <p>
-     * This method returns the count of variant calls that were ignored during processing. A variant call may be ignored for reasons such as
-     * missing data, being classified as a reference call, or lacking sufficient information for analysis.
-     *
-     * @return The total number of ignored variant calls as a {@code long}.
+     * This method iterates through all samples and contigs in the cache, processes their variant calls, and adds the resolved variants to
+     * the storage. It handles complex cases such as deletions, insertions, and mixed InDels, ensuring that the variants are stored in a
+     * canonical format.
      */
-    public long getIgnoredCallsCount() {
-        return ignoredCallsCount;
-    }
+    public void updateVariants() {
+        // Iterate through all samples in the cache's map.
+        for (String sampleIdentifier : this.vcCache.sampleMap.keySet()) {
+            // Add the sample to the storage.
+            storage.addSample(sampleIdentifier);
+            assert storage.hasSample(sampleIdentifier);
+            Sample sample = storage.getSample(sampleIdentifier);
 
-    /**
-     * Retrieves the total number of filtered variant calls.
-     * <p>
-     * This method returns the count of variant calls that were filtered out during processing. Filtering may occur due to criteria such as
-     * low coverage, low frequency, or other conditions defined in the program.
-     *
-     * @return The total number of filtered variant calls as a {@code long}.
-     */
-    public long getFilteredCallsCount() {
-        return filteredCallsCount;
-    }
+            // Iterate through all contigs in the storage.
+            for (String contigIdentifier : this.vcCache.contigMap.keySet()) {
+                assert storage.hasContig(contigIdentifier);
+                Contig contig = storage.getContig(contigIdentifier);
 
+                // Access all variant calls for the current sample and contig from the cache.
+                List<Tuple<Integer, VariantCall>> entries = vcCache.get(sampleIdentifier, contigIdentifier);
+                // Continue if no calls are present for the current sample and contig.
+                if (entries.isEmpty()) continue;
+
+                // Initialize builders and variables for processing variants, esp. handling deletions and mixed InDels.
+                StringBuilder referenceBuilder = new StringBuilder();
+                StringBuilder alternativeBuilder = new StringBuilder();
+                Set<VariantCall> _calls = new HashSet<>(); // Set of variant calls that constitute the current variant.
+                int variantStartPosition = 0;
+                int deletionExtension = 0;
+
+                // Helper function to resolve variants and add them to the storage.
+                Consumer<Integer> resolve = (_position) -> {
+                    String _reference = referenceBuilder.toString();
+                    String _alternative = alternativeBuilder.toString();
+                    if (!Bio.isPaddedCanonicalVariant(_reference, _alternative)) {
+                        Tuple<String, String> alignment =
+                                Bio.globalNucleotideSequenceAlignment(
+                                        Bio.stripGaps(referenceBuilder.toString()),
+                                        Bio.stripGaps(alternativeBuilder.toString()),
+                                        5,
+                                        2,
+                                        true,
+                                        false,
+                                        0
+                                );
+                        ArrayList<Triple<Integer, String, String>> resolvedVariants =
+                                Bio.getCanonicalVariants(alignment.a, alignment.b);
+                        for (Triple<Integer, String, String> _variant : resolvedVariants) {
+                            storage.addVariant(contig, sample._id, _position + _variant.getLeft(), _variant.getMiddle(),
+                                    _variant.getRight(), _calls);
+
+                        }
+                    } else {
+                        storage.addVariant(contig, sample._id, _position, _reference, _alternative, _calls);
+                    }
+                    // Reset outer state.
+                    referenceBuilder.setLength(0);
+                    alternativeBuilder.setLength(0);
+                    _calls.clear();
+                };
+
+                // Process variant calls for the current sample and contig.
+                for (var entry : entries) {
+                    int position = entry.a; // Extract the position of the variant.
+                    VariantCall variantCall = entry.b; // Extract the variant call.
+
+                    // Skip buried and reference calls.
+                    if (variantCall.isReference() || variantCall.isBuried()) continue;
+
+                    // Skip ambiguous calls if they are filtered and not to be stored.
+                    boolean isFiltered = variantCall.isFiltered();
+                    if (!storage.parameters.storeFiltered() && isFiltered) continue;
+
+                    // Access base content of the variant call.
+                    String reference = variantCall.getCalledReference();
+                    String alternative = isFiltered ? (Constants.ANY_NUCLEOTIDE.repeat(reference.length())) :
+                            variantCall.getCalledAlternative();
+
+                    // Resolve previous variant, if the current position is outside the stored upstream deletion range.
+                    if (position > deletionExtension && referenceBuilder.length() > 0 && alternativeBuilder.length() > 0) {
+                        resolve.accept(variantStartPosition);
+                        deletionExtension = 0;
+                    }
+
+                    // Start processing a new variant if no ongoing deletion exists.
+                    if (deletionExtension == 0 && referenceBuilder.length() == 0 && alternativeBuilder.length() == 0) {
+                        if (Bio.isDeletion(reference, alternative, true)) {
+                            referenceBuilder.append(reference);
+                            alternativeBuilder.append(alternative);
+                            _calls.add(variantCall);
+                            variantStartPosition = position;
+                            deletionExtension = position + alternative.length() - 1;
+                        } else {
+                            referenceBuilder.append(reference);
+                            alternativeBuilder.append(alternative);
+                            _calls.add(variantCall);
+                            resolve.accept(position);
+                        }
+                        continue;
+                    }
+
+                    // Extend ongoing deletions or handle insertions within the deletion range.
+                    if (position <= deletionExtension) {
+                        if (Bio.isSubstitution(reference, alternative)) {
+                            continue; // Skip substitutions within an upstream deletion.
+                        }
+                        if (Bio.isDeletion(reference, alternative, true)) {
+                            int updatedDeletionExtension = position + alternative.length() - 1;
+                            if (updatedDeletionExtension > deletionExtension) {
+                                referenceBuilder.append(StringUtils.right(reference, updatedDeletionExtension - deletionExtension));
+                                alternativeBuilder.append(StringUtils.right(alternative,
+                                        updatedDeletionExtension - deletionExtension));
+                                _calls.add(variantCall);
+                                deletionExtension = updatedDeletionExtension;
+                            }
+                            continue;
+                        }
+                        if (Bio.isInsertion(reference, alternative, true)) {
+                            int offset = position - variantStartPosition;
+                            alternativeBuilder.replace(offset, offset + 1,
+                                    alternativeBuilder.charAt(offset) + alternative.substring(1));
+                            referenceBuilder.replace(offset, offset + 1, referenceBuilder.charAt(offset) + reference.substring(1));
+                            _calls.add(variantCall);
+                            continue;
+                        }
+                    }
+
+                    // Log a warning if the variant cannot be handled.
+                    Logging.logWarning("Failed to handle variant %s at site %s %d for sample %s."
+                            .formatted(reference + " > " + alternative, contigIdentifier, position, sample._id));
+                }
+
+                // Resolve any remaining variants in the builders after processing all variants.
+                if (referenceBuilder.length() > 0 && alternativeBuilder.length() > 0) {
+                    resolve.accept(variantStartPosition);
+                }
+            }
+        }
+    }
 }

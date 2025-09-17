@@ -3,18 +3,13 @@ package op;
 import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;
 import model.*;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
-import org.apache.commons.lang3.tuple.Triple;
 import util.Bio;
 import util.Constants;
 import util.IO;
-import util.Logging;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -25,7 +20,7 @@ import java.util.stream.Collectors;
  * more close to a POJO.
  * <p>
  * The single update methods should be called only once the relevant data is loaded into the {@link Storage} instance, e.g.
- * {@link #updateVariants()} without prior processing of VCF files will not have any effect.
+ * {@link #updateSequenceTypes()} without prior processing of VCF files will not have any effect.
  */
 public class StorageUpdater {
 
@@ -52,7 +47,7 @@ public class StorageUpdater {
      * This method iterates through the provided map of attributes, where each entry consists of a sample identifier and a map of
      * attributes. If the sample exists in the storage, it adds the attributes to the sample only if they are not already present.
      * <p>
-     * <i>This method should only ba called after {@link VCFProcessor#analyzeFiles()} was called in the context of the
+     * <i>This method should only ba called after {@link VCFProcessor#processFiles()} was called in the context of the
      * {@code build} or {@code expand} tasks.</i>
      *
      * @param attributes A map where the key is the sample identifier, and the value is another map containing attribute key-value pairs to
@@ -63,176 +58,6 @@ public class StorageUpdater {
             String sampleIdentifier = entry.getKey();
             if (storage.hasSample(sampleIdentifier)) {
                 storage.getSample(sampleIdentifier).addAttributesIfAbsent(entry.getValue());
-            }
-        }
-    }
-
-    /**
-     * Updates the variants for all samples and contigs in the storage.
-     * <p>
-     * This method processes variant calls for each sample and contig, resolving conflicts, handling deletions and mixed InDels, and
-     * transferring the resolved variants to the storage.
-     * <p>
-     * <i>This method should only ba called after {@link VCFProcessor#analyzeFiles()} was called in the context of the
-     * {@code build} or {@code expand} tasks.</i>
-     */
-    public void updateVariants() {
-        // Iterate through all samples in the storage.
-        for (Sample sample : storage.getSamples()) {
-            // Iterate through all contigs in the storage.
-            for (Contig contig : storage.getContigs()) {
-                String contigIdentifier = contig._id;
-
-                // Skip if the sample has no variant calls for the current contig.
-                if (!sample.hasVariantCalls(contigIdentifier, true)) continue;
-
-                // Create a sorted map to store canonical variants for the sample and contig.
-                TreeMap<Integer, Tuple<String, String>> variants = new TreeMap<>();
-
-                // Helper function to add variants to the map, resolving conflicts by keeping the more specific reference content.
-                BiConsumer<Integer, Tuple<String, String>> add = (position, content) -> {
-                    Tuple<String, String> previous = variants.get(position);
-                    if (previous == null) {
-                        variants.put(position, content);
-                    } else if (!previous.equals(content) && !previous.a.contains(content.a)) {
-                        if (content.a.contains(previous.a)) {
-                            Logging.logDebug("Overwrite variant %s with %s for sample %s (contig %s, position %d)."
-                                    .formatted(previous, content, sample._id, contigIdentifier, position));
-                            variants.put(position, content);
-                        } else {
-                            Logging.logSevere("Conflict of variants %s (stored) and %s for sample %s (contig %s, position %d)."
-                                    .formatted(previous, content, sample._id, contigIdentifier, position));
-                        }
-                    }
-                };
-
-                // Process variant calls for the current sample and contig.
-                for (Tuple<Integer, VariantCall> call : sample.getVariantCalls(contigIdentifier, true)) {
-                    int position = call.a; // Extract the position of the variant.
-                    VariantCall variantCall = call.b; // Extract the variant call.
-
-                    // Skip reference calls.
-                    if (variantCall.isReference()) continue;
-
-                    // Skip ambiguous calls if they are filtered and not to be stored.
-                    boolean isFiltered = variantCall.isFiltered();
-                    if (!storage.parameters.storeFiltered() && isFiltered) continue;
-
-                    String reference = variantCall.getCalledReference();
-                    String alternative = isFiltered ? (Constants.ANY_NUCLEOTIDE.repeat(reference.length())) :
-                            variantCall.getCalledAlternative();
-
-                    // Skip calls representing missing alleles due to upstream deletions.
-                    if (alternative.equals("*")) continue;
-
-                    // Add canonical variants to the map or resolve mixed variants.
-                    if (Bio.isPaddedCanonicalVariant(reference, alternative)) {
-                        add.accept(position, new Tuple<>(reference, alternative));
-                    } else {
-                        for (Triple<Integer, String, String> canonicalVariant : Bio.getCanonicalVariants(reference, alternative)) {
-                            add.accept(position + canonicalVariant.getLeft(), new Tuple<>(canonicalVariant.getMiddle(),
-                                    canonicalVariant.getRight()));
-                        }
-                    }
-                }
-
-                // Initialize builders and variables for processing deletions and mixed InDels.
-                StringBuilder referenceBuilder = new StringBuilder();
-                StringBuilder alternativeBuilder = new StringBuilder();
-                int variantStartPosition = 0;
-                int deletionExtension = 0;
-
-                // Helper function to resolve variants and add them to the storage.
-                Consumer<Integer> resolve = (_position) -> {
-                    String _reference = referenceBuilder.toString();
-                    String _alternative = alternativeBuilder.toString();
-
-                    if (!Bio.isPaddedCanonicalVariant(_reference, _alternative)) {
-                        Tuple<String, String> alignment =
-                                Bio.globalNucleotideSequenceAlignment(
-                                        Bio.stripGaps(referenceBuilder.toString()),
-                                        Bio.stripGaps(alternativeBuilder.toString()),
-                                        5,
-                                        2,
-                                        true,
-                                        false,
-                                        0
-                                );
-                        ArrayList<Triple<Integer, String, String>> resolvedVariants =
-                                Bio.getCanonicalVariants(alignment.a, alignment.b);
-                        for (Triple<Integer, String, String> _variant : resolvedVariants) {
-                            storage.addVariant(contig, sample._id, _position + _variant.getLeft(), _variant.getMiddle(),
-                                    _variant.getRight());
-                        }
-                    } else {
-                        storage.addVariant(contig, sample._id, _position, _reference, _alternative);
-                    }
-                };
-
-                // Iterate through the sorted variants, handling deletions and mixed InDels.
-                for (Map.Entry<Integer, Tuple<String, String>> variant : variants.entrySet()) {
-                    int position = variant.getKey();
-                    String reference = variant.getValue().a;
-                    String alternative = variant.getValue().b;
-
-                    // Resolve ongoing deletions if the current variant is outside the deletion range.
-                    if (position > deletionExtension && referenceBuilder.length() > 0 && alternativeBuilder.length() > 0) {
-                        resolve.accept(variantStartPosition);
-                        referenceBuilder.setLength(0);
-                        alternativeBuilder.setLength(0);
-                        deletionExtension = 0;
-                    }
-
-                    // Start processing a new variant if no ongoing deletion exists.
-                    if (deletionExtension == 0 && referenceBuilder.length() == 0 && alternativeBuilder.length() == 0) {
-                        if (Bio.isDeletion(reference, alternative, true)) {
-                            referenceBuilder.append(reference);
-                            alternativeBuilder.append(alternative);
-                            variantStartPosition = position;
-                            deletionExtension = position + alternative.length() - 1;
-                        } else {
-                            referenceBuilder.append(reference);
-                            alternativeBuilder.append(alternative);
-                            resolve.accept(position);
-                            referenceBuilder.setLength(0);
-                            alternativeBuilder.setLength(0);
-                        }
-                        continue;
-                    }
-
-                    // Extend ongoing deletions or handle insertions within the deletion range.
-                    if (position <= deletionExtension) {
-                        if (Bio.isSubstitution(reference, alternative)) {
-                            continue; // Skip substitutions within the deletion range.
-                        }
-                        if (Bio.isDeletion(reference, alternative, true)) {
-                            int updatedDeletionExtension = position + alternative.length() - 1;
-                            if (updatedDeletionExtension > deletionExtension) {
-                                referenceBuilder.append(StringUtils.right(reference, updatedDeletionExtension - deletionExtension));
-                                alternativeBuilder.append(StringUtils.right(alternative,
-                                        updatedDeletionExtension - deletionExtension));
-                                deletionExtension = updatedDeletionExtension;
-                            }
-                            continue;
-                        }
-                        if (Bio.isInsertion(reference, alternative, true)) {
-                            int offset = position - variantStartPosition;
-                            alternativeBuilder.replace(offset, offset + 1,
-                                    alternativeBuilder.charAt(offset) + reference.substring(1));
-                            referenceBuilder.replace(offset, offset + 1, referenceBuilder.charAt(offset) + reference.substring(1));
-                            continue;
-                        }
-                    }
-
-                    // Log a warning if the variant cannot be handled.
-                    Logging.logWarning("Failed to handle variant %s at site %s %d for sample %s."
-                            .formatted(reference + " > " + alternative, contigIdentifier, position, sample._id));
-                }
-
-                // Resolve any remaining variants in the builders after processing all variants.
-                if (referenceBuilder.length() > 0 && alternativeBuilder.length() > 0) {
-                    resolve.accept(variantStartPosition);
-                }
             }
         }
     }
@@ -249,7 +74,7 @@ public class StorageUpdater {
      *   <li>Handles proteoform sequence alignment, variant extraction, and effect annotation.</li>
      * </ul>
      * <p>
-     * <i>This method should only ba called after {@link VCFProcessor#analyzeFiles()} and a respective annotation method
+     * <i>This method should only ba called after {@link VCFProcessor#processFiles()} and a respective annotation method
      * implemented in {@link VariantAnnotator} was called in the context of the {@code build} or {@code expand} tasks.</i>
      *
      * @throws IOException     If an I/O error occurs during processing.

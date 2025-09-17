@@ -37,11 +37,6 @@ public class ExecutorBuild {
     private final FeatureLoader featureLoader;
 
     /**
-     * Processor for VCF files.
-     */
-    private final VCFProcessor vcfProcessor;
-
-    /**
      * Annotator for genetic variants.
      */
     private final VariantAnnotator variantAnnotator;
@@ -67,7 +62,6 @@ public class ExecutorBuild {
         storage = StorageFactory.fromCli(this.cli);
         storageUpdater = new StorageUpdater(storage);
         featureLoader = new FeatureLoader(storage, cli.featureList, cli.features);
-        vcfProcessor = new VCFProcessor(cli.vcfFiles, storage, !storage.hasReference());
         variantAnnotator = new VariantAnnotator(storage);
         Logging.logDone("");
     }
@@ -98,18 +92,21 @@ public class ExecutorBuild {
                 cli.featureList.size()));
 
         // Process VCF files and load variants into storage.
-        Logging.logInfo("Analyze VCF files.");
-        vcfProcessor.analyzeFiles();
-        System.gc();
-        Logging.logDone("Processed %d variant calls from %d VCF file(s). %d calls were ignored, %d calls were filtered.".formatted(
-                vcfProcessor.getProcessedCallsCount(), cli.vcfFiles.size(), vcfProcessor.getIgnoredCallsCount(),
-                vcfProcessor.getFilteredCallsCount()));
+        try (VCFProcessor vcfProcessor = new VCFProcessor(cli.vcfFiles, storage, !storage.hasReference())) {
+            Logging.logInfo("Analyze VCF files.");
+            vcfProcessor.processFiles();
+            Logging.logDone("Processed %d variant calls from %d VCF file(s). %d calls were ignored, %d calls were filtered.".formatted(
+                    vcfProcessor.getProcessedCallsCount(), cli.vcfFiles.size(), vcfProcessor.getIgnoredCallsCount(),
+                    vcfProcessor.getFilteredCallsCount()));
 
-        // Update variants from the processed VCF data.
-        Logging.logInfo("Update variants.");
+            // Update variants from the processed VCF data.
+            Logging.logInfo("Update variants.");
+            vcfProcessor.updateVariants();
+            Logging.logDone("");
+        }
+
+        // Update sample attributes from metadata.
         storageUpdater.updateSampleAttributes(cli.vcfMeta);
-        storageUpdater.updateVariants();
-        Logging.logDone("");
 
         // Check and run SnpEff annotation if applicable.
         if (storage.parameters.skipAnnotation()) {

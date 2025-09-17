@@ -1,7 +1,11 @@
 package model;
 
+import org.ehcache.spi.serialization.Serializer;
+import org.ehcache.spi.serialization.SerializerException;
 import util.Constants;
 
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -158,6 +162,18 @@ public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<C
     }
 
     /**
+     * Checks if the variant call is buried.
+     * <p>
+     * A variant call is considered "buried" if it is not filtered, but the called alternative is a missing allele due to an upstream
+     * deletion (*).
+     *
+     * @return {@code true} if the variant call is buried; {@code false} otherwise.
+     */
+    public boolean isBuried() {
+        return !isFiltered() && getCalledAlternative().equals("*");
+    }
+
+    /**
      * Retrieves the reference allele from the first alternative in the list.
      * <p>
      * This method assumes that the list of alternatives is not empty and returns the reference allele of the first {@link CallAlternative}
@@ -179,6 +195,162 @@ public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<C
      */
     public String getCalledAlternative() {
         return alternatives.get(0).alternative;
+    }
+
+    /**
+     * Serializer for the {@link VariantCall} class.
+     * <p>
+     * This class implements the {@link Serializer} interface to provide custom serialization and deserialization logic for
+     * {@link VariantCall} objects. It handles the conversion of {@link VariantCall} instances to and from {@link ByteBuffer} format,
+     * allowing for efficient storage and retrieval in caching systems.
+     */
+    public static class VariantCallSerializer implements Serializer<VariantCall> {
+
+        /**
+         * Constructs a new {@link VariantCallSerializer} instance.
+         *
+         * @param object The instance to serialize.
+         * @return A {@link ByteBuffer} containing the serialized data of the {@link VariantCall} object.
+         * @throws SerializerException If an error occurs during serialization.
+         */
+        @Override
+        public ByteBuffer serialize(VariantCall object) throws SerializerException {
+            try {
+                // Estimate the buffer size
+                int size = Short.BYTES + Float.BYTES + Integer.BYTES; // totalDepth, callEntropy, alternatives size
+                size += object.flag().name().getBytes().length + Integer.BYTES; // flag string length
+                for (VariantCall.CallAlternative alternative : object.alternatives()) {
+                    size += alternative.reference().getBytes().length + Integer.BYTES; // reference string length
+                    size += alternative.alternative().getBytes().length + Integer.BYTES; // alternative string length
+                    size += Short.BYTES; // allelicDepth
+                }
+
+                ByteBuffer buffer = ByteBuffer.allocate(size);
+
+                // Serialize the flag
+                byte[] flagBytes = object.flag().name().getBytes();
+                buffer.putInt(flagBytes.length);
+                buffer.put(flagBytes);
+
+                // Serialize the totalDepth
+                buffer.putShort(object.totalDepth());
+
+                // Serialize the callEntropy
+                buffer.putFloat(object.callEntropy());
+
+                // Serialize the alternatives
+                buffer.putInt(object.alternatives().size());
+                for (VariantCall.CallAlternative alternative : object.alternatives()) {
+                    byte[] referenceBytes = alternative.reference().getBytes();
+                    buffer.putInt(referenceBytes.length);
+                    buffer.put(referenceBytes);
+
+                    byte[] alternativeBytes = alternative.alternative().getBytes();
+                    buffer.putInt(alternativeBytes.length);
+                    buffer.put(alternativeBytes);
+
+                    buffer.putShort(alternative.allelicDepth());
+                }
+
+                buffer.flip();
+                return buffer;
+            } catch (Exception e) {
+                throw new SerializerException("Error during serialization", e);
+            }
+        }
+
+        /**
+         * Deserializes a {@link VariantCall} object from a {@link ByteBuffer}.
+         *
+         * @param binary The binary representation to deserialize.
+         * @return The deserialized {@link VariantCall} object.
+         * @throws SerializerException If an error occurs during deserialization.
+         */
+        @Override
+        public VariantCall read(ByteBuffer binary) throws SerializerException {
+            try {
+                // Read the flag
+                int flagLength = binary.getInt();
+                byte[] flagBytes = new byte[flagLength];
+                binary.get(flagBytes);
+                VariantCall.Flag flag = VariantCall.Flag.valueOf(new String(flagBytes));
+
+                // Read the totalDepth
+                short totalDepth = binary.getShort();
+
+                // Read the callEntropy
+                float callEntropy = binary.getFloat();
+
+                // Read the alternatives
+                int alternativesSize = binary.getInt();
+                List<VariantCall.CallAlternative> alternatives = new ArrayList<>(alternativesSize);
+                for (int i = 0; i < alternativesSize; i++) {
+                    // Read reference
+                    int referenceLength = binary.getInt();
+                    byte[] referenceBytes = new byte[referenceLength];
+                    binary.get(referenceBytes);
+                    String reference = new String(referenceBytes);
+
+                    // Read alternative
+                    int alternativeLength = binary.getInt();
+                    byte[] alternativeBytes = new byte[alternativeLength];
+                    binary.get(alternativeBytes);
+                    String alternative = new String(alternativeBytes);
+
+                    // Read allelicDepth
+                    short allelicDepth = binary.getShort();
+
+                    // Create CallAlternative and add to list
+                    alternatives.add(new VariantCall.CallAlternative(reference, alternative, allelicDepth));
+                }
+
+                // Construct and return the VariantCall instance
+                return new VariantCall(flag, totalDepth, callEntropy, alternatives);
+            } catch (Exception e) {
+                throw new SerializerException("Error during deserialization", e);
+            }
+        }
+
+        /**
+         * Compares a {@link VariantCall} object with its binary representation for equality.
+         *
+         * @param object The instance to check for equality.
+         * @param binary The serialized form to check against.
+         * @return {@code true} if the object and its binary representation are equal; {@code false} otherwise.
+         * @throws SerializerException If an error occurs during comparison.
+         */
+        @Override
+        public boolean equals(VariantCall object, ByteBuffer binary) throws SerializerException {
+            try {
+                // Deserialize the ByteBuffer into a VariantCall object
+                VariantCall deserializedObject = read(binary);
+
+                // Compare the provided object with the deserialized object
+                return object.equals(deserializedObject);
+            } catch (Exception e) {
+                throw new SerializerException("Error during comparison", e);
+            }
+        }
+
+    }
+
+    public static VariantCall fromString(String s) {
+        String[] parts = s.split(Constants.SEMICOLON);
+        Flag flag = Flag.valueOf(parts[0].toUpperCase());
+        short totalDepth = Short.parseShort(parts[1]);
+        float callEntropy = Float.parseFloat(parts[2]);
+        List<CallAlternative> alternatives = new ArrayList<>();
+        if (parts.length > 3) {
+            String[] alts = parts[3].split(Constants.COMMA);
+            for (String alt : alts) {
+                String[] altParts = alt.split(Constants.COLON);
+                String reference = altParts[0];
+                String alternative = altParts[1];
+                short allelicDepth = Short.parseShort(altParts[2]);
+                alternatives.add(new CallAlternative(reference, alternative, allelicDepth));
+            }
+        }
+        return new VariantCall(flag, totalDepth, callEntropy, alternatives);
     }
 
     /**

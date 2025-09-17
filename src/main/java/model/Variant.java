@@ -5,6 +5,7 @@ import util.Bio;
 import util.Constants;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Represents a nucleotide variant.
@@ -115,7 +116,7 @@ public class Variant extends Attributes {
      * <p>
      * This set is used to track which samples have occurrences of this variant.
      */
-    private final Set<String> samples = new HashSet<>();
+    private final Map<String, String> samples = new HashMap<>(100);
 
     /**
      * A map of feature occurrences associated with this variant.
@@ -166,7 +167,7 @@ public class Variant extends Attributes {
      * @return {@code true} if the identifier is found in samples or features, {@code false} otherwise.
      */
     public boolean hasRelation(String identifier) {
-        return this.samples.contains(identifier) || this.features.containsKey(identifier)
+        return this.samples.containsKey(identifier) || this.features.containsKey(identifier)
                 || this.features.values().stream().anyMatch(alleles -> alleles.contains(identifier));
     }
 
@@ -179,7 +180,7 @@ public class Variant extends Attributes {
      * @return A set of sample identifiers that have occurrences of this variant.
      */
     public Set<String> getRelatedSamples() {
-        return Collections.unmodifiableSet(this.samples);
+        return Collections.unmodifiableSet(this.samples.keySet());
     }
 
     /**
@@ -208,12 +209,19 @@ public class Variant extends Attributes {
     }
 
     /**
-     * Associates a sample with this variant.
+     * Associates a sample with this variant by adding the sample identifier and its associated variant calls.
+     * <p>
+     * This method updates the `samples` map by associating the given sample identifier with a string representation of the provided variant
+     * calls. The variant calls are converted to strings using their `toString` method and concatenated with a pipe ('|') delimiter.
      *
-     * @param sampleIdentifier The identifier of the sample to associate with this variant.
+     * @param sampleIdentifier The unique identifier of the sample to associate with this variant.
+     * @param variantCalls     A set of {@link VariantCall} objects representing the variant calls to associate with the sample. Each
+     *                         variant call is converted to its string representation.
      */
-    public void addRelation(String sampleIdentifier) {
-        this.samples.add(sampleIdentifier);
+    public void addRelation(String sampleIdentifier, Set<VariantCall> variantCalls) {
+        // Convert the set of VariantCall objects to a single string, joined by the pipe ('|') character,
+        // and associate it with the given sample identifier in the samples map.
+        this.samples.put(sampleIdentifier, variantCalls.stream().map(VariantCall::toString).collect(Collectors.joining(Constants.PIPE)));
     }
 
     /**
