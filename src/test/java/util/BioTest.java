@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 public class BioTest {
 
     @Test
-    void globalNucleotideSequenceAlignment_identicalSequences() {
+    void globalNucleotideSequenceAlignmentIdenticalSequences() {
         String sequenceA = "TAAGTTTACA";
         String sequenceB = "TAAGTTTACA";
         Tuple<String, String> result = Bio.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 4, 2,
@@ -23,7 +23,7 @@ public class BioTest {
     }
 
     @Test
-    void globalNucleotideSequenceAlignment_singleSubstitution() {
+    void globalNucleotideSequenceAlignmentSingleSubstitution() {
         String sequenceA = "TAACTTTACA";
         String sequenceB = "TAAGTTTACA";
         Tuple<String, String> result = Bio.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 4, 2,
@@ -32,7 +32,7 @@ public class BioTest {
     }
 
     @Test
-    void globalNucleotideSequenceAlignment_singleInsertion() {
+    void globalNucleotideSequenceAlignmentSingleInsertion() {
         String sequenceA = "TAACTTTACA";
         String sequenceB = "TAATTTACA";
         Tuple<String, String> result = Bio.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 4, 2,
@@ -41,7 +41,7 @@ public class BioTest {
     }
 
     @Test
-    void globalNucleotideSequenceAlignment_singleDeletion() {
+    void globalNucleotideSequenceAlignmentSingleDeletion() {
         String sequenceA = "TAATTTACA";
         String sequenceB = "TAACTTTACA";
         Tuple<String, String> result = Bio.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 4, 2,
@@ -50,7 +50,7 @@ public class BioTest {
     }
 
     @Test
-    void globalNucleotideSequenceAlignment_emptySequenceA() {
+    void globalNucleotideSequenceAlignmentEmptySequenceA() {
         String sequenceA = "";
         String sequenceB = "TAATTTACA";
         Tuple<String, String> result = Bio.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 4, 2,
@@ -59,7 +59,7 @@ public class BioTest {
     }
 
     @Test
-    void globalNucleotideSequenceAlignment_emptySequenceB() {
+    void globalNucleotideSequenceAlignmentEmptySequenceB() {
         String sequenceA = "TAATTTACA";
         String sequenceB = "";
         Tuple<String, String> result = Bio.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 4, 2,
@@ -68,7 +68,7 @@ public class BioTest {
     }
 
     @Test
-    void globalNucleotideSequenceAlignment_singelton() {
+    void globalNucleotideSequenceAlignmentSingelton() {
         String sequenceA = "A";
         String sequenceB = "G";
         Tuple<String, String> result = Bio.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 4, 2,
@@ -77,7 +77,7 @@ public class BioTest {
     }
 
     @Test
-    void globalNucleotideSequenceAlignment_noGapPrefix() {
+    void globalNucleotideSequenceAlignmentNoGapPrefix() {
         String sequenceA = "CC";
         String sequenceB = "CCCCCCC";
         Tuple<String, String> result = Bio.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 4, 2,
@@ -86,7 +86,7 @@ public class BioTest {
     }
 
     @Test
-    void globalNucleotideSequenceAlignment_noGapSuffix() {
+    void globalNucleotideSequenceAlignmentNoGapSuffix() {
         String sequenceA = "ATG";
         String sequenceB = "ATGCTACTTC";
         Tuple<String, String> result = Bio.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 4, 2,
@@ -95,7 +95,7 @@ public class BioTest {
     }
 
     @Test
-    void globalNucleotideSequenceAlignment_noGapEnds() {
+    void globalNucleotideSequenceAlignmentNoGapEnds() {
         String sequenceA = "CC";
         String sequenceB = "GCCCCG";
         Tuple<String, String> result = Bio.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 4, 2,
@@ -104,7 +104,7 @@ public class BioTest {
     }
 
     @Test
-    void globalNucleotideSequenceAlignment_freeGap() {
+    void globalNucleotideSequenceAlignmentFreeGap() {
         String sequenceA = "AACA";
         String sequenceB = "TTATATCTA";
         Tuple<String, String> result = Bio.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 0, 0,
@@ -113,7 +113,7 @@ public class BioTest {
     }
 
     @Test
-    void globalNucleotideSequenceAlignment_banded() {
+    void globalNucleotideSequenceAlignmentBanded() {
         String sequenceA = "TTTCGTATAACCTATGATAAAAAACTAACAATAATCATTAAATA";
         String sequenceB = "GCTGGATCGTATAACCAGCGGCGCCGCGCCTGGCCCACGGCTACCG";
         Tuple<String, String> result = Bio.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 4, 2,
@@ -125,7 +125,7 @@ public class BioTest {
     }
 
     @Test
-    void globalNucleotideSequenceAlignment_complexVariant() {
+    void globalNucleotideSequenceAlignmentComplexVariant() {
         String sequenceA = "CTGG";
         String sequenceB = "CCCCGAC";
         Tuple<String, String> result = Bio.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 4, 2,
@@ -137,7 +137,7 @@ public class BioTest {
     }
 
     @Test
-    void globalNucleotideSequenceAlignment_complexFull() {
+    void globalNucleotideSequenceAlignmentComplexFull() {
         String sequenceA = "CTAGACGCCGGGCCGCGGCCGTTGCCCATATTTAATATAAATTTTATCCCTACGGCGGCGCCGCATGCGGCCTCGGCGGC";
         String sequenceB = "TGCGTCACCCCCGCCCGCCCATATTTAATATAAATTTTATGCGACCCGCCCGAGAGGCGTGTATCGGGATCGGGTGGCGC";
         Tuple<String, String> result = Bio.globalNucleotideSequenceAlignment(sequenceA, sequenceB, 4, 2,
@@ -149,7 +149,7 @@ public class BioTest {
     }
 
     @Test
-    void globalProteinSequenceAlignment_identicalSequences() {
+    void globalProteinSequenceAlignmentIdenticalSequences() {
         String sequenceA = "MNLSVTLVRV";
         String sequenceB = "MNLSVTLVRV";
         Tuple<String, String> result = Bio.globalProteinSequenceAlignment(sequenceA, sequenceB, 15, 3,
@@ -158,7 +158,7 @@ public class BioTest {
     }
 
     @Test
-    void globalProteinSequenceAlignment_singleSubstitution() {
+    void globalProteinSequenceAlignmentSingleSubstitution() {
         String sequenceA = "MKETIPMQKNVFGTIYSGLA";
         String sequenceB = "MKETIPMQKNVFGTIYSGLA";
         Tuple<String, String> result = Bio.globalProteinSequenceAlignment(sequenceA, sequenceB, 15, 3,
@@ -167,7 +167,7 @@ public class BioTest {
     }
 
     @Test
-    void globalProteinSequenceAlignment_insertion() {
+    void globalProteinSequenceAlignmentInsertion() {
         String sequenceA = "MKETIPMQKNVEPAPYYFGTIYSGLA";
         String sequenceB = "MKETIPMQKNVFGTIYSGLA";
         Tuple<String, String> result = Bio.globalProteinSequenceAlignment(sequenceA, sequenceB, 15, 3,
@@ -176,7 +176,7 @@ public class BioTest {
     }
 
     @Test
-    void globalProteinSequenceAlignment_deletion() {
+    void globalProteinSequenceAlignmentDeletion() {
         String sequenceA = "MKETIPMQKNVFGTIYSGLA";
         String sequenceB = "MKETIPMQKNVEPAPYYFGTIYSGLA";
         Tuple<String, String> result = Bio.globalProteinSequenceAlignment(sequenceA, sequenceB, 15, 3,
@@ -185,7 +185,7 @@ public class BioTest {
     }
 
     @Test
-    void globalProteinSequenceAlignment_indel() {
+    void globalProteinSequenceAlignmentIndel() {
         String sequenceA = "MKETIPMRTCEQQKNVFGTIYA";
         String sequenceB = "MKETIPMQKNVFGTIYSGLA";
         Tuple<String, String> result = Bio.globalProteinSequenceAlignment(sequenceA, sequenceB, 15, 3,
@@ -194,7 +194,7 @@ public class BioTest {
     }
 
     @Test
-    void globalProteinSequenceAlignment_emptySequenceA() {
+    void globalProteinSequenceAlignmentEmptySequenceA() {
         String sequenceA = "";
         String sequenceB = "MKETIPMQKNVFGTIYSGLA";
         Tuple<String, String> result = Bio.globalProteinSequenceAlignment(sequenceA, sequenceB, 15, 3,
@@ -203,7 +203,7 @@ public class BioTest {
     }
 
     @Test
-    void globalProteinSequenceAlignment_emptySequenceB() {
+    void globalProteinSequenceAlignmentEmptySequenceB() {
         String sequenceA = "MKETIPMQKNVFGTIYSGLA";
         String sequenceB = "";
         Tuple<String, String> result = Bio.globalProteinSequenceAlignment(sequenceA, sequenceB, 15, 3,
@@ -212,7 +212,7 @@ public class BioTest {
     }
 
     @Test
-    void getCanonicalVariants_identicalSequences() {
+    void getCanonicalVariantsIdenticalSequences() {
         String reference = "CGGGG";
         String alternative = "CGGGG";
         ArrayList<Triple<Integer, String, String>> result = Bio.getCanonicalVariants(reference, alternative);
@@ -220,7 +220,7 @@ public class BioTest {
     }
 
     @Test
-    void getCanonicalVariants_singleSubstitution() {
+    void getCanonicalVariantsSingleSubstitution() {
         String reference = "CGGGG";
         String alternative = "CGGTG";
         ArrayList<Triple<Integer, String, String>> result = Bio.getCanonicalVariants(reference, alternative);
@@ -229,7 +229,7 @@ public class BioTest {
     }
 
     @Test
-    void getCanonicalVariants_singleInsertion() {
+    void getCanonicalVariantsSingleInsertion() {
         String reference = "CGGGG-";
         String alternative = "CGGGGG";
         ArrayList<Triple<Integer, String, String>> result = Bio.getCanonicalVariants(reference, alternative);
@@ -238,7 +238,7 @@ public class BioTest {
     }
 
     @Test
-    void getCanonicalVariants_singleDeletion() {
+    void getCanonicalVariantsSingleDeletion() {
         String reference = "CGGGG";
         String alternative = "CGGG-";
         ArrayList<Triple<Integer, String, String>> result = Bio.getCanonicalVariants(reference, alternative);
@@ -247,7 +247,7 @@ public class BioTest {
     }
 
     @Test
-    void getCanonicalVariants_polySubstitution() {
+    void getCanonicalVariantsPolySubstitution() {
         String reference = "CGGGG";
         String alternative = "AGGGA";
         ArrayList<Triple<Integer, String, String>> result = Bio.getCanonicalVariants(reference, alternative);
@@ -257,7 +257,7 @@ public class BioTest {
     }
 
     @Test
-    void getCanonicalVariants_complex1() {
+    void getCanonicalVariantsComplex1() {
         String reference = "AGCTAGTCG---ATCTGCTAGT";
         String alternative = "AGCTAGTCGTTTATCTGCCAGT";
         ArrayList<Triple<Integer, String, String>> result = Bio.getCanonicalVariants(reference, alternative);
@@ -267,7 +267,7 @@ public class BioTest {
     }
 
     @Test
-    void getCanonicalVariants_proteinSequences() {
+    void getCanonicalVariantsProteinSequences() {
         String reference = "MLKKASAFLIASCCVMSLAWAQANDNWYEGKPISAISFEGLEYIARGQLDTIFSQYKGQKWTYELYLEILQKVYDLEYFSEVSPKAVPTDPEYQYVMLQFTVKERPSVKGIKMVGNSQIRSGDLLSKILLKKGDIYNEVKMKVDQESLRRHYLDQGYAAVKISCEAKTEAGGVVVQFTIQEGKQTVVSRIQFKGNKAFTESVLKKVLSTQEARFLTSGVFKENALEADKAAVHSYYAERGYIDARVEGVAKTVDKKTDASRNLVTLTYTVVEGEQYRYGGVTIVGNQIFSTEELQAKIRLKRGAIMNMVAFEQGFQALADAYFENGYTSNYLNKEEHRDTAEKTLSFKITVVERERSHVEHIIIKGTKNTKDEVILREMLLKPGDVFSKSKFTDSLRNLFNLRYFSSLVPDVRPGSEQDLVDIILNVEEQSTANVQFGVTFSGVGEAGTFPLSLFCQWEEKNFLGKGNEISVNATLGSEAQSLKLGYVERWFLGSPLTVGFDFELTHKNLFVYRAGAKGNGLPHPYVSKEHWANSPGLAESFRLKYSRFESAIGAHTGYQWYPRYAVIRVNGGVDFRVVKNFYDKDNNQPFDLTVKEQLNWTSINSFWTSVSFDGRDFAYDPSSGWFLGQRCTFNGLVPCLEKEHSFRSDTKAEFYVTLLNYPVSAVWNLKFVLAFYTGVSVQTYYGRRKSENGKGNGVRSGALVIDGVLVGRGWSEDAKKNTGDLLLHHWIEFRWPLAHGIVSFDFFFDAAMVYNIESQSPNGSSSASSSSSSSSSSSSTTSS----EGLYKMSYGPGLRFTLPQFPLKLAFANTFTSPGGIPKTKKDWNFVLSFTVNNL";
         String alternative = "MLKKASAFLIASCCVMSLAWAQANDNWYEGKPISAISFEGLEYIARGQLDTIFSQYKGQKWTYELYLEILQKVYDLEYFSEVSPKAVPTDPEYQYVMLQFTVKERPSVKGIKMVGNSQIRSGDLLSKILLKKGDIYNEVKMKVDQESLRRHYLDQGYAAVKISCEAKTEAGGVVVQFTIQEGKQTVVSRIQFKGNKAFTESVLKKVLSTQEARFLTSGVFKENALEADKAAVHSYYAERGYIDARVEGVAKTVDKKTDASRNLVTLTYTVVEGEQYRYGGVTIVGNQIFSTEELQAKIRLKRGAIMNMVAFEQGFQALADAYFENGYTSNYLNKEEHRDTAEKTLSFKITVVERERSHVEHIIIKGTKNTKDEVILREMLLKPGDVFSKSKFTDSLRNLFNLRYFSSLVPDVRPGSEQDLVDIILNVEEQSTANVQFGVTFSGVGEAGTFPLSLFCQWEEKNFLGKGNEISVNATLGSEAQSLKLGYVERWFLGSPLTVGFDFELTHKNLFVYRAGSYGNGLPHPYTSREQWASSPGLAESFRLKYSRFESAIGAHTGYQWYPRYAVIRVNGGVDFRVVKNFYDKDNNQPFDLTVEEQLNWTSINSFWTSVSFDGRDFAYDPSSGWFLGQRCTFNGLVPFLEKEHSFRSDTKAEFYVTLLNYPVSAVWNLKFVLAFYTGVSVQTYYGRRKSENGKGNGVRSGALVIDGVLVGRGWSEDAKKNTGDLLLHHWIEFRWPLAHGIVSFDFFFDAAMVYNIESQSPNGSSSASSSSSSSSSSSSSSSSSSSSEGLYKMSYGPGLRFTLPQFPLKLAFANTFTSPGGIPKTKKNWNFVLSFTVNNL";
         ArrayList<Triple<Integer, String, String>> result = Bio.getCanonicalVariants(reference, alternative);
@@ -287,35 +287,35 @@ public class BioTest {
     }
 
     @Test
-    void getCanonicalVariants_exception() {
+    void getCanonicalVariantsException() {
         String reference = "GTATGGGGCT";
         String alternative = "GGGGGCT";
         assertThrowsExactly(IllegalArgumentException.class, () -> Bio.getCanonicalVariants(reference, alternative));
     }
 
     @Test
-    void translateSequence_validSequence() throws MusialException {
+    void translateSequenceValidSequence() throws MusialException {
         String sequence = "ATGCGT";
         String result = Bio.translateSequence(sequence, false);
         assertEquals("MR", result);
     }
 
     @Test
-    void translateSequence_reverseSequence() throws MusialException {
+    void translateSequenceReverseSequence() throws MusialException {
         String sequence = "ATGCGT";
         String result = Bio.translateSequence(sequence, true);
         assertEquals("TH", result);
     }
 
     @Test
-    void translateSequence_emptySequence() throws MusialException {
+    void translateSequenceEmptySequence() throws MusialException {
         String sequence = "";
         String result = Bio.translateSequence(sequence, false);
         assertEquals("", result);
     }
 
     @Test
-    void translateSequence_invalidSequence() {
+    void translateSequenceInvalidSequence() {
         String sequence = "ATGCGTX";
         assertThrowsExactly(MusialException.class, () -> Bio.translateSequence(sequence, false));
     }
