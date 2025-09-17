@@ -8,14 +8,17 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
+import org.apache.commons.io.FileUtils;
 import task.ExecutorBuild;
 import task.ExecutorExpand;
 import util.Logging;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
-import java.util.Properties;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
 import java.util.logging.Level;
 
 /**
@@ -77,6 +80,11 @@ public final class Musial {
     public static long startTime;
 
     /**
+     * Temporary directory for intermediate files.
+     */
+    public static File tempDir;
+
+    /**
      * <b>Only relevant for development! For deployment this should be set to {@link Level#CONFIG}.</b>
      * <p>
      * The verbosity level used for logging. See {@link Level} for details.
@@ -105,6 +113,9 @@ public final class Musial {
 
             // Load metadata such as software id, version, and contact information.
             loadMetadata();
+
+            // Create temporary directory for intermediate files, if not present.
+            tempDir = Files.createTempDirectory(Path.of(System.getProperty("user.dir")), Musial.name.toLowerCase()).toFile();
 
             // Check if any arguments were provided; if not, display usage information and exit.
             if (args.length == 0) {
@@ -183,6 +194,13 @@ public final class Musial {
                 long endTime = System.currentTimeMillis();
                 long duration = endTime - startTime;
                 Logging.logDebug("Total execution time: %.1f s (%.1f min)".formatted(duration / 1000.0, duration / 60000.0));
+            }
+
+            // Clean up temporary directory.
+            try {
+                FileUtils.deleteDirectory(Musial.tempDir);
+            } catch (IOException e) {
+                Logging.logSevere(e.getMessage());
             }
         }
     }
