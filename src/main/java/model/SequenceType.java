@@ -1,5 +1,6 @@
 package model;
 
+import uk.co.omegaprime.btreemap.BTreeMap;
 import util.Bio;
 import util.Constants;
 import util.IO;
@@ -26,7 +27,7 @@ public class SequenceType extends Attributes {
      * <p>
      * Navigable map of positions to canonical variants that define this sequence type.
      */
-    private final NavigableMap<Integer, String> variants = new TreeMap<>();
+    private final NavigableMap<Integer, String> variants = BTreeMap.create();
 
     /**
      * Constructs a new {@link SequenceType} instance with the specified variants.
