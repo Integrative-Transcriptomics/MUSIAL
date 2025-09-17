@@ -1,10 +1,7 @@
 package model;
 
-import com.google.gson.Gson;
-import com.google.gson.TypeAdapter;
-import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.JsonWriter;
 import htsjdk.samtools.util.Tuple;
+import uk.co.omegaprime.btreemap.BTreeMap;
 import util.Constants;
 import util.IO;
 import util.Logging;
@@ -93,7 +90,7 @@ public class Contig extends Attributes {
         }
 
         this.sequence = compressedSequence; // Store the compressed sequence.
-        this.variants = new TreeMap<>(Integer::compare); // Initialize the map to store variants.
+        this.variants = BTreeMap.create(); // Initialize the map to store variants.
         this.sequenceCache = new HashMap<>(); // Initialize the cache for subsequences.
     }
 
