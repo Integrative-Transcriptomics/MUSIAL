@@ -3,6 +3,7 @@ package op;
 import exceptions.MusialException;
 import htsjdk.samtools.util.FileExtensions;
 import htsjdk.samtools.util.Tuple;
+import main.Musial;
 import model.Storage;
 import model.Variant;
 import org.apache.commons.io.FileUtils;
@@ -73,8 +74,7 @@ public class VariantAnnotator {
      */
     public void runSnpEff(Path outputDirectory) throws MusialException, IOException {
         // Generate a temporary directory for snpEff.
-        String prefix = "%s-%s".formatted("snpEff", IO.randomAlphanumeric(6));
-        Path temp = Files.createTempDirectory(prefix);
+        Path temp = Files.createTempDirectory(Musial.tempDir.toPath(), "annotation");
         try {
             // Create map to store variant pointers and write storage variants to temporary VCF file.
             Collection<Triple<String, Integer, String>> novelVariants = storage.getNovelVariants();
@@ -120,22 +120,27 @@ public class VariantAnnotator {
                 int index = 0;
                 while (Objects.nonNull(line)) {
                     if (!line.startsWith(Constants.SIGN)) {
-                        String[] annotationFields = line.split("\t");
-                        if (!annotationFields[7].equals(".")) {
-                            annotationFields = annotationFields[7].replace("ANN=", "").split(Constants.COMMA)[0].split("\\|");
-                            for (int i = 0; i < annotationFields.length; i++) {
-                                if (i == 1 || i == 2 || i == 5 || i == 7 || i == 12 || i == 13) {
-                                    variants.get(index).b.addAttributeIfAbsent(
-                                            Constants.SNP_EFF_PREFIX + Constants.SNP_EFF_KEYS.get(i),
-                                            i == 1 ? annotationFields[i].replaceAll("&", Constants.COMMA) : annotationFields[i]
-                                    );
-                                } else if (i == 6) {
-                                    variants.get(index).b.addAttributeIfAbsent(
-                                            Constants.SNP_EFF_PREFIX + Constants.SNP_EFF_KEYS.get(i),
-                                            annotationFields[i].split("-")[1]
-                                    );
+                        // TODO: Error here...
+                        try {
+                            String[] annotationFields = line.split("\t");
+                            if (!annotationFields[7].equals(".")) {
+                                annotationFields = annotationFields[7].replace("ANN=", "").split(Constants.COMMA)[0].split("\\|");
+                                for (int i = 0; i < annotationFields.length; i++) {
+                                    if (i == 1 || i == 2 || i == 5 || i == 7 || i == 12 || i == 13) {
+                                        variants.get(index).b.addAttributeIfAbsent(
+                                                Constants.SNP_EFF_PREFIX + Constants.SNP_EFF_KEYS.get(i),
+                                                i == 1 ? annotationFields[i].replaceAll("&", Constants.COMMA) : annotationFields[i]
+                                        );
+                                    } else if (i == 6) {
+                                        variants.get(index).b.addAttributeIfAbsent(
+                                                Constants.SNP_EFF_PREFIX + Constants.SNP_EFF_KEYS.get(i),
+                                                annotationFields[i].split("-")[1]
+                                        );
+                                    }
                                 }
                             }
+                        } catch (Exception e) {
+                            Logging.logWarning(e.getMessage() + " Cause: %s.".formatted(line));
                         }
                         index++;
                     }
