@@ -71,6 +71,11 @@ public final class Constants {
     public static final String GREATER_THAN = ">";
 
     /**
+     * Pipe symbol string constant.
+     */
+    public static final String PIPE = "|";
+
+    /**
      * IUPAC symbol for any/unknown nucleotide in a nucleotide sequence.
      */
     public static final String ANY_NUCLEOTIDE = "N";
