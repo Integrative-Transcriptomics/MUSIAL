@@ -19,7 +19,9 @@ import java.util.List;
  *   <li>A list of alternative alleles associated with the variant call, represented as {@link CallAlternative} objects.</li>
  * </ul>
  * <p>
- * Variant calls are stored in the {@link Sample#variantCalls} property of the model.
+ * Variant calls are not stored in the model directly, but utilized by the {@link op.VCFProcessor} class to process VCF files. String
+ * representations (see {@link #toString()}) of variant calls are stored with respect to a {@link Sample} in the {@link Variant#samples}
+ * map.
  *
  * @param flag         Flag indicating the state of this variant call wrt. filters.
  * @param totalDepth   The total read depth at the variant site.
@@ -334,6 +336,30 @@ public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<C
 
     }
 
+    /**
+     * Creates a {@link VariantCall} object from its string representation.
+     * <p>
+     * This method parses a string representation of a variant call and constructs a {@link VariantCall} instance. The string is expected to
+     * have the following format:
+     * <pre>
+     * flag;totalDepth;callEntropy;reference:alternative:allelicDepth,reference:alternative:allelicDepth,...
+     * </pre>
+     * where:
+     * <ul>
+     *   <li><b>flag</b>: The state of the variant call, corresponding to a {@link Flag} value.</li>
+     *   <li><b>totalDepth</b>: The total read depth at the variant site.</li>
+     *   <li><b>callEntropy</b>: The normalized entropy of the call.</li>
+     *   <li><b>reference</b>: The reference allele.</li>
+     *   <li><b>alternative</b>: The alternative allele.</li>
+     *   <li><b>allelicDepth</b>: The number of reads supporting the alternative allele.</li>
+     * </ul>
+     * <p>
+     * If the string does not conform to the expected format, an {@link IllegalArgumentException} is thrown.
+     *
+     * @param s The string representation of the variant call.
+     * @return A {@link VariantCall} object constructed from the string representation.
+     * @throws IllegalArgumentException If the string format is invalid.
+     */
     public static VariantCall fromString(String s) {
         String[] parts = s.split(Constants.SEMICOLON);
         Flag flag = Flag.valueOf(parts[0].toUpperCase());
@@ -349,6 +375,8 @@ public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<C
                 short allelicDepth = Short.parseShort(altParts[2]);
                 alternatives.add(new CallAlternative(reference, alternative, allelicDepth));
             }
+        } else {
+            throw new IllegalArgumentException("Illegal variant call string %s.".formatted(s));
         }
         return new VariantCall(flag, totalDepth, callEntropy, alternatives);
     }
