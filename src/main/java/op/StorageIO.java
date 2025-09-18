@@ -3,10 +3,10 @@ package op;
 import com.google.common.base.Splitter;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import htsjdk.samtools.util.Tuple;
 import main.Musial;
-import model.*;
-import org.apache.commons.lang3.tuple.Triple;
+import model.Contig;
+import model.Feature;
+import model.Storage;
 import util.Bio;
 import util.Constants;
 import util.Logging;
@@ -14,7 +14,6 @@ import util.Logging;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.zip.GZIPOutputStream;
 
 /**
@@ -141,44 +140,64 @@ public class StorageIO {
     /**
      * Generates the content of a VCF (Variant Call Format) file from the given {@link Storage} object.
      * <p>
-     * This method constructs a VCF file content as a {@link String} from a list of variants. The VCF content includes the file format,
-     * source, and a header line, followed by the variant data. Each variant is represented by its chromosome, position, reference base, and
-     * alternate base.
+     * This method constructs a VCF file content as a {@link String} by iterating over the contigs in the provided {@link Storage} object.
+     * The VCF content includes the file format, source, and a header line, followed by the variant data. Each variant is represented by its
+     * chromosome, position, reference base, and alternate base.
      * <p>
      * The generated VCF content follows the VCFv4.3 specification and includes the following fields:
      * <ul>
-     *   <li>CHROM: Chromosome id</li>
-     *   <li>POS: Position of the variant</li>
-     *   <li>ID: Variant identifier (set to ".")</li>
-     *   <li>REF: Reference base(s)</li>
-     *   <li>ALT: Alternate base(s) (gaps are stripped)</li>
-     *   <li>QUAL: Quality score (set to "100")</li>
-     *   <li>FILTER: Filter status (set to ".")</li>
-     *   <li>INFO: Additional information (empty)</li>
+     *   <li>CHROM: Chromosome identifier.</li>
+     *   <li>POS: Position of the variant on the chromosome.</li>
+     *   <li>ID: Variant identifier (set to ".").</li>
+     *   <li>REF: Reference base(s) (gaps are stripped).</li>
+     *   <li>ALT: Alternate base(s) (gaps are stripped).</li>
+     *   <li>QUAL: Quality score (set to "100").</li>
+     *   <li>FILTER: Filter status (set to ".").</li>
+     *   <li>INFO: Additional information (see parameters).</li>
+     * </ul>
+     * <p>
+     * Variants can be filtered based on their novelty and ambiguity:
+     * <ul>
+     *   <li>If {@code onlyNovel} is {@code true}, only novel variants are included.</li>
+     *   <li>If {@code excludeAmbiguous} is {@code true}, variants with ambiguous alternate bases are excluded.</li>
      * </ul>
      *
-     * @param variants A list of {@link Tuple} objects, where each tuple contains:
-     *                 <ul>
-     *                   <li>A {@link Triple} with the chromosome id, position, and alternate base.</li>
-     *                   <li>A {@link Variant} object containing the reference base.</li>
-     *                 </ul>
-     * @return A {@link String} representing the VCF content.
+     * @param storage                The {@link Storage} object containing the contigs and variants.
+     * @param onlyNovel              If {@code true}, only novel variants are included in the VCF content.
+     * @param excludeAmbiguous       If {@code true}, variants with ambiguous alternate bases are excluded.
+     * @param infoPaddedAlternatives If {@code true}, gap-padded alternatives are written at {@code INFO} key {@code ALT}. This is only
+     *                               important for re-accessing variants in a {@link Storage}.
+     * @return A {@link String} representing the VCF file content.
      */
-    public static String toVCF(ArrayList<Tuple<Triple<String, Integer, String>, Variant>> variants) {
-        StringBuilder content = new StringBuilder();
-        content.append("##fileformat=VCFv4.3").append(Constants.LINE_SEPARATOR)
+    public static String toVCF(Storage storage, boolean onlyNovel, boolean excludeAmbiguous, boolean infoPaddedAlternatives) {
+        // Initialize the VCF content with the file format, source, and header lines.
+        StringBuilder content = new StringBuilder()
+                .append("##fileformat=VCFv4.3").append(Constants.LINE_SEPARATOR)
                 .append("##source=MUSIAL").append(Constants.LINE_SEPARATOR)
                 .append("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO").append(Constants.LINE_SEPARATOR);
-        for (Tuple<Triple<String, Integer, String>, Variant> variant : variants) {
-            content.append(variant.a.getLeft()).append("\t") // CHROM
-                    .append(variant.a.getMiddle()).append("\t") // POS
-                    .append(".\t") // ID
-                    .append(Bio.stripGaps(variant.b.reference)).append("\t") // REF
-                    .append(Bio.stripGaps(variant.a.getRight())).append("\t") // ALT
-                    .append("100\t") // QUAL
-                    .append(".\t") // FILTER
-                    .append("\t").append(Constants.LINE_SEPARATOR); // INFO
-        }
+
+        // Iterate over each contig in the storage.
+        storage.getContigs().forEach(contig -> {
+            // Retrieve the list of variants based on the novelty filter.
+            var variants = onlyNovel ? contig.getNovelVariants() : contig.getVariants();
+
+            // Filter and process each variant.
+            variants.stream()
+                    .filter(variant -> !(excludeAmbiguous && variant.alternative.equals(Constants.ANY_NUCLEOTIDE))) // Exclude ambiguous
+                    // variants if required.
+                    .forEach(variant -> content.append(String.join("\t",
+                                    contig._id, // Chromosome identifier.
+                                    String.valueOf(variant.position), // Variant position.
+                                    ".", // Variant ID (set to ".").
+                                    Bio.stripGaps(variant.reference), // Reference base(s) with gaps stripped.
+                                    Bio.stripGaps(variant.alternative), // Alternate base(s) with gaps stripped.
+                                    "100", // Quality score.
+                                    ".", // Filter status.
+                                    "ALT=%s".formatted(variant.alternative))) // Additional information (empty).
+                            .append(Constants.LINE_SEPARATOR)); // Append a new line for each variant.
+        });
+
+        // Return the constructed VCF content as a string.
         return content.toString();
     }
 
