@@ -158,18 +158,6 @@ public record VariantCall(Flag flag, short depth, float entropy, List<CallAltern
     }
 
     /**
-     * Checks if the variant call has passed all filters.
-     * <p>
-     * This method determines whether the variant call is in a "PASS" state, indicating that it has successfully passed all filtering
-     * criteria.
-     *
-     * @return {@code true} if the variant call's flag is {@link Flag#PASS}; {@code false} otherwise.
-     */
-    public boolean isPass() {
-        return flag.equals(Flag.PASS);
-    }
-
-    /**
      * Retrieves the reference content of the first (called) alternative of this variant call.
      * <p>
      * This method assumes that the list of alternatives is not empty and returns the reference content of the first {@link CallAlternative}
