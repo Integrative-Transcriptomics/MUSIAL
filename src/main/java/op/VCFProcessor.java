@@ -92,11 +92,30 @@ public class VCFProcessor implements Closeable {
     /**
      * A map that tracks upstream deletions for each sample.
      * <p>
-     * The key is the sample identifier, and the value is a {@link Sample.UpstreamDeletion} object that represents the details of the
+     * The key is the sample identifier, and the value is a {@link UpstreamDeletion} object that represents the details of the
      * upstream deletion, including its genomic range and filter status. This map is used to handle cases where a deletion affects
      * downstream positions in the genome.
      */
-    private final Map<String, Sample.UpstreamDeletion> upstreamDeletions = new HashMap<>(1_000);
+    private final Map<String, UpstreamDeletion> upstreamDeletions = new HashMap<>(1_000);
+
+    /**
+     * Represents an upstream deletion affecting a sample.
+     * <p>
+     * This record encapsulates the details of an upstream deletion, including:
+     * <ul>
+     *   <li>The contig identifier where the deletion occurs.</li>
+     *   <li>The start position of the deletion.</li>
+     *   <li>The end position of the deletion.</li>
+     *   <li>A flag indicating whether the deletion is filtered.</li>
+     * </ul>
+     *
+     * @param contigIdentifier The unique identifier of the contig where the deletion occurs.
+     * @param start            The start position of the deletion.
+     * @param end              The end position of the deletion.
+     * @param isFiltered         A boolean flag indicating whether the deletion is filtered.
+     */
+    public record UpstreamDeletion(String contigIdentifier, int start, int end, boolean isFiltered) {
+    }
 
     /**
      * A cache for storing and managing variant calls.
@@ -582,7 +601,7 @@ public class VCFProcessor implements Closeable {
         boolean isFiltered = (flag.equals(VariantCall.Flag.LOW_FREQUENCY) || flag.equals(VariantCall.Flag.LOW_COVERAGE));
 
         // Handle missing allele due to an upstream deletion.
-        Sample.UpstreamDeletion upstreamDeletion = this.upstreamDeletions.getOrDefault(sampleIdentifier, null);
+        UpstreamDeletion upstreamDeletion = this.upstreamDeletions.getOrDefault(sampleIdentifier, null);
         if (!isFiltered && allele.alternative().equals("*")) {
             if (Objects.isNull(upstreamDeletion)
                     || (upstreamDeletion.contigIdentifier().equals(contigIdentifier) && upstreamDeletion.start() <= position && position <= upstreamDeletion.end() && upstreamDeletion.isFiltered())
@@ -599,7 +618,7 @@ public class VCFProcessor implements Closeable {
         // Set deleted downstream positions if the current accepted call is a deletion.
         if (Bio.isDeletion(allele.alternative())) {
             this.upstreamDeletions.put(sampleIdentifier,
-                    new Sample.UpstreamDeletion(contigIdentifier, position + StringUtils.indexOf(allele.alternative(),
+                    new UpstreamDeletion(contigIdentifier, position + StringUtils.indexOf(allele.alternative(),
                             Constants.GAP_CHAR), position + StringUtils.lastIndexOf(allele.alternative(), Constants.GAP_CHAR), isFiltered)
             );
         }
@@ -753,4 +772,5 @@ public class VCFProcessor implements Closeable {
             }
         }
     }
+
 }
