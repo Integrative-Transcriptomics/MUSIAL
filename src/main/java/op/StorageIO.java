@@ -165,11 +165,9 @@ public class StorageIO {
      * @param storage                The {@link Storage} object containing the contigs and variants.
      * @param onlyNovel              If {@code true}, only novel variants are included in the VCF content.
      * @param excludeAmbiguous       If {@code true}, variants with ambiguous alternate bases are excluded.
-     * @param infoPaddedAlternatives If {@code true}, gap-padded alternatives are written at {@code INFO} key {@code ALT}. This is only
-     *                               important for re-accessing variants in a {@link Storage}.
      * @return A {@link String} representing the VCF file content.
      */
-    public static String toVCF(Storage storage, boolean onlyNovel, boolean excludeAmbiguous, boolean infoPaddedAlternatives) {
+    public static String toVCF(Storage storage, boolean onlyNovel, boolean excludeAmbiguous) {
         // Initialize the VCF content with the file format, source, and header lines.
         StringBuilder content = new StringBuilder()
                 .append("##fileformat=VCFv4.3").append(Constants.LINE_SEPARATOR)

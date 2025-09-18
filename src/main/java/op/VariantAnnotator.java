@@ -73,7 +73,7 @@ public class VariantAnnotator {
         Path temp = Files.createTempDirectory(Musial.tempDir.toPath(), "annotation");
         try {
             // Create map to store variant pointers and write storage variants to temporary VCF file.
-            IO.writeFile(Path.of(temp + "/variants" + FileExtensions.VCF), StorageIO.toVCF(storage, true, true, true));
+            IO.writeFile(Path.of(temp + "/variants" + FileExtensions.VCF), StorageIO.toVCF(storage, true, true));
 
             // Write reference .gff and .fasta to temp. target directory.
             IO.writeFile(Path.of(temp + "/data/reference/genes.gff"), StorageIO.toGFF3(storage));
