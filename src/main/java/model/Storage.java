@@ -696,12 +696,6 @@ public class Storage {
                 // Initialize the transient sequence cache for each contig in the storage.
                 storage.contigs.values().forEach(contig -> contig.sequenceCache = new HashMap<>());
 
-                // Initialize transient fields in Sample objects.
-                storage.samples.values().forEach(sample -> {
-                    sample.novelCalls = new HashMap<>();
-                    sample.upstreamDeletion = null;
-                });
-
                 return storage;
             }
         };
