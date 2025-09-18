@@ -1,15 +1,11 @@
 package model;
 
 import htsjdk.samtools.util.Tuple;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
-import org.apache.commons.lang3.tuple.MutableTriple;
-import util.Bio;
 import util.Constants;
-import util.Logging;
 
-import java.nio.file.Path;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -41,69 +37,22 @@ public class Sample extends Attributes {
     private final Map<String, String> alleles;
 
     /**
-     * A map that organizes variant calls by contig identifiers and positions.
+     * Constructs a new {@link Sample} instance with the specified id and initial capacity for the alleles map.
      * <p>
-     * This {@link Map} stores contig identifiers as keys, each associated with a {@link Map} that maps positions (as {@link Integer}) to
-     * {@link VariantCall} objects. This structure allows efficient storage and retrieval of variant calls for specific contigs and
-     * positions.
-     */
-    private final Map<String, Map<Integer, VariantCall>> variantCalls;
-
-    /**
-     * A transient cache for storing novel variant calls.
+     * This constructor initializes a {@link Sample} object with the given identifier and allocates a {@link HashMap} instance for the
+     * {@link #alleles} field with the specified initial capacity. The {@link #_id} field is set to the provided identifier, and the
+     * superclass constructor is invoked to initialize inherited properties.
      * <p>
-     * This {@link HashMap} is used to temporarily store novel variant calls during runtime. The keys represent contig identifiers, and the
-     * values are {@link HashSet} objects containing the positions of the novel variant calls within the contig.
-     * <p>
-     * The cache is initialized with a default capacity of 2 to optimize memory allocation for typical use cases. Being marked as
-     * {@code transient}, this field is excluded from serialization, as it is only relevant during the execution of the program.
-     */
-    transient HashMap<String, HashSet<Integer>> novelCalls = new HashMap<>(2);
-
-    /**
-     * Represents an upstream deletion affecting a sample.
-     * <p>
-     * This record encapsulates the details of an upstream deletion, including:
-     * <ul>
-     *   <li>The contig identifier where the deletion occurs.</li>
-     *   <li>The start position of the deletion.</li>
-     *   <li>The end position of the deletion.</li>
-     *   <li>A flag indicating whether the deletion is filtered.</li>
-     * </ul>
-     *
-     * @param contigIdentifier The unique identifier of the contig where the deletion occurs.
-     * @param start            The start position of the deletion.
-     * @param end              The end position of the deletion.
-     * @param isFiltered         A boolean flag indicating whether the deletion is filtered.
-     */
-    public record UpstreamDeletion(String contigIdentifier, int start, int end, boolean isFiltered) {
-    }
-
-    /**
-     * Stores information about an upstream deletion affecting this sample.
-     * <p>
-     * This transient field holds an {@link UpstreamDeletion} object that represents details about an upstream deletion, including the
-     * contig identifier, start and end positions, and whether the deletion is filtered. The field is marked as {@code transient} to exclude
-     * it from serialization.
-     */
-    transient UpstreamDeletion upstreamDeletion = null;
-
-    /**
-     * Constructs a new {@link Sample} instance with the specified id and initial capacities for the alleles and variant calls maps.
-     * <p>
-     * This constructor initializes a {@link Sample} object with the given identifier and allocates {@link HashMap} instances for the
-     * {@link #variantCalls} and {@link #alleles} fields with the specified initial capacities. The {@link #_id} field is set to the
-     * provided identifier, and the superclass constructor is invoked to initialize inherited properties.
+     * Instances of this class are not related to variants from within this constructor. Instead, variants are linked via the
+     * {@link Variant#samples} and {@link Allele} classes.
      *
      * @param identifier       The unique identifier of the sample, used as its unique key.
-     * @param capacityContigs  The initial capacity for the {@link #variantCalls} map, which stores variant calls by contig identifiers.
      * @param capacityFeatures The initial capacity for the {@link #alleles} map, which stores feature-allele associations.
      */
-    public Sample(String identifier, int capacityContigs, int capacityFeatures) {
-        super();
-        this._id = identifier;
-        this.variantCalls = new HashMap<>(capacityContigs);
-        this.alleles = new HashMap<>(capacityFeatures);
+    public Sample(String identifier, int capacityFeatures) {
+        super(); // Call the constructor of the superclass to initialize inherited properties.
+        this._id = identifier; // Assign the unique identifier to the _id field.
+        this.alleles = new HashMap<>(capacityFeatures); // Initialize the alleles map with the specified capacity.
     }
 
     /**
@@ -157,227 +106,6 @@ public class Sample extends Attributes {
      */
     public int getRelatedAllelesCount() {
         return this.alleles.size();
-    }
-
-    /**
-     * Checks if there are any variant calls associated with this sample.
-     * <p>
-     * This method determines whether the sample contains any variant calls by inspecting the relevant map based on the provided flag. If
-     * the {@code novel} flag is {@code true}, it checks the {@link #novelCalls} map for entries. Otherwise, it checks the
-     * {@link #variantCalls} map.
-     *
-     * @param novel A boolean flag indicating whether to check for novel variant calls ({@code true}) or all variant calls ({@code false}).
-     * @return {@code true} if there are variant calls in the respective map, {@code false} otherwise.
-     */
-    public boolean hasVariantCalls(boolean novel) {
-        if (novel) {
-            // Check if the novelCalls map is not empty when the novel flag is true.
-            return !this.novelCalls.isEmpty();
-        } else {
-            // Check if the variantCalls map is not empty when the novel flag is false.
-            return !this.variantCalls.isEmpty();
-        }
-    }
-
-    /**
-     * Checks if there are any variant calls for a specific contig.
-     * <p>
-     * This method determines whether the sample contains variant calls for a given contig identifier. It inspects either the
-     * {@link #novelCalls} map or the {@link #variantCalls} map based on the value of the {@code novel} parameter.
-     * <p>
-     * If {@code novel} is {@code true}, the method checks the {@link #novelCalls} map to see if it contains the specified contig identifier
-     * as a key and if the associated set of positions is not empty. If {@code novel} is {@code false}, the method checks the
-     * {@link #variantCalls} map to see if it contains the specified contig identifier as a key and if the associated map of positions is
-     * not empty.
-     *
-     * @param contigIdentifier The unique identifier of the contig to check for variant calls.
-     * @param novel            A boolean flag indicating whether to check for novel variant calls ({@code true}) or all variant calls
-     *                         ({@code false}).
-     * @return {@code true} if there are variant calls for the specified contig, {@code false} otherwise.
-     */
-    public boolean hasVariantCalls(String contigIdentifier, boolean novel) {
-        if (novel) {
-            // Check if the novelCalls map contains the contig identifier and has non-empty positions.
-            return this.novelCalls.containsKey(contigIdentifier) && !this.novelCalls.get(contigIdentifier).isEmpty();
-        } else {
-            // Check if the variantCalls map contains the contig identifier and has non-empty positions.
-            return this.variantCalls.containsKey(contigIdentifier) && !this.variantCalls.get(contigIdentifier).isEmpty();
-        }
-    }
-
-    /**
-     * Adds a variant call to the sample for a specific contig and position.
-     * <p>
-     * This method processes a list of alternative alleles and calculates various properties of the variant call, such as total depth,
-     * normalized entropy, and the most likely allele. It also handles cases such as low frequency, low coverage, and upstream deletions.
-     * The variant call is then stored in the {@link #variantCalls} map.
-     *
-     * @param contigIdentifier The unique identifier of the contig where the variant call occurs.
-     * @param position         The position within the contig where the variant call occurs.
-     * @param alternatives     A list of {@link VariantCall.CallAlternative} objects representing the alternative alleles for the variant
-     *                         call.
-     * @param parameters       The {@link Storage.Parameters} object containing thresholds for frequency and coverage.
-     * @param origin           The origin of the variant call (e.g., the file path from which the call was derived).
-     * @return The {@link VariantCall.Flag} indicating the status of the variant call (e.g., PASS, LOW_FREQUENCY, LOW_COVERAGE).
-     */
-    public VariantCall.Flag addVariantCall(String contigIdentifier, int position, List<VariantCall.CallAlternative> alternatives,
-                                           Storage.Parameters parameters, Path origin) {
-        // Ensure that the list of alternatives is not empty.
-        assert !alternatives.isEmpty();
-
-        // Check if a variant call already exists for the given contig and position.
-        if (variantCalls.containsKey(contigIdentifier) && variantCalls.get(contigIdentifier).containsKey(position)) {
-            List<VariantCall.CallAlternative> _alternatives = variantCalls.get(contigIdentifier).get(position).alternatives();
-            int i;
-            for (VariantCall.CallAlternative alternative : alternatives) {
-                i = _alternatives.indexOf(alternative);
-                if (i >= 0) {
-                    // Update the allelic depth for an existing alternative allele.
-                    VariantCall.CallAlternative existing = _alternatives.get(i);
-                    _alternatives.set(i, new VariantCall.CallAlternative(existing.reference(), existing.alternative(),
-                            (short) (existing.allelicDepth() + alternative.allelicDepth())));
-                } else {
-                    // Add a new alternative allele to the list.
-                    _alternatives.add(alternative);
-                }
-            }
-            alternatives = _alternatives;
-        }
-
-        // Sort alleles in descending order by their allelic depth (AD).
-        alternatives.sort((a, b) -> Short.compare(b.allelicDepth(), a.allelicDepth()));
-
-        // Calculate the total observed depth of coverage.
-        short totalDepth = (short) alternatives.stream().mapToInt(VariantCall.CallAlternative::allelicDepth).sum();
-
-        // Calculate normalized entropy for the call context.
-        float callEntropy = alternatives.size() == 1 ? (float) 0.0 : (float) (-1 * (alternatives.stream().mapToDouble(alternative -> {
-            float frequency = alternative.allelicDepth() / (float) totalDepth;
-            return frequency == 0 ? 0 : frequency * (Math.log(frequency) / Constants.LOG2);
-        }).sum()) / (Math.log(alternatives.size()) / Constants.LOG2));
-
-        // Access the allele with the highest depth of coverage.
-        VariantCall.CallAlternative allele = alternatives.get(0);
-        VariantCall.Flag flag = allele.alternative().equals(Constants.DOT) ? VariantCall.Flag.REFERENCE_CALL : VariantCall.Flag.PASS;
-
-        // Compute the actual frequency of the selected allele.
-        float frequency = allele.allelicDepth() / (float) totalDepth;
-
-        // Set call prefix for low frequency or coverage.
-        if (frequency < parameters.minimalFrequency()) flag = VariantCall.Flag.LOW_FREQUENCY;
-        if (totalDepth < parameters.minimalCoverage()) flag = VariantCall.Flag.LOW_COVERAGE;
-        boolean isFiltered = (flag.equals(VariantCall.Flag.LOW_FREQUENCY) || flag.equals(VariantCall.Flag.LOW_COVERAGE));
-
-        // Handle missing allele due to an upstream deletion.
-        if (!isFiltered && allele.alternative().equals("*")) {
-            if (Objects.isNull(this.upstreamDeletion)
-                    || (this.upstreamDeletion.contigIdentifier.equals(contigIdentifier) && this.upstreamDeletion.start <= position && position <= this.upstreamDeletion.end && this.upstreamDeletion.isFiltered)
-                    || (this.upstreamDeletion.contigIdentifier.equals(contigIdentifier) && position > this.upstreamDeletion.end)) {
-                flag = VariantCall.Flag.MISSING_UPSTREAM_DELETION;
-                isFiltered = true;
-                Logging.logWarningOnce("UNEXPLAINED_DELETION",
-                        String.format("Possible error in genotype data. Called deleted allele (*) is not explained by an " +
-                                        "upstream deletion at site %s %d for sample %s in file %s.",
-                                contigIdentifier, position, _id, origin));
-            }
-        }
-
-        // Set deleted downstream positions if the current accepted call is a deletion.
-        if (Bio.isDeletion(allele.alternative())) {
-            this.upstreamDeletion = new UpstreamDeletion(
-                    contigIdentifier, position + StringUtils.indexOf(allele.alternative(), Constants.GAP_CHAR),
-                    position + StringUtils.lastIndexOf(allele.alternative(), Constants.GAP_CHAR), isFiltered);
-        }
-
-        // Store the variant call in the calls map if it is not a reference call.
-        if (!flag.equals(VariantCall.Flag.REFERENCE_CALL)) {
-            variantCalls.computeIfAbsent(contigIdentifier, k -> new HashMap<>(128));
-            variantCalls.get(contigIdentifier).put(position, new VariantCall(flag, totalDepth, callEntropy, alternatives));
-            novelCalls.computeIfAbsent(contigIdentifier, k -> new HashSet<>(128));
-            novelCalls.get(contigIdentifier).add(position);
-        }
-
-        return flag;
-    }
-
-    /**
-     * Retrieves all variant calls in this sample.
-     * <p>
-     * This method processes the {@link #variantCalls} map to extract all variant calls across all contigs and positions. It converts the
-     * entries into a list of {@link MutableTriple} objects, where each triple contains:
-     * <ul>
-     *   <li>The contig identifier as a {@link String}.</li>
-     *   <li>The position of the variant as an {@link Integer}.</li>
-     *   <li>The {@link VariantCall} object representing the variant call.</li>
-     * </ul>
-     *
-     * @param novel A boolean flag indicating whether to retrieve only novel variant calls ({@code true}) or all variant calls
-     *              ({@code false}). If {@code true}, the method retrieves variant calls from the {@link #novelCalls} map. Otherwise, it
-     *              retrieves all variant calls from the {@link #variantCalls} map.
-     * @return A {@link List} of {@link ImmutableTriple} objects representing all variant calls in this sample. Each triple contains:
-     * <ul>
-     *   <li>The contig identifier as a {@link String}.</li>
-     *   <li>The position of the variant as an {@link Integer}.</li>
-     *   <li>The {@link VariantCall} object representing the variant call.</li>
-     * </ul>
-     */
-    public List<ImmutableTriple<String, Integer, VariantCall>> getVariantCalls(boolean novel) {
-        if (novel) {
-            // If the 'novel' flag is true, retrieve only novel variant calls.
-            return this.novelCalls.entrySet().stream()
-                    // Stream through the entries of the 'novelCalls' map.
-                    .flatMap(entry -> entry.getValue().stream()
-                            // For each entry, map the contig identifier, position, and corresponding VariantCall object.
-                            .map(callEntry -> new ImmutableTriple<>(entry.getKey(), callEntry,
-                                    this.variantCalls.get(entry.getKey()).get(callEntry))))
-                    .sorted(Comparator.comparing(t -> t.middle))
-                    .toList(); // Collect the results into a list.
-        } else {
-            // If the 'novel' flag is false, retrieve all variant calls.
-            return this.variantCalls.entrySet().stream()
-                    // Stream through the entries of the 'variantCalls' map.
-                    .flatMap(entry -> entry.getValue().entrySet().stream()
-                            // For each entry, map the contig identifier, position, and corresponding VariantCall object.
-                            .map(callEntry -> new ImmutableTriple<>(entry.getKey(), callEntry.getKey(), callEntry.getValue())))
-                    .sorted(Comparator.comparing(t -> t.middle))
-                    .toList(); // Collect the results into a list.
-        }
-    }
-
-    /**
-     * Retrieves a list of variant calls for a specific contig.
-     * <p>
-     * This method retrieves variant calls associated with the specified contig identifier. It can return either novel variant calls or all
-     * variant calls based on the value of the {@code novel} parameter.
-     * <p>
-     * If {@code novel} is {@code true}, the method retrieves only the novel variant calls for the specified contig. These are fetched from
-     * the {@link #novelCalls} map. If {@code novel} is {@code false}, the method retrieves all variant calls for the contig from the
-     * {@link #variantCalls} map.
-     * <p>
-     * The result is a list of {@link Tuple} objects, where each tuple contains:
-     * <ul>
-     *   <li>The position of the variant as an {@link Integer}.</li>
-     *   <li>The {@link VariantCall} object representing the variant call.</li>
-     * </ul>
-     * If the contig identifier does not exist in the respective map, an empty list is returned.
-     *
-     * @param contigIdentifier The unique identifier of the contig to retrieve variant calls for.
-     * @param novel            A boolean flag indicating whether to retrieve only novel variant calls ({@code true}) or all variant calls
-     *                         ({@code false}).
-     * @return A {@link List} of {@link Tuple} objects representing the variant calls for the specified contig.
-     */
-    public List<Tuple<Integer, VariantCall>> getVariantCalls(String contigIdentifier, boolean novel) {
-        if (novel) {
-            return this.novelCalls.getOrDefault(contigIdentifier, new HashSet<>()).stream()
-                    .map(position -> new Tuple<>(position, this.variantCalls.get(contigIdentifier).get(position)))
-                    .sorted(Comparator.comparingInt(t -> t.a))
-                    .toList();
-        } else {
-            return this.variantCalls.getOrDefault(contigIdentifier, new HashMap<>()).entrySet().stream()
-                    .map(callEntry -> new Tuple<>(callEntry.getKey(), callEntry.getValue()))
-                    .sorted(Comparator.comparingInt(t -> t.a))
-                    .toList();
-        }
     }
 
     /**

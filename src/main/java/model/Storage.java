@@ -506,7 +506,7 @@ public class Storage {
      */
     public void addSample(String sampleIdentifier) {
         // Create a new Sample object with the given identifier, initialized with the current number of contigs and features.
-        Sample sample = new Sample(sampleIdentifier, contigs.size(), features.size());
+        Sample sample = new Sample(sampleIdentifier, features.size());
 
         // Add the sample to the samples map if it does not already exist.
         samples.putIfAbsent(sample._id, sample);
