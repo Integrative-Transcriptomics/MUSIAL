@@ -9,11 +9,8 @@ import exceptions.MusialException;
 import htsjdk.samtools.reference.FastaSequenceIndexCreator;
 import htsjdk.samtools.reference.IndexedFastaSequenceFile;
 import htsjdk.samtools.reference.ReferenceSequence;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
-import org.apache.commons.lang3.tuple.Triple;
 import org.biojava.nbio.genome.parsers.gff.FeatureI;
 import util.Bio;
-import util.Constants;
 import util.IO;
 import util.Logging;
 
@@ -142,11 +139,6 @@ public class Storage {
      * Individual samples, i.e., variant calls from one distinct biological sample.
      */
     private final Map<String, Sample> samples;
-
-    /**
-     * Transient list of novel variants. <i>This is automatically filled during variant call processing.</i>
-     */
-    transient ArrayList<Triple<String, Integer, String>> novelVariants = new ArrayList<>(10_000);
 
     /**
      * Constructs a new {@link Storage} instance with the specified parameters.
@@ -541,18 +533,6 @@ public class Storage {
     }
 
     /**
-     * Checks if there are any novel variants stored in the storage.
-     * <p>
-     * This method verifies whether the `novelVariants` list contains any entries. Novel variants are those that have been identified during
-     * variant call processing but are not yet annotated or processed further.
-     *
-     * @return {@code true} if there are novel variants in the storage, {@code false} otherwise.
-     */
-    public boolean noNovelVariants() {
-        return !this.novelVariants.isEmpty();
-    }
-
-    /**
      * Adds a variant to the specified contig in the storage.
      * <p>
      * This method ensures that the variant is in a canonical padded format. If the variant is not canonical, an
@@ -581,9 +561,6 @@ public class Storage {
         if (variant == null) {
             variant = new Variant(position, reference, alternative);
             contig.addVariant(variant);
-            if (!Objects.equals(alternative, Constants.ANY_NUCLEOTIDE)) {
-                novelVariants.add(new ImmutableTriple<>(contig._id, position, alternative));
-            }
         }
 
         // Associate the variant with the sample and cache it for further processing.
@@ -595,33 +572,23 @@ public class Storage {
      * <p>
      * This method iterates through all contigs stored in the {@code contigs} map and sums up the variant counts for each contig. The
      * variant count for each contig is retrieved using the {@link Contig#getVariantsCount()} method.
-     * <p>
-     * This method is useful for obtaining a global count of variants in the genomic data storage.
      *
-     * @return The total number of variants across all contigs as a {@code long}.
+     * @return The total number of variants across all contigs.
      */
     public int getVariantsCount() {
         return (int) contigs.values().stream().mapToLong(Contig::getVariantsCount).sum();
     }
 
     /**
-     * Retrieves an unmodifiable collection of novel variants stored in the storage.
+     * Calculates the total number of novel variants across all contigs in the storage.
      * <p>
-     * This method provides a read-only view of the novel variants identified during variant call processing. Each novel variant is
-     * represented as a {@link Triple} containing:
-     * <ul>
-     *   <li>The contig identifier as a {@link String}.</li>
-     *   <li>The position of the variant as an {@link Integer}.</li>
-     *   <li>The alternative allele as a {@link String}.</li>
-     * </ul>
-     * <p>
-     * The returned collection ensures that the integrity of the underlying data structure is maintained,
-     * as it cannot be modified directly.
+     * This method iterates through all contigs stored in the {@code contigs} map and sums up the novel variant counts for each contig. The
+     * novel variant count for each contig is retrieved using the {@link Contig#getNovelVariantsCount()} method.
      *
-     * @return An unmodifiable collection of {@link Triple} objects representing the novel variants.
+     * @return The total number of novel variants across all contigs.
      */
-    public Collection<Triple<String, Integer, String>> getNovelVariants() {
-        return Collections.unmodifiableCollection(this.novelVariants);
+    public int getNovelVariantsCount() {
+        return (int) contigs.values().stream().mapToLong(Contig::getNovelVariantsCount).sum();
     }
 
     /**
@@ -629,7 +596,7 @@ public class Storage {
      * <p>
      * This method defines a custom {@link TypeAdapter} to handle the serialization and deserialization of {@link Storage} objects. The
      * adapter uses Gson's default adapter for most operations but adds custom behavior during deserialization to initialize the transient
-     * {@link #novelVariants} and {@link #reference} fields.
+     * {@link #reference} field.
      *
      * @return A {@link TypeAdapter} for the {@link Storage} class.
      */
@@ -668,16 +635,19 @@ public class Storage {
             public Storage read(JsonReader in) throws IOException {
                 Storage storage = defaultAdapter.read(in); // Deserialize using the default adapter
 
-                // Initialize transient fields of the Storage object.
-                storage.novelVariants = new ArrayList<>(); // Initialize the transient cache field
                 try { // Build IndexedFastaSequenceFile from contigs if they have non-empty sequences
                     if (!storage.contigs.isEmpty()) {
                         List<String> fastaEntries = new ArrayList<>();
                         for (Contig contig : storage.contigs.values()) {
+                            // Extract sequence of contig.
                             if (contig.hasSequence()) {
                                 fastaEntries.add(">" + contig._id);
                                 fastaEntries.add(contig.getSequence());
                             }
+                            // Set transient sequence cache for each contig.
+                            contig.sequenceCache = new HashMap<>();
+                            // Set all variants to known (not novel) after deserialization.
+                            contig.getVariants().forEach(variant -> variant.novel = false);
                         }
                         if (!fastaEntries.isEmpty()) {
                             Path tempFasta = Files.createTempFile(IO.md5Hash(Logging.getTimestamp()), ".fasta");

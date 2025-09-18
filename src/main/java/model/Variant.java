@@ -127,6 +127,15 @@ public class Variant extends Attributes {
     private final Map<String, Set<String>> features = new HashMap<>(1);
 
     /**
+     * Indicates whether this variant is novel (not previously known).
+     * <p>
+     * This boolean flag is used to mark variants that are newly identified and not present in an existing storage. It is set to
+     * {@code true} for newly created variants, but will not be serialized. During deserialization, it is assumed that all variants are
+     * known and should be set to {@code false} (see {@link Storage#typeAdapter()}).
+     */
+    protected transient boolean novel;
+
+    /**
      * Constructs a new {@link Variant} instance, based on the provided position, reference, and alternative content.
      * <p>
      * The constructor determines the type of variant based on the reference and alternative content as well as if the reference and
@@ -155,6 +164,7 @@ public class Variant extends Attributes {
                             .formatted(reference, alternative)
             );
         }
+        this.novel = true;
     }
 
     /**

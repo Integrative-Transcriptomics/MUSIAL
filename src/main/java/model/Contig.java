@@ -61,7 +61,7 @@ public class Contig extends Attributes {
      * This is not intended to be serialized, as it is dynamically populated during runtime to optimize performance by avoiding redundant
      * sequence decompression or retrieval.
      */
-    transient Map<Tuple<Integer, Integer>, String> sequenceCache;
+    protected transient Map<Tuple<Integer, Integer>, String> sequenceCache;
 
     /**
      * Constructs a new {@link Contig} instance with the specified sequence (optionally empty).
@@ -197,6 +197,22 @@ public class Contig extends Attributes {
     }
 
     /**
+     * Retrieves all novel variants associated with this contig.
+     * <p>
+     * This method flattens the {@code variants} map, which organizes variants by their positions, into a single list of {@link Variant}
+     * objects. It then filters the list to include only those variants that are marked as novel (i.e., have the {@code novel} property set
+     * to {@code true}). The returned list is unmodifiable.
+     *
+     * @return A {@link List} containing all novel {@link Variant} objects associated with this contig.
+     */
+    public List<Variant> getNovelVariants() {
+        return this.variants.values().stream()
+                .flatMap(variantMap -> variantMap.values().stream())
+                .filter(v -> v.novel)
+                .toList();
+    }
+
+    /**
      * Retrieves variants within the specified range of positions.
      * <p>
      * This method retrieves variants from the {@code variants} map that fall within the specified start and end positions (inclusive of
@@ -250,13 +266,29 @@ public class Contig extends Attributes {
     /**
      * Calculates the total number of variants associated with this contig.
      * <p>
-     * This method iterates through the {@code variants} map, which organizes variants by their positions, and sums up the sizes of all the
-     * lists of variants. The result represents the total count of {@link Variant} objects stored in this contig.
+     * This method iterates through the {@code variants} map and sums up the sizes of all the lists of variants. The result represents the
+     * total count of {@link Variant} objects stored in this contig.
      *
      * @return The total number of {@link Variant} objects associated with this contig.
      */
     public int getVariantsCount() {
         return this.variants.values().stream().mapToInt(Map::size).sum();
+    }
+
+    /**
+     * Calculates the total number of novel variants associated with this contig.
+     * <p>
+     * This method flattens the {@code variants} map into a stream of {@link Variant} objects. It then filters the stream to include only
+     * those variants that are marked as novel (i.e., have the {@code novel} property set to {@code true}). The method counts the filtered
+     * variants and returns the total count as an integer.
+     *
+     * @return The total number of novel {@link Variant} objects associated with this contig.
+     */
+    public int getNovelVariantsCount() {
+        return (int) this.variants.values().stream()
+                .flatMap(variantMap -> variantMap.values().stream())
+                .filter(v -> v.novel)
+                .count();
     }
 
     /**

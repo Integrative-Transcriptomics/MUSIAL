@@ -64,9 +64,9 @@ public class ExecutorExpand {
     public void run() throws IOException, MusialException {
         // Process VCF files and load variants into storage.
         Logging.logInfo("Load variant calls.");
-        vcfProcessor.analyzeFiles();
+        vcfProcessor.processFiles();
         storageUpdater.updateSampleAttributes(cli.vcfMeta);
-        storageUpdater.updateVariants();
+        //storageUpdater.updateVariants();
         Logging.logDone("Processed %d variant calls from %d VCF file(s). %d calls were ignored, %d calls were filtered.".formatted(
                 vcfProcessor.getProcessedCallsCount(), cli.vcfFiles.size(), vcfProcessor.getIgnoredCallsCount(), vcfProcessor.getFilteredCallsCount()));
 
@@ -87,7 +87,7 @@ public class ExecutorExpand {
             Logging.logWarning("Skip variant annotation; no features are available.");
         } else if (storage.getFeatures().stream().allMatch(f -> f.type.equals("region"))) {
             Logging.logWarning("Skip variant annotation; all features are of type region.");
-        } else if (!storage.hasNovelVariants()) {
+        } else if (storage.getNovelVariantsCount() == 0) {
             Logging.logWarning("Skip variant annotation; no novel variants to annotate.");
         } else {
             Logging.logInfo("Run variant annotation with SnpEff.");

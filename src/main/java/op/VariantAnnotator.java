@@ -2,12 +2,10 @@ package op;
 
 import exceptions.MusialException;
 import htsjdk.samtools.util.FileExtensions;
-import htsjdk.samtools.util.Tuple;
 import main.Musial;
 import model.Storage;
 import model.Variant;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.tuple.Triple;
 import util.Constants;
 import util.IO;
 import util.Logging;
@@ -17,8 +15,6 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -77,13 +73,7 @@ public class VariantAnnotator {
         Path temp = Files.createTempDirectory(Musial.tempDir.toPath(), "annotation");
         try {
             // Create map to store variant pointers and write storage variants to temporary VCF file.
-            Collection<Triple<String, Integer, String>> novelVariants = storage.getNovelVariants();
-            ArrayList<Tuple<Triple<String, Integer, String>, Variant>> variants = new ArrayList<>(novelVariants.size());
-            for (Triple<String, Integer, String> variant : novelVariants) {
-                variants.add(new Tuple<>(variant, storage.getContig(variant.getLeft()).getVariant(variant.getMiddle(),
-                        variant.getRight())));
-            }
-            IO.writeFile(Path.of(temp + "/variants" + FileExtensions.VCF), StorageIO.toVCF(variants));
+            IO.writeFile(Path.of(temp + "/variants" + FileExtensions.VCF), StorageIO.toVCF(storage, true, true, true));
 
             // Write reference .gff and .fasta to temp. target directory.
             IO.writeFile(Path.of(temp + "/data/reference/genes.gff"), StorageIO.toGFF3(storage));
@@ -115,39 +105,44 @@ public class VariantAnnotator {
                     temp.toString());
 
             // Transfer annotation results to storage.
+            Variant variant;
             try (BufferedReader br = new BufferedReader(new FileReader(temp + "/annotation" + FileExtensions.VCF))) {
                 String line = br.readLine();
-                int index = 0;
                 while (Objects.nonNull(line)) {
                     if (!line.startsWith(Constants.SIGN)) {
-                        // TODO: Error here...
                         try {
-                            String[] annotationFields = line.split("\t");
-                            if (!annotationFields[7].equals(".")) {
-                                annotationFields = annotationFields[7].replace("ANN=", "").split(Constants.COMMA)[0].split("\\|");
-                                for (int i = 0; i < annotationFields.length; i++) {
+                            String[] lineFields = line.split("\t");
+                            String contig = lineFields[0];
+                            int pos = Integer.parseInt(lineFields[1]);
+                            String info = lineFields[7];
+                            if (!info.equals(".")) {
+                                String[] infoFields = info.split(";");
+                                String alt = infoFields[0].replace("ALT=", "");
+                                variant = storage.getContig(contig).getVariant(pos, alt);
+                                String ann = infoFields[1].replace("ANN=", "");
+                                String[] annFields = ann.split(Constants.COMMA)[0].split("\\|");
+                                for (int i = 0; i < annFields.length; i++) {
                                     if (i == 1 || i == 2 || i == 5 || i == 7 || i == 12 || i == 13) {
-                                        variants.get(index).b.addAttributeIfAbsent(
+                                        variant.addAttributeIfAbsent(
                                                 Constants.SNP_EFF_PREFIX + Constants.SNP_EFF_KEYS.get(i),
-                                                i == 1 ? annotationFields[i].replaceAll("&", Constants.COMMA) : annotationFields[i]
+                                                i == 1 ? annFields[i].replaceAll("&", Constants.COMMA) : annFields[i]
                                         );
                                     } else if (i == 6) {
-                                        variants.get(index).b.addAttributeIfAbsent(
+                                        variant.addAttributeIfAbsent(
                                                 Constants.SNP_EFF_PREFIX + Constants.SNP_EFF_KEYS.get(i),
-                                                annotationFields[i].split("-")[1]
+                                                annFields[i].split("-")[1]
                                         );
                                     }
                                 }
                             }
                         } catch (Exception e) {
-                            Logging.logWarning(e.getMessage() + " Cause: %s.".formatted(line));
+                            Logging.logSevere("Failed to process SnpEff annotation: " + e.getMessage());
                         }
-                        index++;
                     }
                     line = br.readLine();
                 }
             } catch (FileNotFoundException e) {
-                throw new MusialException(String.format("Failed to read SnpEff annotation. %s", e.getMessage()));
+                throw new MusialException(String.format("Failed to read SnpEff annotation: %s", e.getMessage()));
             }
         } finally {
             File buildErrorFile = new File(temp + "/snpEff.build.err");
