@@ -13,6 +13,7 @@ import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.Triple;
 import org.biojava.nbio.genome.parsers.gff.FeatureI;
 import util.Bio;
+import util.Constants;
 import util.IO;
 import util.Logging;
 
@@ -91,8 +92,7 @@ public class Storage {
      *                         only variant calls with sufficient read depth are considered.
      * @param minimalFrequency The minimal frequency of a variant call to be accepted. Must be between 0.0 and 1.0, inclusive. This
      *                         parameter filters out low-frequency variants that may be due to sequencing errors.
-     * @param storeFiltered    Whether to retain filtered calls as ambiguous bases (N). If true, filtered calls are retained in the storage,
-     *                         allowing downstream analysis to consider them as ambiguous data.
+     * @param maskFiltered     Whether to mask filtered calls as ambiguous bases (N) or ignore them.
      * @param skipAnnotation   Whether to skip the SnpEff annotation process. If true, the annotation step is bypassed, which can save time
      *                         if annotation is not required.
      * @param skipTyping       Whether to skip proteoform inference. If true, the inference of proteoforms (protein isoforms) is not
@@ -103,7 +103,7 @@ public class Storage {
     public record Parameters(
             int minimalCoverage, // Minimum read depth required for a variant call to be accepted.
             double minimalFrequency, // Minimum allele frequency required for a variant call to be accepted.
-            boolean storeFiltered, // Flag to determine whether filtered calls should be retained as ambiguous bases.
+            boolean maskFiltered, // Whether to mask filtered variants in the analysis.
             boolean skipAnnotation, // Flag to determine whether SnpEff annotation should be skipped.
             boolean skipTyping, // Flag to determine whether proteoform inference should be skipped.
             Map<String, Set<Integer>> masked // Map of contig names to sets of positions to exclude from analysis.
@@ -548,7 +548,7 @@ public class Storage {
      *
      * @return {@code true} if there are novel variants in the storage, {@code false} otherwise.
      */
-    public boolean hasNovelVariants() {
+    public boolean noNovelVariants() {
         return !this.novelVariants.isEmpty();
     }
 
@@ -581,11 +581,13 @@ public class Storage {
         if (variant == null) {
             variant = new Variant(position, reference, alternative);
             contig.addVariant(variant);
+            if (!Objects.equals(alternative, Constants.ANY_NUCLEOTIDE)) {
+                novelVariants.add(new ImmutableTriple<>(contig._id, position, alternative));
+            }
         }
 
         // Associate the variant with the sample and cache it for further processing.
         variant.addRelation(sampleIdentifier, variantCalls);
-        novelVariants.add(new ImmutableTriple<>(contig._id, position, alternative));
     }
 
     /**

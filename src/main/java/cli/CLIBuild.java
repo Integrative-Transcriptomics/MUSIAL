@@ -69,9 +69,9 @@ public class CLIBuild implements CLI {
     public final double minimalFrequency;
 
     /**
-     * If filtered variants are stored as ambiguous nucleotides in the storage.
+     * If filtered variants should be treated as missing data (masked) or ignored.
      */
-    public final boolean storeFiltered;
+    public final boolean maskFiltered;
 
     /**
      * If annotation of variants is skipped during the build process.
@@ -133,7 +133,7 @@ public class CLIBuild implements CLI {
         Map<String, Object> configuration = parseConfiguration(arguments);
         this.minimalCoverage = parseMinimalCoverage(configuration);
         this.minimalFrequency = parseMinimalFrequency(configuration);
-        this.storeFiltered = parseStoreFiltered(configuration);
+        this.maskFiltered = parseMaskFiltered(configuration);
         this.skipAnnotation = parseSkipAnnotation(configuration);
         this.skipTyping = parseSkipTyping(configuration);
         this.maskedPositions = parseMaskedPositions(configuration);
@@ -247,26 +247,26 @@ public class CLIBuild implements CLI {
     }
 
     /**
-     * Parses the "storeFiltered" value from the configuration map.
+     * Parses the "maskFiltered" value from the configuration map.
      * <p>
-     * This method retrieves the "storeFiltered" value from the provided configuration map. If the value is present, it is validated to
+     * This method retrieves the "maskFiltered" value from the provided configuration map. If the value is present, it is validated to
      * ensure it is either "true" or "false" (case-insensitive). If valid, the value is parsed as a boolean. If the value is not specified,
      * the default value of false is used.
      * <p>
-     * The method logs the parsed or default value for "storeFiltered". If the value is invalid, a warning is logged.
+     * The method logs the parsed or default value for "maskFiltered". If the value is invalid, a warning is logged.
      *
      * @param configuration A {@link Map} containing the configuration parameters.
-     * @return The parsed "storeFiltered" value as a boolean.
+     * @return The parsed "maskFiltered" value as a boolean.
      */
-    private boolean parseStoreFiltered(Map<String, Object> configuration) {
-        boolean storeFiltered = false; // Default value for storeFiltered
-        if (configuration.containsKey("storeFiltered")) {
-            storeFiltered = (boolean) configuration.get("storeFiltered");
-            Logging.logConfig("`storeFiltered` set to %s.".formatted(storeFiltered));
+    private boolean parseMaskFiltered(Map<String, Object> configuration) {
+        boolean maskFiltered = false; // Default value for maskFiltered
+        if (configuration.containsKey("maskFiltered")) {
+            maskFiltered = (boolean) configuration.get("maskFiltered");
+            Logging.logConfig("`maskFiltered` set to %s.".formatted(maskFiltered));
         } else {
-            Logging.logConfig("No value for `storeFiltered` specified; defaulting to false.");
+            Logging.logConfig("No value for `maskFiltered` specified; defaulting to false.");
         }
-        return storeFiltered;
+        return maskFiltered;
     }
 
     /**

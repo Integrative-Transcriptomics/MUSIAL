@@ -3,10 +3,7 @@ package op;
 import cli.CLIBuild;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import model.Contig;
-import model.Sample;
 import model.Storage;
-import model.VariantCall;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -87,7 +84,7 @@ public class StorageFactory {
     public static Storage fromCli(CLIBuild cli) throws IOException {
 
         // Initialize storage parameters using the CLI-provided values.
-        Storage.Parameters parameters = new Storage.Parameters(cli.minimalCoverage, cli.minimalFrequency, cli.storeFiltered,
+        Storage.Parameters parameters = new Storage.Parameters(cli.minimalCoverage, cli.minimalFrequency, cli.maskFiltered,
                 cli.skipAnnotation, cli.skipTyping, cli.maskedPositions);
         Storage storage = new Storage(parameters);
 

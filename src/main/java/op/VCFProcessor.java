@@ -92,9 +92,9 @@ public class VCFProcessor implements Closeable {
     /**
      * A map that tracks upstream deletions for each sample.
      * <p>
-     * The key is the sample identifier, and the value is a {@link UpstreamDeletion} object that represents the details of the
-     * upstream deletion, including its genomic range and filter status. This map is used to handle cases where a deletion affects
-     * downstream positions in the genome.
+     * The key is the sample identifier, and the value is a {@link UpstreamDeletion} object that represents the details of the upstream
+     * deletion, including its genomic range and filter status. This map is used to handle cases where a deletion affects downstream
+     * positions in the genome.
      */
     private final Map<String, UpstreamDeletion> upstreamDeletions = new HashMap<>(1_000);
 
@@ -112,7 +112,7 @@ public class VCFProcessor implements Closeable {
      * @param contigIdentifier The unique identifier of the contig where the deletion occurs.
      * @param start            The start position of the deletion.
      * @param end              The end position of the deletion.
-     * @param isFiltered         A boolean flag indicating whether the deletion is filtered.
+     * @param isFiltered       A boolean flag indicating whether the deletion is filtered.
      */
     public record UpstreamDeletion(String contigIdentifier, int start, int end, boolean isFiltered) {
     }
@@ -407,16 +407,19 @@ public class VCFProcessor implements Closeable {
                 processedCallsCount++; // Increment the count of processed genotype records.
 
                 if (genotype.isNoCall()) {
-                    ignoredCallsCount++; // Skip and count no-call genotypes.
+                    ignoredCallsCount++; // Ignore no-call genotypes.
                     continue;
                 }
 
                 // Log a warning if AD and DP attributes are missing.
                 if (!(genotype.hasDP() && (genotype.hasAD() || genotype.hasAnyAttribute("COV")))) {
-                    Logging.logWarningOnce("MISSING_AD_DP_ATTRIBUTES",
-                            String.format("Some variants may be ignored as AD/COV/DP4 and DP attributes are unavailable. Detected at" +
-                                            " site %s %d for sample %s in file %s.",
-                                    contigIdentifier, variantContext.getStart(), genotype.getSampleName(), path));
+                    if (!genotype.isHomRef()) {
+                        Logging.logWarningOnce("MISSING_AD_DP_ATTRIBUTES",
+                                String.format("Variants may be ignored as AD/COV/DP4 and DP attributes are unavailable (%s:g.%d %s in %s).",
+                                        contigIdentifier, variantContext.getStart(), genotype.getSampleName(), path));
+                    }
+                    ignoredCallsCount++; // Ignore hom-ref genotypes without coverage information.
+                    continue;
                 }
 
                 // Extract the sample identifier.
@@ -449,16 +452,14 @@ public class VCFProcessor implements Closeable {
                 if (genotype.hasDP()) {
                     if (ADSum > genotype.getDP()) {
                         Logging.logWarningOnce("AD_SUM_GREATER_THAN_DP",
-                                String.format("Possible error in genotype data. Summed allelic depth (%d) is greater than total depth" +
-                                                " (%d) at site %s %d for sample %s in file %s.",
-                                        ADSum, genotype.getDP(), contigIdentifier, variantContext.getStart(), sampleIdentifier,
-                                        path));
+                                String.format("Erroneous data with summed allelic depth (%d) greater than total depth (%d) (%s:g.%d %s " +
+                                                "in %s).", ADSum, genotype.getDP(), contigIdentifier, variantContext.getStart(),
+                                        sampleIdentifier, path));
                     } else if (ADSum < 0.5 * genotype.getDP()) {
                         Logging.logWarningOnce("AD_SUM_LOWER_THAN_DP",
-                                String.format("Allegedly low-quality data. Summed allelic depth (%d) is much lower than total depth " +
-                                                "(%d) at site %s %d for sample %s in file %s.",
-                                        ADSum, genotype.getDP(), contigIdentifier, variantContext.getStart(), sampleIdentifier,
-                                        path));
+                                String.format("Low-quality data with summed allelic depth (%d) much lower than total depth (%d) (%s:g.%d " +
+                                                "%s in %s).", ADSum, genotype.getDP(), contigIdentifier, variantContext.getStart(),
+                                        sampleIdentifier, path));
                     }
                 }
 
@@ -469,14 +470,15 @@ public class VCFProcessor implements Closeable {
 
                 // Create a list to store alternatives for the current genotype.
                 List<VariantCall.CallAlternative> alternatives = new ArrayList<>(ADs.length);
+                VariantCall.CallAlternative referenceCall = null;
 
                 for (int i = 0; i < ADs.length; i++) {
                     AD = ADs[i]; // Retrieve the allelic depth for the current allele.
-
                     if (i == 0) {
                         // For the reference allele, set REF to the first base and ALT to a dot.
                         REF = variantContext.getReference().getBaseString().substring(0, 1);
                         ALT = Constants.DOT;
+                        referenceCall = new VariantCall.CallAlternative(REF, ALT, (short) AD);
                     } else {
                         // Skip alternative alleles with zero depth.
                         if (AD == 0) continue;
@@ -492,9 +494,8 @@ public class VCFProcessor implements Closeable {
                             REF = Bio.padGaps(REF, ALT.length());
                             ALT = Bio.padGaps(ALT, REF.length());
                         } else {
-                            String commonSuffix = StringUtils.reverse(
-                                    StringUtils.getCommonPrefix(StringUtils.reverse(REF), StringUtils.reverse(ALT))
-                            );
+                            String commonSuffix = StringUtils.reverse(StringUtils.getCommonPrefix(StringUtils.reverse(REF),
+                                    StringUtils.reverse(ALT)));
                             REF = Strings.CS.removeEnd(REF, commonSuffix);
                             ALT = Strings.CS.removeEnd(ALT, commonSuffix);
 
@@ -511,42 +512,40 @@ public class VCFProcessor implements Closeable {
                                 ALT = alignment.b;
                             }
                         }
-                    }
 
-                    // Add the alternative allele to the list.
-                    alternatives.add(new VariantCall.CallAlternative(REF, ALT, (short) AD));
+                        // Add the alternative allele to the list.
+                        alternatives.add(new VariantCall.CallAlternative(REF, ALT, (short) AD));
+                    }
+                }
+
+                // Add the reference allele if no alternatives are present or if it has read support.
+                if (alternatives.isEmpty() || referenceCall.depth() > 0) {
+                    alternatives.add(referenceCall);
                 }
 
                 // Add the variant call to the storage and handle the result.
-                VariantCall.Flag flag = processVariantCall(sampleIdentifier, contigIdentifier, variantContext.getStart(), alternatives,
-                        storage.parameters, path);
-
-                switch (flag) {
-                    case PASS -> {
-                        // Variant was added successfully.
-                    }
-                    case REFERENCE_CALL -> ignoredCallsCount++;
-                    case LOW_COVERAGE, LOW_FREQUENCY, MISSING_UPSTREAM_DELETION -> filteredCallsCount++;
-                    default -> throw new IllegalStateException("Unexpected value: " + flag);
-                }
+                processVariantCall(sampleIdentifier, contigIdentifier, variantContext.getStart(), alternatives, storage.parameters, path);
             }
         }
     }
 
     /**
-     * Processes a variant call by merging it with existing calls, calculating statistics, and determining its flag.
+     * Processes a variant call for a specific sample, contig, and position.
+     * <p>
+     * This method handles the processing of variant calls by merging new alternatives with existing ones, calculating coverage depth,
+     * entropy, and frequency, and determining the appropriate flag for the variant call. It also manages special cases such as missing
+     * alleles and upstream deletions.
      *
-     * @param sampleIdentifier The unique identifier of the sample associated with the variant call.
-     * @param contigIdentifier The unique identifier of the contig where the variant is located.
-     * @param position         The genomic position of the variant within the contig.
-     * @param alternatives     A list of {@link VariantCall.CallAlternative} objects representing the alleles and their depths.
-     * @param parameters       The {@link Storage.Parameters} object containing thresholds for filtering variant calls.
-     * @param origin           The {@link Path} to the source file where the variant call originated, used for logging.
-     * @return A {@link VariantCall.Flag} indicating the status of the processed variant call (e.g., PASS, LOW_COVERAGE).
+     * @param sampleIdentifier The identifier of the sample associated with the variant call.
+     * @param contigIdentifier The identifier of the contig where the variant call is located.
+     * @param position         The genomic position of the variant call.
+     * @param alternatives     A list of {@link VariantCall.CallAlternative} objects representing the alleles.
+     * @param parameters       The {@link Storage.Parameters} object containing processing parameters.
+     * @param origin           The {@link Path} to the source file for logging purposes.
      */
-    private VariantCall.Flag processVariantCall(String sampleIdentifier, String contigIdentifier, int position,
-                                                List<VariantCall.CallAlternative> alternatives, Storage.Parameters parameters,
-                                                Path origin) {
+    private void processVariantCall(String sampleIdentifier, String contigIdentifier, int position,
+                                    List<VariantCall.CallAlternative> alternatives, Storage.Parameters parameters,
+                                    Path origin) {
         // Ensure that the list of alternatives is not empty.
         assert !alternatives.isEmpty();
 
@@ -564,7 +563,7 @@ public class VCFProcessor implements Closeable {
                     existingAlternatives.set(index, new VariantCall.CallAlternative(
                             existing.reference(),
                             existing.alternative(),
-                            (short) (existing.allelicDepth() + alternative.allelicDepth())
+                            (short) (existing.depth() + alternative.depth())
                     ));
                 } else {
                     // Add new alternative to the list.
@@ -577,58 +576,77 @@ public class VCFProcessor implements Closeable {
         }
 
         // Sort alleles in descending order by their allelic depth (AD).
-        alternatives.sort((a, b) -> Short.compare(b.allelicDepth(), a.allelicDepth()));
+        alternatives.sort((a, b) -> Short.compare(b.depth(), a.depth()));
 
         // Calculate the total observed depth of coverage.
-        short totalDepth = (short) alternatives.stream().mapToInt(VariantCall.CallAlternative::allelicDepth).sum();
+        short depth = (short) alternatives.stream().mapToInt(VariantCall.CallAlternative::depth).sum();
 
-        // Calculate normalized entropy for the call context.
-        float callEntropy = alternatives.size() == 1 ? (float) 0.0 : (float) (-1 * (alternatives.stream().mapToDouble(alternative -> {
-            float frequency = alternative.allelicDepth() / (float) totalDepth;
-            return frequency == 0 ? 0 : frequency * (Math.log(frequency) / Constants.LOG2);
-        }).sum()) / (Math.log(alternatives.size()) / Constants.LOG2));
+        // Calculate the normalized entropy of the variant call.
+        float entropy = 0;
+        if (alternatives.size() > 1) {
+            // Iterate through each alternative allele to compute entropy.
+            for (VariantCall.CallAlternative alternative : alternatives) {
+                float frequency = (float) alternative.depth() / depth;
+                entropy += frequency * Math.log10(frequency);
+            }
+            // Normalize the entropy value based on the number of non-zero depth alleles.
+            entropy = (float) (-entropy / Math.log10(alternatives.size())) + (float) 0.0;
+        }
 
         // Access the allele with the highest depth of coverage.
         VariantCall.CallAlternative allele = alternatives.get(0);
         VariantCall.Flag flag = allele.alternative().equals(Constants.DOT) ? VariantCall.Flag.REFERENCE_CALL : VariantCall.Flag.PASS;
 
         // Compute the actual frequency of the selected allele.
-        float frequency = allele.allelicDepth() / (float) totalDepth;
+        float frequency = allele.depth() / (float) depth;
 
         // Set call prefix for low frequency or coverage.
         if (frequency < parameters.minimalFrequency()) flag = VariantCall.Flag.LOW_FREQUENCY;
-        if (totalDepth < parameters.minimalCoverage()) flag = VariantCall.Flag.LOW_COVERAGE;
+        if (depth < parameters.minimalCoverage()) flag = VariantCall.Flag.LOW_COVERAGE;
         boolean isFiltered = (flag.equals(VariantCall.Flag.LOW_FREQUENCY) || flag.equals(VariantCall.Flag.LOW_COVERAGE));
 
-        // Handle missing allele due to an upstream deletion.
-        UpstreamDeletion upstreamDeletion = this.upstreamDeletions.getOrDefault(sampleIdentifier, null);
-        if (!isFiltered && allele.alternative().equals("*")) {
-            if (Objects.isNull(upstreamDeletion)
-                    || (upstreamDeletion.contigIdentifier().equals(contigIdentifier) && upstreamDeletion.start() <= position && position <= upstreamDeletion.end() && upstreamDeletion.isFiltered())
-                    || (upstreamDeletion.contigIdentifier().equals(contigIdentifier) && position > upstreamDeletion.end())) {
-                flag = VariantCall.Flag.MISSING_UPSTREAM_DELETION;
-                isFiltered = true;
-                Logging.logWarningOnce("UNEXPLAINED_DELETION",
-                        String.format("Possible error in genotype data. Called deleted allele (*) is not explained by an " +
-                                        "upstream deletion at site %s %d for sample %s in file %s.",
+        // Handle special cases.
+        if (allele.alternative().equals("*")) {
+            // Validate missing allele against upstream deletion.
+            UpstreamDeletion upstreamDeletion = this.upstreamDeletions.get(sampleIdentifier);
+            if (upstreamDeletion == null ||
+                    (upstreamDeletion.contigIdentifier().equals(contigIdentifier) && position > upstreamDeletion.end())) {
+                Logging.logWarningOnce("MISSING_DELETION",
+                        String.format("Erroneous data with missing allele (*) not explained by an upstream deletion (%s:g.%d %s in %s).",
                                 contigIdentifier, position, sampleIdentifier, origin));
+                flag = VariantCall.Flag.MISSING_UPSTREAM_DELETION;
+            } else if (upstreamDeletion.contigIdentifier().equals(contigIdentifier) && upstreamDeletion.start() <= position) {
+                if (upstreamDeletion.isFiltered()) {
+                    Logging.logWarningOnce("UNEXPLAINED_DELETION",
+                            String.format("Ambiguous data with missing allele (*) and filtered upstream deletion (%s:g.%d %s in %s).",
+                                    contigIdentifier, position, sampleIdentifier, origin));
+                    flag = VariantCall.Flag.MISSING_UPSTREAM_DELETION;
+                } else {
+                    flag = VariantCall.Flag.UPSTREAM_DELETION;
+                }
             }
-        }
-
-        // Set deleted downstream positions if the current accepted call is a deletion.
-        if (Bio.isDeletion(allele.alternative())) {
-            this.upstreamDeletions.put(sampleIdentifier,
-                    new UpstreamDeletion(contigIdentifier, position + StringUtils.indexOf(allele.alternative(),
-                            Constants.GAP_CHAR), position + StringUtils.lastIndexOf(allele.alternative(), Constants.GAP_CHAR), isFiltered)
+        } else if (Bio.isDeletion(allele.alternative())) {
+            // Set upstream deletion, if the current accepted call is a deletion.
+            this.upstreamDeletions.put(sampleIdentifier, new UpstreamDeletion(contigIdentifier,
+                    position + StringUtils.indexOf(allele.alternative(), Constants.GAP_CHAR),
+                    position + StringUtils.lastIndexOf(allele.alternative(), Constants.GAP_CHAR), isFiltered)
             );
         }
 
-        // Store the variant call in the calls map if it is not a reference call.
-        if (!flag.equals(VariantCall.Flag.REFERENCE_CALL)) {
-            this.vcCache.put(sampleIdentifier, contigIdentifier, position, new VariantCall(flag, totalDepth, callEntropy, alternatives));
+        // Store the variant call in the cache if it is not a reference call or missing due to an upstream deletion.
+        if (flag != VariantCall.Flag.REFERENCE_CALL && flag != VariantCall.Flag.UPSTREAM_DELETION) {
+            vcCache.put(sampleIdentifier, contigIdentifier, position, new VariantCall(flag, depth, entropy, alternatives));
         }
 
-        return flag;
+        // Update statistics based on the flag.
+        switch (flag) {
+            case PASS, UPSTREAM_DELETION -> {
+                // No action needed.
+            }
+            case REFERENCE_CALL -> ignoredCallsCount++;
+            case LOW_COVERAGE, LOW_FREQUENCY, MISSING_UPSTREAM_DELETION -> filteredCallsCount++;
+            default -> throw new IllegalStateException("Unexpected state " + flag);
+        }
     }
 
     /**
@@ -659,15 +677,15 @@ public class VCFProcessor implements Closeable {
                 // Initialize builders and variables for processing variants, esp. handling deletions and mixed InDels.
                 StringBuilder referenceBuilder = new StringBuilder();
                 StringBuilder alternativeBuilder = new StringBuilder();
-                Set<VariantCall> _calls = new HashSet<>(); // Set of variant calls that constitute the current variant.
+                Set<VariantCall> calls = new HashSet<>(); // Set of variant calls that constitute the current variant.
                 int variantStartPosition = 0;
                 int deletionExtension = 0;
 
                 // Helper function to resolve variants and add them to the storage.
-                Consumer<Integer> resolve = (_position) -> {
-                    String _reference = referenceBuilder.toString();
-                    String _alternative = alternativeBuilder.toString();
-                    if (!Bio.isPaddedCanonicalVariant(_reference, _alternative)) {
+                Consumer<Integer> resolve = (position) -> {
+                    String referenceContent = referenceBuilder.toString();
+                    String alternativeContent = alternativeBuilder.toString();
+                    if (!Bio.isPaddedCanonicalVariant(referenceContent, alternativeContent)) {
                         Tuple<String, String> alignment =
                                 Bio.globalNucleotideSequenceAlignment(
                                         Bio.stripGaps(referenceBuilder.toString()),
@@ -680,18 +698,18 @@ public class VCFProcessor implements Closeable {
                                 );
                         ArrayList<Triple<Integer, String, String>> resolvedVariants =
                                 Bio.getCanonicalVariants(alignment.a, alignment.b);
-                        for (Triple<Integer, String, String> _variant : resolvedVariants) {
-                            storage.addVariant(contig, sample._id, _position + _variant.getLeft(), _variant.getMiddle(),
-                                    _variant.getRight(), _calls);
+                        for (Triple<Integer, String, String> variant : resolvedVariants) {
+                            storage.addVariant(contig, sample._id, position + variant.getLeft(), variant.getMiddle(), variant.getRight(),
+                                    calls);
 
                         }
                     } else {
-                        storage.addVariant(contig, sample._id, _position, _reference, _alternative, _calls);
+                        storage.addVariant(contig, sample._id, position, referenceContent, alternativeContent, calls);
                     }
                     // Reset outer state.
                     referenceBuilder.setLength(0);
                     alternativeBuilder.setLength(0);
-                    _calls.clear();
+                    calls.clear();
                 };
 
                 // Process variant calls for the current sample and contig.
@@ -699,17 +717,18 @@ public class VCFProcessor implements Closeable {
                     int position = entry.a; // Extract the position of the variant.
                     VariantCall variantCall = entry.b; // Extract the variant call.
 
-                    // Skip buried and reference calls.
-                    if (variantCall.isReference() || variantCall.isBuried()) continue;
+                    // Resolves the reference and alternative alleles for a variant call, handling special cases.
+                    String reference = variantCall.isFiltered() && variantCall.flag() == VariantCall.Flag.MISSING_UPSTREAM_DELETION
+                            ? variantCall.getReference(1) // Retrieve the reference content for the second alternative if flagged.
+                            : variantCall.getReference(); // Retrieve the called reference content.
+                    String alternative = variantCall.isFiltered() && variantCall.flag() == VariantCall.Flag.MISSING_UPSTREAM_DELETION
+                            ? variantCall.getAlternative(1) // Retrieve the alternative content for the second position if flagged.
+                            : variantCall.getAlternative(); // Retrieve the default alternative content.
 
-                    // Skip ambiguous calls if they are filtered and not to be stored.
-                    boolean isFiltered = variantCall.isFiltered();
-                    if (!storage.parameters.storeFiltered() && isFiltered) continue;
-
-                    // Access base content of the variant call.
-                    String reference = variantCall.getCalledReference();
-                    String alternative = isFiltered ? (Constants.ANY_NUCLEOTIDE.repeat(reference.length())) :
-                            variantCall.getCalledAlternative();
+                    // Replace the alternative content with an N, if it represents a filtered reference call.
+                    if (alternative.equals(Constants.DOT)) {
+                        alternative = Constants.ANY_NUCLEOTIDE;
+                    }
 
                     // Resolve previous variant, if the current position is outside the stored upstream deletion range.
                     if (position > deletionExtension && referenceBuilder.length() > 0 && alternativeBuilder.length() > 0) {
@@ -722,13 +741,13 @@ public class VCFProcessor implements Closeable {
                         if (Bio.isDeletion(reference, alternative, true)) {
                             referenceBuilder.append(reference);
                             alternativeBuilder.append(alternative);
-                            _calls.add(variantCall);
+                            calls.add(variantCall);
                             variantStartPosition = position;
                             deletionExtension = position + alternative.length() - 1;
                         } else {
                             referenceBuilder.append(reference);
                             alternativeBuilder.append(alternative);
-                            _calls.add(variantCall);
+                            calls.add(variantCall);
                             resolve.accept(position);
                         }
                         continue;
@@ -745,7 +764,7 @@ public class VCFProcessor implements Closeable {
                                 referenceBuilder.append(StringUtils.right(reference, updatedDeletionExtension - deletionExtension));
                                 alternativeBuilder.append(StringUtils.right(alternative,
                                         updatedDeletionExtension - deletionExtension));
-                                _calls.add(variantCall);
+                                calls.add(variantCall);
                                 deletionExtension = updatedDeletionExtension;
                             }
                             continue;
@@ -755,7 +774,7 @@ public class VCFProcessor implements Closeable {
                             alternativeBuilder.replace(offset, offset + 1,
                                     alternativeBuilder.charAt(offset) + alternative.substring(1));
                             referenceBuilder.replace(offset, offset + 1, referenceBuilder.charAt(offset) + reference.substring(1));
-                            _calls.add(variantCall);
+                            calls.add(variantCall);
                             continue;
                         }
                     }

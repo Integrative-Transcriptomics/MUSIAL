@@ -149,22 +149,22 @@ public final class Constants {
         /**
          * Key representing the fraction of reference alleles with respect to a {@link model.Sample} or {@link model.Feature}.
          */
-        public static final String FREQUENCY_REFERENCE = "reference_alleles_frequency";
+        public static final String FREQUENCY_REFERENCE = "frequency_reference_allele";
 
         /**
-         * Key representing the fraction of disrupted alleles with respect to a {@link model.Sample} or {@link model.Feature}.
+         * Key representing the fraction of disrupted proteoforms with respect to a {@link model.Sample} or {@link model.Feature}.
          */
-        public static final String FREQUENCY_DISRUPTED = "disrupted_alleles_frequency";
+        public static final String FREQUENCY_DISRUPTED = "frequency_disrupted_proteoform";
 
         /**
          * Key representing the number of non-reference alleles associated with a feature.
          */
-        public static final String NUMBER_OF_ALLELES = "no_alleles";
+        public static final String NUMBER_OF_ALLELES = "count_allele";
 
         /**
          * Key representing the number of non-reference proteoforms associated with a feature.
          */
-        public static final String NUMBER_OF_PROTEOFORMS = "no_proteoforms";
+        public static final String NUMBER_OF_PROTEOFORMS = "count_proteoform";
 
         /**
          * Key representing the Sequence-Ontology effects associated with a {@link model.SequenceType}.
@@ -180,6 +180,10 @@ public final class Constants {
          * Key representing the frequency of a {@link model.SequenceType} with respect to {@link model.Sample}s.
          */
         public static final String ALLELIC_FREQUENCY = "allelic_frequency";
+
+        public static final String DIVERSITY_ALLELE = "diversity_allele";
+
+        public static final String DIVERSITY_PROTEOFORM = "diversity_proteoform";
 
         /**
          * Key representing the total number of calls in a {@link model.Sample}.

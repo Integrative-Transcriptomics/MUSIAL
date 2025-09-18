@@ -3,6 +3,7 @@ package model;
 import org.ehcache.spi.serialization.Serializer;
 import org.ehcache.spi.serialization.SerializerException;
 import util.Constants;
+import util.IO;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -24,11 +25,11 @@ import java.util.List;
  * map.
  *
  * @param flag         Flag indicating the state of this variant call wrt. filters.
- * @param totalDepth   The total read depth at the variant site.
- * @param callEntropy  The normalized entropy of the call.
+ * @param depth        The total read depth at the variant site.
+ * @param entropy      The normalized entropy of the call.
  * @param alternatives A list of alternative alleles associated with the variant call.
  */
-public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<CallAlternative> alternatives) {
+public record VariantCall(Flag flag, short depth, float entropy, List<CallAlternative> alternatives) {
 
     /**
      * Enumeration of flags representing the status of a variant call.
@@ -52,9 +53,14 @@ public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<C
          */
         LOW_COVERAGE,
         /**
-         * Indicates that the variant call is declared missing due to an upstream deletion, but the upstream deletion is not detected.
+         * Indicates that the variant call is declared missing due to an upstream deletion, but the upstream deletion is not present or was
+         * filtered.
          */
         MISSING_UPSTREAM_DELETION,
+        /**
+         * Indicates that the variant call is missing due to an upstream deletion.
+         */
+        UPSTREAM_DELETION,
         /**
          * Indicates that the variant call corresponds to the reference allele.
          */
@@ -77,11 +83,11 @@ public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<C
      * <p>
      * Call alternatives are stored in the {@link VariantCall#alternatives} property of the model.
      *
-     * @param reference    The reference allele.
-     * @param alternative  The alternative allele.
-     * @param allelicDepth The number of reads supporting the alternative allele.
+     * @param reference   The reference allele.
+     * @param alternative The alternative allele.
+     * @param depth       The number of reads supporting the alternative allele.
      */
-    public record CallAlternative(String reference, String alternative, short allelicDepth) {
+    public record CallAlternative(String reference, String alternative, short depth) {
 
         /**
          * Converts the alternative allele to a string representation, i.e., the reference and alternative allele, and allelic depth
@@ -90,7 +96,7 @@ public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<C
          * @return A {@link String} representing the alternative allele with allelic depth.
          */
         private String asString() {
-            return reference + Constants.COLON + alternative + Constants.COLON + allelicDepth;
+            return reference + Constants.COLON + alternative + Constants.COLON + depth;
         }
 
         /**
@@ -152,51 +158,65 @@ public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<C
     }
 
     /**
-     * Checks if the variant call corresponds to the reference allele.
+     * Checks if the variant call has passed all filters.
      * <p>
-     * This method determines whether the variant call's flag is set to {@link Flag#REFERENCE_CALL}, indicating that the variant call
-     * matches the reference allele.
+     * This method determines whether the variant call is in a "PASS" state, indicating that it has successfully passed all filtering
+     * criteria.
      *
-     * @return {@code true} if the variant call corresponds to the reference allele; {@code false} otherwise.
+     * @return {@code true} if the variant call's flag is {@link Flag#PASS}; {@code false} otherwise.
      */
-    public boolean isReference() {
-        return flag.equals(Flag.REFERENCE_CALL);
+    public boolean isPass() {
+        return flag.equals(Flag.PASS);
     }
 
     /**
-     * Checks if the variant call is buried.
+     * Retrieves the reference content of the first (called) alternative of this variant call.
      * <p>
-     * A variant call is considered "buried" if it is not filtered, but the called alternative is a missing allele due to an upstream
-     * deletion (*).
-     *
-     * @return {@code true} if the variant call is buried; {@code false} otherwise.
-     */
-    public boolean isBuried() {
-        return !isFiltered() && getCalledAlternative().equals("*");
-    }
-
-    /**
-     * Retrieves the reference allele from the first alternative in the list.
-     * <p>
-     * This method assumes that the list of alternatives is not empty and returns the reference allele of the first {@link CallAlternative}
+     * This method assumes that the list of alternatives is not empty and returns the reference content of the first {@link CallAlternative}
      * object in the list.
      *
-     * @return The reference allele as a {@link String}.
+     * @return The reference content of the called alternative as {@link String}.
      */
-    public String getCalledReference() {
+    public String getReference() {
         return alternatives.get(0).reference;
     }
 
     /**
-     * Retrieves the alternative allele from the first alternative in the list.
+     * Retrieves the reference content of the i-th alternative of this variant call.
      * <p>
-     * This method assumes that the list of alternatives is not empty and returns the alternative allele of the first
+     * This method returns the reference content of the i-th {@link CallAlternative} at the given index in the alternatives list. If the
+     * specified index exceeds the size of the list, the reference content of the last alternative is returned.
+     *
+     * @param i The index of the alternative in the list.
+     * @return The reference content of the i-th alternative as {@link String}.
+     */
+    public String getReference(int i) {
+        return alternatives.get(Math.min(i, alternatives.size() - 1)).reference;
+    }
+
+    /**
+     * Retrieves the alternative content of the first (called) alternative of this variant call.
+     * <p>
+     * This method assumes that the list of alternatives is not empty and returns the alternative content of the first
      * {@link CallAlternative} object in the list.
      *
-     * @return The alternative allele as a {@link String}.
+     * @return The alternative content of the called alternative as {@link String}.
      */
-    public String getCalledAlternative() {
+    public String getAlternative() {
         return alternatives.get(0).alternative;
+    }
+
+    /**
+     * Retrieves the alternative content of the i-th alternative of this variant call.
+     * <p>
+     * This method returns the alternative content of the i-th {@link CallAlternative} at the given index in the alternatives list. If the
+     * specified index exceeds the size of the list, the alternative content of the last alternative is returned.
+     *
+     * @param i The index of the alternative in the list.
+     * @return The alternative content of the i-th alternative as {@link String}.
+     */
+    public String getAlternative(int i) {
+        return alternatives.get(Math.min(i, alternatives.size() - 1)).alternative;
     }
 
     /**
@@ -219,12 +239,12 @@ public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<C
         public ByteBuffer serialize(VariantCall object) throws SerializerException {
             try {
                 // Estimate the buffer size
-                int size = Short.BYTES + Float.BYTES + Integer.BYTES; // totalDepth, callEntropy, alternatives size
+                int size = Short.BYTES + Float.BYTES + Integer.BYTES; // depth, entropy, alternatives size
                 size += object.flag().name().getBytes().length + Integer.BYTES; // flag string length
                 for (VariantCall.CallAlternative alternative : object.alternatives()) {
                     size += alternative.reference().getBytes().length + Integer.BYTES; // reference string length
                     size += alternative.alternative().getBytes().length + Integer.BYTES; // alternative string length
-                    size += Short.BYTES; // allelicDepth
+                    size += Short.BYTES; // depth
                 }
 
                 ByteBuffer buffer = ByteBuffer.allocate(size);
@@ -234,11 +254,11 @@ public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<C
                 buffer.putInt(flagBytes.length);
                 buffer.put(flagBytes);
 
-                // Serialize the totalDepth
-                buffer.putShort(object.totalDepth());
+                // Serialize the depth
+                buffer.putShort(object.depth());
 
-                // Serialize the callEntropy
-                buffer.putFloat(object.callEntropy());
+                // Serialize the entropy
+                buffer.putFloat(object.entropy());
 
                 // Serialize the alternatives
                 buffer.putInt(object.alternatives().size());
@@ -251,7 +271,7 @@ public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<C
                     buffer.putInt(alternativeBytes.length);
                     buffer.put(alternativeBytes);
 
-                    buffer.putShort(alternative.allelicDepth());
+                    buffer.putShort(alternative.depth());
                 }
 
                 buffer.flip();
@@ -277,10 +297,10 @@ public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<C
                 binary.get(flagBytes);
                 VariantCall.Flag flag = VariantCall.Flag.valueOf(new String(flagBytes));
 
-                // Read the totalDepth
+                // Read the depth
                 short totalDepth = binary.getShort();
 
-                // Read the callEntropy
+                // Read the entropy
                 float callEntropy = binary.getFloat();
 
                 // Read the alternatives
@@ -299,7 +319,7 @@ public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<C
                     binary.get(alternativeBytes);
                     String alternative = new String(alternativeBytes);
 
-                    // Read allelicDepth
+                    // Read depth
                     short allelicDepth = binary.getShort();
 
                     // Create CallAlternative and add to list
@@ -342,16 +362,16 @@ public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<C
      * This method parses a string representation of a variant call and constructs a {@link VariantCall} instance. The string is expected to
      * have the following format:
      * <pre>
-     * flag;totalDepth;callEntropy;reference:alternative:allelicDepth,reference:alternative:allelicDepth,...
+     * flag;depth;entropy;reference:alternative:depth,reference:alternative:depth,...
      * </pre>
      * where:
      * <ul>
      *   <li><b>flag</b>: The state of the variant call, corresponding to a {@link Flag} value.</li>
-     *   <li><b>totalDepth</b>: The total read depth at the variant site.</li>
-     *   <li><b>callEntropy</b>: The normalized entropy of the call.</li>
+     *   <li><b>depth</b>: The total read depth at the variant site.</li>
+     *   <li><b>entropy</b>: The normalized entropy of the call.</li>
      *   <li><b>reference</b>: The reference allele.</li>
      *   <li><b>alternative</b>: The alternative allele.</li>
-     *   <li><b>allelicDepth</b>: The number of reads supporting the alternative allele.</li>
+     *   <li><b>depth</b>: The number of reads supporting the alternative allele.</li>
      * </ul>
      * <p>
      * If the string does not conform to the expected format, an {@link IllegalArgumentException} is thrown.
@@ -391,8 +411,8 @@ public record VariantCall(Flag flag, short totalDepth, float callEntropy, List<C
      */
     public String toString() {
         StringBuilder sb =
-                new StringBuilder(flag.name().toLowerCase()).append(Constants.SEMICOLON).append(totalDepth).append(Constants.SEMICOLON)
-                        .append(String.format("%.3f", callEntropy)).append(Constants.SEMICOLON);
+                new StringBuilder(flag.name().toLowerCase()).append(Constants.SEMICOLON).append(depth).append(Constants.SEMICOLON)
+                        .append(IO.formatNumber(entropy)).append(Constants.SEMICOLON);
         for (int i = 0; i < alternatives.size(); i++) {
             sb.append(alternatives.get(i).asString());
             if (i < alternatives.size() - 1) sb.append(Constants.COMMA);

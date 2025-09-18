@@ -15,8 +15,8 @@
       "minimum": 0.0,
       "maximum": 1.0
     },
-    "storeFiltered": {
-      "description": "If set to true, calls that are filtered by coverage and frequency restrictions are retained as ambiguous variants (N).",
+    "maskFiltered": {
+      "description": "If set to true, calls that were filtered by coverage or frequency restrictions are treated as ambiguous bases (N) instead of being ignored.",
       "type": "boolean"
     },
     "skipAnnotation": {
