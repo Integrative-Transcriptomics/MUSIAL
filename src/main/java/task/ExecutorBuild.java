@@ -117,8 +117,8 @@ public class ExecutorBuild {
             Logging.logWarning("Skip variant annotation; no features are available.");
         } else if (storage.getFeatures().stream().allMatch(f -> f.type.equals("region"))) {
             Logging.logWarning("Skip variant annotation; all features are of type region.");
-        } else if (storage.getNovelVariantsCount() == 0) {
-            Logging.logWarning("Skip variant annotation; no novel variants to annotate.");
+        } else if (storage.getActiveVariantsCount() == 0) {
+            Logging.logWarning("Skip variant annotation; no active variants to annotate.");
         } else {
             Logging.logInfo("Run variant annotation with SnpEff.");
             variantAnnotator.runSnpEff(cli.output.getParent());

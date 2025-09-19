@@ -158,12 +158,12 @@ public class StorageIO {
      * <p>
      * Variants can be filtered based on their novelty and ambiguity:
      * <ul>
-     *   <li>If {@code onlyNovel} is {@code true}, only novel variants are included.</li>
+     *   <li>If {@code onlyNovel} is {@code true}, only active variants are included.</li>
      *   <li>If {@code excludeAmbiguous} is {@code true}, variants with ambiguous alternate bases are excluded.</li>
      * </ul>
      *
      * @param storage                The {@link Storage} object containing the contigs and variants.
-     * @param onlyNovel              If {@code true}, only novel variants are included in the VCF content.
+     * @param onlyNovel              If {@code true}, only active variants are included in the VCF content.
      * @param excludeAmbiguous       If {@code true}, variants with ambiguous alternate bases are excluded.
      * @return A {@link String} representing the VCF file content.
      */
@@ -177,7 +177,7 @@ public class StorageIO {
         // Iterate over each contig in the storage.
         storage.getContigs().forEach(contig -> {
             // Retrieve the list of variants based on the novelty filter.
-            var variants = onlyNovel ? contig.getNovelVariants() : contig.getVariants();
+            var variants = onlyNovel ? contig.getActiveVariants() : contig.getAllVariants();
 
             // Filter and process each variant.
             variants.stream()

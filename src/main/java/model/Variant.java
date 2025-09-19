@@ -127,13 +127,13 @@ public class Variant extends Attributes {
     private final Map<String, Set<String>> features = new HashMap<>(1);
 
     /**
-     * Indicates whether this variant is novel (not previously known).
+     * Indicates whether this variant is active.
      * <p>
-     * This boolean flag is used to mark variants that are newly identified and not present in an existing storage. It is set to
-     * {@code true} for newly created variants, but will not be serialized. During deserialization, it is assumed that all variants are
-     * known and should be set to {@code false} (see {@link Storage#typeAdapter()}).
+     * This boolean flag is used to mark variants that are newly identified and not present in an existing storage or modified. It is set to
+     * {@code true} for newly created or touched entries, but will not be serialized. During deserialization, it is assumed that all
+     * variants are idle and should be set to {@code false} (see {@link Storage#typeAdapter()}).
      */
-    protected transient boolean novel;
+    protected transient boolean active;
 
     /**
      * Constructs a new {@link Variant} instance, based on the provided position, reference, and alternative content.
@@ -164,21 +164,71 @@ public class Variant extends Attributes {
                             .formatted(reference, alternative)
             );
         }
-        this.novel = true;
+        this.active = true;
     }
 
     /**
-     * Checks if this variant has a related sample, feature or allele of the given identifier.
-     * <p>
-     * This method checks if the provided identifier is present in the entities associated with this variant, i.e., {@link #samples} or
-     * {@link #features}.
+     * Checks if the variant is associated with a specific sample.
      *
-     * @param identifier The identifier to check for occurrences in this variant.
-     * @return {@code true} if the identifier is found in samples or features, {@code false} otherwise.
+     * @param sampleIdentifier The unique identifier of the sample to check.
+     * @return {@code true} if the variant is associated with the given sample identifier, {@code false} otherwise.
      */
-    public boolean hasRelation(String identifier) {
-        return this.samples.containsKey(identifier) || this.features.containsKey(identifier)
-                || this.features.values().stream().anyMatch(alleles -> alleles.contains(identifier));
+    public boolean ofSample(String sampleIdentifier) {
+        return this.samples.containsKey(sampleIdentifier);
+    }
+
+    /**
+     * Checks if the variant is associated with any of the specified samples.
+     *
+     * @param sampleIdentifiers An array of sample identifiers to check.
+     * @return {@code true} if the variant is associated with at least one of the given sample identifiers, {@code false} otherwise.
+     */
+    public boolean ofSamples(String... sampleIdentifiers) {
+        return Arrays.stream(sampleIdentifiers).anyMatch(this::ofSample);
+    }
+
+    /**
+     * Checks if the variant is associated with any of the specified features.
+     *
+     * @param featureIdentifiers An array of feature identifiers to check.
+     * @return {@code true} if the variant is associated with at least one of the given feature identifiers, {@code false} otherwise.
+     */
+    public boolean ofFeature(String... featureIdentifiers) {
+        return Arrays.stream(featureIdentifiers).anyMatch(this.features::containsKey);
+    }
+
+    /**
+     * Checks if the variant is associated with a specific allele.
+     *
+     * @param alleleIdentifier The unique identifier of the allele to check.
+     * @return {@code true} if the variant is associated with the given allele identifier, {@code false} otherwise.
+     */
+    public boolean ofAllele(String alleleIdentifier) {
+        return this.features.values().stream().anyMatch(alleles -> alleles.contains(alleleIdentifier));
+    }
+
+    /**
+     * Checks if the variant is associated with any of the specified alleles.
+     *
+     * @param alleleIdentifiers An array of allele identifiers to check.
+     * @return {@code true} if the variant is associated with at least one of the given allele identifiers, {@code false} otherwise.
+     */
+    public boolean ofAlleles(String... alleleIdentifiers) {
+        return Arrays.stream(alleleIdentifiers).anyMatch(this::ofAllele);
+    }
+
+    /**
+     * Checks if the variant call for a specific sample is filtered.
+     * <p>
+     * This method retrieves the variant call string associated with the given sample identifier from the `samples` map. It then checks if
+     * the variant call is filtered using the {@link VariantCall#isFiltered(String)} method.
+     *
+     * @param sampleIdentifier The unique identifier of the sample to check.
+     * @return {@code true} if the variant call for the specified sample is filtered; {@code false} otherwise.
+     */
+    public boolean isFiltered(String sampleIdentifier) {
+        String call = this.samples.get(sampleIdentifier);
+        return call != null && VariantCall.isFiltered(call);
     }
 
     /**
@@ -189,15 +239,13 @@ public class Variant extends Attributes {
      *
      * @return A set of sample identifiers that have occurrences of this variant.
      */
-    public Set<String> getRelatedSamples() {
-        return Collections.unmodifiableSet(this.samples.keySet());
+    public Set<Tuple<String, String>> getRelatedSamples() {
+        return this.samples.entrySet().stream().map(entry -> new Tuple<>(entry.getKey(), entry.getValue()))
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     /**
-     * Retrieves a collection of tuples representing the feature and allele occurrences associated with this variant.
-     * <p>
-     * This method creates tuples of feature and allele identifiers from the features map and ensures uniqueness by using a set. The
-     * resulting set is returned as an unmodifiable collection.
+     * Retrieves a set of tuples representing the feature and allele occurrences associated with this variant.
      *
      * @return A set of tuples where each tuple contains:
      * <ul>
@@ -206,16 +254,8 @@ public class Variant extends Attributes {
      * </ul>
      */
     public Set<Tuple<String, String>> getRelatedAlleles() {
-        // Create a set to store unique tuples of feature and allele identifiers
-        Set<Tuple<String, String>> alleles = new HashSet<>();
-
-        // Populate the set with tuples of feature and allele identifiers
-        this.features.forEach((feature, alleleSet) ->
-                alleleSet.forEach(allele -> alleles.add(new Tuple<>(feature, allele)))
-        );
-
-        // Return an unmodifiable set of the tuples
-        return Collections.unmodifiableSet(alleles);
+        return this.features.entrySet().stream()
+                .flatMap(entry -> entry.getValue().stream().map(allele -> new Tuple<>(entry.getKey(), allele))).collect(Collectors.toUnmodifiableSet());
     }
 
     /**
@@ -223,6 +263,9 @@ public class Variant extends Attributes {
      * <p>
      * This method updates the `samples` map by associating the given sample identifier with a string representation of the provided variant
      * calls. The variant calls are converted to strings using their `toString` method and concatenated with a pipe ('|') delimiter.
+     * <p>
+     * This will also mark the variant as active by setting the {@code active} property to {@code true}, indicating that the variant has
+     * been modified. This will overwrite any existing association for the given sample identifier.
      *
      * @param sampleIdentifier The unique identifier of the sample to associate with this variant.
      * @param variantCalls     A set of {@link VariantCall} objects representing the variant calls to associate with the sample. Each
@@ -232,6 +275,7 @@ public class Variant extends Attributes {
         // Convert the set of VariantCall objects to a single string, joined by the pipe ('|') character,
         // and associate it with the given sample identifier in the samples map.
         this.samples.put(sampleIdentifier, variantCalls.stream().map(VariantCall::toString).collect(Collectors.joining(Constants.PIPE)));
+        this.active = true;
     }
 
     /**
@@ -241,7 +285,7 @@ public class Variant extends Attributes {
      * @param alleleIdentifier  The identifier of the allele to associate with the feature.
      */
     public void addRelation(String featureIdentifier, String alleleIdentifier) {
-        this.features.putIfAbsent(featureIdentifier, new HashSet<>(8));
+        this.features.putIfAbsent(featureIdentifier, new HashSet<>(32));
         this.features.get(featureIdentifier).add(alleleIdentifier);
     }
 

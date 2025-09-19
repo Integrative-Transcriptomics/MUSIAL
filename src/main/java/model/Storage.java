@@ -580,15 +580,15 @@ public class Storage {
     }
 
     /**
-     * Calculates the total number of novel variants across all contigs in the storage.
+     * Calculates the total number of active variants across all contigs in the storage.
      * <p>
-     * This method iterates through all contigs stored in the {@code contigs} map and sums up the novel variant counts for each contig. The
-     * novel variant count for each contig is retrieved using the {@link Contig#getNovelVariantsCount()} method.
+     * This method iterates through all contigs stored in the {@code contigs} map and sums up the active variant counts for each contig. The
+     * active variant count for each contig is retrieved using the {@link Contig#getActiveVariantsCount()} method.
      *
-     * @return The total number of novel variants across all contigs.
+     * @return The total number of active variants across all contigs.
      */
-    public int getNovelVariantsCount() {
-        return (int) contigs.values().stream().mapToLong(Contig::getNovelVariantsCount).sum();
+    public int getActiveVariantsCount() {
+        return (int) contigs.values().stream().mapToLong(Contig::getActiveVariantsCount).sum();
     }
 
     /**
@@ -646,8 +646,8 @@ public class Storage {
                             }
                             // Set transient sequence cache for each contig.
                             contig.sequenceCache = new HashMap<>();
-                            // Set all variants to known (not novel) after deserialization.
-                            contig.getVariants().forEach(variant -> variant.novel = false);
+                            // Set all variants to known (not active) after deserialization.
+                            contig.getAllVariants().forEach(variant -> variant.active = false);
                         }
                         if (!fastaEntries.isEmpty()) {
                             Path tempFasta = Files.createTempFile(IO.md5Hash(Logging.getTimestamp()), ".fasta");

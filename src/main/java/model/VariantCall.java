@@ -7,6 +7,7 @@ import util.IO;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -345,6 +346,52 @@ public record VariantCall(Flag flag, short depth, float entropy, List<CallAltern
     }
 
     /**
+     * Converts the variant call to its string representation.
+     * <p>
+     * This method generates a string representation of the variant call, including its flag, total depth, entropy, and a formatted list of
+     * alternative alleles. Each alternative allele is represented by its string representation, and alternatives are separated by commas.
+     *
+     * @return A {@link String} representing the variant call.
+     */
+    public String toString() {
+        StringBuilder sb =
+                new StringBuilder(flag.name().toLowerCase()).append(Constants.SEMICOLON).append(depth).append(Constants.SEMICOLON)
+                        .append(IO.formatNumber(entropy)).append(Constants.SEMICOLON);
+        for (int i = 0; i < alternatives.size(); i++) {
+            sb.append(alternatives.get(i).asString());
+            if (i < alternatives.size() - 1) sb.append(Constants.COMMA);
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Computes the hash code for this variant call.
+     * <p>
+     * This method calculates the hash code of the variant call based on its string representation.
+     *
+     * @return The hash code of the variant call.
+     */
+    public int hashCode() {
+        return this.toString().hashCode();
+    }
+
+    /**
+     * Compares this variant call to another object for equality.
+     * <p>
+     * This method checks if the provided object is the same instance as this object. If not, it verifies that the object is of the same
+     * class and compares their string representations for equality.
+     *
+     * @param obj The object to compare with this {@link VariantCall} instance.
+     * @return {@code true} if the objects are the same instance or if their string representations are equal; {@code false} otherwise.
+     */
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        VariantCall that = (VariantCall) obj;
+        return this.toString().equals(that.toString());
+    }
+
+    /**
      * Creates a {@link VariantCall} object from its string representation.
      * <p>
      * This method parses a string representation of a variant call and constructs a {@link VariantCall} instance. The string is expected to
@@ -390,49 +437,21 @@ public record VariantCall(Flag flag, short depth, float entropy, List<CallAltern
     }
 
     /**
-     * Converts the variant call to its string representation.
+     * Checks if a variant call string contains any filtered flags.
      * <p>
-     * This method generates a string representation of the variant call, including its flag, total depth, entropy, and a formatted list of
-     * alternative alleles. Each alternative allele is represented by its string representation, and alternatives are separated by commas.
+     * This method determines whether the provided variant call string contains any flags indicating that the variant call is filtered. A
+     * variant call is considered filtered if it starts with either {@link Flag#LOW_COVERAGE}, {@link Flag#LOW_FREQUENCY}, or
+     * {@link Flag#MISSING_UPSTREAM_DELETION}. The input string can comprise contain multiple variant calls separated by
+     * {@link Constants#PIPE}.
      *
-     * @return A {@link String} representing the variant call.
+     * @param s The string representation of variant calls, with individual calls separated by {@link Constants#PIPE}.
+     * @return {@code true} if any of the variant calls in the string are filtered; {@code false} otherwise.
      */
-    public String toString() {
-        StringBuilder sb =
-                new StringBuilder(flag.name().toLowerCase()).append(Constants.SEMICOLON).append(depth).append(Constants.SEMICOLON)
-                        .append(IO.formatNumber(entropy)).append(Constants.SEMICOLON);
-        for (int i = 0; i < alternatives.size(); i++) {
-            sb.append(alternatives.get(i).asString());
-            if (i < alternatives.size() - 1) sb.append(Constants.COMMA);
-        }
-        return sb.toString();
-    }
-
-    /**
-     * Computes the hash code for this variant call.
-     * <p>
-     * This method calculates the hash code of the variant call based on its string representation.
-     *
-     * @return The hash code of the variant call.
-     */
-    public int hashCode() {
-        return this.toString().hashCode();
-    }
-
-    /**
-     * Compares this variant call to another object for equality.
-     * <p>
-     * This method checks if the provided object is the same instance as this object. If not, it verifies that the object is of the same
-     * class and compares their string representations for equality.
-     *
-     * @param obj The object to compare with this {@link VariantCall} instance.
-     * @return {@code true} if the objects are the same instance or if their string representations are equal; {@code false} otherwise.
-     */
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null || getClass() != obj.getClass()) return false;
-        VariantCall that = (VariantCall) obj;
-        return this.toString().equals(that.toString());
+    public static boolean isFiltered(String s) {
+        String[] calls = s.split(Constants.PIPE);
+        return Arrays.stream(calls).anyMatch(c -> c.startsWith(Flag.LOW_COVERAGE.name())
+                || c.startsWith(Flag.LOW_FREQUENCY.name())
+                || c.startsWith(Flag.MISSING_UPSTREAM_DELETION.name()));
     }
 
 }

@@ -50,9 +50,9 @@ public class VariantAnnotator {
      * <p>
      * This method performs the following steps:
      * <ul>
-     *   <li>Checks if the storage contains novel variants to annotate. If not, throws an {@link IllegalArgumentException}.</li>
+     *   <li>Checks if the storage contains active variants to annotate. If not, throws an {@link IllegalArgumentException}.</li>
      *   <li>Creates a temporary directory for SnpEff files and configurations.</li>
-     *   <li>Writes the novel variants from the storage to a temporary VCF file.</li>
+     *   <li>Writes the active variants from the storage to a temporary VCF file.</li>
      *   <li>Copies the SnpEff configuration and JAR files to the temporary directory.</li>
      *   <li>Writes the reference genome and features files to the appropriate locations in the temporary directory.</li>
      *   <li>Updates the SnpEff configuration file with reference genome information.</li>

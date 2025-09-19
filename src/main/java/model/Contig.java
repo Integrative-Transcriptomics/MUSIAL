@@ -167,15 +167,15 @@ public class Contig extends Attributes {
     }
 
     /**
-     * Retrieves a {@link Variant} from the contig based on the specified position and alternative base sequence.
+     * Retrieves a variant associated with the specified position and alternative base sequence.
      * <p>
-     * This method checks if the {@code variants} map contains the specified position as a key. If the position exists, it retrieves the
-     * list of variants at that position, filters the list to find the first variant that matches the specified alternative base sequence,
-     * and returns it. If no matching variant is found, the method returns {@code null}.
+     * This method checks if the {@code variants} map contains an entry for the given position. If no entry exists, it returns {@code null}.
+     * Otherwise, it retrieves the {@link Variant} object associated with the specified alternative base sequence at the given position.
      *
-     * @param position    The 1-based position of the variant on the contig.
-     * @param alternative The alternative base sequence of the variant.
-     * @return The {@link Variant} that matches the specified position and alternative base sequence, or {@code null} if no match is found.
+     * @param position    The 1-based position of the variant to retrieve.
+     * @param alternative The alternative base sequence of the variant to retrieve.
+     * @return The {@link Variant} object associated with the specified position and alternative base sequence, or {@code null} if no such
+     * variant exists.
      */
     public Variant getVariant(int position, String alternative) {
         if (!this.variants.containsKey(position)) return null;
@@ -190,25 +190,25 @@ public class Contig extends Attributes {
      *
      * @return A {@link List} containing all {@link Variant} objects associated with this contig.
      */
-    public List<Variant> getVariants() {
+    public List<Variant> getAllVariants() {
         return this.variants.values().stream()
                 .flatMap(variantMap -> variantMap.values().stream())
                 .toList();
     }
 
     /**
-     * Retrieves all novel variants associated with this contig.
+     * Retrieves all active variants associated with this contig.
      * <p>
      * This method flattens the {@code variants} map, which organizes variants by their positions, into a single list of {@link Variant}
-     * objects. It then filters the list to include only those variants that are marked as novel (i.e., have the {@code novel} property set
-     * to {@code true}). The returned list is unmodifiable.
+     * objects. It then filters the list to include only those variants that are marked as active (i.e., have the {@code active} property
+     * set to {@code true}). The returned list is unmodifiable.
      *
-     * @return A {@link List} containing all novel {@link Variant} objects associated with this contig.
+     * @return A {@link List} containing all active {@link Variant} objects associated with this contig.
      */
-    public List<Variant> getNovelVariants() {
+    public List<Variant> getActiveVariants() {
         return this.variants.values().stream()
                 .flatMap(variantMap -> variantMap.values().stream())
-                .filter(v -> v.novel)
+                .filter(v -> v.active)
                 .toList();
     }
 
@@ -222,44 +222,79 @@ public class Contig extends Attributes {
      * @param end   The 1-based end position of the range (exclusive).
      * @return A {@link List} of {@link Variant} objects within the specified range.
      */
-    public List<Variant> getVariants(int start, int end) {
+    public List<Variant> getVariantsWithin(int start, int end) {
         return this.variants.subMap(start, end + 1).values().stream()
                 .flatMap(variantMap -> variantMap.values().stream())
                 .toList();
     }
 
     /**
-     * Retrieves variants based on the provided set of sample names.
+     * Retrieves variants associated with the specified sample identifiers.
      * <p>
-     * This method filters the {@code variants} map to include only those variants that are associated with at least one of the specified
-     * sample names. The returned list is unmodifiable.
+     * This method filters the variants stored in the contig to include only those that are associated with at least one of the specified
+     * sample identifiers. The resulting list is unmodifiable.
      *
-     * @param relations A variable-length array of identifiers to filter the variants.
-     * @return A {@link List} of {@link Variant} objects that match the specified sample names.
+     * @param sampleIdentifiers An array of sample identifiers to filter the variants.
+     * @return A {@link List} of {@link Variant} objects associated with the specified sample identifiers.
      */
-    public List<Variant> getVariants(String... relations) {
+    public List<Variant> getVariantsOfSamples(String... sampleIdentifiers) {
         return this.variants.values().stream()
                 .flatMap(variantMap -> variantMap.values().stream())
-                .filter(variant -> Arrays.stream(relations).anyMatch(variant::hasRelation))
+                .filter(variant -> variant.ofSamples(sampleIdentifiers))
                 .toList();
     }
 
     /**
-     * Retrieves variants within the specified range of positions and filters them based on the provided set of sample names.
+     * Retrieves variants associated with the specified sample identifiers within a given range of positions.
      * <p>
-     * This method retrieves variants from the {@code variants} map that fall within the specified start and end positions (inclusive of
-     * start, exclusive of end), and filters them to include only those variants that are associated with at least one of the specified
-     * sample names. The returned list is unmodifiable.
+     * This method filters the variants stored in the contig to include only those that are associated with at least one of the specified
+     * sample identifiers and fall within the specified start and end positions (inclusive of start, exclusive of end). The resulting list
+     * is unmodifiable.
      *
-     * @param start     The 1-based start position of the range (inclusive).
-     * @param end       The 1-based end position of the range (exclusive).
-     * @param relations A variable-length array of identifiers to filter the variants.
-     * @return A {@link List} of {@link Variant} objects within the specified range and matching the specified sample names.
+     * @param start             The 1-based start position of the range (inclusive).
+     * @param end               The 1-based end position of the range (exclusive).
+     * @param sampleIdentifiers An array of sample identifiers to filter the variants.
+     * @return A {@link List} of {@link Variant} objects associated with the specified sample identifiers within the given range.
      */
-    public List<Variant> getVariants(int start, int end, String... relations) {
+    public List<Variant> getVariantsOfSamplesWithin(int start, int end, String... sampleIdentifiers) {
         return this.variants.subMap(start, end + 1).values().stream()
                 .flatMap(variantMap -> variantMap.values().stream())
-                .filter(variant -> Arrays.stream(relations).anyMatch(variant::hasRelation))
+                .filter(variant -> variant.ofSamples(sampleIdentifiers))
+                .toList();
+    }
+
+    /**
+     * Retrieves variants associated with the specified allele identifiers.
+     * <p>
+     * This method filters the variants stored in the contig to include only those that are associated with at least one of the specified
+     * allele identifiers. The resulting list is unmodifiable.
+     *
+     * @param alleleIdentifiers An array of allele identifiers to filter the variants.
+     * @return A {@link List} of {@link Variant} objects associated with the specified allele identifiers.
+     */
+    public List<Variant> getVariantsOfAlleles(String... alleleIdentifiers) {
+        return this.variants.values().stream()
+                .flatMap(variantMap -> variantMap.values().stream())
+                .filter(variant -> variant.ofAlleles(alleleIdentifiers))
+                .toList();
+    }
+
+    /**
+     * Retrieves variants associated with the specified allele identifiers within a given range of positions.
+     * <p>
+     * This method filters the variants stored in the contig to include only those that are associated with at least one of the specified
+     * allele identifiers and fall within the specified start and end positions (inclusive of start, exclusive of end). The resulting list
+     * is unmodifiable.
+     *
+     * @param start             The 1-based start position of the range (inclusive).
+     * @param end               The 1-based end position of the range (exclusive).
+     * @param alleleIdentifiers An array of allele identifiers to filter the variants.
+     * @return A {@link List} of {@link Variant} objects associated with the specified allele identifiers within the given range.
+     */
+    public List<Variant> getVariantsOfAllelesWithin(int start, int end, String... alleleIdentifiers) {
+        return this.variants.subMap(start, end + 1).values().stream()
+                .flatMap(variantMap -> variantMap.values().stream())
+                .filter(variant -> variant.ofAlleles(alleleIdentifiers))
                 .toList();
     }
 
@@ -276,18 +311,18 @@ public class Contig extends Attributes {
     }
 
     /**
-     * Calculates the total number of novel variants associated with this contig.
+     * Calculates the total number of active variants associated with this contig.
      * <p>
      * This method flattens the {@code variants} map into a stream of {@link Variant} objects. It then filters the stream to include only
-     * those variants that are marked as novel (i.e., have the {@code novel} property set to {@code true}). The method counts the filtered
+     * those variants that are marked as active (i.e., have the {@code active} property set to {@code true}). The method counts the filtered
      * variants and returns the total count as an integer.
      *
-     * @return The total number of novel {@link Variant} objects associated with this contig.
+     * @return The total number of active {@link Variant} objects associated with this contig.
      */
-    public int getNovelVariantsCount() {
+    public int getActiveVariantsCount() {
         return (int) this.variants.values().stream()
                 .flatMap(variantMap -> variantMap.values().stream())
-                .filter(v -> v.novel)
+                .filter(v -> v.active)
                 .count();
     }
 
