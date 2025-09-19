@@ -73,7 +73,7 @@ public final class Constants {
     /**
      * Pipe symbol string constant.
      */
-    public static final String PIPE = "|";
+    public static final String PIPE = "\\|";
 
     /**
      * IUPAC symbol for any/unknown nucleotide in a nucleotide sequence.
