@@ -193,7 +193,7 @@ public class Variant extends Attributes {
      * @param featureIdentifiers An array of feature identifiers to check.
      * @return {@code true} if the variant is associated with at least one of the given feature identifiers, {@code false} otherwise.
      */
-    public boolean ofFeature(String... featureIdentifiers) {
+    public boolean ofFeatures(String... featureIdentifiers) {
         return Arrays.stream(featureIdentifiers).anyMatch(this.features::containsKey);
     }
 
