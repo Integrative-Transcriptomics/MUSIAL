@@ -1,9 +1,6 @@
 package model;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 
 /**
@@ -51,7 +48,7 @@ public class Allele extends SequenceType {
      *
      * @return A {@link Set} of sample identifiers related to this allele.
      */
-    public Set<String> getRelatedSamples() {
+    public Set<String> getRelatedSampleIdentifiers() {
         return Collections.unmodifiableSet(this.samples);
     }
 
@@ -69,7 +66,7 @@ public class Allele extends SequenceType {
      *
      * @return The proteoform identifier as a {@link String}, or {@code null} if no proteoform is associated.
      */
-    public String getProteoform() {
+    public String getRelatedProteoformIdentifier() {
         return this.proteoform;
     }
 
@@ -78,7 +75,7 @@ public class Allele extends SequenceType {
      *
      * @param sampleIdentifier The unique identifier of the sample to associate with this allele.
      */
-    public void addRelation(String sampleIdentifier) {
+    public void addRelatedSampleIdentifier(String sampleIdentifier) {
         this.samples.add(sampleIdentifier);
     }
 
@@ -87,7 +84,7 @@ public class Allele extends SequenceType {
      *
      * @param identifier The unique identifier of the proteoform to associate with this allele.
      */
-    public void setProteoform(String identifier) {
+    public void setRelatedProteoformIdentifier(String identifier) {
         this.proteoform = identifier;
     }
 
