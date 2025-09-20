@@ -385,6 +385,210 @@ public class VCFProcessor implements Closeable {
     }
 
     /**
+     * Retrieves an unmodifiable collection of sample identifiers.
+     * <p>
+     * This method returns a collection of all sample identifiers currently indexed in the variant call cache. The returned collection is
+     * unmodifiable, ensuring that the underlying data cannot be altered.
+     *
+     * @return An unmodifiable {@link Collection} of {@link String} objects representing the sample identifiers.
+     */
+    public Collection<String> getSamples() {
+        return Collections.unmodifiableCollection(this.vcCache.sampleMap.keySet());
+    }
+
+    /**
+     * Updates the variants in the storage by processing variant calls from the cache.
+     * <p>
+     * This method iterates through all samples and contigs in the cache, processes their variant calls, and adds the resolved variants to
+     * the storage. It handles complex cases such as deletions, insertions, and mixed InDels, ensuring that the variants are stored in a
+     * canonical format.
+     */
+    public void updateVariants() {
+        // Iterate through all samples in the cache's map.
+        for (String sampleIdentifier : this.vcCache.sampleMap.keySet()) {
+            // Add the sample to the storage.
+            storage.addSample(sampleIdentifier);
+            assert storage.hasSample(sampleIdentifier);
+            Sample sample = storage.getSample(sampleIdentifier);
+
+            // Iterate through all contigs in the storage.
+            for (String contigIdentifier : this.vcCache.contigMap.keySet()) {
+                assert storage.hasContig(contigIdentifier);
+                Contig contig = storage.getContig(contigIdentifier);
+
+                // Access all variant calls for the current sample and contig from the cache.
+                List<Tuple<Integer, VariantCall>> entries = vcCache.get(sampleIdentifier, contigIdentifier);
+                // Continue if no calls are present for the current sample and contig.
+                if (entries.isEmpty()) continue;
+
+                // Initialize builders and variables for processing variants, esp. handling deletions and mixed InDels.
+                StringBuilder referenceBuilder = new StringBuilder();
+                StringBuilder alternativeBuilder = new StringBuilder();
+                Set<VariantCall> calls = new HashSet<>(); // Set of variant calls that constitute the current variant.
+                int variantStartPosition = 0;
+                int deletionExtension = 0;
+
+                // Helper function to resolve variants and add them to the storage.
+                Consumer<Integer> resolve = (position) -> {
+                    String referenceContent = referenceBuilder.toString();
+                    String alternativeContent = alternativeBuilder.toString();
+                    if (!Bio.isPaddedCanonical(referenceContent, alternativeContent)) {
+                        Tuple<String, String> alignment =
+                                Bio.globalNucleotideSequenceAlignment(
+                                        Bio.stripGaps(referenceBuilder.toString()),
+                                        Bio.stripGaps(alternativeBuilder.toString()),
+                                        5,
+                                        2,
+                                        true,
+                                        false,
+                                        0
+                                );
+                        ArrayList<Triple<Integer, String, String>> resolvedVariants =
+                                Bio.getCanonicalVariants(alignment.a, alignment.b);
+                        for (Triple<Integer, String, String> variant : resolvedVariants) {
+                            storage.addVariant(contig, sample._id, position + variant.getLeft(), variant.getMiddle(), variant.getRight(),
+                                    calls);
+
+                        }
+                    } else {
+                        storage.addVariant(contig, sample._id, position, referenceContent, alternativeContent, calls);
+                    }
+                    // Reset outer state.
+                    referenceBuilder.setLength(0);
+                    alternativeBuilder.setLength(0);
+                    calls.clear();
+                };
+
+                // Process variant calls for the current sample and contig.
+                for (var entry : entries) {
+                    int position = entry.a; // Extract the position of the variant.
+                    VariantCall variantCall = entry.b; // Extract the variant call.
+
+                    // Resolves the reference and alternative alleles for a variant call, handling special cases.
+                    String reference = variantCall.isFiltered() && variantCall.flag() == VariantCall.Flag.MISSING_UPSTREAM_DELETION
+                            ? variantCall.getReference(1) // Retrieve the reference content for the second alternative if flagged.
+                            : variantCall.getReference(); // Retrieve the called reference content.
+                    String alternative = variantCall.isFiltered() && variantCall.flag() == VariantCall.Flag.MISSING_UPSTREAM_DELETION
+                            ? variantCall.getAlternative(1) // Retrieve the alternative content for the second position if flagged.
+                            : variantCall.getAlternative(); // Retrieve the default alternative content.
+
+                    // Replace the alternative content with an N, if it represents a filtered reference call.
+                    if (alternative.equals(Constants.DOT)) {
+                        alternative = Constants.ANY_NUCLEOTIDE;
+                    }
+
+                    // Resolve previous variant, if the current position is outside the stored upstream deletion range.
+                    if (position > deletionExtension && referenceBuilder.length() > 0 && alternativeBuilder.length() > 0) {
+                        resolve.accept(variantStartPosition);
+                        deletionExtension = 0;
+                    }
+
+                    // Start processing a new variant if no ongoing deletion exists.
+                    if (deletionExtension == 0 && referenceBuilder.length() == 0 && alternativeBuilder.length() == 0) {
+                        if (Bio.isDeletion(reference, alternative, true)) {
+                            referenceBuilder.append(reference);
+                            alternativeBuilder.append(alternative);
+                            calls.add(variantCall);
+                            variantStartPosition = position;
+                            deletionExtension = position + alternative.length() - 1;
+                        } else {
+                            referenceBuilder.append(reference);
+                            alternativeBuilder.append(alternative);
+                            calls.add(variantCall);
+                            resolve.accept(position);
+                        }
+                        continue;
+                    }
+
+                    // Extend ongoing deletions or handle insertions within the deletion range.
+                    if (position <= deletionExtension) {
+                        if (Bio.isSubstitution(reference, alternative)) {
+                            continue; // Skip substitutions within an upstream deletion.
+                        }
+                        if (Bio.isDeletion(reference, alternative, true)) {
+                            int updatedDeletionExtension = position + alternative.length() - 1;
+                            if (updatedDeletionExtension > deletionExtension) {
+                                referenceBuilder.append(StringUtils.right(reference, updatedDeletionExtension - deletionExtension));
+                                alternativeBuilder.append(StringUtils.right(alternative,
+                                        updatedDeletionExtension - deletionExtension));
+                                calls.add(variantCall);
+                                deletionExtension = updatedDeletionExtension;
+                            }
+                            continue;
+                        }
+                        if (Bio.isInsertion(reference, alternative, true)) {
+                            int offset = position - variantStartPosition;
+                            alternativeBuilder.replace(offset, offset + 1,
+                                    alternativeBuilder.charAt(offset) + alternative.substring(1));
+                            referenceBuilder.replace(offset, offset + 1, referenceBuilder.charAt(offset) + reference.substring(1));
+                            calls.add(variantCall);
+                            continue;
+                        }
+                    }
+
+                    // Log a warning if the variant cannot be handled.
+                    Logging.logWarning("Failed to handle variant %s at site %s %d for sample %s."
+                            .formatted(reference + " > " + alternative, contigIdentifier, position, sample._id));
+                }
+
+                // Resolve any remaining variants in the builders after processing all variants.
+                if (referenceBuilder.length() > 0 && alternativeBuilder.length() > 0) {
+                    resolve.accept(variantStartPosition);
+                }
+            }
+        }
+    }
+
+    /**
+     * Loads variant calls from the storage and processes them.
+     * <p>
+     * This method iterates through all contigs and samples in the variant call cache (`vcCache`), retrieves the associated variants, and
+     * processes their variant calls. Each variant call string is parsed into a `VariantCall` object and passed to the `processVariantCall`
+     * method for further processing.
+     * <p>
+     * The method ensures that only valid contigs and samples present in the storage are processed. It handles the relationship between
+     * contigs, samples, and variants, and updates the storage with the processed variant calls.
+     *
+     * @return The total number of loaded variant calls as an {@code int}.
+     */
+    public int loadVariantCallsFromStorage() {
+        // Counter for loaded variant calls.
+        int c = 0;
+
+        // Iterate through all contig identifiers in the variant call cache.
+        for (String contigIdentifier : vcCache.contigMap.keySet()) {
+            // Skip contigs that are not present in the storage.
+            if (!storage.hasContig(contigIdentifier)) continue;
+
+            // Retrieve the contig object from the storage.
+            Contig contig = storage.getContig(contigIdentifier);
+
+            // Iterate through all sample identifiers in the variant call cache.
+            for (String sampleIdentifier : vcCache.sampleMap.keySet()) {
+                // Skip samples that are not present in the storage.
+                if (!storage.hasSample(sampleIdentifier)) continue;
+
+                // Iterate through all variants associated with the current sample in the contig.
+                for (Variant variant : contig.getVariantsOfSamples(sampleIdentifier)) {
+                    // Split the variant call string into individual calls.
+                    for (String variantCallString : variant.getSampleRelation(sampleIdentifier).split(Constants.PIPE)) {
+                        // Parse the variant call string into a VariantCall object.
+                        VariantCall variantCall = VariantCall.fromString(variantCallString);
+
+                        // Process the variant call and update the storage.
+                        processVariantCall(sampleIdentifier, contigIdentifier, variant.position,
+                                variantCall.alternatives(), storage.parameters, Path.of("storage"));
+
+                        c++;
+                    }
+                }
+            }
+        }
+
+        return c;
+    }
+
+    /**
      * Processes a set of variant contexts from a VCF file and updates the storage with variant calls.
      * <p>
      * This method iterates through the provided {@link VariantContext} objects, processes each genotype, and extracts relevant information
@@ -646,149 +850,6 @@ public class VCFProcessor implements Closeable {
             case REFERENCE_CALL -> ignoredCallsCount++;
             case LOW_COVERAGE, LOW_FREQUENCY, MISSING_UPSTREAM_DELETION -> filteredCallsCount++;
             default -> throw new IllegalStateException("Unexpected state " + flag);
-        }
-    }
-
-    /**
-     * Updates the variants in the storage by processing variant calls from the cache.
-     * <p>
-     * This method iterates through all samples and contigs in the cache, processes their variant calls, and adds the resolved variants to
-     * the storage. It handles complex cases such as deletions, insertions, and mixed InDels, ensuring that the variants are stored in a
-     * canonical format.
-     */
-    public void updateVariants() {
-        // Iterate through all samples in the cache's map.
-        for (String sampleIdentifier : this.vcCache.sampleMap.keySet()) {
-            // Add the sample to the storage.
-            storage.addSample(sampleIdentifier);
-            assert storage.hasSample(sampleIdentifier);
-            Sample sample = storage.getSample(sampleIdentifier);
-
-            // Iterate through all contigs in the storage.
-            for (String contigIdentifier : this.vcCache.contigMap.keySet()) {
-                assert storage.hasContig(contigIdentifier);
-                Contig contig = storage.getContig(contigIdentifier);
-
-                // Access all variant calls for the current sample and contig from the cache.
-                List<Tuple<Integer, VariantCall>> entries = vcCache.get(sampleIdentifier, contigIdentifier);
-                // Continue if no calls are present for the current sample and contig.
-                if (entries.isEmpty()) continue;
-
-                // Initialize builders and variables for processing variants, esp. handling deletions and mixed InDels.
-                StringBuilder referenceBuilder = new StringBuilder();
-                StringBuilder alternativeBuilder = new StringBuilder();
-                Set<VariantCall> calls = new HashSet<>(); // Set of variant calls that constitute the current variant.
-                int variantStartPosition = 0;
-                int deletionExtension = 0;
-
-                // Helper function to resolve variants and add them to the storage.
-                Consumer<Integer> resolve = (position) -> {
-                    String referenceContent = referenceBuilder.toString();
-                    String alternativeContent = alternativeBuilder.toString();
-                    if (!Bio.isPaddedCanonical(referenceContent, alternativeContent)) {
-                        Tuple<String, String> alignment =
-                                Bio.globalNucleotideSequenceAlignment(
-                                        Bio.stripGaps(referenceBuilder.toString()),
-                                        Bio.stripGaps(alternativeBuilder.toString()),
-                                        5,
-                                        2,
-                                        true,
-                                        false,
-                                        0
-                                );
-                        ArrayList<Triple<Integer, String, String>> resolvedVariants =
-                                Bio.getCanonicalVariants(alignment.a, alignment.b);
-                        for (Triple<Integer, String, String> variant : resolvedVariants) {
-                            storage.addVariant(contig, sample._id, position + variant.getLeft(), variant.getMiddle(), variant.getRight(),
-                                    calls);
-
-                        }
-                    } else {
-                        storage.addVariant(contig, sample._id, position, referenceContent, alternativeContent, calls);
-                    }
-                    // Reset outer state.
-                    referenceBuilder.setLength(0);
-                    alternativeBuilder.setLength(0);
-                    calls.clear();
-                };
-
-                // Process variant calls for the current sample and contig.
-                for (var entry : entries) {
-                    int position = entry.a; // Extract the position of the variant.
-                    VariantCall variantCall = entry.b; // Extract the variant call.
-
-                    // Resolves the reference and alternative alleles for a variant call, handling special cases.
-                    String reference = variantCall.isFiltered() && variantCall.flag() == VariantCall.Flag.MISSING_UPSTREAM_DELETION
-                            ? variantCall.getReference(1) // Retrieve the reference content for the second alternative if flagged.
-                            : variantCall.getReference(); // Retrieve the called reference content.
-                    String alternative = variantCall.isFiltered() && variantCall.flag() == VariantCall.Flag.MISSING_UPSTREAM_DELETION
-                            ? variantCall.getAlternative(1) // Retrieve the alternative content for the second position if flagged.
-                            : variantCall.getAlternative(); // Retrieve the default alternative content.
-
-                    // Replace the alternative content with an N, if it represents a filtered reference call.
-                    if (alternative.equals(Constants.DOT)) {
-                        alternative = Constants.ANY_NUCLEOTIDE;
-                    }
-
-                    // Resolve previous variant, if the current position is outside the stored upstream deletion range.
-                    if (position > deletionExtension && referenceBuilder.length() > 0 && alternativeBuilder.length() > 0) {
-                        resolve.accept(variantStartPosition);
-                        deletionExtension = 0;
-                    }
-
-                    // Start processing a new variant if no ongoing deletion exists.
-                    if (deletionExtension == 0 && referenceBuilder.length() == 0 && alternativeBuilder.length() == 0) {
-                        if (Bio.isDeletion(reference, alternative, true)) {
-                            referenceBuilder.append(reference);
-                            alternativeBuilder.append(alternative);
-                            calls.add(variantCall);
-                            variantStartPosition = position;
-                            deletionExtension = position + alternative.length() - 1;
-                        } else {
-                            referenceBuilder.append(reference);
-                            alternativeBuilder.append(alternative);
-                            calls.add(variantCall);
-                            resolve.accept(position);
-                        }
-                        continue;
-                    }
-
-                    // Extend ongoing deletions or handle insertions within the deletion range.
-                    if (position <= deletionExtension) {
-                        if (Bio.isSubstitution(reference, alternative)) {
-                            continue; // Skip substitutions within an upstream deletion.
-                        }
-                        if (Bio.isDeletion(reference, alternative, true)) {
-                            int updatedDeletionExtension = position + alternative.length() - 1;
-                            if (updatedDeletionExtension > deletionExtension) {
-                                referenceBuilder.append(StringUtils.right(reference, updatedDeletionExtension - deletionExtension));
-                                alternativeBuilder.append(StringUtils.right(alternative,
-                                        updatedDeletionExtension - deletionExtension));
-                                calls.add(variantCall);
-                                deletionExtension = updatedDeletionExtension;
-                            }
-                            continue;
-                        }
-                        if (Bio.isInsertion(reference, alternative, true)) {
-                            int offset = position - variantStartPosition;
-                            alternativeBuilder.replace(offset, offset + 1,
-                                    alternativeBuilder.charAt(offset) + alternative.substring(1));
-                            referenceBuilder.replace(offset, offset + 1, referenceBuilder.charAt(offset) + reference.substring(1));
-                            calls.add(variantCall);
-                            continue;
-                        }
-                    }
-
-                    // Log a warning if the variant cannot be handled.
-                    Logging.logWarning("Failed to handle variant %s at site %s %d for sample %s."
-                            .formatted(reference + " > " + alternative, contigIdentifier, position, sample._id));
-                }
-
-                // Resolve any remaining variants in the builders after processing all variants.
-                if (referenceBuilder.length() > 0 && alternativeBuilder.length() > 0) {
-                    resolve.accept(variantStartPosition);
-                }
-            }
         }
     }
 

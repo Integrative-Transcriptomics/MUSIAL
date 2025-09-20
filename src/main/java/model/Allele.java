@@ -1,6 +1,9 @@
 package model;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 
 /**
@@ -48,7 +51,7 @@ public class Allele extends SequenceType {
      *
      * @return A {@link Set} of sample identifiers related to this allele.
      */
-    public Set<String> getRelatedSampleIdentifiers() {
+    public Set<String> getRelatedSamples() {
         return Collections.unmodifiableSet(this.samples);
     }
 
@@ -66,7 +69,7 @@ public class Allele extends SequenceType {
      *
      * @return The proteoform identifier as a {@link String}, or {@code null} if no proteoform is associated.
      */
-    public String getRelatedProteoformIdentifier() {
+    public String getRelatedProteoform() {
         return this.proteoform;
     }
 
@@ -75,8 +78,22 @@ public class Allele extends SequenceType {
      *
      * @param sampleIdentifier The unique identifier of the sample to associate with this allele.
      */
-    public void addRelatedSampleIdentifier(String sampleIdentifier) {
+    public void addSampleRelation(String sampleIdentifier) {
         this.samples.add(sampleIdentifier);
+    }
+
+    /**
+     * Removes the association between a sample and this allele.
+     * <p>
+     * This method removes the specified sample identifier from the set of samples associated with this allele. After the removal, it checks
+     * if the set of samples is empty and returns the result.
+     *
+     * @param sampleIdentifier The unique identifier of the sample to be disassociated from this allele.
+     * @return {@code true} if the set of samples is empty after the removal; {@code false} otherwise.
+     */
+    boolean removeSampleRelation(String sampleIdentifier) {
+        this.samples.remove(sampleIdentifier);
+        return this.samples.isEmpty();
     }
 
     /**
@@ -84,7 +101,7 @@ public class Allele extends SequenceType {
      *
      * @param identifier The unique identifier of the proteoform to associate with this allele.
      */
-    public void setRelatedProteoformIdentifier(String identifier) {
+    public void setProteoformRelation(String identifier) {
         this.proteoform = identifier;
     }
 

@@ -84,9 +84,8 @@ public class StorageUpdater {
             // Retrieve the contig associated with the feature.
             Contig contig = storage.getContig(feature.contig);
 
-            // Iterate through all samples to infer allele sequence types.
-            // Todo: Only active samples here!
-            for (Sample sample : storage.getSamples()) {
+            // Iterate through all active samples to infer allele sequence types.
+            for (Sample sample : storage.getActiveSamples()) {
                 // Update allele.
                 Allele allele;
                 String alleleIdentifier = sample.getRelatedAllele(feature._id);
@@ -133,7 +132,7 @@ public class StorageUpdater {
                         // Add relations between variants and the allele.
                         for (Variant.Stub stub : stubs) {
                             if (stub.alternative().equals(Constants.ANY_NUCLEOTIDE)) continue;
-                            contig.getVariant(stub.position(), stub.alternative()).addRelation(feature._id, allele._id);
+                            contig.getVariant(stub.position(), stub.alternative()).addAlleleRelation(feature._id, allele._id);
                         }
 
                         // Add the new allele to the feature.
@@ -141,7 +140,7 @@ public class StorageUpdater {
                     }
 
                     // Add relations between the allele, sample, and feature.
-                    allele.addRelatedSampleIdentifier(sample._id);
+                    allele.addSampleRelation(sample._id);
                     sample.addRelation(feature._id, allele._id);
                 }
             }
@@ -154,7 +153,7 @@ public class StorageUpdater {
                     Proteoform proteoform;
 
                     // Skip if a proteoform is already assigned.
-                    String proteoformIdentifier = allele.getRelatedProteoformIdentifier();
+                    String proteoformIdentifier = allele.getRelatedProteoform();
                     if (proteoformIdentifier != null) continue;
 
                     // Construct a position-sorted map of variants/stubs of the allele.
@@ -230,7 +229,7 @@ public class StorageUpdater {
                     }
 
                     // Set the proteoform identifier for the allele.
-                    allele.setRelatedProteoformIdentifier(proteoformIdentifier);
+                    allele.setProteoformRelation(proteoformIdentifier);
                 }
             }
         }
@@ -383,7 +382,7 @@ public class StorageUpdater {
 
                 // Check if the feature is coding and its proteoform is disrupted.
                 if (feature.isCoding()) {
-                    String proteoformIdentifier = feature.getAllele(entry.b).getRelatedProteoformIdentifier();
+                    String proteoformIdentifier = feature.getAllele(entry.b).getRelatedProteoform();
                     if (!Objects.equals(proteoformIdentifier, Constants.SYNONYMOUS)) {
                         if (feature.getProteoform(proteoformIdentifier).isDisrupted()) {
                             disrupted++; // Increment the disrupted feature counter.
@@ -437,7 +436,7 @@ public class StorageUpdater {
 
                 // If the feature is coding, process proteoform-related statistics.
                 if (typedCoding) {
-                    String proteoformIdentifier = allele.getRelatedProteoformIdentifier();
+                    String proteoformIdentifier = allele.getRelatedProteoform();
                     if (!Objects.equals(proteoformIdentifier, Constants.SYNONYMOUS)) {
                         Collection<String> effects = feature.getProteoform(proteoformIdentifier)
                                 .getAttributeSet(Constants.AttributesKeys.SO_EFFECTS);

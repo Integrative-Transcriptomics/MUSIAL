@@ -290,6 +290,18 @@ public class Feature extends Attributes {
     }
 
     /**
+     * Removes an allele associated with this feature.
+     * <p>
+     * This method removes the allele identified by the given identifier from the internal map of alleles associated with this feature. If
+     * the identifier does not exist in the map, no action is performed.
+     *
+     * @param alleleIdentifier The unique identifier of the allele to be removed.
+     */
+    void removeAllele(String alleleIdentifier) {
+        this.alleles.remove(alleleIdentifier);
+    }
+
+    /**
      * Retrieves all alleles associated with this feature.
      * <p>
      * This method provides an unmodifiable view of the collection of alleles associated with this feature. The alleles are stored as values

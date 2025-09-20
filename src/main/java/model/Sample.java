@@ -43,7 +43,7 @@ public class Sample extends Attributes {
      * entries, but will not be serialized. During deserialization, it is assumed that all samples are idle and should be set to
      * {@code false} (see {@link Storage#typeAdapter()}).
      */
-    protected transient boolean active;
+    transient boolean active;
 
     /**
      * Constructs a new {@link Sample} instance with the specified id and initial capacity for the alleles map.

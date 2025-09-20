@@ -245,6 +245,19 @@ public class Variant extends Attributes {
     }
 
     /**
+     * Retrieves the variant call string associated with a specific sample.
+     * <p>
+     * This method fetches the variant call string for the given sample identifier from the `samples` map. If the sample identifier does not
+     * exist in the map, it returns {@code null}.
+     *
+     * @param sampleIdentifier The unique identifier of the sample whose relation is to be retrieved.
+     * @return The variant call string associated with the given sample identifier, or {@code null} if the sample is not found.
+     */
+    public String getSampleRelation(String sampleIdentifier) {
+        return this.samples.get(sampleIdentifier);
+    }
+
+    /**
      * Retrieves a set of tuples representing the feature and allele occurrences associated with this variant.
      *
      * @return A set of tuples where each tuple contains:
@@ -271,7 +284,7 @@ public class Variant extends Attributes {
      * @param variantCalls     A set of {@link VariantCall} objects representing the variant calls to associate with the sample. Each
      *                         variant call is converted to its string representation.
      */
-    public void addRelation(String sampleIdentifier, Set<VariantCall> variantCalls) {
+    public void addSampleRelation(String sampleIdentifier, Set<VariantCall> variantCalls) {
         // Convert the set of VariantCall objects to a single string, joined by the pipe ('|') character,
         // and associate it with the given sample identifier in the samples map.
         this.samples.put(sampleIdentifier, variantCalls.stream().map(VariantCall::toString).collect(Collectors.joining(Constants.PIPE)));
@@ -284,9 +297,42 @@ public class Variant extends Attributes {
      * @param featureIdentifier The identifier of the feature to associate with this variant.
      * @param alleleIdentifier  The identifier of the allele to associate with the feature.
      */
-    public void addRelation(String featureIdentifier, String alleleIdentifier) {
+    public void addAlleleRelation(String featureIdentifier, String alleleIdentifier) {
         this.features.putIfAbsent(featureIdentifier, new HashSet<>(32));
         this.features.get(featureIdentifier).add(alleleIdentifier);
+    }
+
+    /**
+     * Removes the association between a sample and this variant.
+     * <p>
+     * This method removes the specified sample identifier from the `samples` map. After the removal, it checks if the `samples` map is
+     * empty and returns the result.
+     * <p>
+     * This operation does not affect other associations or attributes of the variant.
+     *
+     * @param identifier The unique identifier of the sample to be disassociated from this variant.
+     * @return {@code true} if the `samples` map is empty after the removal; {@code false} otherwise.
+     */
+    boolean removeSampleRelation(String identifier) {
+        samples.remove(identifier);
+        return samples.isEmpty();
+    }
+
+    /**
+     * Removes the association between a specific allele and its parent feature for this variant.
+     * <p>
+     * This method removes the specified allele identifier from the set of alleles associated with the given feature identifier. If the set
+     * of alleles for the feature becomes empty after the removal, the feature itself is removed from the `features` map. Finally, the
+     * method checks if the `features` map is empty and returns the result.
+     *
+     * @param featureIdentifier The unique identifier of the feature to disassociate the allele from.
+     * @param alleleIdentifier  The unique identifier of the allele to be removed from the feature.
+     * @return {@code true} if the `features` map is empty after the removal; {@code false} otherwise.
+     */
+    boolean removeAlleleRelation(String featureIdentifier, String alleleIdentifier) {
+        features.get(featureIdentifier).remove(alleleIdentifier);
+        if (features.get(featureIdentifier).isEmpty()) features.remove(featureIdentifier);
+        return features.isEmpty();
     }
 
     /**

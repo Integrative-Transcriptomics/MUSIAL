@@ -81,7 +81,6 @@ public class ExecutorBuild {
      *
      * @throws MusialException If an error occurs during the processing of genomic data.
      * @throws IOException     If an I/O error occurs during file operations.
-     * @noinspection DuplicatedCode
      */
     public void run() throws MusialException, IOException {
         // Load and validate genomic features.

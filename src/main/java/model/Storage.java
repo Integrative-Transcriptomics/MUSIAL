@@ -9,6 +9,7 @@ import exceptions.MusialException;
 import htsjdk.samtools.reference.FastaSequenceIndexCreator;
 import htsjdk.samtools.reference.IndexedFastaSequenceFile;
 import htsjdk.samtools.reference.ReferenceSequence;
+import htsjdk.samtools.util.Tuple;
 import org.biojava.nbio.genome.parsers.gff.FeatureI;
 import util.Bio;
 import util.IO;
@@ -533,6 +534,62 @@ public class Storage {
     }
 
     /**
+     * Retrieves a collection of active samples from the storage.
+     * <p>
+     * This method filters the samples stored in the `samples` map and returns only those that are marked as active. Active samples are
+     * identified by the `active` field being set to {@code true}.
+     * <p>
+     * The returned collection is a list created from the filtered stream of samples. Modifications to the returned list do not affect the
+     * underlying storage.
+     *
+     * @return A {@link Collection} of {@link Sample} objects that are currently active.
+     */
+    public Collection<Sample> getActiveSamples() {
+        return this.samples.values().stream().filter(sample -> sample.active).toList();
+    }
+
+    /**
+     * Detaches a sample from the storage and removes its associations with variants and alleles.
+     * <p>
+     * This method performs the following operations:
+     * <ul>
+     *   <li>Checks if the sample exists in the storage. If not, the method returns immediately.</li>
+     *   <li>Detaches the sample from all variants in the contigs. If a variant is no longer associated with any sample, it is removed
+     *   from the contig.</li>
+     *   <li>Detaches the sample from all alleles in the features. If an allele is no longer associated with any sample, it is removed
+     *   from the feature.</li>
+     *   <li>Removes the sample from the `samples` map in the storage.</li>
+     * </ul>
+     *
+     * @param sampleIdentifier The unique identifier of the sample to be detached.
+     */
+    public void detachSample(String sampleIdentifier) {
+        if (!hasSample(sampleIdentifier)) return;
+
+        // Access the sample to be detached.
+        Sample sample = getSample(sampleIdentifier);
+
+        // Detach the sample from all variants and remove variants that are no longer related to any sample.
+        for (Contig contig : contigs.values()) {
+            for (Variant variant : contig.getVariantsOfSamples(sampleIdentifier)) {
+                if (variant.removeSampleRelation(sampleIdentifier)) contig.removeVariant(variant.position, variant.alternative);
+            }
+        }
+
+        // Detach the sample from all alleles and remove alleles that are no longer related to any sample.
+        Feature feature;
+        Allele allele;
+        for (Tuple<String, String> relation : sample.getRelatedAlleles()) {
+            feature = features.get(relation.a);
+            allele = feature.getAllele(relation.b);
+            if (allele.removeSampleRelation(sampleIdentifier)) features.get(relation.a).removeAllele(allele._id);
+        }
+
+        // Remove the sample from the samples map.
+        this.samples.remove(sampleIdentifier);
+    }
+
+    /**
      * Adds a variant to the specified contig in the storage.
      * <p>
      * This method ensures that the variant is in a canonical padded format. If the variant is not canonical, an
@@ -564,7 +621,7 @@ public class Storage {
         }
 
         // Associate the variant with the sample and cache it for further processing.
-        variant.addRelation(sampleIdentifier, variantCalls);
+        variant.addSampleRelation(sampleIdentifier, variantCalls);
     }
 
     /**

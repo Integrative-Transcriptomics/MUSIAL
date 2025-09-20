@@ -8,7 +8,6 @@ import util.Logging;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Represents a reference genomic location.
@@ -345,6 +344,25 @@ public class Contig extends Attributes {
                     "base" +
                     "(%s and %s).").formatted(variant.position, this._id, variant.alternative, previous.reference, variant.reference)));
         }
+    }
+
+    /**
+     * Removes a variant from the contig's variant map at the specified position and alternative base sequence.
+     * <p>
+     * This method checks if the {@code variants} map contains an entry for the given position. If no entry exists, the method returns
+     * without performing any operation. If an entry exists, it removes the variant associated with the specified alternative base
+     * sequence.
+     * <p>
+     * After removing the variant, the method checks if the map at the given position is empty. If it is, the position entry is also removed
+     * from the {@code variants} map to maintain a clean structure.
+     *
+     * @param position    The 1-based position of the variant to remove.
+     * @param alternative The alternative base sequence of the variant to remove.
+     */
+    void removeVariant(int position, String alternative) {
+        if (!this.variants.containsKey(position)) return;
+        this.variants.get(position).remove(alternative);
+        if (this.variants.get(position).isEmpty()) this.variants.remove(position);
     }
 
     /**

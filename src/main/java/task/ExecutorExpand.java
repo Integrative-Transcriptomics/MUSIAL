@@ -27,11 +27,6 @@ public class ExecutorExpand {
     private final StorageUpdater storageUpdater;
 
     /**
-     * Processor for VCF files.
-     */
-    private final VCFProcessor vcfProcessor;
-
-    /**
      * Annotator for genetic variants.
      */
     private final VariantAnnotator variantAnnotator;
@@ -53,22 +48,66 @@ public class ExecutorExpand {
         this.initialVariantCount = storage.getVariantsCount();
         this.initialSampleCount = storage.getSamples().size();
         this.storageUpdater = new StorageUpdater(storage);
-        vcfProcessor = new VCFProcessor(cli.vcfFiles, storage, storage.hasReference());
         variantAnnotator = new VariantAnnotator(storage);
         Logging.logDone("");
     }
 
     /**
-     * @noinspection DuplicatedCode
+     * Runs the {@code expand} task to expand the genomic data storage with new variants and samples.
+     * <p>
+     * This method performs the following steps:
+     * <ul>
+     *   <li>Processes VCF files to load variants into the storage.</li>
+     *   <li>Reloads existing variant calls from the storage.</li>
+     *   <li>Detaches samples already present in the storage to avoid duplication.</li>
+     *   <li>Updates variants and sample attributes based on the processed VCF data.</li>
+     *   <li>Determines the output path for writing the updated storage data.</li>
+     *   <li>Runs variant annotation using SnpEff if applicable.</li>
+     *   <li>Performs sequence typing if reference sequences are available.</li>
+     *   <li>Recomputes statistics for the storage.</li>
+     *   <li>Writes the updated storage data to the specified output file or logs the changes in dry-run mode.</li>
+     * </ul>
+     *
+     * @throws IOException     If an I/O error occurs during file processing or storage operations.
+     * @throws MusialException If an error specific to the application logic occurs.
      */
     public void run() throws IOException, MusialException {
         // Process VCF files and load variants into storage.
-        Logging.logInfo("Load variant calls.");
-        vcfProcessor.processFiles();
+        if (!cli.vcfFiles.isEmpty()) {
+            try (VCFProcessor vcfProcessor = new VCFProcessor(cli.vcfFiles, storage, !storage.hasReference())) {
+                Logging.logInfo("Analyze VCF files.");
+                vcfProcessor.processFiles();
+                Logging.logDone("Processed %d variant calls from %d VCF file(s). %d calls were ignored, %d calls were filtered.".formatted(
+                        vcfProcessor.getProcessedCallsCount(), cli.vcfFiles.size(), vcfProcessor.getIgnoredCallsCount(),
+                        vcfProcessor.getFilteredCallsCount()));
+
+                // Reload existing variant calls from the storage.
+                Logging.logInfo("Load existing variant calls.");
+                int loadedCount = vcfProcessor.loadVariantCallsFromStorage();
+                Logging.logDone("Loaded %d existing variant calls.".formatted(loadedCount));
+
+                // Detach samples that are already present in the storage to avoid duplication.
+                vcfProcessor.getSamples().forEach(sampleIdentifier -> {
+                    if (storage.hasSample(sampleIdentifier)) {
+                        // Retain sample attributes from existing storage.
+                        cli.vcfMeta.put(sampleIdentifier, storage.getSample(sampleIdentifier).getAttributes());
+
+                        // Detach existing sample to avoid duplication.
+                        storage.detachSample(sampleIdentifier);
+                    }
+                });
+
+                // Update variants from the processed VCF data.
+                Logging.logInfo("Update variants.");
+                vcfProcessor.updateVariants();
+                Logging.logDone("");
+            }
+        } else {
+            Logging.logInfo("No VCF files provided, skip VCF file analysis.");
+        }
+
+        // Update sample attributes from metadata.
         storageUpdater.updateSampleAttributes(cli.vcfMeta);
-        //storageUpdater.updateVariants();
-        Logging.logDone("Processed %d variant calls from %d VCF file(s). %d calls were ignored, %d calls were filtered.".formatted(
-                vcfProcessor.getProcessedCallsCount(), cli.vcfFiles.size(), vcfProcessor.getIgnoredCallsCount(), vcfProcessor.getFilteredCallsCount()));
 
         // Determine working path for output files.
         Path path;
@@ -87,8 +126,8 @@ public class ExecutorExpand {
             Logging.logWarning("Skip variant annotation; no features are available.");
         } else if (storage.getFeatures().stream().allMatch(f -> f.type.equals("region"))) {
             Logging.logWarning("Skip variant annotation; all features are of type region.");
-        } else if (storage.getNovelVariantsCount() == 0) {
-            Logging.logWarning("Skip variant annotation; no novel variants to annotate.");
+        } else if (storage.getActiveVariantsCount() == 0) {
+            Logging.logWarning("Skip variant annotation; no active variants to annotate.");
         } else {
             Logging.logInfo("Run variant annotation with SnpEff.");
             variantAnnotator.runSnpEff(path.getParent());
@@ -112,10 +151,15 @@ public class ExecutorExpand {
         Logging.logDone("");
 
         // Write the storage data to the specified output file.
-        Logging.logInfo("Write storage to file: " + path.toAbsolutePath());
-        StorageIO.toJSON(storage, path);
-        Logging.logDone("Storage expanded with %d samples and %d variants.".formatted(storage.getSamples().size() - initialSampleCount,
-                storage.getVariantsCount() - initialVariantCount));
+        if (cli.dry) {
+            Logging.logDone("(Dry) Storage expandable by %d samples and %d variants.".formatted(storage.getSamples().size() - initialSampleCount,
+                    storage.getVariantsCount() - initialVariantCount));
+        } else {
+            Logging.logInfo("Write storage to file: " + path.toAbsolutePath());
+            StorageIO.toJSON(storage, path);
+            Logging.logDone("Storage expanded by %d samples and %d variants.".formatted(storage.getSamples().size() - initialSampleCount,
+                    storage.getVariantsCount() - initialVariantCount));
+        }
     }
 
 }
