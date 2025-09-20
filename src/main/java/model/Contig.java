@@ -327,25 +327,6 @@ public class Contig extends Attributes {
     }
 
     /**
-     * Retrieves the set of variant effects for a given list of variant stubs.
-     * <p>
-     * This method processes a list of {@link Variant.Stub} objects, retrieves the corresponding {@link Variant} objects from the contig,
-     * and extracts their associated effects. The effects are determined by accessing the attribute set of each variant using a predefined
-     * key.
-     * </p>
-     *
-     * @param variants A {@link List} of {@link Variant.Stub} objects representing the variants to process.
-     * @return A {@link Set} of {@link String} containing the effects associated with the given variants.
-     */
-    public Set<String> getVariantsEffects(List<Variant.Stub> variants) {
-        return variants.stream()
-                .map(v -> getVariant(v.position(), v.alternative())) // Retrieve the Variant object for each stub.
-                .filter(Objects::nonNull) // Ensure only non-null Variant objects are processed.
-                .flatMap(V -> V.getAttributeSet(Constants.SNP_EFF_PREFIX + Constants.SNP_EFF_KEYS.get(1)).stream())
-                .collect(Collectors.toSet()); // Collect the effects into a set to ensure uniqueness.
-    }
-
-    /**
      * Adds a variant to the contig's variant map.
      * <p>
      * This method ensures that the {@code variants} map contains an entry for the specified position. If no entry exists, a new
