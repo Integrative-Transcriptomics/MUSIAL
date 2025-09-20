@@ -490,7 +490,7 @@ public class VCFProcessor implements Closeable {
                         // Handle upstream-deletion cases and ensure canonical formatting.
                         if (ALT.equals("*")) {
                             REF = REF.substring(0, 1);
-                        } else if (Bio.isCanonicalVariant(REF, ALT)) {
+                        } else if (Bio.isCanonical(REF, ALT)) {
                             REF = Bio.padGaps(REF, ALT.length());
                             ALT = Bio.padGaps(ALT, REF.length());
                         } else {
@@ -499,7 +499,7 @@ public class VCFProcessor implements Closeable {
                             REF = Strings.CS.removeEnd(REF, commonSuffix);
                             ALT = Strings.CS.removeEnd(ALT, commonSuffix);
 
-                            if (Bio.isCanonicalVariant(REF, ALT)) {
+                            if (Bio.isCanonical(REF, ALT)) {
                                 REF = Bio.padGaps(REF, ALT.length());
                                 ALT = Bio.padGaps(ALT, REF.length());
                             } else {
@@ -685,7 +685,7 @@ public class VCFProcessor implements Closeable {
                 Consumer<Integer> resolve = (position) -> {
                     String referenceContent = referenceBuilder.toString();
                     String alternativeContent = alternativeBuilder.toString();
-                    if (!Bio.isPaddedCanonicalVariant(referenceContent, alternativeContent)) {
+                    if (!Bio.isPaddedCanonical(referenceContent, alternativeContent)) {
                         Tuple<String, String> alignment =
                                 Bio.globalNucleotideSequenceAlignment(
                                         Bio.stripGaps(referenceBuilder.toString()),
