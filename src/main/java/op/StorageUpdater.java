@@ -3,7 +3,6 @@ package op;
 import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;
 import model.*;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
 import util.Bio;
 import util.Constants;
 import util.IO;
@@ -16,8 +15,7 @@ import java.util.stream.Collectors;
  * Encapsulates complex update logic for genomic data storage from the {@link Storage} class itself.
  * <p>
  * This class provides methods to update sample attributes, process variant calls from {@link Sample} instances into {@link Variant}s in
- * stored {@link Contig}s, calculate sequence types, and generate statistics. This is mainly to keep the {@link Storage} class cleaner and
- * more close to a POJO.
+ * stored {@link Contig}s, calculate sequence types, and generate statistics.
  * <p>
  * The single update methods should be called only once the relevant data is loaded into the {@link Storage} instance, e.g.
  * {@link #updateSequenceTypes()} without prior processing of VCF files will not have any effect.
@@ -87,20 +85,35 @@ public class StorageUpdater {
             Contig contig = storage.getContig(feature.contig);
 
             // Iterate through all samples to infer allele sequence types.
+            // Todo: Only active samples here!
             for (Sample sample : storage.getSamples()) {
                 // Update allele.
                 Allele allele;
                 String alleleIdentifier = sample.getRelatedAllele(feature._id);
-                List<Variant.Stub> variants;
+                List<Variant> variants;
 
                 // Note: In this special case, a returned reference allele may also indicate the presence of a new allele.
                 if (alleleIdentifier.equals(Constants.REFERENCE)) {
                     // Retrieve variants for the sample within the feature's range.
-                    variants = Bio.variantsAsStub(contig.getVariants(feature.start, feature.end, sample._id));
-                    if (variants.isEmpty()) continue; // The sample has the reference allele; skip further processing.
+                    variants = contig.getVariantsOfSamplesWithin(feature.start, feature.end, sample._id);
 
-                    // Determine the allele from the sample's variants.
-                    allele = new Allele(variants);
+                    // Construct stubs and collect effects.
+                    List<Variant.Stub> stubs = new ArrayList<>(variants.size());
+                    Set<String> effects = new HashSet<>();
+                    for (Variant variant : variants) {
+                        if (!variant.isFiltered(sample._id)) {
+                            stubs.add(variant.asStub());
+                            effects.addAll(variant.getAttributeSet(Constants.SNP_EFF_PREFIX + Constants.SNP_EFF_KEYS.get(1)));
+                        } else if (storage.parameters.maskFiltered()) {
+                            stubs.add(variant.asMaskedStub());
+                        }
+                    }
+
+                    // If no variants/stubs are present, continue to the next sample.
+                    if (stubs.isEmpty()) continue;
+
+                    // Determine the allele based on the stubs.
+                    allele = new Allele(stubs);
 
                     // Check if the allele already exists for the feature, i.e., was created by another sample.
                     if (feature.hasAllele(allele._id)) {
@@ -109,7 +122,6 @@ public class StorageUpdater {
                         // Calculate sequence length deviation and frameshift effects.
                         int lengthDelta = Integer.parseInt(allele.getAttribute(Constants.AttributesKeys.SEQUENCE_LENGTH_DEVIATION));
                         int netFrameshift = Math.abs(lengthDelta % 3);
-                        Set<String> effects = contig.getVariantsEffects(variants);
 
                         // Add frameshift effects if applicable.
                         if (netFrameshift != 0) {
@@ -119,7 +131,8 @@ public class StorageUpdater {
                         allele.setAttribute(Constants.AttributesKeys.SO_EFFECTS, String.join(Constants.COMMA, effects));
 
                         // Add relations between variants and the allele.
-                        for (Variant.Stub stub : variants) {
+                        for (Variant.Stub stub : stubs) {
+                            if (stub.alternative().equals(Constants.ANY_NUCLEOTIDE)) continue;
                             contig.getVariant(stub.position(), stub.alternative()).addRelation(feature._id, allele._id);
                         }
 
@@ -128,7 +141,7 @@ public class StorageUpdater {
                     }
 
                     // Add relations between the allele, sample, and feature.
-                    allele.addRelation(sample._id);
+                    allele.addRelatedSampleIdentifier(sample._id);
                     sample.addRelation(feature._id, allele._id);
                 }
             }
@@ -141,27 +154,29 @@ public class StorageUpdater {
                     Proteoform proteoform;
 
                     // Skip if a proteoform is already assigned.
-                    String proteoformIdentifier = allele.getProteoform();
+                    String proteoformIdentifier = allele.getRelatedProteoformIdentifier();
                     if (proteoformIdentifier != null) continue;
 
-                    // Construct a position-sorted map of variants for the allele.
+                    // Construct a position-sorted map of variants/stubs of the allele.
                     NavigableMap<Integer, String> variants = new TreeMap<>();
-                    allele.getVariants().forEach(stub -> variants.put(stub.position(), stub.alternative()));
+                    allele.getStubs().forEach(stub -> variants.put(stub.position() - feature.start, stub.alternative()));
 
                     // Translate the reference and allele sequences.
-                    String referenceSequence = Bio.translateSequence(contig.getSequence(feature.start, feature.end), feature.isReverse());
-                    String proteoformSequence = Bio.translateSequence(Bio.integrateVariants(contig, feature, variants, true),
+                    String referenceNucleotideSequence = contig.getSequence(feature.start, feature.end);
+                    String referenceAminoacidSequence = Bio.translateSequence(referenceNucleotideSequence, feature.isReverse());
+                    String proteoformSequence = Bio.translateSequence(Bio.integrateVariants(referenceNucleotideSequence, variants, true),
                             feature.isReverse());
-                    assert referenceSequence != null && proteoformSequence != null;
+                    assert proteoformSequence != null;
 
                     // Check if the proteoform sequence is synonymous with the reference sequence.
-                    if (referenceSequence.equals(proteoformSequence)) {
+                    if (referenceAminoacidSequence.equals(proteoformSequence)) {
                         proteoformIdentifier = Constants.SYNONYMOUS;
                     } else {
                         // Align sequences and extract amino acid variants.
                         Tuple<String, String> alignment = Bio.globalProteinSequenceAlignment(
-                                referenceSequence, proteoformSequence, Math.max(referenceSequence.length(), proteoformSequence.length()),
-                                6, true, false, Math.abs(referenceSequence.length() - proteoformSequence.length())
+                                referenceAminoacidSequence, proteoformSequence, Math.max(referenceAminoacidSequence.length(),
+                                        proteoformSequence.length()),
+                                6, true, false, Math.abs(referenceAminoacidSequence.length() - proteoformSequence.length())
                         );
 
                         List<Variant.Stub> aaVariants = Bio.getCanonicalVariants(alignment.a, alignment.b).stream()
@@ -180,21 +195,30 @@ public class StorageUpdater {
                             String alleleEffects = allele.getAttribute(Constants.AttributesKeys.SO_EFFECTS);
 
                             // Add specific effects based on the proteoform's variants.
-                            if (alleleEffects.contains("frameshift")) effects.add("frameshift_sequence_variation");
-                            if (aaVariants.stream().anyMatch(aav -> Bio.isInsertion(aav.alternative())))
+                            if (alleleEffects.contains("frameshift")) {
+                                effects.add("frameshift_sequence_variation");
+                            }
+                            if (aaVariants.stream().anyMatch(aav -> Bio.isInsertion(aav.alternative()))) {
                                 effects.add("amino_acid_insertion");
-                            if (aaVariants.stream().anyMatch(aav -> Bio.isDeletion(aav.alternative())))
+                            }
+                            if (aaVariants.stream().anyMatch(aav -> Bio.isDeletion(aav.alternative()))) {
                                 effects.add("amino_acid_deletion");
-                            if (proteoform.hasVariantAt(1) && proteoform.getVariant(1).charAt(0) != referenceSequence.charAt(0))
+                            }
+                            if (aaVariants.stream().anyMatch(aav -> Bio.isSubstitution(aav.alternative()))) {
+                                effects.add("amino_acid_substitution");
+                            }
+                            if (proteoform.hasVariantAt(1) && proteoform.getVariant(1).charAt(0) != referenceAminoacidSequence.charAt(0)) {
                                 effects.add("start_lost");
+                            }
                             aaVariants.stream()
                                     .filter(aav -> aav.alternative().contains(Constants.TERMINAL_AA))
                                     .findFirst()
                                     .ifPresent(stopCodonVariant -> {
                                         int stopCodonPosition = stopCodonVariant.position() +
                                                 stopCodonVariant.alternative().indexOf(Constants.TERMINAL_AA);
-                                        effects.add(stopCodonPosition <= referenceSequence.length() ? "stop_gained" :
-                                                "redundant_inserted_stop_gained");
+                                        String effect = stopCodonPosition <= referenceAminoacidSequence.length() ? "stop_gained" :
+                                                "redundant_inserted_stop_gained";
+                                        effects.add(effect);
                                     });
                             proteoform.setAttribute(Constants.AttributesKeys.SO_EFFECTS, String.join(Constants.COMMA, effects));
                             feature.addProteoform(proteoform);
@@ -206,7 +230,7 @@ public class StorageUpdater {
                     }
 
                     // Set the proteoform identifier for the allele.
-                    allele.setProteoform(proteoformIdentifier);
+                    allele.setRelatedProteoformIdentifier(proteoformIdentifier);
                 }
             }
         }
@@ -227,124 +251,235 @@ public class StorageUpdater {
      */
     public void updateStatistics() {
         // Calculate the total number of features, coding features, and samples.
-        long noFeatures = storage.getFeatures().size();
-        long noCodingFeatures = storage.getFeatures().stream().filter(Feature::isCoding).count();
-        long noSamples = storage.getSamples().size();
+        int noFeatures = storage.getFeatures().size();
+        int noCodingFeatures = (int) storage.getFeatures().stream().filter(Feature::isCoding).count();
+        int noSamples = storage.getSamples().size();
 
-        // Initialize maps to store per-sample substitution and InDel counts.
-        Map<String, Integer> perSampleSubstitutions = new HashMap<>();
-        Map<String, Integer> perSampleInDels = new HashMap<>();
+        // Update variant statistics.
+        statisticsOfVariants(noSamples);
 
-        // Iterate through all samples to calculate sample-specific statistics.
-        for (Sample sample : storage.getSamples()) {
-            int totalCalls = 0, filteredCalls = 0;
-            List<Short> coverages = new ArrayList<>();
-            List<Float> entropy = new ArrayList<>();
-            perSampleSubstitutions.put(sample._id, 0);
-            perSampleInDels.put(sample._id, 0);
+        // Update sample statistics.
+        statisticsOfSamples(noFeatures, noCodingFeatures);
 
-            // Process variant calls for the sample.
-            for (ImmutableTriple<String, Integer, VariantCall> item : sample.getVariantCalls(false)) {
-                VariantCall variantCall = item.right;
-                totalCalls++;
-                coverages.add(variantCall.totalDepth());
-                if (!variantCall.isFiltered()) filteredCalls++;
-                else entropy.add(variantCall.callEntropy());
+        // Update feature statistics.
+        statisticsOfFeatures(noSamples);
+    }
+
+    /**
+     * Updates statistical attributes in the {@link Storage} from iterating through all {@link Contig#variants} in all
+     * {@link Storage#contigs}.
+     * <p>
+     * This method calculates and updates various statistics for variants and samples, including:
+     * <ul>
+     *   <li>Variant frequency based on the number of related samples.</li>
+     *   <li>Per-sample counts of SNVs, insertions/deletions, and filtered calls.</li>
+     *   <li>Mean coverage and entropy for each variant.</li>
+     *   <li>Mean coverage for each sample.</li>
+     * </ul>
+     *
+     * @param noSamples The total number of samples used for statistical calculations.
+     */
+    private void statisticsOfVariants(int noSamples) {
+        // Initialize per-sample count maps for various statistics.
+        Map<String, Integer> sampleSubstitutions = new HashMap<>();
+        Map<String, Integer> sampleInDels = new HashMap<>();
+        Map<String, Integer> sampleCalls = new HashMap<>();
+        Map<String, Integer> sampleFiltered = new HashMap<>();
+        Map<String, Integer> sampleCoverage = new HashMap<>();
+
+        // Iterate through all contigs in the storage.
+        for (Contig contig : storage.getContigs()) {
+            // Iterate through all variants in the current contig.
+            for (Variant variant : contig.getAllVariants()) {
+                // Retrieve the set of samples related to the current variant.
+                Set<Tuple<String, String>> relatedSamples = variant.getRelatedSamples();
+
+                // Calculate and set the variant frequency based on the number of related samples.
+                variant.setAttribute(Constants.AttributesKeys.VARIANT_FREQUENCY,
+                        IO.formatFrequency((float) relatedSamples.size() / noSamples));
+
+                // Determine if the variant is an SNV or an insertion/deletion.
+                int cSNV = variant.type.equals(Variant.Type.SNV) ? 1 : 0;
+                int cInDel = (variant.type.equals(Variant.Type.INSERTION) || variant.type.equals(Variant.Type.DELETION)) ? 1 : 0;
+
+                // Initialize counters for atomic calls, coverage sum, and entropy sum.
+                int atomicCalls = 0;
+                short coverageSum = 0;
+                float entropySum = 0;
+
+                // Iterate through all related samples for the current variant.
+                for (Tuple<String, String> entry : relatedSamples) {
+                    String sampleIdentifier = entry.a; // Sample identifier.
+                    String[] variantCallStrings = entry.b.split(Constants.PIPE); // Variant call strings.
+
+                    // Update per-sample counts for SNVs, insertions/deletions, and total calls.
+                    sampleSubstitutions.merge(sampleIdentifier, cSNV, Integer::sum);
+                    sampleInDels.merge(sampleIdentifier, cInDel, Integer::sum);
+                    sampleCalls.merge(sampleIdentifier, variantCallStrings.length, Integer::sum);
+
+                    // Update the count of filtered calls for the sample if the variant is filtered.
+                    if (variant.isFiltered(sampleIdentifier)) {
+                        sampleFiltered.merge(sampleIdentifier, 1, Integer::sum);
+                    }
+
+                    // Process each variant call string to calculate coverage and entropy.
+                    for (String variantCallString : variantCallStrings) {
+                        atomicCalls++;
+                        String[] fields = variantCallString.split(Constants.SEMICOLON);
+                        short coverage = Short.parseShort(fields[1]); // Coverage value.
+                        coverageSum += coverage;
+                        entropySum += Float.parseFloat(fields[2]); // Entropy value.
+                        sampleCoverage.merge(sampleIdentifier, (int) coverage, Integer::sum);
+                    }
+                }
+
+                // Calculate and set the mean coverage and entropy for the variant.
+                variant.setAttribute(Constants.AttributesKeys.MEAN_COVERAGE, IO.formatNumber((float) coverageSum / atomicCalls));
+                variant.setAttribute(Constants.AttributesKeys.MEAN_ENTROPY, IO.formatNumber(entropySum / atomicCalls));
             }
+        }
 
-            // Update sample attributes with calculated statistics.
-            sample.setAttribute(Constants.AttributesKeys.NUMBER_OF_CALLS, String.valueOf(totalCalls));
-            sample.setAttribute(Constants.AttributesKeys.NUMBER_OF_FILTERED_CALLS, String.valueOf(filteredCalls));
-            sample.setAttribute(Constants.AttributesKeys.MEAN_COVERAGE,
-                    IO.formatNumber((short) coverages.stream().mapToInt(Short::intValue).average().orElse(0)));
-            sample.setAttribute(Constants.AttributesKeys.MEAN_ENTROPY,
-                    IO.formatNumber((float) entropy.stream().mapToDouble(Float::doubleValue).average().orElse(0)));
+        // Update sample attributes with the calculated statistics.
+        sampleSubstitutions.forEach((id, count) ->
+                storage.getSample(id).setAttribute(Constants.AttributesKeys.NUMBER_OF_SNVS, String.valueOf(count)));
+        sampleInDels.forEach((id, count) ->
+                storage.getSample(id).setAttribute(Constants.AttributesKeys.NUMBER_OF_INDELS, String.valueOf(count)));
+        sampleCoverage.forEach((id, value) ->
+                storage.getSample(id).setAttribute(Constants.AttributesKeys.MEAN_COVERAGE,
+                        IO.formatNumber((float) value / sampleCalls.get(id))));
+        sampleFiltered.forEach((id, count) ->
+                storage.getSample(id).setAttribute(Constants.AttributesKeys.NUMBER_OF_FILTERED_CALLS,
+                        IO.formatFrequency((float) count / sampleCalls.get(id))));
+    }
+
+    /**
+     * Updates statistical attributes in the {@link Storage} from iterating through all {@link Storage#samples}.
+     * <p>
+     * This method calculates and updates the following statistics for each sample:
+     * <ul>
+     *   <li>Frequency of reference alleles: The proportion of features where the sample has the reference allele.</li>
+     *   <li>Frequency of disrupted coding features: The proportion of coding features where the sample's proteoform is disrupted.</li>
+     * </ul>
+     *
+     * @param noFeatures       The total number of features in the storage, used to calculate reference allele frequency.
+     * @param noCodingFeatures The total number of coding features in the storage, used to calculate disrupted feature frequency.
+     */
+    private void statisticsOfSamples(int noFeatures, int noCodingFeatures) {
+        // Iterate through all samples in the storage.
+        for (Sample sample : storage.getSamples()) {
+            // Retrieve the set of alleles related to the current sample.
+            Set<Tuple<String, String>> alleles = sample.getRelatedAlleles();
+
+            // Calculate and set the frequency of reference alleles for the sample.
             sample.setAttribute(Constants.AttributesKeys.FREQUENCY_REFERENCE,
-                    IO.formatFrequency(1 - (sample.getRelatedAllelesCount() / (float) noFeatures)));
+                    IO.formatFrequency(1 - (float) alleles.size() / noFeatures));
 
-            // Calculate disrupted coding feature frequency if typing is not skipped.
-            if (!storage.parameters.skipTyping()) {
-                int disrupted = 0;
-                for (Tuple<String, String> item : sample.getRelatedAlleles()) {
-                    Feature feature = storage.getFeature(item.a);
-                    if (feature.isCoding()) {
-                        String proteoformIdentifier = feature.getAllele(item.b).getProteoform();
-                        if (!Constants.SYNONYMOUS.equals(proteoformIdentifier)) {
-                            var effects = feature.getProteoform(proteoformIdentifier)
-                                    .getAttributeSet(Constants.AttributesKeys.SO_EFFECTS);
-                            if (effects.contains("start_lost") || effects.contains("stop_gained")) disrupted++;
+            int disrupted = 0; // Counter for disrupted coding features.
+
+            // Iterate through all alleles related to the sample.
+            for (var entry : alleles) {
+                // Retrieve the feature associated with the allele.
+                Feature feature = storage.getFeature(entry.a);
+
+                // Check if the feature is coding and its proteoform is disrupted.
+                if (feature.isCoding()) {
+                    String proteoformIdentifier = feature.getAllele(entry.b).getRelatedProteoformIdentifier();
+                    if (!Objects.equals(proteoformIdentifier, Constants.SYNONYMOUS)) {
+                        if (feature.getProteoform(proteoformIdentifier).isDisrupted()) {
+                            disrupted++; // Increment the disrupted feature counter.
                         }
                     }
                 }
-                sample.setAttribute(Constants.AttributesKeys.FREQUENCY_DISRUPTED,
-                        IO.formatFrequency(disrupted / (float) noCodingFeatures));
             }
+
+            // Calculate and set the frequency of disrupted coding features for the sample.
+            sample.setAttribute(Constants.AttributesKeys.FREQUENCY_DISRUPTED,
+                    IO.formatFrequency((float) disrupted / noCodingFeatures));
         }
+    }
 
-        // Iterate through all contigs to calculate variant frequencies and sample-specific variant counts.
-        for (Contig contig : storage.getContigs()) {
-            for (Variant variant : contig.getVariants()) {
-                int sampleCount = variant.getRelatedSamples().size();
-                variant.setAttribute(Constants.AttributesKeys.VARIANT_FREQUENCY,
-                        IO.formatFrequency(sampleCount / (float) noSamples));
-                for (String sampleIdentifier : variant.getRelatedSamples()) {
-                    Map<String, Integer> targetMap = switch (variant.type) {
-                        case SNV -> perSampleSubstitutions;
-                        case INSERTION, DELETION -> perSampleInDels;
-                    };
-                    targetMap.put(sampleIdentifier, targetMap.get(sampleIdentifier) + 1);
-                }
-            }
-        }
+    /**
+     * Updates statistical attributes in the {@link Storage} from iterating through all {@link Feature}.
+     * <p>
+     * This method calculates and updates various statistics for each feature, including:
+     * <ul>
+     *   <li>Allelic frequency and diversity.</li>
+     *   <li>Proteoform frequency, diversity, and disrupted proteoform counts (if the feature is coding).</li>
+     * </ul>
+     * <p>
+     * The {@code diversity} is based on the Simpson-Index and yields the probability that two randomly drawn samples of the population
+     * do not have the same allele/proteoform, i.e., a value of {@code 0} indicates no diversity (all samples have the same
+     * allele/proteoform), whereas a value of {@code 1} indicates maximum diversity (all samples have different alleles/proteoforms).
+     *
+     * @param noSamples The total number of samples used for statistical calculations.
+     */
+    private void statisticsOfFeatures(int noSamples) {
+        // Calculate the denominator for diversity calculations.
+        float complexityDenominator = noSamples * (noSamples - 1);
 
-        // Update sample attributes with substitution and InDel counts.
-        perSampleSubstitutions.forEach((sampleIdentifier, count) -> storage.getSample(sampleIdentifier)
-                .setAttribute(Constants.AttributesKeys.NUMBER_OF_SNVS, String.valueOf(count)));
-        perSampleInDels.forEach((sampleIdentifier, count) -> storage.getSample(sampleIdentifier)
-                .setAttribute(Constants.AttributesKeys.NUMBER_OF_INDELS, String.valueOf(count)));
-
-        // Initialize a map to store proteoform occurrences for features.
-        Map<String, Integer> perProteoformOccurrence = new HashMap<>();
-
-        // Iterate through all features to calculate feature-specific statistics.
+        // Iterate through all features in the storage.
         for (Feature feature : storage.getFeatures()) {
-            float nonReferenceOccurrence = 0;
-            int disrupted = 0;
-            perProteoformOccurrence.clear();
+            // Determine if the feature is coding and typing is not skipped.
+            boolean typedCoding = !storage.parameters.skipTyping() && feature.isCoding();
+            int alternativeAlleleCount = 0; // Count of alternative alleles across all samples.
+            float alleleDiversity = 0; // Diversity measure for alleles.
 
-            // Process alleles for the feature.
+            int disruptedProteoformCount = 0; // Count of disrupted proteoforms.
+            float proteoformDiversity = 0; // Diversity measure for proteoforms.
+            Map<String, Integer> proteoformCounts = new HashMap<>(); // Map to store proteoform counts.
+
+            // Iterate through all alleles of the feature.
             for (Allele allele : feature.getAlleles()) {
-                int alleleOccurrence = allele.getRelatedSamplesCount();
-                allele.setAttribute(Constants.AttributesKeys.ALLELIC_FREQUENCY,
-                        IO.formatFrequency(alleleOccurrence / (float) noSamples));
-                nonReferenceOccurrence += alleleOccurrence;
+                int count = allele.getRelatedSamplesCount(); // Number of samples related to the allele.
+                allele.setAttribute(Constants.AttributesKeys.ALLELIC_FREQUENCY, IO.formatFrequency(count / (float) noSamples));
+                alternativeAlleleCount += count;
+                alleleDiversity += (count * (count - 1)) / complexityDenominator;
 
-                // Calculate proteoform frequencies and disrupted proteoform counts if typing is not skipped.
-                if (!storage.parameters.skipTyping() && feature.isCoding()) {
-                    String proteoformUid = allele.getProteoform();
-                    if (!Objects.equals(proteoformUid, Constants.SYNONYMOUS)) {
-                        Collection<String> effects = feature.getProteoform(proteoformUid)
+                // If the feature is coding, process proteoform-related statistics.
+                if (typedCoding) {
+                    String proteoformIdentifier = allele.getRelatedProteoformIdentifier();
+                    if (!Objects.equals(proteoformIdentifier, Constants.SYNONYMOUS)) {
+                        Collection<String> effects = feature.getProteoform(proteoformIdentifier)
                                 .getAttributeSet(Constants.AttributesKeys.SO_EFFECTS);
-                        if (effects.contains("start_lost") || effects.contains("stop_gained")) disrupted++;
-                        perProteoformOccurrence.merge(proteoformUid, alleleOccurrence, Integer::sum);
+                        if (effects.contains("start_lost") || effects.contains("stop_gained")) {
+                            disruptedProteoformCount++;
+                        }
+                        proteoformCounts.merge(proteoformIdentifier, count, Integer::sum);
                     }
                 }
             }
 
-            // Update feature attributes with calculated statistics.
-            feature.setAttribute(Constants.AttributesKeys.FREQUENCY_REFERENCE,
-                    IO.formatFrequency(1 - (nonReferenceOccurrence / noSamples)));
-            feature.setAttribute(Constants.AttributesKeys.NUMBER_OF_ALLELES, String.valueOf(feature.getAlleleCount()));
+            // Calculate reference allele count and allele diversity.
+            int referenceAlleleCount = noSamples - alternativeAlleleCount;
+            alleleDiversity = 1 - (alleleDiversity + (referenceAlleleCount * (referenceAlleleCount - 1)) / complexityDenominator);
 
-            if (!storage.parameters.skipTyping() && feature.isCoding()) {
-                int proteoformCount = feature.getProteoformCount();
-                float disruptedFrequency = proteoformCount == 0 ? 0 : disrupted / (float) proteoformCount;
+            // Update feature attributes with allele statistics.
+            feature.setAttribute(Constants.AttributesKeys.NUMBER_OF_ALLELES, String.valueOf(feature.getAlleleCount()));
+            feature.setAttribute(Constants.AttributesKeys.FREQUENCY_REFERENCE,
+                    IO.formatFrequency(1 - (alternativeAlleleCount / (float) noSamples)));
+            feature.setAttribute(Constants.AttributesKeys.DIVERSITY_ALLELE, IO.formatNumber(alleleDiversity));
+
+            // If the feature is coding, calculate and update proteoform statistics.
+            if (typedCoding) {
+                int alternativeProteoformCount = 0;
+                for (var entry : proteoformCounts.entrySet()) {
+                    int count = entry.getValue();
+                    feature.getProteoform(entry.getKey()).setAttribute(Constants.AttributesKeys.ALLELIC_FREQUENCY,
+                            IO.formatFrequency(count / (float) noSamples));
+                    alternativeProteoformCount += count;
+                    proteoformDiversity += (count * (count - 1)) / complexityDenominator;
+                }
+
+                // Calculate reference proteoform count and proteoform diversity.
+                int referenceProteoformCount = noSamples - alternativeProteoformCount;
+                proteoformDiversity =
+                        1 - (proteoformDiversity + (referenceProteoformCount * (referenceProteoformCount - 1)) / complexityDenominator);
+
+                // Update feature attributes with proteoform statistics.
+                feature.setAttribute(Constants.AttributesKeys.NUMBER_OF_PROTEOFORMS, String.valueOf(feature.getProteoformCount()));
                 feature.setAttribute(Constants.AttributesKeys.FREQUENCY_DISRUPTED,
-                        IO.formatFrequency(disruptedFrequency));
-                feature.setAttribute(Constants.AttributesKeys.NUMBER_OF_PROTEOFORMS, String.valueOf(proteoformCount));
-                perProteoformOccurrence.forEach((proteoformUid, count) ->
-                        feature.getProteoform(proteoformUid).setAttribute(Constants.AttributesKeys.ALLELIC_FREQUENCY,
-                                IO.formatFrequency(count / (float) noSamples)));
+                        IO.formatFrequency(disruptedProteoformCount / (float) feature.getProteoformCount()));
+                feature.setAttribute(Constants.AttributesKeys.DIVERSITY_PROTEOFORM, IO.formatNumber(proteoformDiversity));
             }
         }
     }
