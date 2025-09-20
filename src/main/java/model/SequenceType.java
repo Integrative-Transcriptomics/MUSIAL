@@ -43,27 +43,23 @@ public class SequenceType extends Attributes {
         int lengthDelta = 0;
 
         // Builds a unique identifier for the sequence type based on the variants.
-        StringBuilder identifierBuilder = new StringBuilder(variants.size() * String.valueOf(variants.get(0).position()).length());
+        StringBuilder identifierBuilder = new StringBuilder();
 
         // Sorts the variants by their position in ascending order.
         variants.sort(Comparator.comparingInt(Variant.Stub::position));
 
-        // Processes each variant to populate the variants map and calculate the length deviation.
+        // Processes each variant to populate the variants map, calculate the length deviation, and build the identifier.
         for (Variant.Stub stub : variants) {
             this.variants.put(stub.position(), stub.alternative());
             identifierBuilder.append(stub.position()).append(stub.alternative());
+
             int variantLength = stub.alternative().length();
-
-            // Updates the length deviation based on the type of variant (insertion or deletion).
-            lengthDelta += Bio.isInsertion(stub.alternative()) ? variantLength - 1 :
-                    Bio.isDeletion(stub.alternative()) ? -(variantLength - 1) : 0;
+            if (Bio.isInsertion(stub.alternative())) {
+                lengthDelta += variantLength - 1;
+            } else if (Bio.isDeletion(stub.alternative())) {
+                lengthDelta -= (variantLength - 1);
+            }
         }
-
-        // Appends each variant's position and alternative allele to the identifier builder.
-        variants.forEach(variant -> {
-            this.variants.put(variant.position(), variant.alternative());
-            identifierBuilder.append(variant.position()).append(variant.alternative());
-        });
 
         // Generates a unique identifier for the sequence type using an MD5 hash of the identifier string.
         this._id = IO.md5Hash(identifierBuilder.toString());
@@ -135,17 +131,15 @@ public class SequenceType extends Attributes {
      *
      * @return An unmodifiable {@link List} of {@link Variant.Stub} objects.
      */
-    public List<Variant.Stub> getVariants() {
+    public List<Variant.Stub> getStubs() {
         if (this.variants.isEmpty()) {
             return Collections.emptyList();
         }
 
         // Convert map entries to Variant.Stub objects and collect into a list
-        return Collections.unmodifiableList(
-                this.variants.entrySet().stream()
-                        .map(entry -> new Variant.Stub(entry.getKey(), entry.getValue()))
-                        .toList()
-        );
+        return this.variants.entrySet().stream()
+                .map(entry -> new Variant.Stub(entry.getKey(), entry.getValue()))
+                .toList();
     }
 
     /**
@@ -163,12 +157,10 @@ public class SequenceType extends Attributes {
         }
 
         // Map entries to Variant objects, filter non-null, and collect into a list
-        return Collections.unmodifiableList(
-                this.variants.entrySet().stream()
-                        .map(entry -> contig.getVariant(entry.getKey(), entry.getValue()))
-                        .filter(Objects::nonNull)
-                        .toList()
-        );
+        return this.variants.entrySet().stream()
+                .map(entry -> contig.getVariant(entry.getKey(), entry.getValue()))
+                .filter(Objects::nonNull)
+                .toList();
     }
 
 }
