@@ -449,9 +449,9 @@ public record VariantCall(Flag flag, short depth, float entropy, List<CallAltern
      */
     public static boolean isFiltered(String s) {
         String[] calls = s.split(Constants.PIPE);
-        return Arrays.stream(calls).anyMatch(c -> c.startsWith(Flag.LOW_COVERAGE.name())
-                || c.startsWith(Flag.LOW_FREQUENCY.name())
-                || c.startsWith(Flag.MISSING_UPSTREAM_DELETION.name()));
+        return Arrays.stream(calls).anyMatch(c -> c.startsWith(Flag.LOW_COVERAGE.toString().toLowerCase())
+                || c.startsWith(Flag.LOW_FREQUENCY.toString().toLowerCase())
+                || c.startsWith(Flag.MISSING_UPSTREAM_DELETION.toString().toLowerCase()));
     }
 
 }
