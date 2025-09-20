@@ -551,7 +551,7 @@ public class Storage {
     public void addVariant(Contig contig, String sampleIdentifier, int position, String reference, String alternative,
                            Set<VariantCall> variantCalls) {
         // Validate that the variant is in a canonical padded format.
-        if (!Bio.isPaddedCanonicalVariant(reference, alternative)) {
+        if (!Bio.isPaddedCanonical(reference, alternative)) {
             throw new IllegalArgumentException("Failed to add non-canonical variant %s > %s at position %d to contig %s."
                     .formatted(reference, alternative, position, contig._id));
         }
