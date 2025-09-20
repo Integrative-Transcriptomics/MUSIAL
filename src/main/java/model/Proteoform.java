@@ -1,5 +1,7 @@
 package model;
 
+import util.Constants;
+
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -58,6 +60,11 @@ public class Proteoform extends SequenceType {
      */
     public void addRelation(String alleleIdentifier) {
         this.alleles.add(alleleIdentifier);
+    }
+
+    public boolean isDisrupted( ) {
+        Set<String> soEffects = getAttributeSet(Constants.AttributesKeys.SO_EFFECTS);
+        return soEffects.contains("start_lost") || soEffects.contains("stop_gained");
     }
 
     /**
