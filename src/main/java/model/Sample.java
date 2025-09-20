@@ -37,6 +37,15 @@ public class Sample extends Attributes {
     private final Map<String, String> alleles;
 
     /**
+     * Indicates whether the sample is active.
+     * <p>
+     * This boolean flag is used to mark samples that are new or were modified. It is set to {@code true} for newly created or touched
+     * entries, but will not be serialized. During deserialization, it is assumed that all samples are idle and should be set to
+     * {@code false} (see {@link Storage#typeAdapter()}).
+     */
+    protected transient boolean active;
+
+    /**
      * Constructs a new {@link Sample} instance with the specified id and initial capacity for the alleles map.
      * <p>
      * This constructor initializes a {@link Sample} object with the given identifier and allocates a {@link HashMap} instance for the
@@ -53,6 +62,7 @@ public class Sample extends Attributes {
         super(); // Call the constructor of the superclass to initialize inherited properties.
         this._id = identifier; // Assign the unique identifier to the _id field.
         this.alleles = new HashMap<>(capacityFeatures); // Initialize the alleles map with the specified capacity.
+        this.active = true; // Mark the sample as active upon creation.
     }
 
     /**

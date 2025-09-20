@@ -668,6 +668,9 @@ public class Storage {
                 // Initialize the transient sequence cache for each contig in the storage.
                 storage.contigs.values().forEach(contig -> contig.sequenceCache = new HashMap<>());
 
+                // Initialize all samples as idle.
+                storage.samples.values().forEach(sample -> sample.active = false);
+
                 return storage;
             }
         };
