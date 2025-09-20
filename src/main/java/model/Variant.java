@@ -293,12 +293,24 @@ public class Variant extends Attributes {
      * Converts this variant to a simplified stub representation.
      * <p>
      * This method creates a {@link Variant.Stub} object that encapsulates the position and alternative allele of this variant. The stub
-     * serves as a simplified representation of the variant, which can be used for indexing or identification purposes.
+     * serves as a simplified representation of the variant.
      *
      * @return A {@link Variant.Stub} object containing the position and alternative allele of this variant.
      */
-    public Variant.Stub toStub() {
+    public Variant.Stub asStub() {
         return new Variant.Stub(this.position, this.alternative);
+    }
+
+    /**
+     * Converts this variant to a masked stub representation.
+     * <p>
+     * This method creates a {@link Variant.Stub} object that encapsulates the position of this variant and a masked alternative allele
+     * represented by {@link Constants#ANY_NUCLEOTIDE}.
+     *
+     * @return A {@link Variant.Stub} object containing the position of this variant and a masked alternative allele.
+     */
+    public Variant.Stub asMaskedStub() {
+        return new Variant.Stub(this.position, Constants.ANY_NUCLEOTIDE);
     }
 
     /**
