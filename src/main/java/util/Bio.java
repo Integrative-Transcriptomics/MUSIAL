@@ -2,9 +2,6 @@ package util;
 
 import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;
-import model.Contig;
-import model.Feature;
-import model.Variant;
 import org.apache.commons.lang3.tuple.Triple;
 import org.biojava.nbio.core.sequence.DNASequence;
 import org.biojava.nbio.core.sequence.compound.AmbiguityDNACompoundSet;
@@ -14,9 +11,9 @@ import org.biojava.nbio.core.sequence.template.Sequence;
 import org.biojava.nbio.core.sequence.transcription.Frame;
 import org.biojava.nbio.core.sequence.transcription.TranscriptionEngine;
 
-import java.io.IOException;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.NavigableMap;
 
 /**
  * Utility class for performing various sequence related operations.
@@ -372,64 +369,61 @@ public final class Bio {
     }
 
     /**
-     * Integrates variants into a reference sequence for a given feature.
+     * Integrates variants into a reference sequence.
      * <p>
-     * This method processes a reference sequence from a specified contig and feature, integrating variants provided in a map. Variants can
-     * include single nucleotide variants (SNVs), insertions, and deletions. The resulting sequence can optionally have gaps stripped.
+     * This method modifies the given reference sequence by incorporating the specified variants. Variants are represented as a
+     * {@link NavigableMap} where the key is the 0-based position in the reference sequence, and the value is the alternative base
+     * sequence.
      * <p>
-     * Upstream deletions are handled by skipping affected positions and logging a warning.
+     * Variants have to be in canonical form, i.e. they must start with a non-gap character that is assumed to be in the coordinate system
+     * of the reference sequence. If additional characters follow, these have to be all gaps (indicating a deletion) or all non-gaps
+     * (indicating an insertion).
+     * <p>
+     * The method handles deletions by tracking the number of gaps introduced and ensures that the resulting sequence reflects the
+     * integrated variants. Optionally, gaps can be stripped from the final sequence.
      *
-     * @param contig    The {@link Contig} object containing the reference sequence.
-     * @param feature   The {@link Feature} object specifying the region of interest.
-     * @param variants  A {@link NavigableMap} mapping positions to variant strings.
-     * @param stripGaps A boolean indicating whether to remove gaps from the resulting sequence.
-     * @return A {@link String} representing the updated sequence with integrated variants.
-     * @throws IOException              If an error occurs while accessing the contig sequence.
-     * @throws IllegalArgumentException If the contig does not have a sequence or the feature is incompatible.
+     * @param reference The original reference sequence as a {@link String}.
+     * @param variants  A {@link NavigableMap} containing the variants to integrate, where the key is the position and the value is the
+     *                  alternative base sequence in canonical form.
+     * @param stripGaps A {@code boolean} indicating whether to remove gaps from the resulting sequence.
+     * @return A {@link String} representing the reference sequence with the integrated variants. If {@code stripGaps} is {@code true}, gaps
+     * are removed from the resulting sequence.
+     * @throws IllegalArgumentException If the reference sequence is empty.
      */
-    public static String integrateVariants(Contig contig, Feature feature, NavigableMap<Integer, String> variants, boolean stripGaps) throws IOException {
-        // Validate contig and feature compatibility.
-        if (!contig.hasSequence()) {
-            throw new IllegalArgumentException("Contig %s does not have a sequence.".formatted(contig._id));
-        }
-        if (!Objects.equals(feature.contig, contig._id)) {
-            throw new IllegalArgumentException("Contig %s is not the parent of feature %s.".formatted(feature.name, contig._id));
-        }
+    public static String integrateVariants(String reference, NavigableMap<Integer, String> variants, boolean stripGaps) {
+        // Validate input and return early if no processing is needed.
+        if (reference.isEmpty()) throw new IllegalArgumentException("Reference sequence is empty.");
+        if (variants.isEmpty()) return reference;
 
-        // Initialize variables for processing.
-        char[] referenceChars = contig.getSequence(feature.start, feature.end).toCharArray();
-        StringBuilder result = new StringBuilder(referenceChars.length);
-        int deletionCount = 0;
+        // Initialize result builder and deletion counter.
+        StringBuilder result = new StringBuilder(reference.length());
+        int deletions = 0;
 
-        // Iterate through the reference sequence positions.
-        for (int pos = feature.start, idx = 0; idx < referenceChars.length; pos++, idx++) {
-            if (variants.containsKey(pos)) {
-                String variant = variants.get(pos);
-
-                // Handle upstream deletions.
-                if (deletionCount > 0) {
+        // Process each position in the reference sequence.
+        for (int i = 0; i < reference.length(); i++) {
+            // Check if a variant exists at the current position.
+            if (variants.containsKey(i)) {
+                String variant = variants.get(i);
+                // Handle deletions by appending gaps if needed.
+                if (deletions > 0) {
                     result.append(Constants.GAP);
-                    deletionCount--;
-                    Logging.logDebug("Skip variant %s at position %d due to upstream deletion.".formatted(variant, pos));
-                    continue;
+                    deletions--;
+                } else {
+                    // Append the first character of the variant.
+                    result.append(variant.charAt(0));
                 }
-
-                // Process variant types.
-                switch (contig.getVariant(pos, variant).type) {
-                    case SNV, INSERTION -> result.append(variant);
-                    case DELETION -> {
-                        result.append(variant.charAt(0));
-                        deletionCount += variant.length() - 1;
-                    }
+                // Handle insertions, deletions, or invalid variants.
+                if (isInsertion(variant)) {
+                    result.append(variant.substring(1));
+                } else if (isDeletion(variant)) {
+                    deletions += variant.length() - 1;
+                } else if (!isSubstitution(variant)) {
+                    throw new IllegalArgumentException("Invalid variant '%s' at position %d.".formatted(variant, i));
                 }
             } else {
-                // Handle gaps from deletions or append reference character.
-                if (deletionCount > 0) {
-                    result.append(Constants.GAP);
-                    deletionCount--;
-                } else {
-                    result.append(referenceChars[idx]);
-                }
+                // Append gaps or the current character from the reference sequence.
+                result.append(deletions > 0 ? Constants.GAP : reference.charAt(i));
+                if (deletions > 0) deletions--;
             }
         }
 
@@ -617,7 +611,7 @@ public final class Bio {
      * @return {@code true} if the alternative content represents an insertion, {@code false} otherwise.
      */
     public static boolean isInsertion(String alt) {
-        return alt != null && !alt.isEmpty() && alt.chars().noneMatch(c -> Constants.BASE_SYMBOLS.indexOf(c) == -1);
+        return alt.length() > 1 && alt.chars().noneMatch(c -> Constants.BASE_SYMBOLS.indexOf(c) == -1);
     }
 
     /**
@@ -658,10 +652,7 @@ public final class Bio {
      * @return {@code true} if the alternative content represents a deletion, {@code false} otherwise.
      */
     public static boolean isDeletion(String alt) {
-        if (alt == null || alt.isEmpty()) {
-            return false;
-        }
-        return Constants.BASE_SYMBOLS.indexOf(alt.charAt(0)) != -1 && alt.chars().skip(1).noneMatch(c -> c != Constants.GAP_CHAR);
+        return alt.length() > 1 && Constants.BASE_SYMBOLS.indexOf(alt.charAt(0)) != -1 && alt.chars().skip(1).noneMatch(c -> c != Constants.GAP_CHAR);
     }
 
     /**
@@ -674,14 +665,14 @@ public final class Bio {
      *     <li>an un-padded canonical deletion ({@link #isDeletion}).</li>
      * </ul>
      *
-     * @param referenceContent   The reference base content.
-     * @param alternativeContent The alternative base content.
+     * @param ref The reference base content.
+     * @param alt The alternative base content.
      * @return {@code true} if the variant is canonical, {@code false} otherwise.
      */
-    public static boolean isCanonicalVariant(String referenceContent, String alternativeContent) {
-        return isSubstitution(referenceContent, alternativeContent)
-                || isInsertion(referenceContent, alternativeContent, false)
-                || isDeletion(referenceContent, alternativeContent, false);
+    public static boolean isCanonical(String ref, String alt) {
+        return isSubstitution(ref, alt)
+                || isInsertion(ref, alt, false)
+                || isDeletion(ref, alt, false);
     }
 
     /**
@@ -694,27 +685,13 @@ public final class Bio {
      *     <li>a padded canonical deletion ({@link #isDeletion}).</li>
      * </ul>
      *
-     * @param referenceContent   The reference base content.
-     * @param alternativeContent The alternative base content.
+     * @param ref The reference base content.
+     * @param alt The alternative base content.
      * @return {@code true} if the variant is padded canonical, {@code false} otherwise.
      */
-    public static boolean isPaddedCanonicalVariant(String referenceContent, String alternativeContent) {
-        return isSubstitution(referenceContent, alternativeContent)
-                || isInsertion(referenceContent, alternativeContent, true)
-                || isDeletion(referenceContent, alternativeContent, true);
-    }
-
-    /**
-     * Reduces a list of {@link Variant} objects to a mutable list of {@link Variant.Stub}s.
-     * <p>
-     * This method processes a list of {@link Variant} objects and maps each variant to a {@link Variant.Stub} containing only the position
-     * and alternative base sequence of the variant.
-     *
-     * @param variants A list of {@link Variant} objects to be reduced.
-     * @return A {@link List} of {@link Variant.Stub} objects.
-     */
-    public static List<Variant.Stub> variantsAsStub(List<Variant> variants) {
-        // Reduce the list of variants to a list of tuples containing position and canonical base string.
-        return variants.stream().map(Variant::toStub).collect(Collectors.toList());
+    public static boolean isPaddedCanonical(String ref, String alt) {
+        return isSubstitution(ref, alt)
+                || isInsertion(ref, alt, true)
+                || isDeletion(ref, alt, true);
     }
 }
