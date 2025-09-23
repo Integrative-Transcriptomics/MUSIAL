@@ -582,7 +582,12 @@ public class Storage {
         for (Tuple<String, String> relation : sample.getRelatedAlleles()) {
             feature = features.get(relation.a);
             allele = feature.getAllele(relation.b);
-            if (allele.removeSampleRelation(sampleIdentifier)) features.get(relation.a).removeAllele(allele._id);
+            if (allele.removeSampleRelation(sampleIdentifier)) {
+                features.get(relation.a).removeAllele(allele._id);
+                for (Variant variant : allele.getVariants(getContig(feature.contig))) {
+                    variant.removeAlleleRelation(feature._id, allele._id);
+                }
+            }
         }
 
         // Remove the sample from the samples map.

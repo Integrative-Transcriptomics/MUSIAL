@@ -123,12 +123,12 @@ public class VariantAnnotator {
                                 String[] annFields = ann.split(Constants.COMMA)[0].split("\\|");
                                 for (int i = 0; i < annFields.length; i++) {
                                     if (i == 1 || i == 2 || i == 5 || i == 7 || i == 12 || i == 13) {
-                                        variant.addAttributeIfAbsent(
+                                        variant.setAttributeIfAbsent(
                                                 Constants.SNP_EFF_PREFIX + Constants.SNP_EFF_KEYS.get(i),
                                                 i == 1 ? annFields[i].replaceAll("&", Constants.COMMA) : annFields[i]
                                         );
                                     } else if (i == 6) {
-                                        variant.addAttributeIfAbsent(
+                                        variant.setAttributeIfAbsent(
                                                 Constants.SNP_EFF_PREFIX + Constants.SNP_EFF_KEYS.get(i),
                                                 annFields[i].split("-")[1]
                                         );

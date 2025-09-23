@@ -41,7 +41,7 @@ public class Variant extends Attributes {
          * @return A {@link String} representing the variant stub.
          */
         public String toString() {
-            return "%d?%s%s".formatted(position, Constants.GREATER_THAN, alternative);
+            return "%d%s%s".formatted(position, Constants.GREATER_THAN, alternative);
         }
 
         /**
@@ -218,17 +218,43 @@ public class Variant extends Attributes {
     }
 
     /**
-     * Checks if the variant call for a specific sample is filtered.
+     * Checks if the variant is filtered with respect to a specific sample.
      * <p>
-     * This method retrieves the variant call string associated with the given sample identifier from the `samples` map. It then checks if
-     * the variant call is filtered using the {@link VariantCall#isFiltered(String)} method.
+     * Retrieves the variant call string associated with the given sample identifier from the `samples` map. It then checks if the variant
+     * call is filtered using the {@link VariantCall#isFiltered(String)} method. If the sample identifier does not exist in the map, the
+     * method returns {@code false}, indicating that the variant is considered not filtered.
      *
-     * @param sampleIdentifier The unique identifier of the sample to check.
-     * @return {@code true} if the variant call for the specified sample is filtered; {@code false} otherwise.
+     * @param sampleIdentifier The identifier of the sample to check.
+     * @return {@code true} if the variant is filtered for the specified sample; {@code false} otherwise.
      */
     public boolean isFiltered(String sampleIdentifier) {
         String call = this.samples.get(sampleIdentifier);
         return call != null && VariantCall.isFiltered(call);
+    }
+
+    /**
+     * Checks if the variant is filtered with respect to all specified samples.
+     * <p>
+     * See {@link #isFiltered(String)}.
+     *
+     * @param sampleIdentifiers A variable number of sample identifiers to check.
+     * @return {@code true} if the variant is filtered for all specified samples; {@code false} otherwise.
+     */
+    public boolean isFiltered(String... sampleIdentifiers) {
+        return Arrays.stream(sampleIdentifiers).allMatch(this::isFiltered);
+    }
+
+    /**
+     * Checks if all variant calls for this variant are filtered.
+     * <p>
+     * This method iterates through all variant calls in the `samples` map and checks if each call is filtered using the
+     * {@link VariantCall#isFiltered(String)} method. If all calls are filtered, it returns {@code true}; otherwise, it returns
+     * {@code false}.
+     *
+     * @return {@code true} if all variant calls for this variant are filtered; {@code false} otherwise.
+     */
+    public boolean isFiltered() {
+        return this.samples.values().stream().allMatch(VariantCall::isFiltered);
     }
 
     /**
@@ -255,6 +281,19 @@ public class Variant extends Attributes {
      */
     public String getSampleRelation(String sampleIdentifier) {
         return this.samples.get(sampleIdentifier);
+    }
+
+    /**
+     * Retrieves a set of allele identifiers associated with a specific feature for this variant.
+     * <p>
+     * This method fetches the set of allele identifiers for the given feature identifier from the `features` map. If the feature identifier
+     * does not exist in the map, it returns an empty set.
+     *
+     * @param featureIdentifier The unique identifier of the feature whose allele relations are to be retrieved.
+     * @return A set of allele identifiers associated with the given feature identifier, or an empty set if the feature is not found.
+     */
+    public Set<String> getFeatureRelation(String featureIdentifier) {
+        return this.features.getOrDefault(featureIdentifier, Collections.emptySet());
     }
 
     /**
@@ -322,17 +361,17 @@ public class Variant extends Attributes {
      * Removes the association between a specific allele and its parent feature for this variant.
      * <p>
      * This method removes the specified allele identifier from the set of alleles associated with the given feature identifier. If the set
-     * of alleles for the feature becomes empty after the removal, the feature itself is removed from the `features` map. Finally, the
-     * method checks if the `features` map is empty and returns the result.
+     * of alleles for the feature becomes empty after the removal, the feature itself is removed from the `features` map.
+     * <p>
+     * In contrast to {@link #removeSampleRelation(String)}, no value is returned, as variants that are not associated with any features can
+     * still be valid and exist in the storage.
      *
      * @param featureIdentifier The unique identifier of the feature to disassociate the allele from.
      * @param alleleIdentifier  The unique identifier of the allele to be removed from the feature.
-     * @return {@code true} if the `features` map is empty after the removal; {@code false} otherwise.
      */
-    boolean removeAlleleRelation(String featureIdentifier, String alleleIdentifier) {
+    void removeAlleleRelation(String featureIdentifier, String alleleIdentifier) {
         features.get(featureIdentifier).remove(alleleIdentifier);
         if (features.get(featureIdentifier).isEmpty()) features.remove(featureIdentifier);
-        return features.isEmpty();
     }
 
     /**

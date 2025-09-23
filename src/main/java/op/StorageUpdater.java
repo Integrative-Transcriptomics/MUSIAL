@@ -55,7 +55,7 @@ public class StorageUpdater {
         for (var entry : attributes.entrySet()) {
             String sampleIdentifier = entry.getKey();
             if (storage.hasSample(sampleIdentifier)) {
-                storage.getSample(sampleIdentifier).addAttributesIfAbsent(entry.getValue());
+                storage.getSample(sampleIdentifier).setAttributesIfAbsent(entry.getValue());
             }
         }
     }
@@ -338,17 +338,19 @@ public class StorageUpdater {
             }
         }
 
-        // Update sample attributes with the calculated statistics.
-        sampleSubstitutions.forEach((id, count) ->
-                storage.getSample(id).setAttribute(Constants.AttributesKeys.NUMBER_OF_SNVS, String.valueOf(count)));
-        sampleInDels.forEach((id, count) ->
-                storage.getSample(id).setAttribute(Constants.AttributesKeys.NUMBER_OF_INDELS, String.valueOf(count)));
-        sampleCoverage.forEach((id, value) ->
-                storage.getSample(id).setAttribute(Constants.AttributesKeys.MEAN_COVERAGE,
-                        IO.formatNumber((float) value / sampleCalls.get(id))));
-        sampleFiltered.forEach((id, count) ->
-                storage.getSample(id).setAttribute(Constants.AttributesKeys.NUMBER_OF_FILTERED_CALLS,
-                        IO.formatFrequency((float) count / sampleCalls.get(id))));
+        // Update sample attributes with the calculated statistics
+        for (Sample sample : storage.getSamples()) {
+            sample.setAttribute(Constants.AttributesKeys.NUMBER_OF_SNVS,
+                    String.valueOf(sampleSubstitutions.getOrDefault(sample._id, 0)));
+            sample.setAttribute(Constants.AttributesKeys.NUMBER_OF_INDELS,
+                    String.valueOf(sampleInDels.getOrDefault(sample._id, 0)));
+            sample.setAttribute(Constants.AttributesKeys.MEAN_COVERAGE,
+                    IO.formatNumber((float) sampleCoverage.getOrDefault(sample._id, 0) /
+                            sampleCalls.getOrDefault(sample._id, 1)));
+            sample.setAttribute(Constants.AttributesKeys.FREQUENCY_FILTERED_CALLS,
+                    IO.formatFrequency((float) sampleFiltered.getOrDefault(sample._id, 0) /
+                            sampleCalls.getOrDefault(sample._id, 1)));
+        }
     }
 
     /**
