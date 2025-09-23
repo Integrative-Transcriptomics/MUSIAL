@@ -105,6 +105,8 @@ public final class Musial {
      *             </ul>
      */
     public static void main(String[] args) {
+        // Execution state of the program; 0 = OK, 1 = Error (internal), 2 = Error (unexpected).
+        int status = 0;
         try {
             // Initialize the logging system.
             Logging.init(LOG_VERBOSITY);
@@ -183,12 +185,14 @@ public final class Musial {
             }
         } catch (Exception e) {
             // Log the error message and stack trace, then exit with an error code.
-            if (e.getClass().equals(MusialException.class))
+            if (e.getClass().equals(MusialException.class)) {
                 Logging.logExit("An internal error has occurred: %s".formatted(e.getMessage()));
-            else
+                status = 1;
+            } else {
                 Logging.logExit("An unexpected error has occurred: %s".formatted(e.getMessage()));
+                status = 2;
+            }
             if (LOG_VERBOSITY.intValue() <= Level.FINE.intValue()) e.printStackTrace();
-            System.exit(-1);
         } finally {
             // Log the total execution time if the verbosity level is set to FINE or lower.
             if (LOG_VERBOSITY.intValue() <= Level.FINE.intValue()) {
@@ -203,6 +207,8 @@ public final class Musial {
             } catch (IOException e) {
                 Logging.logSevere(e.getMessage());
             }
+
+            System.exit(status);
         }
     }
 
