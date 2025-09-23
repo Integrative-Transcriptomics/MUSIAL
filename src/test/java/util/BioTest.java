@@ -333,7 +333,7 @@ public class BioTest {
     }
 
     @Test
-    void integrateVariantsEmptyVariants() {
+    void integrateVariantsEmptyVariants() throws MusialException {
         String reference = "ACGTACGT";
         NavigableMap<Integer, String> variants = new TreeMap<>();
         String result = Bio.integrateVariants(reference, variants, false);
@@ -345,7 +345,7 @@ public class BioTest {
         String reference = "ACGTACGT";
         NavigableMap<Integer, String> variants = new TreeMap<>();
         variants.put(2, "---");
-        assertThrowsExactly(IllegalArgumentException.class, () -> Bio.integrateVariants(reference, variants, false));
+        assertThrowsExactly(MusialException.class, () -> Bio.integrateVariants(reference, variants, false));
     }
 
     @Test
@@ -353,11 +353,11 @@ public class BioTest {
         String reference = "ACGTACGT";
         NavigableMap<Integer, String> variants = new TreeMap<>();
         variants.put(2, "A--TG");
-        assertThrowsExactly(IllegalArgumentException.class, () -> Bio.integrateVariants(reference, variants, false));
+        assertThrowsExactly(MusialException.class, () -> Bio.integrateVariants(reference, variants, false));
     }
 
     @Test
-    void integratesVariantsSimple() {
+    void integratesVariantsSimple() throws MusialException {
         String reference = "ACGTACGT";
         NavigableMap<Integer, String> variants = new TreeMap<>();
         variants.put(2, "T");
@@ -367,7 +367,7 @@ public class BioTest {
     }
 
     @Test
-    void integratesVariantsComplex() {
+    void integratesVariantsComplex() throws MusialException {
         String reference = "ACGTACGT";
         NavigableMap<Integer, String> variants = new TreeMap<>();
         variants.put(2, "T-");
@@ -378,7 +378,7 @@ public class BioTest {
     }
 
     @Test
-    void integratesVariantsComplexStripped() {
+    void integratesVariantsComplexStripped() throws MusialException {
         String reference = "ACGTACGT";
         NavigableMap<Integer, String> variants = new TreeMap<>();
         variants.put(2, "T-");
@@ -387,4 +387,99 @@ public class BioTest {
         String result = Bio.integrateVariants(reference, variants, true);
         assertEquals("ACTAGATGT", result);
     }
+
+    @Test
+    void integrateVariantsContextEmptyReference() {
+        NavigableMap<Integer, Bio.ReferenceContext> reference = new TreeMap<>();
+        NavigableMap<Integer, String> variants = new TreeMap<>();
+        variants.put(0, "A");
+        assertThrowsExactly(IllegalArgumentException.class, () -> Bio.integrateVariants(reference, variants, false));
+    }
+
+    @Test
+    void integrateVariantsContextEmptyVariants() throws MusialException {
+        NavigableMap<Integer, Bio.ReferenceContext> reference = new TreeMap<>();
+        reference.put(0, new Bio.ReferenceContext('A', 0));
+        reference.put(1, new Bio.ReferenceContext('C', 0));
+        reference.put(2, new Bio.ReferenceContext('G', 0));
+        reference.put(3, new Bio.ReferenceContext('T', 0));
+        reference.put(4, new Bio.ReferenceContext('A', 0));
+        reference.put(5, new Bio.ReferenceContext('C', 0));
+        reference.put(6, new Bio.ReferenceContext('G', 0));
+        reference.put(7, new Bio.ReferenceContext('T', 0));
+        NavigableMap<Integer, String> variants = new TreeMap<>();
+        String result = Bio.integrateVariants(reference, variants, false);
+        assertEquals("ACGTACGT", result);
+    }
+
+    @Test
+    void integrateVariantsContextNonCanonicalDeletion() {
+        NavigableMap<Integer, Bio.ReferenceContext> reference = new TreeMap<>();
+        reference.put(0, new Bio.ReferenceContext('A', 0));
+        reference.put(1, new Bio.ReferenceContext('C', 0));
+        reference.put(2, new Bio.ReferenceContext('G', 0));
+        reference.put(3, new Bio.ReferenceContext('T', 0));
+        reference.put(4, new Bio.ReferenceContext('A', 0));
+        reference.put(5, new Bio.ReferenceContext('C', 0));
+        reference.put(6, new Bio.ReferenceContext('G', 0));
+        reference.put(7, new Bio.ReferenceContext('T', 0));
+        NavigableMap<Integer, String> variants = new TreeMap<>();
+        variants.put(2, "---");
+        assertThrowsExactly(MusialException.class, () -> Bio.integrateVariants(reference, variants, false));
+    }
+
+    @Test
+    void integrateVariantsContextNonCanonicalInDel() {
+        NavigableMap<Integer, Bio.ReferenceContext> reference = new TreeMap<>();
+        reference.put(0, new Bio.ReferenceContext('A', 0));
+        reference.put(1, new Bio.ReferenceContext('C', 0));
+        reference.put(2, new Bio.ReferenceContext('G', 0));
+        reference.put(3, new Bio.ReferenceContext('T', 0));
+        reference.put(4, new Bio.ReferenceContext('A', 0));
+        reference.put(5, new Bio.ReferenceContext('C', 0));
+        reference.put(6, new Bio.ReferenceContext('G', 0));
+        reference.put(7, new Bio.ReferenceContext('T', 0));
+        NavigableMap<Integer, String> variants = new TreeMap<>();
+        variants.put(2, "A--TG");
+        assertThrowsExactly(MusialException.class, () -> Bio.integrateVariants(reference, variants, false));
+    }
+
+    @Test
+    void integratesVariantsContextSimple() throws MusialException {
+        NavigableMap<Integer, Bio.ReferenceContext> reference = new TreeMap<>();
+        reference.put(0, new Bio.ReferenceContext('A', 0));
+        reference.put(1, new Bio.ReferenceContext('C', 0));
+        reference.put(2, new Bio.ReferenceContext('G', 0));
+        reference.put(3, new Bio.ReferenceContext('T', 0));
+        reference.put(4, new Bio.ReferenceContext('A', 0));
+        reference.put(5, new Bio.ReferenceContext('C', 0));
+        reference.put(6, new Bio.ReferenceContext('G', 0));
+        reference.put(7, new Bio.ReferenceContext('T', 0));
+        NavigableMap<Integer, String> variants = new TreeMap<>();
+        variants.put(2, "T");
+        variants.put(5, "GAA");
+        String result = Bio.integrateVariants(reference, variants, false);
+        assertEquals("ACTTAGAAGT", result);
+    }
+
+    @Test
+    void integratesVariantsContextComplex() throws MusialException {
+        NavigableMap<Integer, Bio.ReferenceContext> reference = new TreeMap<>();
+        reference.put(0, new Bio.ReferenceContext('A', 0));
+        reference.put(1, new Bio.ReferenceContext('C', 3));
+        reference.put(2, new Bio.ReferenceContext('G', 0));
+        reference.put(3, new Bio.ReferenceContext('T', 0));
+        reference.put(4, new Bio.ReferenceContext('A', 0));
+        reference.put(5, new Bio.ReferenceContext('C', 0));
+        reference.put(6, new Bio.ReferenceContext('G', 2));
+        reference.put(7, new Bio.ReferenceContext('T', 0));
+        NavigableMap<Integer, String> variants = new TreeMap<>();
+        variants.put(1, "CTG");
+        variants.put(2, "T-");
+        variants.put(3, "A");
+        variants.put(6, "GAT");
+        String result = Bio.integrateVariants(reference, variants, false);
+        assertEquals("ACTG-T-ACGATT", result);
+    }
+
 }

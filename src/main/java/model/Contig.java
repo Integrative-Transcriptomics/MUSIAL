@@ -228,6 +228,23 @@ public class Contig extends Attributes {
     }
 
     /**
+     * Retrieves variants at the specified positions.
+     * <p>
+     * This method retrieves variants from the {@code variants} map that are located at the specified positions. The resulting variants are
+     * flattened into a single list. The returned list is unmodifiable.
+     *
+     * @param positions An array of 1-based positions to retrieve variants from.
+     * @return A {@link List} of {@link Variant} objects located at the specified positions.
+     */
+    public List<Variant> getVariantsAt(int... positions) {
+        return Arrays.stream(positions)
+                .boxed()
+                .filter(this.variants::containsKey)
+                .flatMap(pos -> this.variants.get(pos).values().stream())
+                .toList();
+    }
+
+    /**
      * Retrieves variants associated with the specified sample identifiers.
      * <p>
      * This method filters the variants stored in the contig to include only those that are associated with at least one of the specified

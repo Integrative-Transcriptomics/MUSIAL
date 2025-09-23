@@ -11,9 +11,8 @@ import org.biojava.nbio.core.sequence.template.Sequence;
 import org.biojava.nbio.core.sequence.transcription.Frame;
 import org.biojava.nbio.core.sequence.transcription.TranscriptionEngine;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.NavigableMap;
+import java.util.*;
+import java.util.stream.IntStream;
 
 /**
  * Utility class for performing various sequence related operations.
@@ -27,6 +26,18 @@ public final class Bio {
      * Private constructor to prevent instantiation of this utility class.
      */
     private Bio() {
+    }
+
+    /**
+     * Represents information about a single position in a reference sequence.
+     * <p>
+     * This record stores the nucleotide or aminoacid character at a specific position and the maximum insertion length (extension)
+     * associated with a set of samples. The position itself and the samples are not stored.
+     *
+     * @param character The nucleotide or aminoacid character at the position.
+     * @param extension The maximal observed insertion length (extension) for the position.
+     */
+    public record ReferenceContext(char character, int extension) {
     }
 
     /**
@@ -389,10 +400,11 @@ public final class Bio {
      * @return A {@link String} representing the reference sequence with the integrated variants. If {@code stripGaps} is {@code true}, gaps
      * are removed from the resulting sequence.
      * @throws IllegalArgumentException If the reference sequence is empty.
+     * @throws MusialException          If an invalid variant is encountered.
      */
-    public static String integrateVariants(String reference, NavigableMap<Integer, String> variants, boolean stripGaps) {
+    public static String integrateVariants(String reference, NavigableMap<Integer, String> variants, boolean stripGaps) throws MusialException {
         // Validate input and return early if no processing is needed.
-        if (reference.isEmpty()) throw new IllegalArgumentException("Reference sequence is empty.");
+        if (reference.isEmpty()) throw new IllegalArgumentException("Specified reference sequence is empty.");
         if (variants.isEmpty()) return reference;
 
         // Initialize result builder and deletion counter.
@@ -418,12 +430,87 @@ public final class Bio {
                 } else if (isDeletion(variant)) {
                     deletions += variant.length() - 1;
                 } else if (!isSubstitution(variant)) {
-                    throw new IllegalArgumentException("Invalid variant '%s' at position %d.".formatted(variant, i));
+                    throw new MusialException("Invalid variant '%s' at position %d.".formatted(variant, i));
                 }
             } else {
                 // Append gaps or the current character from the reference sequence.
                 result.append(deletions > 0 ? Constants.GAP : reference.charAt(i));
                 if (deletions > 0) deletions--;
+            }
+        }
+
+        // Return the final sequence, optionally stripping gaps.
+        return stripGaps ? stripGaps(result.toString()) : result.toString();
+    }
+
+    /**
+     * Integrates variants into a reference sequence.
+     * <p>
+     * This method modifies the given reference sequence by incorporating the specified variants. Variants are represented as a {@link Map}
+     * where the key is the position in the reference sequence, and the value is the alternative base sequence.
+     * <p>
+     * The method handles substitutions, insertions, and deletions: - Substitutions replace the reference character at the position. -
+     * Insertions add additional characters after the reference character. - Deletions remove characters from the reference sequence.
+     * <p>
+     * The method also accounts for extensions (e.g., gaps) and ensures that the resulting sequence reflects the integrated variants.
+     * Optionally, gaps can be stripped from the final sequence.
+     *
+     * @param reference A {@link NavigableMap} representing the reference sequence, where the key is the position and the value is a
+     *                  {@link ReferenceContext} containing the character and extension at that position.
+     * @param variants  A {@link Map} containing the variants to integrate, where the key is the position and the value is the alternative
+     *                  base sequence.
+     * @param stripGaps A {@code boolean} indicating whether to remove gaps from the resulting sequence.
+     * @return A {@link String} representing the reference sequence with the integrated variants. If {@code stripGaps} is {@code true}, gaps
+     * are removed from the resulting sequence.
+     * @throws IllegalArgumentException If the reference sequence is empty or if an invalid variant is encountered.
+     * @throws MusialException          If an invalid variant is encountered.
+     */
+    public static String integrateVariants(NavigableMap<Integer, ReferenceContext> reference, Map<Integer, String> variants,
+                                           boolean stripGaps) throws MusialException {
+        // Validate input.
+        if (reference.isEmpty()) throw new IllegalArgumentException("Specified reference context is empty.");
+
+        // Initialize result builder and deletions set.
+        StringBuilder result = new StringBuilder(reference.size());
+        Set<Integer> deletions = new HashSet<>();
+
+        // Process each position in the reference sequence.
+        for (var entry : reference.entrySet()) {
+            int position = entry.getKey();
+            char referenceCharacter = entry.getValue().character();
+            int extension = entry.getValue().extension();
+
+            // Check if a variant exists at the current position.
+            if (variants.containsKey(position)) {
+                String variant = variants.get(position);
+                // Handle deletions by appending a gap, if needed.
+                if (deletions.remove(position)) {
+                    result.append(Constants.GAP);
+                } else {
+                    // Append the first character of the variant.
+                    result.append(variant.charAt(0));
+                }
+                // Add deleted positions.
+                if (isDeletion(variant)) {
+                    deletions.addAll(IntStream.rangeClosed(position + 1, position + (variant.length() - 1)).boxed().toList());
+                    if (extension > 0) result.append(Constants.GAP.repeat(extension));
+                } else if (isInsertion(variant)) {
+                    result.append(variant.substring(1));
+                    int overhang = extension - (variant.length() - 1);
+                    if (overhang > 0) result.append(Constants.GAP.repeat(overhang));
+                } else if (isSubstitution(variant)) {
+                    if (extension > 0) result.append(Constants.GAP.repeat(extension));
+                } else {
+                    throw new MusialException("Invalid variant %s at position %d.".formatted(variant, position));
+                }
+            } else {
+                // Append a gap or the current character from the reference sequence.
+                if (deletions.remove(position)) {
+                    result.append(Constants.GAP);
+                } else {
+                    result.append(referenceCharacter);
+                }
+                if (extension > 0) result.append(Constants.GAP.repeat(extension));
             }
         }
 

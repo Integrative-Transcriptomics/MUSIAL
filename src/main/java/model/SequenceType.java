@@ -143,6 +143,18 @@ public class SequenceType extends Attributes {
     }
 
     /**
+     * Retrieves an unmodifiable view of the variants map.
+     * <p>
+     * This method returns the {@link #variants} map as an unmodifiable map to ensure that the internal state of the object cannot be
+     * altered. The map contains positions as keys and their corresponding alternative alleles as values.
+     *
+     * @return An unmodifiable {@link Map} where the keys are variant positions and the values are the alternative alleles.
+     */
+    public Map<Integer, String> getVariants() {
+        return Collections.unmodifiableMap(this.variants);
+    }
+
+    /**
      * Retrieves all variants as full objects for a specific contig.
      * <p>
      * Converts the {@link #variants} map into a list of {@link Variant} objects by fetching the corresponding variant from the provided
