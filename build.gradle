@@ -98,6 +98,7 @@ dependencies {
     implementation 'com.github.java-json-tools:json-schema-validator:2.2.14'
     implementation 'org.ehcache:ehcache:3.11.1'
     implementation 'uk.co.omega-prime:btreemap:1.2.0'
+    implementation 'tech.tablesaw:tablesaw-core:0.44.4'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
 }

@@ -20,6 +20,13 @@ public class Attributes {
     private final Map<String, String> attributes = new HashMap<>();
 
     /**
+     * Static map to track attribute keys used by different classes extending {@link Attributes}.
+     * <p>
+     * The keys are stored in lowercase to ensure case-insensitive tracking.
+     */
+    public static final Map<String, Set<String>> KEYS = new HashMap<>(4);
+
+    /**
      * Constructor of {@link Attributes}.
      * <p>
      * Initializes an empty attributes map for the entity.
@@ -55,6 +62,18 @@ public class Attributes {
      */
     public String getAttribute(String key) {
         return this.attributes.getOrDefault(key, Constants.EMPTY);
+    }
+
+    /**
+     * Retrieves the value of an attribute associated with this entity. If the attribute does not exist, the specified default value is
+     * returned.
+     *
+     * @param key          The key of the attribute to retrieve.
+     * @param defaultValue The default value to return if the attribute does not exist.
+     * @return The value of the attribute, or the specified default value if the attribute does not exist.
+     */
+    public String getAttributeOrDefault(String key, String defaultValue) {
+        return this.attributes.getOrDefault(key, defaultValue);
     }
 
     /**
@@ -117,6 +136,10 @@ public class Attributes {
      */
     public void setAttribute(String key, String value) {
         this.attributes.put(key, value);
+        // Track keys per class.
+        String className = this.getClass().getName().toLowerCase();
+        KEYS.putIfAbsent(className, new HashSet<>());
+        KEYS.get(className).add(key);
     }
 
     /**
@@ -134,8 +157,14 @@ public class Attributes {
      * @param key   The key of the attribute.
      * @param value The value of the attribute.
      */
-    public void addAttributeIfAbsent(String key, String value) {
-        this.attributes.putIfAbsent(key, value);
+    public void setAttributeIfAbsent(String key, String value) {
+        String result = this.attributes.putIfAbsent(key, value);
+        // Track keys per class.
+        if (result == null) {
+            String className = this.getClass().getName().toLowerCase();
+            KEYS.putIfAbsent(className, new HashSet<>());
+            KEYS.get(className).add(key);
+        }
     }
 
     /**
@@ -143,8 +172,8 @@ public class Attributes {
      *
      * @param attributes A map of attributes to associate with this entity.
      */
-    public void addAttributesIfAbsent(Map<String, String> attributes) {
-        attributes.forEach(this::addAttributeIfAbsent);
+    public void setAttributesIfAbsent(Map<String, String> attributes) {
+        attributes.forEach(this::setAttributeIfAbsent);
     }
 
     /**
@@ -158,10 +187,10 @@ public class Attributes {
         String currentValue = this.attributes.get(key);
         if (currentValue != null) {
             if (!currentValue.contains(value)) {
-                this.attributes.put(key, currentValue + Constants.COMMA + value);
+                this.setAttribute(key, currentValue + Constants.COMMA + value);
             }
         } else {
-            this.attributes.put(key, value);
+            this.setAttribute(key, value);
         }
     }
 

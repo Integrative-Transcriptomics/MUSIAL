@@ -122,15 +122,29 @@ public final class Constants {
 
     /**
      * SnpEff annotation field names.
+     * <p>
+     * <ul>
+     *     <li>0 = allele</li>
+     *     <li>1 = effect</li>
+     *     <li>2 = impact</li>
+     *     <li>3 = gene_name</li>
+     *     <li>4 = gene_id</li>
+     *     <li>5 = feature_type</li>
+     *     <li>6 = feature_id</li>
+     *     <li>7 = biotype</li>
+     *     <li>8 = rank/total</li>
+     *     <li>9 = hgvs_c</li>
+     *     <li>10 = hgvs_p</li>
+     *     <li>11 = cDNA_position</li>
+     *     <li>12 = cds_position</li>
+     *     <li>13 = protein_position</li>
+     *     <li>14 = feature_distance</li>
+     *     <li>15 = note</li>
+     * </ul>
      */
     public static final ArrayList<String> SNP_EFF_KEYS = new ArrayList<>(Arrays.asList("allele", "effect", "impact", "gene_name", "gene_id"
             , "feature_type", "feature_id", "biotype", "rank/total", "hgvs_c", "hgvs_p", "cDNA_position", "cds_position",
             "protein_position", "feature_distance", "note"));
-
-    /**
-     * Logarithm base 2 constant.
-     */
-    public static final double LOG2 = Math.log(2);
 
     /**
      * System-dependent line separator string.
@@ -181,19 +195,20 @@ public final class Constants {
          */
         public static final String ALLELIC_FREQUENCY = "allelic_frequency";
 
+        /**
+         * Key representing the diversity of alleles associated with a {@link model.Feature}.
+         */
         public static final String DIVERSITY_ALLELE = "diversity_allele";
 
+        /**
+         * Key representing the diversity of proteoforms associated with a {@link model.Feature}.
+         */
         public static final String DIVERSITY_PROTEOFORM = "diversity_proteoform";
 
         /**
-         * Key representing the total number of calls in a {@link model.Sample}.
+         * Key representing the fraction of filtered calls in a {@link model.Sample}.
          */
-        public static final String NUMBER_OF_CALLS = "no_calls";
-
-        /**
-         * Key representing the number of filtered calls in a {@link model.Sample}.
-         */
-        public static final String NUMBER_OF_FILTERED_CALLS = "no_calls_filtered";
+        public static final String FREQUENCY_FILTERED_CALLS = "frequency_calls_filtered";
 
         /**
          * Key representing the number of substitutions or single nucleotide variants (SNVs) in a {@link model.Sample}.
