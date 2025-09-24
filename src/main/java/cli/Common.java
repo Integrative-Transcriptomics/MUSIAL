@@ -170,7 +170,7 @@ final class Common {
             //  trailing file separator symbols from the path.
             FileUtils.createParentDirectories(path.toFile());
             if (Files.isDirectory(path))
-                path = path.resolve("musial-storage-%s.%s".formatted(Logging.getDate(), Musial.outputExtension));
+                path = path.resolve("musial-storage-%s.%s".formatted(Logging.getDate(), Musial.OUTPUT_EXTENSION));
             Logging.logConfig("`output` set to %s.".formatted(path));
         } catch (Exception e) {
             throw new MusialException("Failed to validate path %s specified for `output`.".formatted(path));

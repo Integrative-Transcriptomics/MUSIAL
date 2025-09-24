@@ -55,7 +55,7 @@ public class StorageIO {
     public static void toJSON(Storage storage, Path path) throws IOException {
         // Ensure the file path ends with a valid extension.
         if (!(path.toString().endsWith(".json") || path.toString().endsWith(".json.gz"))) {
-            path = Path.of(path + Musial.outputExtension);
+            path = Path.of(path + Musial.OUTPUT_EXTENSION);
         }
 
         // Serialize the Storage object to a JSON string.

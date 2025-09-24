@@ -1,9 +1,6 @@
 package main;
 
-import cli.CLI;
-import cli.CLIBuild;
-import cli.CLIExpand;
-import cli.CLIView;
+import cli.*;
 import exceptions.MusialException;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
@@ -12,6 +9,7 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.io.FileUtils;
 import task.ExecutorBuild;
 import task.ExecutorExpand;
+import task.ExecutorProfile;
 import task.ExecutorView;
 import util.Logging;
 
@@ -75,7 +73,7 @@ public final class Musial {
      * The extension should either be `.json` or `.json.gz` depending on the compression method used. For production, use `.json.gz` for
      * compressed files.
      */
-    public static final String outputExtension = ".json.gz";
+    public static final String OUTPUT_EXTENSION = ".json.gz";
 
     /**
      * Start time of the program.
@@ -143,6 +141,7 @@ public final class Musial {
                 case BUILD -> CLIBuild.options();
                 case EXPAND -> CLIExpand.options();
                 case VIEW -> CLIView.options();
+                case PROFILE -> CLIProfile.options();
                 case SEQUENCE -> null; // CLISequence.options();
                 default -> new Options();
             };
@@ -178,6 +177,12 @@ public final class Musial {
                     Logging.logInfo("Execute task \033[1mview\033[0m");
                     CLIView cli = new CLIView(arguments);
                     ExecutorView executor = new ExecutorView(cli);
+                    executor.run();
+                }
+                case PROFILE -> {
+                    Logging.logInfo("Execute task \033[1mprofile\033[0m");
+                    CLIProfile cli = new CLIProfile(arguments);
+                    ExecutorProfile executor = new ExecutorProfile(cli);
                     executor.run();
                 }
                 case SEQUENCE -> {
