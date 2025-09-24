@@ -10,7 +10,7 @@ import java.io.IOException;
 import java.util.Objects;
 
 /**
- * The {@code ExecutorVIew} class is responsible for executing the {@code view} task for inspecting data.
+ * The {@code ExecutorView} class is responsible for executing the {@code view} task for inspecting data.
  * <p>
  * This class initializes the CLI view, loads the storage, and manages the storage table. It provides functionality to apply queries,
  * populate the storage table based on the content type, and either print or write the output to a file.
@@ -35,7 +35,7 @@ public class ExecutorView {
     private final StorageTable storageTable;
 
     /**
-     * Constructs an ExecutorView instance with the specified CLI view.
+     * Constructs an instance of the {@link ExecutorView} class.
      * <p>
      * This constructor initializes the CLI view, loads the storage from the input path, and creates a storage table for managing data.
      *
@@ -65,12 +65,10 @@ public class ExecutorView {
      * @throws IllegalStateException If the content type is unexpected.
      */
     public void run() {
+        Logging.logInfo("View %s.".formatted(cli.content));
         if (!cli.query.isEmpty()) {
-            Logging.logInfo("Apply query.");
             this.storageTable.setFilters(cli.query);
         }
-
-        Logging.logInfo("View %s.".formatted(cli.content));
         switch (cli.content) {
             case FEATURES -> storageTable.populateFromFeatures();
             case SAMPLES -> storageTable.populateFromSamples();
