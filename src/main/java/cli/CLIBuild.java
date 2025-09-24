@@ -33,16 +33,18 @@ import java.util.stream.IntStream;
 /**
  * Handles the {@code build} task CLI parameters.
  * <p>
- * This class defines the command-line options and validation logic for the {@code build} task. It allows users to specify a JSON file
- * containing the task parameters for MUSIAL. Specifically, it is a direct reflection of the build configuration.
+ * This class defines the command-line options and validation logic for the {@code build} task. See {@link #options()} for details.
  */
 public class CLIBuild implements CLI {
 
     /**
-     * Creates and configures the command-line options for the Build task.
+     * Defines the command-line options for the {@code build} task.
      * <p>
-     * This method defines the available command-line options for the Build task, including their descriptions, argument requirements, and
-     * whether they are mandatory.
+     * The options include:
+     * <ul>
+     *     <li><b>-C, --configuration</b>: Path to a JSON file specifying the build task parameter configuration for MUSIAL
+     *     (required).</li>
+     * </ul>
      *
      * @return An {@link Options} object containing the defined command-line options.
      */
@@ -139,9 +141,9 @@ public class CLIBuild implements CLI {
         this.maskedPositions = parseMaskedPositions(configuration);
         this.reference = parseReference(configuration);
         this.featureList = parseAnnotation(configuration);
-        this.output = Common.parseOutput(configuration);
-        this.vcfFiles = Common.parseVcfFiles(configuration);
-        this.vcfMeta = Common.parseVcfMeta(configuration);
+        this.output = Common.parseOutputStorageFile(configuration);
+        this.vcfFiles = Common.parseInputVcfFiles(configuration);
+        this.vcfMeta = Common.parseInputVcfMeta(configuration);
         this.features = parseFeatures(configuration);
     }
 
