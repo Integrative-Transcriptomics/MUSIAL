@@ -9,11 +9,11 @@ import java.nio.file.Path;
 import java.util.Set;
 
 /**
- * Handles the {@code view} task CLI parameters.
+ * Handles the {@code profile} task CLI parameters.
  * <p>
- * This class defines the command-line options and validation logic for the {@code view} task. See {@link #options()} for details.
+ * This class defines the command-line options and validation logic for the {@code profile} task. See {@link #options()} for details.
  */
-public class CLIView implements CLI {
+public class CLIProfile implements CLI {
 
     /**
      * Defines the command-line options for the {@code view} task.
@@ -21,8 +21,10 @@ public class CLIView implements CLI {
      * The options include:
      * <ul>
      *     <li><b>-I, --storage</b>: Path to the input storage file (required).</li>
-     *     <li><b>-C, --content</b>: The content type to view (FEATURES, SAMPLES, VARIANTS) (required).</li>
+     *     <li><b>-C, --content</b>: The content type to profile (VARIANTS, ALLELES, PROTEOFORMS) (required).</li>
      *     <li><b>-q, --query</b>: One or more identifiers or genomic ranges to query (optional).</li>
+     *     <li><b>-x, --reduced</b>: Represent entries in a reduced format, i.e., sequence types as numbers with 0 as the reference or
+     *     synonymous sequence and variants without detailed call information.</li>
      *     <li><b>-o, --output</b>: Path to the output file or a special value ("print" or "stdout") (optional).</li>
      * </ul>
      *
@@ -38,14 +40,21 @@ public class CLIView implements CLI {
                 .build());
         options.addOption(Option.builder("C")
                 .longOpt("content")
-                .desc("The content to view. One of FEATURES, SAMPLES, VARIANTS (case-insensitive).")
+                .desc("The content to view. One of VARIANTS, ALLELES, PROTEOFORMS (case-insensitive).")
                 .hasArg()
                 .required()
                 .build());
         options.addOption(Option.builder("q")
                 .longOpt("query")
-                .desc("One or multiple identifiers or genomic ranges (contig:start-end) to query.")
+                .desc("One or multiple identifiers or genomic ranges (contig:start-end) to consider.")
                 .hasArgs()
+                .build());
+        options.addOption(Option.builder("x")
+                .longOpt("reduced")
+                .desc("Represent entries in a reduced format, i.e., sequence types as numbers with 0 as the reference or synonymous " +
+                        "sequence " +
+                        "and variants without detailed call information.")
+                .hasArg(false)
                 .build());
         options.addOption(Option.builder("o")
                 .longOpt("output")
@@ -62,15 +71,15 @@ public class CLIView implements CLI {
     public final Path input;
 
     /**
-     * The content type to view.
+     * The content type to profile.
      */
     public enum Content {
-        // The features of the storage.
-        FEATURES,
-        // The samples of the storage.
-        SAMPLES,
-        // The variants of the storage.
-        VARIANTS
+        // Per sample variants.
+        VARIANTS,
+        // Per sample alleles of features.
+        ALLELES,
+        // Per sample proteoforms of features.
+        PROTEOFORMS
     }
 
     /**
@@ -89,6 +98,14 @@ public class CLIView implements CLI {
     public final Set<String> query;
 
     /**
+     * Indicates whether to represent entries in a reduced format.
+     * <p>
+     * If {@code true}, sequence types are represented as numbers with 0 as the reference or synonymous sequence, and variants are shown
+     * without detailed call information.
+     */
+    public final boolean reduced;
+
+    /**
      * Constructs a CLIView instance by parsing the provided command-line arguments.
      * <p>
      * This constructor validates and extracts the input storage file path, content type, output destination, and query filters from the
@@ -97,14 +114,15 @@ public class CLIView implements CLI {
      * @param arguments The {@link CommandLine} object containing the parsed arguments.
      * @throws MusialException If an error occurs while parsing the arguments.
      */
-    public CLIView(CommandLine arguments) throws MusialException {
+    public CLIProfile(CommandLine arguments) throws MusialException {
         this.input = Common.parseInputStorageFile(arguments);
         this.content = parseContent(arguments);
         String suffix = switch (this.content) {
-            case FEATURES -> "feature-table";
-            case SAMPLES -> "sample-table";
-            case VARIANTS -> "variants-table";
+            case VARIANTS -> "variants-profile";
+            case ALLELES -> "allele-profile";
+            case PROTEOFORMS -> "proteoform-profile";
         };
+        this.reduced = arguments.hasOption("x");
         this.output = Common.parseOutputFile(arguments, suffix, "tsv");
         this.query = Common.parseQuery(arguments);
     }
@@ -124,7 +142,7 @@ public class CLIView implements CLI {
         try {
             return Content.valueOf(content);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("The content to view must be one of FEATURES, SAMPLES, VARIANTS (case-insensitive).");
+            throw new IllegalArgumentException("The content to view must be one of VARIANTS, ALLELES, PROTEOFORMS (case-insensitive).");
         }
     }
 }

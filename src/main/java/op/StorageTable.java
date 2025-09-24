@@ -5,6 +5,7 @@ import model.*;
 import tech.tablesaw.api.*;
 import tech.tablesaw.io.csv.CsvWriteOptions;
 import util.Constants;
+import util.Logging;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -180,7 +181,9 @@ public class StorageTable {
                     }
                 }
 
-                addContigFilter(contig, positions);
+                if (addContigFilter(contig, positions)) continue;
+
+                Logging.logWarningOnce("UNKNOWN_QUERY", "Unable to match query %s to storage entries.".formatted(q));
             } catch (NumberFormatException | ArrayIndexOutOfBoundsException ignored) {
                 // Ignored.
             }
@@ -614,6 +617,11 @@ public class StorageTable {
                     : contig.getVariantsAt(positions);
 
             for (Variant variant : variants) {
+
+                // Skip variants that do not match the sample or feature filters.
+                if ((!sampleFilter.isEmpty() && sampleFilter.stream().noneMatch(variant::ofSample))
+                        || (!featureFilter.isEmpty() && featureFilter.stream().noneMatch(variant::ofFeature))) continue;
+
                 // Create a new row if the position changes.
                 if (variant.position != currentPosition) {
                     currentRow = table.appendRow();

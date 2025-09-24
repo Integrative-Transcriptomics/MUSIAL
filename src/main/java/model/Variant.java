@@ -188,6 +188,19 @@ public class Variant extends Attributes {
     }
 
     /**
+     * Checks if the variant is associated with a specific feature.
+     * <p>
+     * This method determines whether the given feature identifier exists in the {@code features} map. The {@code features} map contains
+     * associations between feature identifiers and their related alleles.
+     *
+     * @param featureIdentifier The unique identifier of the feature to check.
+     * @return {@code true} if the feature identifier exists in the {@code features} map; {@code false} otherwise.
+     */
+    public boolean ofFeature(String featureIdentifier) {
+        return this.features.containsKey(featureIdentifier);
+    }
+
+    /**
      * Checks if the variant is associated with any of the specified features.
      *
      * @param featureIdentifiers A collection of feature identifiers to check.

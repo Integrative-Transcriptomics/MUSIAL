@@ -17,6 +17,10 @@ public enum MusialTask {
      */
     VIEW,
     /**
+     * Task to profile samples by variants, alleles, or proteoforms.
+     */
+    PROFILE,
+    /**
      * Task to export sequence data in FASTA format from a MUSIAL storage file.
      */
     SEQUENCE,
