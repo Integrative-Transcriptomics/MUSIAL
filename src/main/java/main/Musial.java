@@ -3,6 +3,7 @@ package main;
 import cli.CLI;
 import cli.CLIBuild;
 import cli.CLIExpand;
+import cli.CLIView;
 import exceptions.MusialException;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
@@ -11,6 +12,7 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.io.FileUtils;
 import task.ExecutorBuild;
 import task.ExecutorExpand;
+import task.ExecutorView;
 import util.Logging;
 
 import java.io.File;
@@ -140,7 +142,7 @@ public final class Musial {
                 // NOTE: New tasks need to be added here.
                 case BUILD -> CLIBuild.options();
                 case EXPAND -> CLIExpand.options();
-                case VIEW -> null; // CLIView.options();
+                case VIEW -> CLIView.options();
                 case SEQUENCE -> null; // CLISequence.options();
                 default -> new Options();
             };
@@ -173,8 +175,10 @@ public final class Musial {
                     executor.run();
                 }
                 case VIEW -> {
-                    Logging.logInfo("Execute task \033[1mtable\033[0m");
-                    // ContentUtility.run();
+                    Logging.logInfo("Execute task \033[1mview\033[0m");
+                    CLIView cli = new CLIView(arguments);
+                    ExecutorView executor = new ExecutorView(cli);
+                    executor.run();
                 }
                 case SEQUENCE -> {
                     Logging.logInfo("Execute task \033[1msequence\033[0m");
@@ -261,9 +265,10 @@ public final class Musial {
 
                 Available tasks are:
                 \033[47m\033[1;30m build    \033[0m : Build a local database file (storage) in JSON format from variant calls; the mandatory input for other tasks.
-                \033[47m\033[1;30m expand   \033[0m : Expand an existing storage file from variant call files.
-                \033[47m\033[1;30m view     \033[0m : View the content - features, samples or variants - and their attributes, of a MUSIAL storage file.
-                \033[47m\033[1;30m sequence \033[0m : Export sequences of features from a MUSIAL storage file.
+                \033[47m\033[1;30m expand   \033[0m : Expand an existing storage file from variant call files and/or meta data.
+                \033[47m\033[1;30m view     \033[0m : View the content (features, samples or variants; and their attributes) of a MUSIAL storage file.
+                \033[47m\033[1;30m profile  \033[0m : Profile samples with respect to variants, alleles, or proteoforms.
+                \033[47m\033[1;30m sequence \033[0m : Generate and write sequence data.
 
                 Call `java -jar %s-%s.jar <task> [-h|--help]` for more information.
                 """.formatted(Musial.name, Musial.version);

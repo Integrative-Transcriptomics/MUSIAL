@@ -8,7 +8,6 @@ import util.Constants;
 
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * The {@code StorageTable} class provides functionality to create and manage tabular representations of genomic data stored in a
@@ -54,48 +53,138 @@ public class StorageTable {
     }
 
     /**
-     * Updates the contig filter with the specified contig identifier and positions. If the contig identifier already exists in the filter,
-     * its associated positions are replaced. If the contig identifier does not exist in the storage, no action is taken.
+     * Clears all filters used for building the table.
      * <p>
-     * An empty array of positions indicates that all positions within the contig should be included. The table is not automatically updated
-     * after modifying the filter; the user must call one of the populate methods to refresh the table.
+     * This method removes all entries from the contig, feature, and sample filters. After calling this method, the filters will be empty,
+     * and the user must reapply filters if needed before populating the table.
+     */
+    public void clearFilters() {
+        contigFilter.clear();
+        featureFilter.clear();
+        sampleFilter.clear();
+    }
+
+    /**
+     * Updates the contig filter with the specified contig identifier and positions.
+     * <p>
+     * If the contig identifier does not exist in the storage, no action is taken and {@code false} is returned.
+     * <p>
+     * If the contig identifier already exists in the filter, its associated positions are replaced. An empty array of positions indicates
+     * that all positions within the contig should be included. If the filter is successfully updated, {@code true} is returned.
+     * <p>
+     * The table is not automatically updated after modifying the filter; the user must call one of the populate methods to refresh the
+     * table.
      *
      * @param contigIdentifier The identifier of the contig to be added or updated in the filter.
      * @param positions        An array of positions (as integers) associated with the contig. If the array is empty, it indicates that all
      *                         positions within the contig should be included.
+     * @return {@code true} if the filter was successfully updated; {@code false} if the contig identifier does not exist in the storage.
      */
-    public void setContigFilter(String contigIdentifier, int[] positions) {
-        if (storage.hasContig(contigIdentifier)) contigFilter.put(contigIdentifier, positions);
+    public boolean addContigFilter(String contigIdentifier, int[] positions) {
+        if (storage.hasContig(contigIdentifier)) {
+            contigFilter.put(contigIdentifier, positions);
+            return true;
+        } else {
+            return false;
+        }
     }
 
     /**
-     * Sets the filter for features using the provided identifiers or names. Clears the existing filter and adds only the identifiers or
-     * names that exist in the storage.
+     * Adds a feature filter using the provided identifier or name.
+     * <p>
+     * This method checks if the given feature identifier or name exists in the storage. If it exists, the feature is added to the
+     * {@link #featureFilter}. If the feature does not exist, no changes are made, and {@code false} is returned.
      * <p>
      * The table is not automatically updated after modifying the filter; the user must call one of the populate methods to refresh the
      * table.
      *
-     * @param featureIdentifiersOrNames An array of feature identifiers or names to include in the filter.
+     * @param featureIdentifierOrName The identifier or name of the feature to include in the filter.
+     * @return {@code true} if the feature was successfully added to the filter; {@code false} if the feature does not exist in the storage.
      */
-    public void setFeatureFilter(String... featureIdentifiersOrNames) {
-        featureFilter.clear();
-        featureFilter.addAll(Stream.of(featureIdentifiersOrNames)
-                .filter(idOrName -> storage.hasFeature(idOrName) || storage.getFeatures().stream().anyMatch(f -> f.name.equals(idOrName)))
-                .toList());
+    public boolean addFeatureFilter(String featureIdentifierOrName) {
+        if (storage.hasFeature(featureIdentifierOrName)) {
+            featureFilter.add(featureIdentifierOrName);
+            return true;
+        } else {
+            Optional<Feature> optionalFeature = storage.getFeatures().stream()
+                    .filter(feature -> feature.name.equals(featureIdentifierOrName))
+                    .findFirst();
+            if (optionalFeature.isPresent()) {
+                featureFilter.add(optionalFeature.get()._id);
+                return true;
+            } else {
+                return false;
+            }
+        }
     }
 
     /**
-     * Sets the filter for samples using the provided identifiers. Clears the existing filter and adds only the identifiers that exist in
-     * the storage.
+     * Adds a sample filter using the provided identifier.
+     * <p>
+     * This method checks if the given sample identifier exists in the storage. If it exists, the sample is added to the
+     * {@link #sampleFilter}. If the sample does not exist, no changes are made, and {@code false} is returned.
      * <p>
      * The table is not automatically updated after modifying the filter; the user must call one of the populate methods to refresh the
      * table.
      *
-     * @param sampleIdentifiers An array of sample identifiers to include in the filter.
+     * @param sampleIdentifier The identifier of the sample to include in the filter.
+     * @return {@code true} if the sample was successfully added to the filter; {@code false} if the sample does not exist in the storage.
      */
-    public void setSampleFilter(String... sampleIdentifiers) {
-        sampleFilter.clear();
-        sampleFilter.addAll(Stream.of(sampleIdentifiers).filter(storage::hasSample).toList());
+    public boolean addSampleFilter(String sampleIdentifier) {
+        if (storage.hasSample(sampleIdentifier)) {
+            sampleFilter.add(sampleIdentifier);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Sets filters for building the table based on the provided query strings.
+     * <p>
+     * This method clears all existing filters and processes each query string to determine the type of filter to apply. Queries can specify
+     * sample filters, feature filters, or contig filters with optional position ranges.
+     * <p>
+     * The method performs the following steps for each query:
+     * <ul>
+     *     <li>Trims the query string and skips blank queries.</li>
+     *     <li>Attempts to add the query as a sample or feature filter.</li>
+     *     <li>If not a sample or feature, parses the query as a contig filter with optional position ranges.</li>
+     *     <li>Handles position ranges in the format "start-end" or "start" and generates an array of positions.</li>
+     * </ul>
+     * <p>
+     * If the query cannot be parsed (e.g., due to invalid formatting), it is ignored.
+     *
+     * @param query A set of query strings specifying the filters to apply.
+     */
+    public void setFilters(Set<String> query) {
+        clearFilters();
+        for (String q : query) {
+            if (q.isBlank()) continue;
+
+            q = q.trim();
+            if (addSampleFilter(q) || addFeatureFilter(q)) continue;
+
+            try {
+                String[] parts = q.split(":", 2);
+                String contig = parts[0];
+                int[] positions = {};
+
+                if (parts.length == 2) {
+                    String[] range = parts[1].split("-", 2);
+                    int start = Integer.parseInt(range[0]);
+                    int end = (range.length == 2) ? Integer.parseInt(range[1]) : start;
+
+                    if (start > 0 && end >= start) {
+                        positions = java.util.stream.IntStream.rangeClosed(start, end).toArray();
+                    }
+                }
+
+                addContigFilter(contig, positions);
+            } catch (NumberFormatException | ArrayIndexOutOfBoundsException ignored) {
+                // Ignored.
+            }
+        }
     }
 
     /**
@@ -151,8 +240,8 @@ public class StorageTable {
 
             for (Variant variant : variants) {
                 // Skip variants that do not match the filters
-                if (!sampleFilter.isEmpty() && !variant.ofSamples(sampleFilter.toArray(String[]::new))) continue;
-                if (!featureFilter.isEmpty() && !variant.ofFeatures(featureFilter.toArray(String[]::new))) continue;
+                if (!sampleFilter.isEmpty() && !variant.ofSamples(sampleFilter)) continue;
+                if (!featureFilter.isEmpty() && !variant.ofFeatures(featureFilter)) continue;
 
                 // Add variant data to the table
                 Row row = table.appendRow();
@@ -242,10 +331,10 @@ public class StorageTable {
                 Constants.AttributesKeys.NUMBER_OF_PROTEOFORMS, Constants.AttributesKeys.DIVERSITY_PROTEOFORM,
                 Constants.AttributesKeys.FREQUENCY_DISRUPTED
         );
-        Attributes.KEYS.getOrDefault(Feature.class.getName().toLowerCase(), Collections.emptySet())
+        storage.getFeatureAttributeKeys()
                 .stream()
-                .filter(attr -> !standardAttributes.contains(attr))
-                .forEach(attr -> table.addColumns(StringColumn.create(attr)));
+                .filter(key -> !standardAttributes.contains(key))
+                .forEach(key -> table.addColumns(StringColumn.create(key)));
 
         // Iterate over features and populate the table.
         for (var feature : storage.getFeatures()) {
@@ -324,10 +413,10 @@ public class StorageTable {
                 Constants.AttributesKeys.MEAN_COVERAGE, Constants.AttributesKeys.FREQUENCY_REFERENCE,
                 Constants.AttributesKeys.FREQUENCY_DISRUPTED
         );
-        Attributes.KEYS.getOrDefault(Sample.class.getName().toLowerCase(), Collections.emptySet())
+        storage.getSampleAttributeKeys()
                 .stream()
-                .filter(attr -> !standardAttributes.contains(attr))
-                .forEach(attr -> table.addColumns(StringColumn.create(attr)));
+                .filter(key -> !standardAttributes.contains(key))
+                .forEach(key -> table.addColumns(StringColumn.create(key)));
 
         // Populate the table with sample data.
         storage.getSamples().stream()
@@ -572,6 +661,26 @@ public class StorageTable {
         if (Objects.isNull(table) || table.isEmpty())
             throw new IllegalStateException("The table is not populated. Please call one of the populate methods before writing.");
         write(Musial.tempDir.getParentFile().getAbsolutePath() + "/" + this.table.name() + ".tsv", '\t');
+    }
+
+    /**
+     * Prints the contents of the {@link #table} to the standard output.
+     * <p>
+     * This method checks if the {@link #table} is populated and not empty before printing. If the table is not populated, an
+     * {@link IllegalStateException} is thrown. Depending on the value of the {@code all} parameter, it either prints the entire table or a
+     * truncated version.
+     *
+     * @param all A boolean flag indicating whether to print the entire table ({@code true}) or a truncated version ({@code false}).
+     * @throws IllegalStateException If the table is not populated or is empty.
+     */
+    public void print(boolean all) {
+        if (Objects.isNull(table) || table.isEmpty())
+            throw new IllegalStateException("The table is not populated. Please call one of the populate methods before printing.");
+        if (all) {
+            System.out.println(table.printAll());
+        } else {
+            System.out.println(table.print());
+        }
     }
 
 }

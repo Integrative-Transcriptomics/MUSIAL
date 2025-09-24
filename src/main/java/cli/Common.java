@@ -13,10 +13,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -52,7 +49,7 @@ final class Common {
      * @throws MusialException If the "vcfFiles" parameter is missing or no valid VCF files are found.
      * @throws IOException     If an I/O error occurs while accessing the files or directories.
      */
-    static List<Path> parseVcfFiles(Map<String, Object> configuration) throws MusialException, IOException {
+    static List<Path> parseInputVcfFiles(Map<String, Object> configuration) throws MusialException, IOException {
         if (!configuration.containsKey("vcfFiles")) {
             throw new MusialException("`vcfFiles` must be specified in the configuration.");
         }
@@ -102,7 +99,7 @@ final class Common {
      * @return A {@link Map} where the key is the sample ID, and the value is another map containing metadata attributes and their values.
      * @throws IOException If an I/O error occurs while accessing the file.
      */
-    static Map<String, Map<String, String>> parseVcfMeta(Map<String, Object> configuration) throws IOException {
+    static Map<String, Map<String, String>> parseInputVcfMeta(Map<String, Object> configuration) throws IOException {
         Map<String, Map<String, String>> vcfMeta = Collections.emptyMap();
         // Check if an annotation file is specified in the configuration; if not, return an empty map.
         if (configuration.containsKey("vcfMeta")) {
@@ -112,6 +109,33 @@ final class Common {
             }
         }
         return vcfMeta;
+    }
+
+    /**
+     * Parses the input storage file path from the command-line arguments.
+     * <p>
+     * This method retrieves the value of the "I" option from the provided {@link CommandLine} arguments and validates the file path. The
+     * file must exist, not be a directory, and have a valid extension (either `.json` or `.json.gz`). If the file does not meet these
+     * criteria, a {@link MusialException} is thrown.
+     * <p>
+     * The method performs the following steps:
+     * <ul>
+     *     <li>Retrieves the file path from the "I" option.</li>
+     *     <li>Validates that the file exists, is not a directory, and has a valid extension.</li>
+     *     <li>Logs the validated file path.</li>
+     * </ul>
+     *
+     * @param arguments The {@link CommandLine} object containing the parsed command-line arguments.
+     * @return A {@link Path} object representing the validated input storage file path.
+     * @throws MusialException If the file does not exist, is a directory, or has an invalid extension.
+     */
+    static Path parseInputStorageFile(CommandLine arguments) throws MusialException {
+        Path path = Path.of(arguments.getOptionValue("I"));
+        if (!Files.exists(path) || Files.isDirectory(path) || !(path.toString().endsWith(".json") || path.toString().endsWith(".json.gz"))) {
+            throw new MusialException("Input storage file must be a valid .json or .json.gz file.");
+        }
+        Logging.logConfig("`input` set to %s.".formatted(path));
+        return path;
     }
 
     /**
@@ -135,7 +159,7 @@ final class Common {
      * @return A {@link Path} object representing the validated output path.
      * @throws MusialException If the "output" parameter is missing or the path is invalid.
      */
-    static Path parseOutput(Map<String, Object> configuration) throws MusialException {
+    static Path parseOutputStorageFile(Map<String, Object> configuration) throws MusialException {
         if (!configuration.containsKey("output")) {
             throw new MusialException("`output` must be specified in the configuration.");
         }
@@ -156,29 +180,85 @@ final class Common {
     }
 
     /**
-     * Parses the input storage file path from the command-line arguments.
+     * Parses the output file path from the command-line arguments.
      * <p>
-     * This method retrieves the value of the "I" option from the provided {@link CommandLine} arguments and validates the file path. The
-     * file must exist, not be a directory, and have a valid extension (either `.json` or `.json.gz`). If the file does not meet these
-     * criteria, a {@link MusialException} is thrown.
+     * This method determines the output file path based on the "o" option in the provided {@link CommandLine} arguments. If the "o" option
+     * is not specified, it generates a default file path using the "I" option's parent directory, appending a file name with the provided
+     * suffix and extension. If the "o" option is specified as "stdout" or "print", it returns null. Otherwise, it validates the specified
+     * path, creates parent directories if necessary, and appends a default file name if the path is a directory.
      * <p>
      * The method performs the following steps:
      * <ul>
-     *     <li>Retrieves the file path from the "I" option.</li>
-     *     <li>Validates that the file exists, is not a directory, and has a valid extension.</li>
-     *     <li>Logs the validated file path.</li>
+     *     <li>Checks if the "o" option is provided in the arguments.</li>
+     *     <li>If not provided, generates a default path based on the "I" option's parent directory.</li>
+     *     <li>If "o" is "stdout" or "print", logs the output and returns null.</li>
+     *     <li>Otherwise, validates the specified path, creates parent directories, and appends a default file name if needed.</li>
      * </ul>
+     * <p>
+     * If the path is invalid or cannot be created, a {@link MusialException} is thrown.
      *
      * @param arguments The {@link CommandLine} object containing the parsed command-line arguments.
-     * @return A {@link Path} object representing the validated input storage file path.
-     * @throws MusialException If the file does not exist, is a directory, or has an invalid extension.
+     * @param suffix    A {@link String} representing the suffix to append to the file name.
+     * @param extension A {@link String} representing the file extension to use.
+     * @return A {@link Path} object representing the validated output file path, or null if the output is set to "stdout" or "print".
+     * @throws MusialException If the path is invalid or cannot be created.
      */
-    static Path parseInput(CommandLine arguments) throws MusialException {
-        Path path = Path.of(arguments.getOptionValue("I"));
-        if (!Files.exists(path) || Files.isDirectory(path) || !(path.toString().endsWith(".json") || path.toString().endsWith(".json.gz"))) {
-            throw new MusialException("Input storage file must be a valid .json or .json.gz file.");
+    static Path parseOutputFile(CommandLine arguments, String suffix, String extension) throws MusialException {
+        if (!arguments.hasOption("o")) {
+            // Generate a default path based on the "I" option's parent directory
+            Path path = Path.of(arguments.getOptionValue("I")).getParent();
+            path = path.resolve("musial-%s-%s.%s".formatted(suffix, Logging.getDate(), extension));
+            Logging.logConfig("`output` set to %s.".formatted(path));
+            return path;
+        } else {
+            String specified = arguments.getOptionValue("o");
+            if (specified.equals("stdout") || specified.equals("print")) {
+                // Log and return null for "stdout" or "print"
+                Logging.logConfig("`output` set to %s.".formatted(specified));
+                return null;
+            } else {
+                // Validate the specified path and create parent directories if necessary
+                Path path = Path.of(arguments.getOptionValue("o"));
+                try {
+                    FileUtils.createParentDirectories(path.toFile());
+                    if (Files.isDirectory(path))
+                        path = path.resolve("musial-%s-%s.%s".formatted(suffix, Logging.getDate(), extension));
+                    Logging.logConfig("`output` set to %s.".formatted(path));
+                    return path;
+                } catch (Exception e) {
+                    throw new MusialException("Failed to validate path %s specified for `output`.".formatted(path));
+                }
+            }
         }
-        Logging.logConfig("`input` set to %s.".formatted(path));
-        return path;
     }
+
+    /**
+     * Parses the query parameters from the command-line arguments.
+     * <p>
+     * This method retrieves the "q" option from the provided {@link CommandLine} arguments and processes its values. If the "q" option is
+     * not specified, it returns an empty set. Otherwise, it retrieves the values associated with the "q" option, converts them into a
+     * {@link Set}, and returns the result.
+     * <p>
+     * The method performs the following steps:
+     * <ul>
+     *     <li>Checks if the "q" option is provided in the arguments.</li>
+     *     <li>If not provided, returns an empty set.</li>
+     *     <li>If provided, retrieves the values, converts them into a set, and returns the set.</li>
+     * </ul>
+     * <p>
+     * Note: This method does not validate the query parameters; it simply returns them as provided.
+     *
+     * @param arguments The {@link CommandLine} object containing the parsed command-line arguments.
+     * @return A {@link Set} of {@link String} objects representing the query parameters, or an empty set if the "q" option is not
+     * specified.
+     */
+    static Set<String> parseQuery(CommandLine arguments) {
+        if (!arguments.hasOption("q")) {
+            return Collections.emptySet();
+        } else {
+            String[] entries = arguments.getOptionValues("q");
+            return new HashSet<>(Arrays.asList(entries));
+        }
+    }
+
 }
