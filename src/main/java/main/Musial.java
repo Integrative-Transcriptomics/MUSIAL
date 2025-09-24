@@ -7,10 +7,7 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.io.FileUtils;
-import task.ExecutorBuild;
-import task.ExecutorExpand;
-import task.ExecutorProfile;
-import task.ExecutorView;
+import task.*;
 import util.Logging;
 
 import java.io.File;
@@ -142,14 +139,9 @@ public final class Musial {
                 case EXPAND -> CLIExpand.options();
                 case VIEW -> CLIView.options();
                 case PROFILE -> CLIProfile.options();
-                case SEQUENCE -> null; // CLISequence.options();
+                case SEQUENCE -> CLISequence.options();
                 default -> new Options();
             };
-
-            // TODO: Dummy for now, to be removed when all tasks are implemented.
-            if (options == null) {
-                exitNotRecognized();
-            }
 
             // Print help and exit if -h or --help is provided.
             if (Arrays.stream(args).sequential().anyMatch(a -> a.equals("-h") || a.equals("--help"))) {
@@ -187,7 +179,9 @@ public final class Musial {
                 }
                 case SEQUENCE -> {
                     Logging.logInfo("Execute task \033[1msequence\033[0m");
-                    // SequenceUtility.run();
+                    CLISequence cli = new CLISequence(arguments);
+                    ExecutorSequence executor = new ExecutorSequence(cli);
+                    executor.run();
                 }
                 // Exit the program, if the task is undefined.
                 default -> exitNotRecognized();

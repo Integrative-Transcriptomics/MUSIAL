@@ -47,7 +47,7 @@ public class AminoacidSequenceGenerator extends NucleotideSequenceGenerator {
      * @throws MusialException If an error occurs during initialization.
      */
     public AminoacidSequenceGenerator(Storage storage, Contig contig, Feature feature, boolean conserved, boolean aligned,
-                                      String... sampleIdentifiers) throws IOException, MusialException {
+                                      Set<String> sampleIdentifiers) throws IOException, MusialException {
         super(storage, contig, feature, conserved, aligned, sampleIdentifiers);
     }
 

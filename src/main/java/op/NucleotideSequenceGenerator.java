@@ -12,7 +12,6 @@ import util.Constants;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * The {@code NucleotideSequenceGenerator} class is responsible for generating nucleotide sequences based on genomic data contained in a
@@ -21,7 +20,7 @@ import java.util.stream.Collectors;
  * This class is initialized with a fixed {@link Contig} and optionally a {@link Feature}. It can be restricted to specific sample
  * identifiers and automatically handles the option specified by {@link model.Storage.Parameters#maskFiltered}.
  */
-public class NucleotideSequenceGenerator {
+public class NucleotideSequenceGenerator implements SequenceGenerator {
 
     /**
      * The storage instance containing genomic data.
@@ -87,7 +86,7 @@ public class NucleotideSequenceGenerator {
      * @throws IOException     If an error occurs during sequence retrieval.
      * @throws MusialException If an error occurs during context generation.
      */
-    public NucleotideSequenceGenerator(Storage storage, Contig contig, boolean conserved, boolean aligned, String... sampleIdentifiers)
+    public NucleotideSequenceGenerator(Storage storage, Contig contig, boolean conserved, boolean aligned, Set<String> sampleIdentifiers)
             throws IOException, MusialException {
         // Validate the contig to ensure it exists in the storage and meets the requirements.
         validateContig(storage, contig, conserved);
@@ -100,7 +99,7 @@ public class NucleotideSequenceGenerator {
         this.conserved = conserved;
         this.aligned = aligned;
         this.interval = new Tuple<>(1, contig.getSequenceLength());
-        this.sampleIdentifiers = Arrays.stream(sampleIdentifiers).collect(Collectors.toSet());
+        this.sampleIdentifiers = sampleIdentifiers;
 
         // Generate the nucleotide context based on the conserved flag.
         if (conserved) generateConservedContext();
@@ -130,7 +129,7 @@ public class NucleotideSequenceGenerator {
      * @throws MusialException If an error occurs during context generation.
      */
     public NucleotideSequenceGenerator(Storage storage, Contig contig, int from, int to, boolean conserved, boolean aligned,
-                                       String... sampleIdentifiers) throws IOException, MusialException {
+                                       Set<String> sampleIdentifiers) throws IOException, MusialException {
         // Validate the contig to ensure it exists in the storage and meets the requirements.
         validateContig(storage, contig, conserved);
 
@@ -142,7 +141,7 @@ public class NucleotideSequenceGenerator {
         this.conserved = conserved;
         this.aligned = aligned;
         this.interval = new Tuple<>(from, to);
-        this.sampleIdentifiers = Arrays.stream(sampleIdentifiers).collect(Collectors.toSet());
+        this.sampleIdentifiers = sampleIdentifiers;
 
         // Generate the nucleotide context based on the conserved flag.
         if (conserved) generateConservedContext();
@@ -171,7 +170,7 @@ public class NucleotideSequenceGenerator {
      * @throws MusialException If an error occurs during context generation or feature validation.
      */
     public NucleotideSequenceGenerator(Storage storage, Contig contig, Feature feature, boolean conserved, boolean aligned,
-                                       String... sampleIdentifiers) throws IOException, MusialException {
+                                       Set<String> sampleIdentifiers) throws IOException, MusialException {
         // Validate the contig to ensure it exists in the storage and meets the requirements.
         validateContig(storage, contig, conserved);
 
@@ -186,7 +185,7 @@ public class NucleotideSequenceGenerator {
         this.conserved = conserved;
         this.aligned = aligned;
         this.interval = new Tuple<>(feature.start, feature.end);
-        this.sampleIdentifiers = Arrays.stream(sampleIdentifiers).collect(Collectors.toSet());
+        this.sampleIdentifiers = sampleIdentifiers;
 
         // Generate the nucleotide context based on the conserved flag.
         if (conserved) generateConservedContext();
