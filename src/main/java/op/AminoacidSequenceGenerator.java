@@ -24,7 +24,7 @@ public class AminoacidSequenceGenerator extends NucleotideSequenceGenerator {
     /**
      * Allele identifiers related to the provided sample identifiers.
      */
-    private String[] alleleIdentifiers;
+    private Set<String> alleleIdentifiers;
 
     /**
      * Constructs a new instance of the AminoacidSequenceGenerator class.
@@ -153,33 +153,33 @@ public class AminoacidSequenceGenerator extends NucleotideSequenceGenerator {
         initialize();
 
         // Collect variants related to the allele identifiers.
-        Set<Variant.Stub> variants = this.feature.getProteoforms().stream()
-                .filter(proteoform -> Arrays.stream(this.alleleIdentifiers).anyMatch(proteoform::hasRelation))
+        Set<Variant.Stub> variants = feature.getProteoforms().stream()
+                .filter(proteoform -> alleleIdentifiers.stream().anyMatch(proteoform::hasRelation))
                 .flatMap(proteoform -> proteoform.getVariants().entrySet().stream())
                 .map(entry -> new Variant.Stub(entry.getKey(), entry.getValue()))
                 .collect(Collectors.toSet());
 
         // Initialize the context map using a BTreeMap.
-        this.context = BTreeMap.create();
+        context = BTreeMap.create();
 
         // Process each variant in the list.
         for (Variant.Stub variant : variants) {
             char r = reference[variant.position() - 1];
             if (Bio.isSubstitution(variant.alternative())) {
                 // Handle substitution variants.
-                this.context.merge(variant.position(), new Bio.ReferenceContext(r, 0),
+                context.merge(variant.position(), new Bio.ReferenceContext(r, 0),
                         (x, y) -> new Bio.ReferenceContext(r, Math.max(x.extension(), y.extension())));
             } else if (Bio.isDeletion(variant.alternative())) {
                 // Handle deletion variants by iterating through the alternative sequence.
                 for (int i = 0; i < variant.alternative().length(); i++) {
                     char refChar = reference[variant.position() - 1 + i];
-                    this.context.merge(variant.position() + i, new Bio.ReferenceContext(refChar, 0),
+                    context.merge(variant.position() + i, new Bio.ReferenceContext(refChar, 0),
                             (x, y) -> new Bio.ReferenceContext(refChar, Math.max(x.extension(), y.extension())));
                 }
             } else if (Bio.isInsertion(variant.alternative())) {
                 // Handle insertion variants by calculating the insertion length.
                 int insertionLength = variant.alternative().length() - 1;
-                this.context.merge(variant.position(), new Bio.ReferenceContext(r, insertionLength),
+                context.merge(variant.position(), new Bio.ReferenceContext(r, insertionLength),
                         (x, y) -> new Bio.ReferenceContext(r, Math.max(x.extension(), y.extension())));
             } else {
                 // Throw an exception for unsupported variant types.
@@ -206,7 +206,7 @@ public class AminoacidSequenceGenerator extends NucleotideSequenceGenerator {
 
         // Collect maximal insertion lengths for positions related to allele identifiers.
         Map<Integer, Integer> maximalInsertionLengths = feature.getProteoforms().stream()
-                .filter(proteoform -> Arrays.stream(alleleIdentifiers).anyMatch(proteoform::hasRelation))
+                .filter(proteoform -> alleleIdentifiers.stream().anyMatch(proteoform::hasRelation))
                 .flatMap(proteoform -> proteoform.getVariants().entrySet().stream())
                 .filter(entry -> Bio.isInsertion(entry.getValue()))
                 .collect(Collectors.toMap(
@@ -216,10 +216,10 @@ public class AminoacidSequenceGenerator extends NucleotideSequenceGenerator {
                 ));
 
         // Initialize the context map and populate it with reference bases and insertion lengths.
-        this.context = BTreeMap.create();
+        context = BTreeMap.create();
         for (int i = interval.a; i <= interval.b; i++) {
             int insertionLength = maximalInsertionLengths.getOrDefault(i, 0);
-            this.context.put(i, new Bio.ReferenceContext(reference[i - 1], insertionLength));
+            context.put(i, new Bio.ReferenceContext(reference[i - 1], insertionLength));
         }
     }
 
@@ -235,20 +235,20 @@ public class AminoacidSequenceGenerator extends NucleotideSequenceGenerator {
      */
     private void initialize() throws IOException, MusialException {
         // Translate the nucleotide sequence of the contig into an amino acid sequence.
-        this.reference = Bio.translateSequence(this.contig.getSequence(this.feature.start, this.feature.end),
-                this.feature.isReverse()).toCharArray();
+        reference = Bio.translateSequence(contig.getSequence(feature.start, feature.end),
+                feature.isReverse()).toCharArray();
 
         // Define the interval for sequence generation.
-        this.interval = new Tuple<>(1, this.reference.length);
+        interval = new Tuple<>(1, reference.length);
 
         // Identify allele identifiers related to the provided sample identifiers.
-        this.alleleIdentifiers = Arrays.stream(this.sampleIdentifiers)
-                .map(sampleIdentifier -> this.storage.getSample(sampleIdentifier).getRelatedAllele(this.feature._id))
+        alleleIdentifiers = sampleIdentifiers.stream()
+                .map(sampleIdentifier -> storage.getSample(sampleIdentifier).getRelatedAllele(feature._id))
                 .filter(alleleIdentifiers -> !Objects.equals(alleleIdentifiers, Constants.REFERENCE))
-                .toArray(String[]::new);
+                .collect(Collectors.toSet());
 
         // Initialize the cache for storing proteoform-related data.
-        this.cache = new HashMap<>(feature.getProteoformCount() + 1);
+        cache = new HashMap<>(feature.getProteoformCount() + 1);
     }
 
 }

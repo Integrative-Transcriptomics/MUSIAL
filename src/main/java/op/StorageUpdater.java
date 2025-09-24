@@ -94,7 +94,7 @@ public class StorageUpdater {
                 // Note: In this special case, a returned reference allele may also indicate the presence of a new allele.
                 if (alleleIdentifier.equals(Constants.REFERENCE)) {
                     // Retrieve variants for the sample within the feature's range.
-                    variants = contig.getVariantsOfSamplesWithin(feature.start, feature.end, sample._id);
+                    variants = contig.getVariantsOfSamplesWithin(feature.start, feature.end, Collections.singleton(sample._id));
 
                     // Construct stubs and collect effects.
                     List<Variant.Stub> stubs = new ArrayList<>(variants.size());

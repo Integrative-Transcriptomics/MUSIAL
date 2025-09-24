@@ -569,7 +569,7 @@ public class VCFProcessor implements Closeable {
                 if (!storage.hasSample(sampleIdentifier)) continue;
 
                 // Iterate through all variants associated with the current sample in the contig.
-                for (Variant variant : contig.getVariantsOfSamples(sampleIdentifier)) {
+                for (Variant variant : contig.getVariantsOfSamples(Collections.singleton(sampleIdentifier))) {
                     // Split the variant call string into individual calls.
                     for (String variantCallString : variant.getSampleRelation(sampleIdentifier).split(Constants.PIPE)) {
                         // Parse the variant call string into a VariantCall object.

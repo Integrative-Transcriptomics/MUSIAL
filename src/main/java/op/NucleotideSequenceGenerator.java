@@ -12,6 +12,7 @@ import util.Constants;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * The {@code NucleotideSequenceGenerator} class is responsible for generating nucleotide sequences based on genomic data contained in a
@@ -65,7 +66,7 @@ public class NucleotideSequenceGenerator {
     /**
      * Sample identifiers to which the sequence generation is restricted.
      */
-    final String[] sampleIdentifiers;
+    final Set<String> sampleIdentifiers;
 
     /**
      * Constructs a new instance of the NucleotideSequenceGenerator class.
@@ -99,7 +100,7 @@ public class NucleotideSequenceGenerator {
         this.conserved = conserved;
         this.aligned = aligned;
         this.interval = new Tuple<>(1, contig.getSequenceLength());
-        this.sampleIdentifiers = sampleIdentifiers;
+        this.sampleIdentifiers = Arrays.stream(sampleIdentifiers).collect(Collectors.toSet());
 
         // Generate the nucleotide context based on the conserved flag.
         if (conserved) generateConservedContext();
@@ -141,7 +142,7 @@ public class NucleotideSequenceGenerator {
         this.conserved = conserved;
         this.aligned = aligned;
         this.interval = new Tuple<>(from, to);
-        this.sampleIdentifiers = sampleIdentifiers;
+        this.sampleIdentifiers = Arrays.stream(sampleIdentifiers).collect(Collectors.toSet());
 
         // Generate the nucleotide context based on the conserved flag.
         if (conserved) generateConservedContext();
@@ -185,7 +186,7 @@ public class NucleotideSequenceGenerator {
         this.conserved = conserved;
         this.aligned = aligned;
         this.interval = new Tuple<>(feature.start, feature.end);
-        this.sampleIdentifiers = sampleIdentifiers;
+        this.sampleIdentifiers = Arrays.stream(sampleIdentifiers).collect(Collectors.toSet());
 
         // Generate the nucleotide context based on the conserved flag.
         if (conserved) generateConservedContext();
@@ -260,7 +261,7 @@ public class NucleotideSequenceGenerator {
         validateSample(sampleIdentifier);
 
         // Retrieve variants for the given sample within the interval.
-        List<Variant> variants = contig.getVariantsOfSamplesWithin(interval.a, interval.b, sampleIdentifier);
+        List<Variant> variants = contig.getVariantsOfSamplesWithin(interval.a, interval.b, Collections.singleton(sampleIdentifier));
 
         // If no variants are found, return the integrated reference sequence.
         if (variants.isEmpty()) {
@@ -333,7 +334,7 @@ public class NucleotideSequenceGenerator {
             throw new IllegalArgumentException("Sample %s does not exist in storage.".formatted(sampleIdentifier));
 
         // If multiple sample identifiers are provided, ensure the given identifier is in the list.
-        if (sampleIdentifiers.length > 1 && !Arrays.asList(sampleIdentifiers).contains(sampleIdentifier))
+        if (!(sampleIdentifiers.isEmpty() || sampleIdentifiers.contains(sampleIdentifier)))
             throw new IllegalArgumentException("Sample " + sampleIdentifier + " not in sample identifiers.");
     }
 
@@ -345,7 +346,7 @@ public class NucleotideSequenceGenerator {
      * @return true if the variant is filtered, false otherwise.
      */
     private boolean filtered(Variant variant) {
-        return (this.sampleIdentifiers.length > 0 && variant.isFiltered(this.sampleIdentifiers)) || variant.isFiltered();
+        return (!sampleIdentifiers.isEmpty() && variant.isFiltered(sampleIdentifiers)) || variant.isFiltered();
     }
 
     /**
@@ -356,7 +357,7 @@ public class NucleotideSequenceGenerator {
      * @return true if the variant is unrelated to the sample identifiers, false otherwise.
      */
     private boolean unrelated(Variant variant) {
-        return this.sampleIdentifiers.length > 0 && !variant.ofSamples(this.sampleIdentifiers);
+        return !sampleIdentifiers.isEmpty() && !variant.ofSamples(sampleIdentifiers);
     }
 
     /**
@@ -376,12 +377,12 @@ public class NucleotideSequenceGenerator {
         List<Variant> variants;
 
         // Retrieve the relevant variants based on the interval or the entire contig.
-        variants = (this.interval != null)
-                ? contig.getVariantsWithin(this.interval.a, this.interval.b)
+        variants = (interval != null)
+                ? contig.getVariantsWithin(interval.a, interval.b)
                 : contig.getAllVariants();
 
         // Initialize the context map using a BTreeMap.
-        this.context = BTreeMap.create();
+        context = BTreeMap.create();
 
         // Process each variant in the list.
         for (Variant variant : variants) {
@@ -392,20 +393,20 @@ public class NucleotideSequenceGenerator {
             switch (variant.type) {
                 case SNV ->
                     // Merge single nucleotide variants (SNVs) into the context map.
-                        this.context.merge(variant.position, new Bio.ReferenceContext(variant.reference.charAt(0), 0),
+                        context.merge(variant.position, new Bio.ReferenceContext(variant.reference.charAt(0), 0),
                                 (x, y) -> new Bio.ReferenceContext(variant.reference.charAt(0), Math.max(x.extension(), y.extension())));
                 case DELETION -> {
                     // Handle deletions by iterating through the reference sequence.
                     for (int i = 0; i < variant.reference.length(); i++) {
                         char c = variant.reference.charAt(i);
-                        this.context.merge(variant.position + i, new Bio.ReferenceContext(c, 0),
+                        context.merge(variant.position + i, new Bio.ReferenceContext(c, 0),
                                 (x, y) -> new Bio.ReferenceContext(c, Math.max(x.extension(), y.extension())));
                     }
                 }
                 case INSERTION -> {
                     // Handle insertions by calculating the insertion length.
                     int insertionLength = filtered(variant) ? 0 : variant.alternative.length() - 1;
-                    this.context.merge(variant.position, new Bio.ReferenceContext(variant.reference.charAt(0), insertionLength),
+                    context.merge(variant.position, new Bio.ReferenceContext(variant.reference.charAt(0), insertionLength),
                             (x, y) -> new Bio.ReferenceContext(variant.reference.charAt(0), Math.max(x.extension(), y.extension())));
                 }
                 default ->
@@ -428,28 +429,28 @@ public class NucleotideSequenceGenerator {
     void generateConservedContext() throws IOException, MusialException {
         // Define the start and end positions of the sequence.
         int start, end;
-        if (this.interval == null) {
+        if (interval == null) {
             start = 1;
-            end = this.contig.getSequenceLength();
+            end = contig.getSequenceLength();
         } else {
             start = interval.a;
             end = interval.b;
         }
 
         // Get the reference sequence as a character array.
-        char[] referenceCharacters = (this.interval != null)
-                ? this.contig.getSequence(this.interval.a, this.interval.b).toCharArray()
-                : this.contig.getSequence().toCharArray();
+        char[] referenceCharacters = (interval != null)
+                ? contig.getSequence(interval.a, interval.b).toCharArray()
+                : contig.getSequence().toCharArray();
 
         // Initialize the context map with the size of the reference sequence.
-        this.context = BTreeMap.create();
+        context = BTreeMap.create();
 
         // Iterate through the sequence positions.
         for (int i = start, x = 0; i <= end; i++, x++) {
             int maxInsertionLength = 0;
 
             // Check for insertion variants at the current position.
-            for (Variant variant : this.contig.getVariantsAt(i)) {
+            for (Variant variant : contig.getVariantsAt(i)) {
                 // If the variant is an insertion and not filtered, update the maximum insertion length.
                 if (variant.type.equals(Variant.Type.INSERTION) && !filtered(variant)) {
                     maxInsertionLength = Math.max(maxInsertionLength, variant.alternative.length() - 1);
@@ -457,7 +458,7 @@ public class NucleotideSequenceGenerator {
             }
 
             // Add the base and maximum insertion length to the context.
-            this.context.put(i, new Bio.ReferenceContext(referenceCharacters[x], maxInsertionLength));
+            context.put(i, new Bio.ReferenceContext(referenceCharacters[x], maxInsertionLength));
         }
     }
 

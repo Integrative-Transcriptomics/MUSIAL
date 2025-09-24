@@ -250,10 +250,10 @@ public class Contig extends Attributes {
      * This method filters the variants stored in the contig to include only those that are associated with at least one of the specified
      * sample identifiers. The resulting list is unmodifiable.
      *
-     * @param sampleIdentifiers An array of sample identifiers to filter the variants.
+     * @param sampleIdentifiers A collection of sample identifiers to filter the variants.
      * @return A {@link List} of {@link Variant} objects associated with the specified sample identifiers.
      */
-    public List<Variant> getVariantsOfSamples(String... sampleIdentifiers) {
+    public List<Variant> getVariantsOfSamples(Collection<String> sampleIdentifiers) {
         return this.variants.values().stream()
                 .flatMap(variantMap -> variantMap.values().stream())
                 .filter(variant -> variant.ofSamples(sampleIdentifiers))
@@ -269,48 +269,13 @@ public class Contig extends Attributes {
      *
      * @param start             The 1-based start position of the range (inclusive).
      * @param end               The 1-based end position of the range (exclusive).
-     * @param sampleIdentifiers An array of sample identifiers to filter the variants.
+     * @param sampleIdentifiers A collection of sample identifiers to filter the variants.
      * @return A {@link List} of {@link Variant} objects associated with the specified sample identifiers within the given range.
      */
-    public List<Variant> getVariantsOfSamplesWithin(int start, int end, String... sampleIdentifiers) {
+    public List<Variant> getVariantsOfSamplesWithin(int start, int end, Collection<String> sampleIdentifiers) {
         return this.variants.subMap(start, end + 1).values().stream()
                 .flatMap(variantMap -> variantMap.values().stream())
                 .filter(variant -> variant.ofSamples(sampleIdentifiers))
-                .toList();
-    }
-
-    /**
-     * Retrieves variants associated with the specified allele identifiers.
-     * <p>
-     * This method filters the variants stored in the contig to include only those that are associated with at least one of the specified
-     * allele identifiers. The resulting list is unmodifiable.
-     *
-     * @param alleleIdentifiers An array of allele identifiers to filter the variants.
-     * @return A {@link List} of {@link Variant} objects associated with the specified allele identifiers.
-     */
-    public List<Variant> getVariantsOfAlleles(String... alleleIdentifiers) {
-        return this.variants.values().stream()
-                .flatMap(variantMap -> variantMap.values().stream())
-                .filter(variant -> variant.ofAlleles(alleleIdentifiers))
-                .toList();
-    }
-
-    /**
-     * Retrieves variants associated with the specified allele identifiers within a given range of positions.
-     * <p>
-     * This method filters the variants stored in the contig to include only those that are associated with at least one of the specified
-     * allele identifiers and fall within the specified start and end positions (inclusive of start, exclusive of end). The resulting list
-     * is unmodifiable.
-     *
-     * @param start             The 1-based start position of the range (inclusive).
-     * @param end               The 1-based end position of the range (exclusive).
-     * @param alleleIdentifiers An array of allele identifiers to filter the variants.
-     * @return A {@link List} of {@link Variant} objects associated with the specified allele identifiers within the given range.
-     */
-    public List<Variant> getVariantsOfAllelesWithin(int start, int end, String... alleleIdentifiers) {
-        return this.variants.subMap(start, end + 1).values().stream()
-                .flatMap(variantMap -> variantMap.values().stream())
-                .filter(variant -> variant.ofAlleles(alleleIdentifiers))
                 .toList();
     }
 

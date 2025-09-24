@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Central component of the MUSIAL model, designed to manage genomic data, including contigs, features, and samples.
@@ -460,6 +461,21 @@ public class Storage {
     }
 
     /**
+     * Retrieves the set of all unique attribute keys from features in the storage.
+     * <p>
+     * This method iterates through all features in the {@code features} map, collects the keys of their attributes, and returns them as a
+     * {@link Set}. The use of a {@link Set} ensures that the returned collection contains only unique attribute keys, even if multiple
+     * features share the same attribute keys.
+     *
+     * @return A {@link Set} of {@link String} objects representing the unique attribute keys of all features.
+     */
+    public Set<String> getFeatureAttributeKeys() {
+        return this.features.values().stream()
+                .flatMap(feature -> feature.getAttributes().keySet().stream())
+                .collect(Collectors.toSet());
+    }
+
+    /**
      * Removes a feature from the storage by its unique identifier.
      * <p>
      * This method deletes the feature associated with the given identifier from the `features` map. It is useful for managing the storage
@@ -549,6 +565,21 @@ public class Storage {
     }
 
     /**
+     * Retrieves the set of all unique attribute keys from samples in the storage.
+     * <p>
+     * This method iterates through all samples in the {@code samples} map, collects the keys of their attributes, and returns them as a
+     * {@link Set}. The use of a {@link Set} ensures that the returned collection contains only unique attribute keys, even if multiple
+     * samples share the same attribute keys.
+     *
+     * @return A {@link Set} of {@link String} objects representing the unique attribute keys of all samples.
+     */
+    public Set<String> getSampleAttributeKeys() {
+        return this.samples.values().stream()
+                .flatMap(sample -> sample.getAttributes().keySet().stream())
+                .collect(Collectors.toSet());
+    }
+
+    /**
      * Detaches a sample from the storage and removes its associations with variants and alleles.
      * <p>
      * This method performs the following operations:
@@ -571,7 +602,7 @@ public class Storage {
 
         // Detach the sample from all variants and remove variants that are no longer related to any sample.
         for (Contig contig : contigs.values()) {
-            for (Variant variant : contig.getVariantsOfSamples(sampleIdentifier)) {
+            for (Variant variant : contig.getVariantsOfSamples(Collections.singleton(sampleIdentifier))) {
                 if (variant.removeSampleRelation(sampleIdentifier)) contig.removeVariant(variant.position, variant.alternative);
             }
         }

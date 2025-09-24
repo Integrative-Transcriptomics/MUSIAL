@@ -20,13 +20,6 @@ public class Attributes {
     private final Map<String, String> attributes = new HashMap<>();
 
     /**
-     * Static map to track attribute keys used by different classes extending {@link Attributes}.
-     * <p>
-     * The keys are stored in lowercase to ensure case-insensitive tracking.
-     */
-    public static final Map<String, Set<String>> KEYS = new HashMap<>(4);
-
-    /**
      * Constructor of {@link Attributes}.
      * <p>
      * Initializes an empty attributes map for the entity.
@@ -136,10 +129,6 @@ public class Attributes {
      */
     public void setAttribute(String key, String value) {
         this.attributes.put(key, value);
-        // Track keys per class.
-        String className = this.getClass().getName().toLowerCase();
-        KEYS.putIfAbsent(className, new HashSet<>());
-        KEYS.get(className).add(key);
     }
 
     /**
@@ -159,12 +148,6 @@ public class Attributes {
      */
     public void setAttributeIfAbsent(String key, String value) {
         String result = this.attributes.putIfAbsent(key, value);
-        // Track keys per class.
-        if (result == null) {
-            String className = this.getClass().getName().toLowerCase();
-            KEYS.putIfAbsent(className, new HashSet<>());
-            KEYS.get(className).add(key);
-        }
     }
 
     /**

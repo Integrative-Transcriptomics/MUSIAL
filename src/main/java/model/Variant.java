@@ -180,21 +180,21 @@ public class Variant extends Attributes {
     /**
      * Checks if the variant is associated with any of the specified samples.
      *
-     * @param sampleIdentifiers An array of sample identifiers to check.
+     * @param sampleIdentifiers A collection of sample identifiers to check.
      * @return {@code true} if the variant is associated with at least one of the given sample identifiers, {@code false} otherwise.
      */
-    public boolean ofSamples(String... sampleIdentifiers) {
-        return Arrays.stream(sampleIdentifiers).anyMatch(this::ofSample);
+    public boolean ofSamples(Collection<String> sampleIdentifiers) {
+        return sampleIdentifiers.stream().anyMatch(this.samples::containsKey);
     }
 
     /**
      * Checks if the variant is associated with any of the specified features.
      *
-     * @param featureIdentifiers An array of feature identifiers to check.
+     * @param featureIdentifiers A collection of feature identifiers to check.
      * @return {@code true} if the variant is associated with at least one of the given feature identifiers, {@code false} otherwise.
      */
-    public boolean ofFeatures(String... featureIdentifiers) {
-        return Arrays.stream(featureIdentifiers).anyMatch(this.features::containsKey);
+    public boolean ofFeatures(Collection<String> featureIdentifiers) {
+        return featureIdentifiers.stream().anyMatch(this.features::containsKey);
     }
 
     /**
@@ -210,11 +210,11 @@ public class Variant extends Attributes {
     /**
      * Checks if the variant is associated with any of the specified alleles.
      *
-     * @param alleleIdentifiers An array of allele identifiers to check.
+     * @param alleleIdentifiers A collection of allele identifiers to check.
      * @return {@code true} if the variant is associated with at least one of the given allele identifiers, {@code false} otherwise.
      */
-    public boolean ofAlleles(String... alleleIdentifiers) {
-        return Arrays.stream(alleleIdentifiers).anyMatch(this::ofAllele);
+    public boolean ofAlleles(Collection<String> alleleIdentifiers) {
+        return alleleIdentifiers.stream().anyMatch(this::ofAllele);
     }
 
     /**
@@ -237,11 +237,11 @@ public class Variant extends Attributes {
      * <p>
      * See {@link #isFiltered(String)}.
      *
-     * @param sampleIdentifiers A variable number of sample identifiers to check.
+     * @param sampleIdentifiers A collection of sample identifiers to check.
      * @return {@code true} if the variant is filtered for all specified samples; {@code false} otherwise.
      */
-    public boolean isFiltered(String... sampleIdentifiers) {
-        return Arrays.stream(sampleIdentifiers).allMatch(this::isFiltered);
+    public boolean isFiltered(Collection<String> sampleIdentifiers) {
+        return sampleIdentifiers.stream().allMatch(this::isFiltered);
     }
 
     /**
