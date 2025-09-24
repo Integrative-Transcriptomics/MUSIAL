@@ -47,6 +47,7 @@ public class ExecutorProfile {
         Logging.logInfo("Load storage.");
         this.storage = StorageFactory.fromPath(cli.input);
         this.storageTable = new StorageTable(storage);
+        Logging.logDone("");
     }
 
     /**
