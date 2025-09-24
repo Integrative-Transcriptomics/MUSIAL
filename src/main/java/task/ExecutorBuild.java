@@ -9,7 +9,7 @@ import util.Logging;
 import java.io.IOException;
 
 /**
- * The {@code ExecutorBuild} class is responsible for executing the build task for genomic data analysis.
+ * The {@code ExecutorBuild} class is responsible for executing the {@code build} task to compile genomic data.
  * <p>
  * This class orchestrates the process of loading genomic features, processing variant call files (VCF), annotating variants, inferring
  * sequence types, and computing statistics.
@@ -67,7 +67,7 @@ public class ExecutorBuild {
     }
 
     /**
-     * Runs the {@code build} task for genomic data analysis.
+     * Executes the main logic of the {@code build} task.
      * <p>
      * This method performs the following steps:
      * <ul>

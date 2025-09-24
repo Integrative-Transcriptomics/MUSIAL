@@ -9,6 +9,12 @@ import util.Logging;
 import java.io.IOException;
 import java.nio.file.Path;
 
+/**
+ * The {@code ExecutorExpand} class is responsible for executing the {@code expand} task to extend existing genomic data.
+ * <p>
+ * This class orchestrates the process of expanding an existing storage with new variant call files (VCF), updating sample attributes,
+ * annotating variants, inferring sequence types, and recomputing statistics.
+ */
 public class ExecutorExpand {
 
     /**
@@ -41,6 +47,19 @@ public class ExecutorExpand {
      */
     private final int initialSampleCount;
 
+    /**
+     * Constructs an instance of the {@link ExecutorExpand} class.
+     * <p>
+     * This constructor initializes the necessary components for the expand task, including:
+     * <ul>
+     *   <li>Storage for genomic data, created based on the command-line interface (CLI) input.</li>
+     *   <li>A {@link StorageUpdater} to manage updates to the storage.</li>
+     *   <li>A {@link VariantAnnotator} to annotate genetic variants.</li>
+     * </ul>
+     *
+     * @param cli The {@link CLIExpand} instance containing the command-line arguments and options.
+     * @throws IOException If an I/O error occurs during the initialization of storage or other components.
+     */
     public ExecutorExpand(CLIExpand cli) throws IOException {
         this.cli = cli;
         Logging.logInfo("Load storage.");
@@ -53,7 +72,7 @@ public class ExecutorExpand {
     }
 
     /**
-     * Runs the {@code expand} task to expand the genomic data storage with new variants and samples.
+     * Executes the main logic of the {@code expand} task.
      * <p>
      * This method performs the following steps:
      * <ul>
