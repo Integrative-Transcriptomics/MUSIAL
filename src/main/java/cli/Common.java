@@ -100,7 +100,7 @@ final class Common {
      * @throws IOException If an I/O error occurs while accessing the file.
      */
     static Map<String, Map<String, String>> parseInputVcfMeta(Map<String, Object> configuration) throws IOException {
-        Map<String, Map<String, String>> vcfMeta = Collections.emptyMap();
+        Map<String, Map<String, String>> vcfMeta = new HashMap<>();
         // Check if an annotation file is specified in the configuration; if not, return an empty map.
         if (configuration.containsKey("vcfMeta")) {
             Path path = Path.of((String) configuration.get("vcfMeta"));

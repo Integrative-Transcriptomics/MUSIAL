@@ -131,7 +131,7 @@ public class CLIExpand implements CLI {
         this.vcfMeta = parseVcfMeta(arguments);
         this.dry = arguments.hasOption("d");
         if (this.dry) {
-            this.overwrite = false;
+            this.overwrite = true; // Note: Set overwrite to true for temporary files in dry-run mode.
             Logging.logConfig("Dry-run mode enabled, no output will be written.");
         } else if (this.output == null) {
             this.overwrite = true;
@@ -203,8 +203,8 @@ public class CLIExpand implements CLI {
      * Parses the VCF metadata file path from the command-line arguments.
      * <p>
      * This method retrieves the value of the "m" option from the provided {@link CommandLine} arguments and adds it to a dummy
-     * configuration map under the "vcfMeta" key. The dummy configuration map is then passed to the {@link Common#parseInputVcfMeta(Map)} method
-     * for further processing and validation.
+     * configuration map under the "vcfMeta" key. The dummy configuration map is then passed to the {@link Common#parseInputVcfMeta(Map)}
+     * method for further processing and validation.
      * <p>
      * If the "m" option is not provided, the dummy configuration map remains empty, and the method returns an empty map.
      *

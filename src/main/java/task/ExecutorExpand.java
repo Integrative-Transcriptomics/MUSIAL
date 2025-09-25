@@ -106,7 +106,7 @@ public class ExecutorExpand {
                 Logging.logDone("Loaded %d existing variant calls.".formatted(loadedCount));
 
                 // Detach samples that are already present in the storage to avoid duplication.
-                vcfProcessor.getSamples().forEach(sampleIdentifier -> {
+                for (String sampleIdentifier : vcfProcessor.getSamples()) {
                     if (storage.hasSample(sampleIdentifier)) {
                         // Retain sample attributes from existing storage.
                         cli.vcfMeta.put(sampleIdentifier, storage.getSample(sampleIdentifier).getAttributes());
@@ -114,7 +114,7 @@ public class ExecutorExpand {
                         // Detach existing sample to avoid duplication.
                         storage.detachSample(sampleIdentifier);
                     }
-                });
+                }
 
                 // Update variants from the processed VCF data.
                 Logging.logInfo("Update variants.");
