@@ -15,27 +15,22 @@
       "minimum": 0.0,
       "maximum": 1.0
     },
-    "storeFiltered": {
-      "description": "If set to true, calls that are filtered by coverage and frequency restrictions are retained as ambiguous variants (N).",
+    "maskFiltered": {
+      "description": "If set to true, calls that were filtered by coverage or frequency restrictions are treated as ambiguous bases (N) instead of being ignored.",
       "type": "boolean"
     },
-    "skipSnpEff": {
+    "skipAnnotation": {
       "description": "If set to true, SnpEff analysis will be skipped.",
       "type": "boolean"
     },
-    "skipProteoformInference": {
+    "skipTyping": {
       "description": "If set to true, proteoform inference will be skipped.",
       "type": "boolean"
     },
-    "excludedPositions": {
+    "mask": {
       "description": "Path to a BED file (no header row, rows starting with # are ignored); Only obligatory columns one (chrom), two (start) and three (end) are considered. Specification of positions to be excluded from the analysis.",
       "type": "string",
       "pattern": "^.+.bed|.+.tsv|.+.csv$"
-    },
-    "excludedVariants": {
-      "description": "Path to a .tsv file (no header row, rows starting with # are ignored); The file is expected to contain four columns (chrom, pos, ref, alt). Specification of variants to be excluded from the analysis",
-      "type": "string",
-      "pattern": "^.+.tsv|.+.csv$"
     },
     "reference": {
       "description": "Path to a FASTA file. Content will be used as the reference sequences.",
@@ -52,7 +47,7 @@
       "type": "string",
       "pattern": "^.+$"
     },
-    "vcfInput": {
+    "vcfFiles": {
       "description": "List of files or directories specifying the samples (VCF files) to be analyzed.",
       "type": "array",
       "uniqueItems": true,
@@ -67,14 +62,14 @@
       "pattern": "^.+.tsv|.+.csv$"
     },
     "features": {
-      "description": "Path to a .tsv or .csv file (no header row, rows starting with # are ignored) specifying the set of reference features to analyze. The file is expected to contain two columns representing the attribute key and value to match the feature from, i.e., key/value pairs of any property in the last column of the provided GFF3 file. An optional third column can be used to specify additional attributes in the notation KEY=VALUE;...",
+      "description": "Path to a .tsv or .csv file (no header row) specifying the set of reference features to analyze. The file is expected to contain two columns representing the attribute key and value to match the feature from, i.e., key/value pairs of any property in the last column of the provided GFF3 file. An optional third column can be used to specify additional attributes in the notation KEY=VALUE;...",
       "type": "string",
       "pattern": "^.+.tsv|.+.csv$"
     }
   },
   "required": [
     "output",
-    "vcfInput"
+    "vcfFiles"
   ],
   "additionalProperties": false
 }
