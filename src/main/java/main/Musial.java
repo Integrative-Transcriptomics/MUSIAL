@@ -87,7 +87,7 @@ public final class Musial {
      * <p>
      * The verbosity level used for logging. See {@link Level} for details.
      */
-    private static final Level LOG_VERBOSITY = Level.FINE;
+    private static final Level LOG_VERBOSITY = Level.CONFIG;
 
     /**
      * The main entry point of the MUSIAL application.
