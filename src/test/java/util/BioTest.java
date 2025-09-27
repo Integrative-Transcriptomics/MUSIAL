@@ -482,4 +482,83 @@ public class BioTest {
         assertEquals("ACTG-T-ACGATT", result);
     }
 
+    @Test
+    void alignByCigarMatchOnly() {
+        String reference = "ACGTACGT";
+        String query = "ACGTACGT";
+        String cigar = "8M";
+        Tuple<String, String> result = Bio.alignByCigar(reference, query, cigar, 0);
+        assertEquals(new Tuple<>("ACGTACGT", "ACGTACGT"), result);
+    }
+
+    @Test
+    void alignByCigarInsertion() {
+        String reference = "ACGTACGT";
+        String query = "ACGTTACGT";
+        String cigar = "4M1I4M";
+        Tuple<String, String> result = Bio.alignByCigar(reference, query, cigar, 0);
+        assertEquals(new Tuple<>("ACGT-ACGT", "ACGTTACGT"), result);
+    }
+
+    @Test
+    void alignByCigarDeletion() {
+        String reference = "ACGTACGT";
+        String query = "ACGACGT";
+        String cigar = "3M1D4M";
+        Tuple<String, String> result = Bio.alignByCigar(reference, query, cigar, 0);
+        assertEquals(new Tuple<>("ACGTACGT", "ACG-ACGT"), result);
+    }
+
+    @Test
+    void alignByCigarSoftClipping() {
+        String reference = "ACGTACGT";
+        String query = "TTACGTACGT";
+        String cigar = "2S8M";
+        Tuple<String, String> result = Bio.alignByCigar(reference, query, cigar, 0);
+        assertEquals(new Tuple<>("ACGTACGT", "ACGTACGT"), result);
+    }
+
+    @Test
+    void alignByCigarHardClipping() {
+        String reference = "ACGTACGT";
+        String query = "ACGTACGT";
+        String cigar = "2H8M";
+        Tuple<String, String> result = Bio.alignByCigar(reference, query, cigar, 0);
+        assertEquals(new Tuple<>("ACGTACGT", "ACGTACGT"), result);
+    }
+
+    @Test
+    void alignByCigarComplexCigar() {
+        String reference = "ACGTACGTA";
+        String query = "ACGTTACGA";
+        String cigar = "4M1I3M1D1M";
+        Tuple<String, String> result = Bio.alignByCigar(reference, query, cigar, 0);
+        assertEquals(new Tuple<>("ACGT-ACGTA", "ACGTTACG-A"), result);
+    }
+
+    @Test
+    void alignByCigarUnsupportedOperation() {
+        String reference = "ACGTACGT";
+        String query = "ACGTACGT";
+        String cigar = "8Z";
+        assertThrowsExactly(IllegalArgumentException.class, () -> Bio.alignByCigar(reference, query, cigar, 0));
+    }
+
+    @Test
+    void alignByCigarMismatchedLengths() {
+        String reference = "ACGTACGT";
+        String query = "ACGT";
+        String cigar = "8M";
+        assertThrowsExactly(IllegalArgumentException.class, () -> Bio.alignByCigar(reference, query, cigar, 0));
+    }
+
+    @Test
+    void alignByCigarOffsetHandling() {
+        String reference = "ACGTACGT";
+        String query = "GTACGT";
+        String cigar = "6M";
+        Tuple<String, String> result = Bio.alignByCigar(reference, query, cigar, 2);
+        assertEquals(new Tuple<>("GTACGT", "GTACGT"), result);
+    }
+
 }

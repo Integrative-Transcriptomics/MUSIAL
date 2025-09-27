@@ -1,5 +1,6 @@
 package op;
 
+import com.google.common.collect.Lists;
 import htsjdk.samtools.util.Tuple;
 import htsjdk.tribble.index.IndexFactory;
 import htsjdk.variant.variantcontext.Genotype;
@@ -58,6 +59,11 @@ public class VCFProcessor implements Closeable {
     private final List<Path> paths;
 
     /**
+     * The current path of the VCF file being processed. Used for logging and error reporting.
+     */
+    private String path;
+
+    /**
      * A flag indicating whether to impute contigs from the VCF files.
      * <p>
      * If set to {@code true}, the program will infer and add contigs to the storage based on the contigs present in the VCF files. This is
@@ -72,6 +78,14 @@ public class VCFProcessor implements Closeable {
      * incremented each time a variant call is processed, regardless of its outcome.
      */
     private long processedCallsCount = 0;
+
+    /**
+     * Tracks the total number of realigned variant calls.
+     * <p>
+     * This field is used to count the number of variant calls that were realigned during processing. Realignment may occur when the
+     * original alignment is not canonical or requires adjustment for representation.
+     */
+    private long realignedCallsCount = 0;
 
     /**
      * Tracks the total number of ignored variant calls.
@@ -307,6 +321,7 @@ public class VCFProcessor implements Closeable {
     public void processFiles() throws IOException {
         // Iterate over each VCF file path in the list of paths.
         for (Path path : paths) {
+            this.path = path.toString();
             // Create a temporary index file for the VCF file if it does not already exist.
             File indexFile = new File(path + ".idx");
             if (!indexFile.exists()) {
@@ -339,12 +354,12 @@ public class VCFProcessor implements Closeable {
                     if (!storage.getFeatures().isEmpty()) {
                         // Process variants for each feature in the storage.
                         for (Feature feature : storage.getFeatures()) {
-                            processVariantContexts(vcfFileReader.query(feature.contig, feature.start, feature.end), path);
+                            processVariantContexts(vcfFileReader.query(feature.contig, feature.start, feature.end));
                         }
                     } else {
                         // Process all variants if no specific features are defined.
                         // Note: Optimization may be required for large files.
-                        processVariantContexts(vcfFileReader.iterator(), path);
+                        processVariantContexts(vcfFileReader.iterator());
                     }
                 }
             }
@@ -358,6 +373,15 @@ public class VCFProcessor implements Closeable {
      */
     public long getProcessedCallsCount() {
         return processedCallsCount;
+    }
+
+    /**
+     * Retrieves the total number of realigned variant calls.
+     *
+     * @return The total number of realigned variant calls as a {@code long}.
+     */
+    public long getRealignedCallsCount() {
+        return realignedCallsCount;
     }
 
     /**
@@ -437,8 +461,8 @@ public class VCFProcessor implements Closeable {
                                 Bio.globalNucleotideSequenceAlignment(
                                         Bio.stripGaps(referenceBuilder.toString()),
                                         Bio.stripGaps(alternativeBuilder.toString()),
-                                        5,
-                                        2,
+                                        3,
+                                        1,
                                         true,
                                         false,
                                         0
@@ -446,9 +470,8 @@ public class VCFProcessor implements Closeable {
                         ArrayList<Triple<Integer, String, String>> resolvedVariants =
                                 Bio.getCanonicalVariants(alignment.a, alignment.b);
                         for (Triple<Integer, String, String> variant : resolvedVariants) {
-                            storage.addVariant(contig, sample._id, position + variant.getLeft(), variant.getMiddle(), variant.getRight(),
-                                    calls);
-
+                            storage.addVariant(contig, sample._id, position + variant.getLeft(), variant.getMiddle(),
+                                    variant.getRight(), calls);
                         }
                     } else {
                         storage.addVariant(contig, sample._id, position, referenceContent, alternativeContent, calls);
@@ -554,6 +577,7 @@ public class VCFProcessor implements Closeable {
     public int loadVariantCallsFromStorage() {
         // Counter for loaded variant calls.
         int c = 0;
+        this.path = null;
 
         // Iterate through all contig identifiers in the variant call cache.
         for (String contigIdentifier : vcCache.contigMap.keySet()) {
@@ -577,7 +601,7 @@ public class VCFProcessor implements Closeable {
 
                         // Process the variant call and update the storage.
                         processVariantCall(sampleIdentifier, contigIdentifier, variant.position,
-                                variantCall.alternatives(), storage.parameters, Path.of("storage"));
+                                variantCall.alternatives());
 
                         c++;
                     }
@@ -596,15 +620,17 @@ public class VCFProcessor implements Closeable {
      * variant calls.
      *
      * @param variantContextIterator An {@link Iterator} of {@link VariantContext} objects representing the variants to process.
-     * @param path                   The {@link Path} to the VCF file being processed, used for logging and error reporting.
      */
-    private void processVariantContexts(Iterator<VariantContext> variantContextIterator, Path path) {
+    private void processVariantContexts(Iterator<VariantContext> variantContextIterator) {
         while (variantContextIterator.hasNext()) {
             VariantContext variantContext = variantContextIterator.next();
             String contigIdentifier = variantContext.getContig();
 
             // Skip positions excluded by the configuration.
-            if (storage.parameters.isPositionMasked(contigIdentifier, variantContext.getStart())) continue;
+            if (storage.parameters.isPositionMasked(contigIdentifier, variantContext.getStart())) {
+                ignoredCallsCount++; // Ignore calls in masked positions.
+                continue;
+            }
 
             // Process each genotype in the current VariantContext.
             for (Genotype genotype : variantContext.getGenotypes()) {
@@ -615,8 +641,14 @@ public class VCFProcessor implements Closeable {
                     continue;
                 }
 
-                // Log a warning if AD and DP attributes are missing.
-                if (!(genotype.hasDP() && (genotype.hasAD() || genotype.hasAnyAttribute("COV")))) {
+                // Validate coverage attributes.
+                boolean hasDP = genotype.hasDP();
+                boolean hasAD = genotype.hasAD();
+                boolean hasCOV = genotype.hasAnyAttribute("COV");
+                boolean hasDP4 = variantContext.hasAttribute("DP4")
+                        && genotype.getAlleles().size() == 2
+                        && variantContext.getNSamples() == 1;
+                if (!(hasDP && (hasAD || hasCOV || hasDP4))) {
                     if (!genotype.isHomRef()) {
                         Logging.logWarningOnce("MISSING_AD_DP_ATTRIBUTES",
                                 String.format("Variants may be ignored as AD/COV/DP4 and DP attributes are unavailable (%s:g.%d %s in %s).",
@@ -631,46 +663,54 @@ public class VCFProcessor implements Closeable {
 
                 // Extract allelic depth (AD) information for the genotype.
                 int[] ADs;
-                if (genotype.hasAD()) {
+                if (hasAD) {
                     ADs = genotype.getAD();
-                } else if (genotype.hasAnyAttribute("COV")) {
-                    ADs = (int[]) genotype.getAnyAttribute("COV");
-                } else if (genotype.getAlleles().size() == 2
-                        && variantContext.getNSamples() == 1
-                        && variantContext.hasAttribute("DP4")) {
-                    // Use DP4 attribute as a fallback if AD is missing.
-                    List<Integer> DP4 = variantContext.getAttributeAsIntList("DP4", 0);
-                    ADs = new int[]{
-                            DP4.get(0) + DP4.get(1), // Reference allele coverage.
-                            DP4.get(2) + DP4.get(3)  // Alternative allele coverage.
-                    };
-                } else {
-                    ignoredCallsCount++; // Skip genotypes with insufficient information.
-                    continue;
-                }
+                } else if (hasCOV) {
+                    try {
+                        ADs =
+                                Arrays.stream(((String) genotype.getAnyAttribute("COV")).split(Constants.COMMA))
+                                        .mapToInt(Integer::parseInt)
+                                        .toArray();
+                    } catch (Exception e) {
+                        Logging.logWarningOnce("MALFORMED_COV_ATTRIBUTE",
+                                String.format("Malformed COV attribute %s (%s:g.%d %s in %s).", genotype.getAnyAttribute("COV"),
+                                        contigIdentifier, variantContext.getStart(), sampleIdentifier, path));
+                        ignoredCallsCount++; // Skip genotypes with malformed COV attribute.
+                        continue;
+                    }
+                } else //noinspection ConstantConditions
+                    if (hasDP4) {
+                        List<Integer> DP4 = variantContext.getAttributeAsIntList("DP4", 0);
+                        ADs = new int[]{
+                                DP4.get(0) + DP4.get(1), // Reference allele coverage.
+                                DP4.get(2) + DP4.get(3)  // Alternative allele coverage.
+                        };
+                    } else {
+                        ignoredCallsCount++; // Skip genotypes with insufficient information.
+                        continue;
+                    }
 
                 // Compute the total depth of coverage (ADSum) from allelic depths.
                 int ADSum = Arrays.stream(ADs).sum();
 
                 // Log warnings for discrepancies between AD sum and DP.
-                if (genotype.hasDP()) {
-                    if (ADSum > genotype.getDP()) {
-                        Logging.logWarningOnce("AD_SUM_GREATER_THAN_DP",
-                                String.format("Erroneous data with summed allelic depth (%d) greater than total depth (%d) (%s:g.%d %s " +
-                                                "in %s).", ADSum, genotype.getDP(), contigIdentifier, variantContext.getStart(),
-                                        sampleIdentifier, path));
-                    } else if (ADSum < 0.5 * genotype.getDP()) {
-                        Logging.logWarningOnce("AD_SUM_LOWER_THAN_DP",
-                                String.format("Low-quality data with summed allelic depth (%d) much lower than total depth (%d) (%s:g.%d " +
-                                                "%s in %s).", ADSum, genotype.getDP(), contigIdentifier, variantContext.getStart(),
-                                        sampleIdentifier, path));
-                    }
+                if (ADSum > genotype.getDP()) {
+                    Logging.logWarningOnce("AD_SUM_GREATER_THAN_DP",
+                            String.format("Erroneous data with summed allelic depth (%d) greater than total depth (%d) (%s:g.%d %s " +
+                                            "in %s).", ADSum, genotype.getDP(), contigIdentifier, variantContext.getStart(),
+                                    sampleIdentifier, path));
+                } else if (ADSum < 0.5 * genotype.getDP()) {
+                    Logging.logWarningOnce("AD_SUM_LOWER_THAN_DP",
+                            String.format("Low-quality data with summed allelic depth (%d) much lower than total depth (%d) (%s:g.%d " +
+                                            "%s in %s).", ADSum, genotype.getDP(), contigIdentifier, variantContext.getStart(),
+                                    sampleIdentifier, path));
                 }
 
                 // Process reference and alternative alleles for the genotype.
                 String REF;
                 String ALT;
                 int AD;
+                boolean anyRealigned = false;
 
                 // Create a list to store alternatives for the current genotype.
                 List<VariantCall.CallAlternative> alternatives = new ArrayList<>(ADs.length);
@@ -691,29 +731,52 @@ public class VCFProcessor implements Closeable {
                         REF = variantContext.getReference().getBaseString();
                         ALT = variantContext.getAlleles().get(i).getBaseString();
 
-                        // Handle upstream-deletion cases and ensure canonical formatting.
+                        // Resolve ambiguities and ensure canonical representation of the variant call.
                         if (ALT.equals("*")) {
                             REF = REF.substring(0, 1);
-                        } else if (Bio.isCanonical(REF, ALT)) {
+                        } else if (Bio.isCanonical(REF, ALT)) { // Already canonical.
                             REF = Bio.padGaps(REF, ALT.length());
                             ALT = Bio.padGaps(ALT, REF.length());
                         } else {
                             String commonSuffix = StringUtils.reverse(StringUtils.getCommonPrefix(StringUtils.reverse(REF),
                                     StringUtils.reverse(ALT)));
-                            REF = Strings.CS.removeEnd(REF, commonSuffix);
-                            ALT = Strings.CS.removeEnd(ALT, commonSuffix);
-
-                            if (Bio.isCanonical(REF, ALT)) {
-                                REF = Bio.padGaps(REF, ALT.length());
-                                ALT = Bio.padGaps(ALT, REF.length());
+                            String truncatedREF = Strings.CS.removeEnd(REF, commonSuffix);
+                            String truncatedALT = Strings.CS.removeEnd(ALT, commonSuffix);
+                            if (Bio.isCanonical(truncatedREF, truncatedALT)) { // Canonical after trimming suffix.
+                                REF = Bio.padGaps(truncatedREF, truncatedALT.length());
+                                ALT = Bio.padGaps(truncatedALT, truncatedREF.length());
                             } else {
-                                Logging.logDebug("Realigning non-canonical variant call %s>%s at %s:g.%d".formatted(
-                                        REF, ALT, contigIdentifier, variantContext.getStart()));
-                                Tuple<String, String> alignment = Bio.globalNucleotideSequenceAlignment(
-                                        REF, ALT, 5, 2, true, false, 0
-                                );
-                                REF = alignment.a;
-                                ALT = alignment.b;
+
+                                // Attempt realignment using CIGAR or global alignment.
+                                Tuple<String, String> alignment = null;
+                                if (variantContext.hasAttribute("CIGAR")) {
+                                    String[] cigars = variantContext.getAttributeAsString("CIGAR", Constants.EMPTY).split(Constants.COMMA);
+                                    if (cigars.length == ADs.length - 1) {
+                                        alignment = Bio.alignByCigar(REF, ALT, cigars[i - 1], 0);
+                                    }
+                                } else {
+                                    alignment = Bio.globalNucleotideSequenceAlignment(REF, ALT, 2, 1, true, false, 0);
+                                }
+
+                                // Process alignment if available.
+                                if (alignment != null) {
+                                    anyRealigned = true;
+                                    realignedCallsCount++;
+                                    for (var variant : Bio.getCanonicalVariants(alignment.a, alignment.b)) {
+                                        REF = Bio.padGaps(variant.getMiddle(), variant.getRight().length());
+                                        ALT = Bio.padGaps(variant.getRight(), variant.getMiddle().length());
+                                        if (Bio.isCanonical(REF, ALT)) {
+                                            processVariantCall(
+                                                    sampleIdentifier,
+                                                    contigIdentifier,
+                                                    variantContext.getStart() + variant.getLeft(),
+                                                    Lists.newArrayList(new VariantCall.CallAlternative(REF, ALT, (short) AD))
+                                            );
+                                        }
+                                    }
+                                }
+                                continue;
+
                             }
                         }
 
@@ -723,12 +786,13 @@ public class VCFProcessor implements Closeable {
                 }
 
                 // Add the reference allele if no alternatives are present or if it has read support.
-                if (alternatives.isEmpty() || referenceCall.depth() > 0) {
+                if ((alternatives.isEmpty() && !anyRealigned) || referenceCall.depth() > 0) {
                     alternatives.add(referenceCall);
                 }
 
                 // Add the variant call to the storage and handle the result.
-                processVariantCall(sampleIdentifier, contigIdentifier, variantContext.getStart(), alternatives, storage.parameters, path);
+                if (!alternatives.isEmpty())
+                    processVariantCall(sampleIdentifier, contigIdentifier, variantContext.getStart(), alternatives);
             }
         }
     }
@@ -744,12 +808,9 @@ public class VCFProcessor implements Closeable {
      * @param contigIdentifier The identifier of the contig where the variant call is located.
      * @param position         The genomic position of the variant call.
      * @param alternatives     A list of {@link VariantCall.CallAlternative} objects representing the alleles.
-     * @param parameters       The {@link Storage.Parameters} object containing processing parameters.
-     * @param origin           The {@link Path} to the source file for logging purposes.
      */
     private void processVariantCall(String sampleIdentifier, String contigIdentifier, int position,
-                                    List<VariantCall.CallAlternative> alternatives, Storage.Parameters parameters,
-                                    Path origin) {
+                                    List<VariantCall.CallAlternative> alternatives) {
         // Ensure that the list of alternatives is not empty.
         assert !alternatives.isEmpty();
 
@@ -780,7 +841,7 @@ public class VCFProcessor implements Closeable {
         }
 
         // Sort alleles in descending order by their allelic depth (AD).
-        alternatives.sort((a, b) -> Short.compare(b.depth(), a.depth()));
+        if (alternatives.size() > 1) alternatives.sort((a, b) -> Short.compare(b.depth(), a.depth()));
 
         // Calculate the total observed depth of coverage.
         short depth = (short) alternatives.stream().mapToInt(VariantCall.CallAlternative::depth).sum();
@@ -805,8 +866,8 @@ public class VCFProcessor implements Closeable {
         float frequency = allele.depth() / (float) depth;
 
         // Set call prefix for low frequency or coverage.
-        if (frequency < parameters.minimalFrequency()) flag = VariantCall.Flag.LOW_FREQUENCY;
-        if (depth < parameters.minimalCoverage()) flag = VariantCall.Flag.LOW_COVERAGE;
+        if (frequency < this.storage.parameters.minimalFrequency()) flag = VariantCall.Flag.LOW_FREQUENCY;
+        if (depth < this.storage.parameters.minimalCoverage()) flag = VariantCall.Flag.LOW_COVERAGE;
         boolean isFiltered = (flag.equals(VariantCall.Flag.LOW_FREQUENCY) || flag.equals(VariantCall.Flag.LOW_COVERAGE));
 
         // Handle special cases.
@@ -817,13 +878,13 @@ public class VCFProcessor implements Closeable {
                     (upstreamDeletion.contigIdentifier().equals(contigIdentifier) && position > upstreamDeletion.end())) {
                 Logging.logWarningOnce("MISSING_DELETION",
                         String.format("Erroneous data with missing allele (*) not explained by an upstream deletion (%s:g.%d %s in %s).",
-                                contigIdentifier, position, sampleIdentifier, origin));
+                                contigIdentifier, position, sampleIdentifier, path));
                 flag = VariantCall.Flag.MISSING_UPSTREAM_DELETION;
             } else if (upstreamDeletion.contigIdentifier().equals(contigIdentifier) && upstreamDeletion.start() <= position) {
                 if (upstreamDeletion.isFiltered()) {
                     Logging.logWarningOnce("UNEXPLAINED_DELETION",
                             String.format("Ambiguous data with missing allele (*) and filtered upstream deletion (%s:g.%d %s in %s).",
-                                    contigIdentifier, position, sampleIdentifier, origin));
+                                    contigIdentifier, position, sampleIdentifier, path));
                     flag = VariantCall.Flag.MISSING_UPSTREAM_DELETION;
                 } else {
                     flag = VariantCall.Flag.UPSTREAM_DELETION;

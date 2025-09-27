@@ -94,6 +94,9 @@ public class ExecutorBuild {
         try (VCFProcessor vcfProcessor = new VCFProcessor(cli.vcfFiles, storage, !storage.hasReference())) {
             Logging.logInfo("Analyze VCF files.");
             vcfProcessor.processFiles();
+            if (vcfProcessor.getRealignedCallsCount() > 0) {
+                Logging.logWarning("Realigned %d variant calls. The resulting data may be ambiguous.".formatted(vcfProcessor.getRealignedCallsCount()));
+            }
             Logging.logDone("Processed %d variant calls from %d VCF file(s). %d calls were ignored, %d calls were filtered.".formatted(
                     vcfProcessor.getProcessedCallsCount(), cli.vcfFiles.size(), vcfProcessor.getIgnoredCallsCount(),
                     vcfProcessor.getFilteredCallsCount()));

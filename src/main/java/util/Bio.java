@@ -12,6 +12,8 @@ import org.biojava.nbio.core.sequence.transcription.Frame;
 import org.biojava.nbio.core.sequence.transcription.TranscriptionEngine;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
 /**
@@ -350,6 +352,95 @@ public final class Bio {
         alignedA.reverse();
         alignedB.reverse();
         return new Tuple<>(alignedA.toString(), alignedB.toString());
+    }
+
+    /**
+     * Aligns a query sequence to a reference sequence based on a CIGAR string.
+     * <p>
+     * This method parses the given CIGAR string and applies the specified operations to align the reference and query sequences. The
+     * alignment considers matches, mismatches, insertions, deletions, and other operations defined in the CIGAR string.
+     * <p>
+     * Supported CIGAR operations:
+     * <ul>
+     *     <li>M: Match or mismatch</li>
+     *     <li=: Match</li>
+     *     <li>X: Mismatch</li>
+     *     <li>I: Insertion (adds gaps to the reference)</li>
+     *     <li>D: Deletion (adds gaps to the query)</li>
+     *     <li>N: Skipped region (treated as deletion)</li>
+     *     <li>S: Soft clipping (skips characters in the query)</li>
+     *     <li>H: Hard clipping (ignored)</li>
+     * </ul>
+     *
+     * @param reference The reference sequence to align.
+     * @param query     The query sequence to align.
+     * @param cigar     The CIGAR string describing the alignment operations.
+     * @param offset    The starting position in the reference sequence.
+     * @return A {@link Tuple} containing the aligned reference and query sequences.
+     * @throws IllegalArgumentException If the CIGAR string contains unsupported operations.
+     */
+    public static Tuple<String, String> alignByCigar(String reference, String query, String cigar, int offset) {
+        StringBuilder alignedReference = new StringBuilder();
+        StringBuilder alignedQuery = new StringBuilder();
+
+        int referenceIndex = offset;
+        int queryIndex = 0;
+
+        // Parse the CIGAR string.
+        try {
+            Matcher matcher = Pattern.compile("(\\d+)([MIDNSHP=X])").matcher(cigar);
+            while (matcher.find()) {
+                int length = Integer.parseInt(matcher.group(1));
+                char operation = matcher.group(2).charAt(0);
+
+                switch (operation) {
+                    case 'M': // Match or mismatch
+                    case '=': // Match
+                    case 'X': // Mismatch
+                        for (int i = 0; i < length; i++) {
+                            alignedReference.append(reference.charAt(referenceIndex++));
+                            alignedQuery.append(query.charAt(queryIndex++));
+                        }
+                        break;
+
+                    case 'I': // Insertion
+                        for (int i = 0; i < length; i++) {
+                            alignedReference.append('-');
+                            alignedQuery.append(query.charAt(queryIndex++));
+                        }
+                        break;
+
+                    case 'D': // Deletion
+                    case 'N': // Skipped region
+                        for (int i = 0; i < length; i++) {
+                            alignedReference.append(reference.charAt(referenceIndex++));
+                            alignedQuery.append('-');
+                        }
+                        break;
+
+                    case 'S': // Soft clipping
+                        queryIndex += length;
+                        break;
+
+                    case 'H': // Hard clipping
+                        // Ignore hard-clipped regions
+                        break;
+
+                    default:
+                        throw new IllegalArgumentException("Unsupported CIGAR operation: " + operation);
+                }
+            }
+        } catch (IndexOutOfBoundsException e) {
+            throw new IllegalArgumentException(("CIGAR operations %s do not correctly align sequences %s and %s.")
+                    .formatted(cigar, reference, query), e);
+        }
+
+        if (referenceIndex != reference.length() || queryIndex != query.length()) {
+            throw new IllegalArgumentException("CIGAR operations %s do not correctly align sequences %s and %s."
+                    .formatted(cigar, reference, query));
+        }
+
+        return new Tuple<>(alignedReference.toString(), alignedQuery.toString());
     }
 
     /**
