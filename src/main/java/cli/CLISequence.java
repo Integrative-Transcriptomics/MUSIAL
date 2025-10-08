@@ -4,10 +4,10 @@ import exceptions.MusialException;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.file.PathUtils;
 import util.Logging;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Set;
@@ -329,11 +329,11 @@ public class CLISequence implements CLI {
             }
 
             // Ensure the parent directories for the base path exist.
-            FileUtils.createParentDirectories(basePath.toFile());
+            Files.createDirectories(basePath);
 
             Logging.logConfig("`output` will be generated at %s.".formatted(basePath));
             Path finalBasePath = basePath;
-            return s -> finalBasePath.resolve("%s-%s".formatted(s, suffix)).toAbsolutePath().toString();
+            return s -> finalBasePath.resolve("%s%s".formatted(s, suffix)).toAbsolutePath().toString();
         } catch (Exception e) {
             // Throw an exception if the output path is invalid or cannot be created.
             throw new MusialException("Failed to validate path %s specified for `output`.".formatted(arguments.getOptionValue("o")));
