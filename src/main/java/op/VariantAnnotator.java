@@ -115,7 +115,7 @@ public class VariantAnnotator {
                             String contig = lineFields[0];
                             int pos = Integer.parseInt(lineFields[1]);
                             String info = lineFields[7];
-                            if (!info.equals(".")) {
+                            if (!info.equals(".") && !info.equals("ALT=*")) {
                                 String[] infoFields = info.split(";");
                                 String alt = infoFields[0].replace("ALT=", "");
                                 variant = storage.getContig(contig).getVariant(pos, alt);
