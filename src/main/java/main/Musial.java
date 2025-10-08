@@ -16,6 +16,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.logging.Level;
 
@@ -120,6 +121,9 @@ public final class Musial {
                         .formatted(Musial.name, Musial.version));
             }
 
+            // Create temporary directory for intermediate files, if not present.
+            tempDir = Files.createTempDirectory(Path.of(System.getProperty("user.dir")), Musial.name.toLowerCase()).toFile();
+
             // Parse the first argument to determine the task to execute.
             try {
                 task = MusialTask.valueOf(args[0].toUpperCase());
@@ -146,9 +150,6 @@ public final class Musial {
 
             // Parse arguments from command line.
             CommandLine arguments = new DefaultParser().parse(options, args);
-
-            // Create temporary directory for intermediate files, if not present.
-            tempDir = Files.createTempDirectory(Path.of(System.getProperty("user.dir")), Musial.name.toLowerCase()).toFile();
 
             // Execute the task based on the parsed value.
             switch (task) {
@@ -194,7 +195,7 @@ public final class Musial {
                 Logging.logExit("An unexpected error has occurred: %s".formatted(e.getMessage()));
                 status = 2;
             }
-            if (LOG_VERBOSITY.intValue() <= Level.FINE.intValue()) e.printStackTrace();
+            e.printStackTrace();
         } finally {
             // Log the total execution time if the verbosity level is set to FINE or lower.
             if (LOG_VERBOSITY.intValue() <= Level.FINE.intValue()) {
@@ -272,17 +273,19 @@ public final class Musial {
                 """.formatted(Musial.name, Musial.version);
 
         // If a task was specified, but is not recognized, adjust the help text.
-        if (Musial.task.equals(MusialTask.UNDEFINED)) {
-            helpText += """
+        if (!Objects.equals(args[0], "-h") && !Objects.equals(args[0], "--help")) {
+            if (Musial.task.equals(MusialTask.UNDEFINED)) {
+                helpText += """
 
-                    Task \033[1;31m%s\033[0m not recognized.
-                    """.formatted(args[0]);
-        } else {
-            // If a task was specified, add the command line arguments for that task.
-            helpText += """
+                        Task \033[1;31m%s\033[0m not recognized.
+                        """.formatted(args[0]);
+            } else {
+                // If a task was specified, add the command line arguments for that task.
+                helpText += """
 
-                    \033[47m\033[1;30m Command line arguments of task %s \033[0m
-                    """.formatted(Musial.task.toString().toLowerCase());
+                        \033[47m\033[1;30m Command line arguments of task %s \033[0m
+                        """.formatted(Musial.task.toString().toLowerCase());
+            }
         }
 
         // Print the help message with the specified options and arguments.
