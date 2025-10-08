@@ -1,11 +1,11 @@
 package task;
 
 import cli.CLISequence;
+import com.google.common.base.Splitter;
 import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;
 import model.Contig;
 import model.Feature;
-import model.Sample;
 import model.Storage;
 import op.AminoacidSequenceGenerator;
 import op.NucleotideSequenceGenerator;
@@ -43,17 +43,17 @@ public class ExecutorSequence {
     /**
      * Set of features to be processed.
      */
-    private final Set<Feature> features;
+    private Set<Feature> features;
 
     /**
      * Set of contigs to be processed.
      */
-    private final Set<Contig> contigs;
+    private Set<Contig> contigs;
 
     /**
      * Map of contig names to their specified regions (start and end positions). Contigs do not have to be in this map to be processed.
      */
-    private final Map<String, Tuple<Integer, Integer>> contigRegions;
+    private Map<String, Tuple<Integer, Integer>> contigRegions;
 
     /**
      * Constructs an {@code ExecutorSequence} instance with the specified command-line interface.
@@ -64,15 +64,13 @@ public class ExecutorSequence {
      */
     public ExecutorSequence(CLISequence cli) throws IOException, MusialException {
         this.cli = cli;
-        int numberOfLoci = this.cli.loci.size();
-        this.features = new HashSet<>(numberOfLoci);
-        this.contigs = new HashSet<>(numberOfLoci);
-        this.contigRegions = new HashMap<>(numberOfLoci);
         Logging.logInfo("Load storage.");
         this.storage = StorageFactory.fromPath(cli.input);
         Logging.logDone("");
         Logging.logInfo("Validate parameters.");
-        validate();
+        validateLoci();
+        validateConfiguration();
+        validateSamples();
         Logging.logDone("");
     }
 
@@ -100,65 +98,26 @@ public class ExecutorSequence {
     /**
      * Processes features and generates sequence data for each feature.
      * <p>
-     * This method iterates over all features specified in the {@code features} set. For each feature, it retrieves the associated contig
-     * and initializes a {@link SequenceGenerator} based on the content type (amino acid or nucleotide). The sequence data for each sample
-     * is written to a file using a {@code BufferedWriter}. If the merge option is enabled, merged sequences are written; otherwise,
-     * individual sequences are written.
+     * This method determines how to process the features based on the `split` parameter provided in the command-line interface. The `split`
+     * parameter specifies the output file structure:
+     * <ul>
+     *   <li><b>FEATURE</b>: One file per feature/contig containing all sample sequences.</li>
+     *   <li><b>SAMPLE</b>: One file per sample containing all feature sequences.</li>
+     *   <li><b>NONE</b>: All sequences are written into a single file.</li>
+     *   <li><b>BOTH</b>: Each sequence is written into its own file.</li>
+     * </ul>
+     * Depending on the `split` mode, the appropriate processing method is invoked.
      *
      * @param isAminoAcid A boolean indicating whether the content type is amino acid (`true`) or nucleotide (`false`).
      * @throws IOException     If an I/O error occurs while writing to the file.
      * @throws MusialException If an error occurs during sequence generation.
      */
     private void processFeatures(boolean isAminoAcid) throws IOException, MusialException {
-        for (Feature feature : features) {
-            // Open a writer for the output file corresponding to the feature
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(cli.outputGenerator.apply(feature.name), cli.append))) {
-                // Retrieve the contig associated with the feature
-                Contig contig = storage.getContig(feature.contig);
-
-                // Create a sequence generator for the feature
-                SequenceGenerator generator = createFeatureSequenceGenerator(isAminoAcid, contig, feature);
-
-                // Write sequences based on the merge option
-                if (cli.merge) {
-                    writeMergedSequences(writer, generator, feature, isAminoAcid);
-                } else {
-                    writeIndividualSequences(writer, generator, feature);
-                }
-            }
-        }
-    }
-
-    /**
-     * Processes contigs and generates sequence data for each contig.
-     * <p>
-     * This method iterates over all contigs specified in the {@code contigs} set. For each contig, it determines the locus identifier based
-     * on whether the contig has a specified region in the {@code contigRegions} map. It then initializes a
-     * {@link NucleotideSequenceGenerator} for the contig, either for the entire contig or for the specified region. The sequence data for
-     * each sample is written to a file using a {@code BufferedWriter}.
-     *
-     * @throws IOException     If an I/O error occurs while writing to the file.
-     * @throws MusialException If an error occurs during sequence generation.
-     */
-    private void processContigs() throws IOException, MusialException {
-        for (Contig contig : contigs) {
-            // Determine the locus identifier based on whether the contig has a specified region
-            String locusId = contigRegions.containsKey(contig._id)
-                    ? "%sg%d_%d".formatted(contig._id, contigRegions.get(contig._id).a, contigRegions.get(contig._id).b)
-                    : contig._id;
-
-            // Initialize the sequence generator for the contig or the specified region
-            SequenceGenerator generator = contigRegions.containsKey(contig._id)
-                    ? new NucleotideSequenceGenerator(storage, contig, contigRegions.get(contig._id).a,
-                    contigRegions.get(contig._id).b, !cli.variable, cli.align, sampleIdentifiers)
-                    : new NucleotideSequenceGenerator(storage, contig, !cli.variable, cli.align, sampleIdentifiers);
-
-            // Write the sequence data for each sample to the output file
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(cli.outputGenerator.apply(locusId), cli.append))) {
-                for (Sample sample : storage.getSamples()) {
-                    writer.write(">lcl|%s|%s%n%s%n".formatted(sample._id, locusId, generator.getSequence(sample._id)));
-                }
-            }
+        switch (cli.split) {
+            case FEATURE -> processFeaturesByLocus(isAminoAcid); // Process features into one file per feature.
+            case SAMPLE -> processFeaturesBySample(isAminoAcid);  // Process features into one file per sample.
+            case NONE -> processFeaturesInOneFile(isAminoAcid);   // Process all features into a single file.
+            case BOTH -> processFeaturesIndividually(isAminoAcid); // Process each sequence into its own file.
         }
     }
 
@@ -184,160 +143,333 @@ public class ExecutorSequence {
     }
 
     /**
-     * Writes merged sequences for a given feature to the specified writer.
+     * Writes per sample feature sequences into files organized by features.
      * <p>
-     * This method iterates over all samples in the storage and generates sequence data for each sample. It ensures that duplicate sequences
-     * are not written by maintaining a set of observed identifiers. The sequence data includes the identifier, feature name, and the
-     * generated sequence. The identifier is determined based on whether the content is amino acid or nucleotide.
+     * Each file will contain sequences of all samples for a specific feature. The sequence content is handled automatically by the
+     * {@link SequenceGenerator} based on the specified content type. Merging of sequences is managed by the
+     * {@link #processSamplesWithWriter} method.
      *
-     * @param writer      The `BufferedWriter` used to write the sequence data to a file.
-     * @param generator   The `SequenceGenerator` used to generate sequences for the feature.
-     * @param feature     The feature for which sequences are being written.
-     * @param isAminoAcid A boolean indicating whether the content is amino acid (`true`) or nucleotide (`false`).
+     * @param isAminoAcid A boolean indicating whether the content type is amino acid (`true`) or nucleotide (`false`).
      * @throws IOException     If an I/O error occurs while writing to the file.
      * @throws MusialException If an error occurs during sequence generation.
      */
-    private void writeMergedSequences(BufferedWriter writer, SequenceGenerator generator, Feature feature, boolean isAminoAcid) throws IOException, MusialException {
-        Set<String> observed = new HashSet<>();
-        for (Sample sample : storage.getSamples()) {
-            String id = isAminoAcid
-                    ? getProteoformId(feature, sample)
-                    : sample.getRelatedAllele(feature._id);
-            if (observed.add(id)) {
-                writer.write(">lcl|%s|%s%n%s%n".formatted(id, feature.name, generator.getSequence(sample._id)));
+    private void processFeaturesByLocus(boolean isAminoAcid) throws IOException, MusialException {
+        for (Feature feature : features) {
+            // Retrieve the contig associated with the feature
+            Contig contig = storage.getContig(feature.contig);
+            // Create a sequence generator for the feature
+            SequenceGenerator generator = createFeatureSequenceGenerator(isAminoAcid, contig, feature);
+            // Open a writer for the feature-specific output file
+            try (BufferedWriter writer =
+                         new BufferedWriter(new FileWriter(cli.outputGenerator.apply(generator.getName(true)), false))) {
+                // Process and write sequences for all samples associated with the feature
+                processSamplesWithWriter(isAminoAcid, writer, feature, generator);
             }
         }
     }
 
     /**
-     * Writes individual sequences per sample for a given feature with the specified writer.
+     * Writes per sample feature sequences into files organized by samples.
      * <p>
-     * This method iterates over all samples in the storage and writes the sequence data for each sample to the provided `BufferedWriter`.
-     * The sequence data is generated using the specified `SequenceGenerator` and includes the sample ID, feature name, and the generated
-     * sequence.
+     * Each file will contain sequences of all features for a specific sample. The sequence content is handled automatically by the
+     * {@link SequenceGenerator} based on the specified content type. Merging of sequences is not implemented, as it is not allowed by the
+     * {@code -m/--merge} option when using sample-based splitting, see {@link CLISequence}.
      *
-     * @param writer    The `BufferedWriter` used to write the sequence data to a file.
-     * @param generator The `SequenceGenerator` used to generate sequences for the feature.
-     * @param feature   The feature for which sequences are being written.
+     * @param isAminoAcid A boolean indicating whether the content type is amino acid (`true`) or nucleotide (`false`).
      * @throws IOException     If an I/O error occurs while writing to the file.
      * @throws MusialException If an error occurs during sequence generation.
      */
-    private void writeIndividualSequences(BufferedWriter writer, SequenceGenerator generator, Feature feature) throws IOException,
-            MusialException {
-        for (Sample sample : storage.getSamples()) {
-            writer.write(">lcl|%s|%s%n%s%n".formatted(sample._id, feature.name, generator.getSequence(sample._id)));
+    private void processFeaturesBySample(boolean isAminoAcid) throws IOException, MusialException {
+        for (Feature feature : features) {
+            // Retrieve the contig associated with the feature
+            Contig contig = storage.getContig(feature.contig);
+            // Create a sequence generator for the feature
+            SequenceGenerator generator = createFeatureSequenceGenerator(isAminoAcid, contig, feature);
+            for (String sampleIdentifier : sampleIdentifiers) {
+                // Open a writer for the sample-specific output file
+                try (BufferedWriter writer =
+                             new BufferedWriter(new FileWriter(cli.outputGenerator.apply("%s-sequences".formatted(sampleIdentifier)),
+                                     true))) {
+                    // Write the sequence for the sample in FASTA format
+                    writer.write(">lcl|%s|%s%n%s%n".formatted(sampleIdentifier, generator.getName(false),
+                            formatSequence(generator.getSequence(sampleIdentifier))));
+                }
+            }
         }
+    }
+
+    /**
+     * Writes per sample feature sequences into a single output file.
+     * <p>
+     * The sequence content is handled automatically by the {@link SequenceGenerator} based on the specified content type. Merging of
+     * sequences is managed by the {@link #processSamplesWithWriter} method.
+     *
+     * @param isAminoAcid A boolean indicating whether the content type is amino acid (`true`) or nucleotide (`false`).
+     * @throws IOException     If an I/O error occurs while writing to the file.
+     * @throws MusialException If an error occurs during sequence generation.
+     */
+    private void processFeaturesInOneFile(boolean isAminoAcid) throws IOException, MusialException {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(cli.outputGenerator.apply("musial-sequences"), true))) {
+            for (Feature feature : features) {
+                Contig contig = storage.getContig(feature.contig);
+                SequenceGenerator generator = createFeatureSequenceGenerator(isAminoAcid, contig, feature);
+                processSamplesWithWriter(isAminoAcid, writer, feature, generator);
+            }
+        }
+    }
+
+    /**
+     * Writes per sample feature sequences into individual output files.
+     * <p>
+     * The sequence content is handled automatically by the {@link SequenceGenerator} based on the specified content type. Merging of
+     * sequences is managed by the {@link #processSamplesWithWriter} method.
+     *
+     * @param isAminoAcid A boolean indicating whether the content type is amino acid (`true`) or nucleotide (`false`).
+     * @throws IOException     If an I/O error occurs while writing to the file.
+     * @throws MusialException If an error occurs during sequence generation.
+     */
+    private void processFeaturesIndividually(boolean isAminoAcid) throws IOException, MusialException {
+        for (Feature feature : features) {
+            // Retrieve the contig associated with the feature
+            Contig contig = storage.getContig(feature.contig);
+            // Create a sequence generator for the feature
+            SequenceGenerator generator = createFeatureSequenceGenerator(isAminoAcid, contig, feature);
+
+            if (cli.merge) {
+                // Set to track observed merged identifiers to avoid duplicate entries
+                Set<String> observed = new HashSet<>(feature.getAlleleCount());
+                for (String sampleIdentifier : sampleIdentifiers) {
+                    // Determine the merged identifier based on the content type
+                    String mergedIdentifier = isAminoAcid
+                            ? getProteoformId(feature, sampleIdentifier)
+                            : getAlleleIdentifier(feature, sampleIdentifier);
+                    try (BufferedWriter writer =
+                                 new BufferedWriter(new FileWriter(cli.outputGenerator.apply("%s-%s".formatted(mergedIdentifier,
+                                         generator.getName(true))), false))) {
+                        // Write the sequence if the merged identifier has not been observed
+                        if (observed.add(mergedIdentifier)) {
+                            writer.write(">lcl|%s|%s%n%s%n".formatted(mergedIdentifier, generator.getName(false),
+                                    formatSequence(generator.getSequence(sampleIdentifier))));
+                        }
+                    }
+                }
+            } else {
+                for (String sampleIdentifier : sampleIdentifiers) {
+                    try (BufferedWriter writer =
+                                 new BufferedWriter(new FileWriter(cli.outputGenerator.apply("%s-%s".formatted(sampleIdentifier,
+                                         generator.getName(true))), false))) {
+                        // Write the sequence for each sample
+                        writer.write(">lcl|%s|%s%n%s%n".formatted(sampleIdentifier, generator.getName(false),
+                                formatSequence(generator.getSequence(sampleIdentifier))));
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Processes sample sequences and writes them to the provided writer.
+     * <p>
+     * This method handles the generation and writing of sequences for each sample based on the `merge` option:
+     * <ul>
+     *   <li>If `merge` is enabled, sequences are grouped by a merged identifier (proteoform ID for amino acid content or allele ID for
+     *   nucleotide content).</li>
+     *   <li>If `merge` is disabled, sequences are written individually for each sample.</li>
+     * </ul>
+     *
+     * @param isAminoAcid A boolean indicating whether the content type is amino acid (`true`) or nucleotide (`false`).
+     * @param writer      The {@link BufferedWriter} used to write the sequences to the output file.
+     * @param feature     The feature being processed, used to retrieve allele or proteoform information.
+     * @param generator   The {@link SequenceGenerator} responsible for generating sequences for the feature.
+     * @throws IOException     If an I/O error occurs while writing to the file.
+     * @throws MusialException If an error occurs during sequence generation.
+     */
+    private void processSamplesWithWriter(boolean isAminoAcid, BufferedWriter writer, Feature feature, SequenceGenerator generator) throws IOException, MusialException {
+        if (cli.merge) {
+            // Set to track observed merged identifiers to avoid duplicate entries
+            Set<String> observed = new HashSet<>(feature.getAlleleCount());
+            for (String sampleIdentifier : sampleIdentifiers) {
+                // Determine the merged identifier based on the content type
+                String mergedIdentifier = isAminoAcid
+                        ? getProteoformId(feature, sampleIdentifier)
+                        : getAlleleIdentifier(feature, sampleIdentifier);
+                // Write the sequence if the merged identifier has not been observed
+                if (observed.add(mergedIdentifier)) {
+                    writer.write(">lcl|%s|%s%n%s%n".formatted(mergedIdentifier, generator.getName(false),
+                            formatSequence(generator.getSequence(sampleIdentifier))));
+                }
+            }
+        } else {
+            // Write sequences individually for each sample
+            for (String sampleIdentifier : sampleIdentifiers) {
+                writer.write(">lcl|%s|%s%n%s%n".formatted(sampleIdentifier, generator.getName(false),
+                        formatSequence(generator.getSequence(sampleIdentifier))));
+            }
+        }
+    }
+
+    /**
+     * Processes contigs and generates sequence data for each contig.
+     * <p>
+     * This method determines how to process the contigs based on the `split` parameter provided in the command-line interface. The `split`
+     * parameter specifies the output file structure:
+     * <ul>
+     *   <li><b>FEATURE</b>: One file per contig containing all sample sequences.</li>
+     *   <li><b>SAMPLE</b>: One file per sample containing all contig sequences.</li>
+     *   <li><b>NONE</b>: All sequences are written into a single file.</li>
+     *   <li><b>BOTH</b>: Each sequence is written into its own file.</li>
+     * </ul>
+     * Depending on the `split` mode, the appropriate processing method is invoked.
+     *
+     * @throws IOException     If an I/O error occurs while writing to the file.
+     * @throws MusialException If an error occurs during sequence generation.
+     */
+    private void processContigs() throws IOException, MusialException {
+        switch (cli.split) {
+            case FEATURE -> processContigsByLocus(); // Process contigs into one file per contig.
+            case SAMPLE -> processContigsBySample();  // Process contigs into one file per sample.
+            case NONE -> processContigsInOneFile();   // Process all contigs into a single file.
+            case BOTH -> processContigsIndividually(); // Process each sequence into its own file.
+        }
+    }
+
+    /**
+     * Creates a sequence generator for a given contig.
+     * <p>
+     * This method initializes and returns a {@link NucleotideSequenceGenerator} for the specified contig. If the contig is associated with
+     * a specific region (start and end positions) in the {@code contigRegions} map, the generator is configured to process only that
+     * region. Otherwise, the generator processes the entire contig.
+     * <p>
+     * The generator is further configured based on the command-line options provided in the {@code cli} object.
+     *
+     * @param contig The contig for which the sequence generator is being created.
+     * @return A {@link NucleotideSequenceGenerator} instance configured for the specified contig.
+     * @throws IOException     If an I/O error occurs during generator initialization.
+     * @throws MusialException If an error occurs during generator creation or validation.
+     */
+    private SequenceGenerator createContigSequenceGenerator(Contig contig) throws IOException, MusialException {
+        return contigRegions.containsKey(contig._id)
+                ? new NucleotideSequenceGenerator(storage, contig, contigRegions.get(contig._id).a, contigRegions.get(contig._id).b,
+                !cli.variable, cli.align, sampleIdentifiers)
+                : new NucleotideSequenceGenerator(storage, contig, !cli.variable, cli.align, sampleIdentifiers);
+    }
+
+    /**
+     * Writes per sample contig sequences into files organized by contigs.
+     * <p>
+     * Each file will contain sequences for all samples for a specific contig.
+     *
+     * @throws IOException     If an I/O error occurs while writing to the file.
+     * @throws MusialException If an error occurs during sequence generation.
+     */
+    private void processContigsByLocus() throws IOException, MusialException {
+        for (Contig contig : contigs) {
+            SequenceGenerator generator = createContigSequenceGenerator(contig);
+            try (BufferedWriter writer =
+                         new BufferedWriter(new FileWriter(cli.outputGenerator.apply(generator.getName(true)), false))) {
+                for (String sampleIdentifier : sampleIdentifiers) {
+                    writer.write(">lcl|%s|%s%n%s%n".formatted(sampleIdentifier, generator.getName(false),
+                            formatSequence(generator.getSequence(sampleIdentifier))));
+                }
+            }
+        }
+    }
+
+    /**
+     * Writes per sample contig sequences into files organized by samples.
+     * <p>
+     * Each file will contain sequences for all contigs for a specific sample.
+     *
+     * @throws IOException     If an I/O error occurs while writing to the file.
+     * @throws MusialException If an error occurs during sequence generation.
+     */
+    private void processContigsBySample() throws IOException, MusialException {
+        for (Contig contig : contigs) {
+            SequenceGenerator generator = createContigSequenceGenerator(contig);
+            for (String sampleIdentifier : sampleIdentifiers) {
+                try (BufferedWriter writer =
+                             new BufferedWriter(new FileWriter(cli.outputGenerator.apply("%s-sequences".formatted(sampleIdentifier)),
+                                     true))) {
+                    writer.write(">lcl|%s|%s%n%s%n".formatted(sampleIdentifier, generator.getName(false),
+                            formatSequence(generator.getSequence(sampleIdentifier))));
+                }
+            }
+        }
+    }
+
+    /**
+     * Writes per sample contig sequences into a single output file.
+     *
+     * @throws IOException     If an I/O error occurs while writing to the file.
+     * @throws MusialException If an error occurs during sequence generation.
+     */
+    private void processContigsInOneFile() throws IOException, MusialException {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(cli.outputGenerator.apply("musial-sequences"), true))) {
+            for (Contig contig : contigs) {
+                SequenceGenerator generator = createContigSequenceGenerator(contig);
+                for (String sampleIdentifier : sampleIdentifiers) {
+                    writer.write(">lcl|%s|%s%n%s%n".formatted(sampleIdentifier, generator.getName(false),
+                            formatSequence(generator.getSequence(sampleIdentifier))));
+                }
+            }
+        }
+    }
+
+    /**
+     * Writes per sample contig sequences into individual output files.
+     *
+     * @throws IOException     If an I/O error occurs while writing to the file.
+     * @throws MusialException If an error occurs during sequence generation.
+     */
+    private void processContigsIndividually() throws IOException, MusialException {
+        for (Contig contig : contigs) {
+            SequenceGenerator generator = createContigSequenceGenerator(contig);
+            for (String sampleIdentifier : sampleIdentifiers) {
+                try (BufferedWriter writer =
+                             new BufferedWriter(new FileWriter(cli.outputGenerator.apply("%s-%s".formatted(sampleIdentifier,
+                                     generator.getName(true))), false))) {
+                    writer.write(">lcl|%s|%s%n%s%n".formatted(sampleIdentifier, generator.getName(false),
+                            formatSequence(generator.getSequence(sampleIdentifier))));
+                }
+            }
+        }
+    }
+
+    /**
+     * Retrieves the allele identifier for a given feature and sample.
+     * <p>
+     * This method fetches the sample from the storage using the provided sample identifier and retrieves the allele related to the
+     * specified feature.
+     *
+     * @param feature          The feature for which the allele identifier is being retrieved.
+     * @param sampleIdentifier The identifier of the sample associated with the feature.
+     * @return A {@link String} representing the allele identifier related to the feature for the given sample.
+     */
+    private String getAlleleIdentifier(Feature feature, String sampleIdentifier) {
+        return storage.getSample(sampleIdentifier).getRelatedAllele(feature._id);
     }
 
     /**
      * Retrieves the proteoform identifier for a given feature and sample.
      * <p>
-     * This method determines the proteoform ID based on the allele associated with the sample for the specified feature. If the allele is
-     * the reference allele, the proteoform ID is set to a constant representing a synonymous change. Otherwise, the proteoform ID is
-     * derived from the related proteoform of the allele.
+     * This method determines the proteoform ID based on the allele associated with the sample for the specified feature.
+     * <ul>
+     *   <li>If the allele is the reference allele, the proteoform ID is set to a constant representing a synonymous change.</li>
+     *   <li>If the allele is not the reference allele, the proteoform ID is derived from the related proteoform of the allele.</li>
+     * </ul>
      *
-     * @param feature The feature for which the proteoform ID is being retrieved.
-     * @param sample  The sample associated with the feature.
+     * @param feature          The feature for which the proteoform ID is being retrieved.
+     * @param sampleIdentifier The identifier of the sample associated with the feature.
      * @return The proteoform identifier as a string.
      */
-    private String getProteoformId(Feature feature, Sample sample) {
-        String alleleId = sample.getRelatedAllele(feature._id);
-        return alleleId.equals(Constants.REFERENCE)
+    private String getProteoformId(Feature feature, String sampleIdentifier) {
+        // Retrieve the allele identifier for the given feature and sample
+        String alleleIdentifier = getAlleleIdentifier(feature, sampleIdentifier);
+
+        // Return the proteoform ID based on whether the allele is the reference allele
+        return alleleIdentifier.equals(Constants.REFERENCE)
                 ? Constants.SYNONYMOUS
-                : feature.getAllele(alleleId).getRelatedProteoform();
-    }
-
-    /**
-     * Validates the input parameters for the sequence task.
-     * <p>
-     * This method performs a series of validation checks to ensure that the input parameters provided in the command-line arguments are
-     * correct and consistent. It validates the following:
-     * <ul>
-     *   <li>Samples: Ensures that the specified samples exist in the storage.</li>
-     *   <li>Loci: Ensures that the specified loci are valid and properly formatted.</li>
-     *   <li>Configuration: Ensures that the overall configuration settings are valid.</li>
-     * </ul>
-     * If any of these validations fail, a {@link MusialException} is thrown with an appropriate error message.
-     *
-     * @throws MusialException If any of the validation checks fail.
-     */
-    private void validate() throws MusialException {
-        validateSamples();
-        validateLoci();
-        validateConfiguration();
-    }
-
-    /**
-     * Validates the configuration settings provided in the command-line arguments.
-     * <p>
-     * This method performs several checks to ensure the configuration is valid:
-     * <ul>
-     *   <li>Ensures that loci without sequence information can only proceed if the variable option is enabled.</li>
-     *   <li>Validates that the merge option requires the storage to include typing information.</li>
-     *   <li>Checks that feature-based sequence generation requires typing information in the storage.</li>
-     *   <li>Ensures that amino acid sequence generation has at least one feature specified.</li>
-     * </ul>
-     * If any of these conditions are not met, a {@link MusialException} is thrown with an appropriate error message.
-     *
-     * @throws MusialException If the configuration is invalid based on the checks performed.
-     */
-    private void validateConfiguration() throws MusialException {
-        // Check if any contig is missing sequence information and the variable option is not enabled
-        if (!cli.variable && contigs.stream().anyMatch(contig -> !contig.hasSequence())) {
-            throw new MusialException("Loci without sequence information require the -v/--variable option to proceed. Please enable this " +
-                    "option and try again.");
-        }
-
-        // Validate the merge option and typing information
-        if (cli.merge && storage.parameters.skipTyping()) {
-            throw new MusialException("The -m/--merge option requires the storage to include typing information. Please recreate the " +
-                    "storage with typing information and try again.");
-        }
-
-        // Ensure merge option is only used with feature-based sequence generation.
-        if (cli.merge && !contigs.isEmpty()) {
-            throw new MusialException("The -m/--merge option is only applicable for feature-based sequence generation. Please remove " +
-                    "contigs from the loci and try again.");
-        }
-
-        // Validate feature-based sequence generation and typing information
-        if (!features.isEmpty() && storage.parameters.skipTyping()) {
-            throw new MusialException("Sequence generation of features requires the storage to include typing information. Please " +
-                    "recreate the storage with typing information and try again.");
-        }
-
-        // Ensure amino acid sequence generation has at least one feature specified
-        if (features.isEmpty() && cli.content.equals(CLISequence.Content.AMINOACID)) {
-            throw new MusialException("Amino acid sequence generation requires at least one feature to be specified.");
-        }
-    }
-
-    /**
-     * Validates the samples provided in the command-line arguments.
-     * <p>
-     * This method filters the samples specified in the command-line input to include only those that exist in the storage. If no valid
-     * samples are found, an exception is thrown. Additionally, it logs a warning if some specified samples do not exist in the storage and
-     * are removed.
-     * <p>
-     * If no samples are specified in the command-line input, all samples from the storage are used; this is indicated by an empty set.
-     *
-     * @throws MusialException If none of the specified samples exist in the storage.
-     */
-    private void validateSamples() throws MusialException {
-        // Filter samples based on their existence in the storage or initialize with empty set.
-        this.sampleIdentifiers = cli.samples.isEmpty() ? cli.samples :
-                cli.samples.stream().filter(storage::hasSample).collect(Collectors.toSet());
-
-        // Throw an exception if no valid samples exist.
-        if (!cli.samples.isEmpty() && this.sampleIdentifiers.isEmpty()) {
-            throw new MusialException("None of the specified samples exists in the storage.");
-        }
-
-        // Log a warning if some samples were removed
-        int removedSamples = cli.samples.size() - this.sampleIdentifiers.size();
-        if (removedSamples > 0) {
-            Logging.logWarning("%d of the specified samples do not exist in the storage and were removed.".formatted(removedSamples));
-        }
+                : feature.getAllele(alleleIdentifier).getRelatedProteoform();
     }
 
     /**
@@ -350,15 +482,83 @@ public class ExecutorSequence {
      * @throws MusialException If no valid loci are specified or if an error occurs during validation.
      */
     private void validateLoci() throws MusialException {
-        // Validate each locus in the command-line input
-        for (String locus : cli.loci) {
-            validateLocus(locus);
+        if (this.cli.loci.isEmpty()) {
+            // If no loci are specified, load all features or contigs based on the content type.
+            loadLoci();
+        } else {
+            // Initialize sets and map with an estimated size based on the number of loci provided.
+            int numberOfLoci = this.cli.loci.size();
+            this.features = new HashSet<>(numberOfLoci);
+            this.contigs = new HashSet<>(numberOfLoci);
+            this.contigRegions = new HashMap<>(numberOfLoci);
+
+            // Validate each locus in the command-line input
+            for (String locus : cli.loci) {
+                validateLocus(locus);
+            }
+
+            // Ensure at least one valid locus is specified
+            if (features.isEmpty() && contigs.isEmpty()) {
+                throw new MusialException("No valid loci were specified.");
+            }
+        }
+    }
+
+    /**
+     * Loads loci (features or contigs) based on the content type specified in the command-line interface.
+     * <p>
+     * This method initializes the `features` and `contigs` sets based on the content type:
+     * <ul>
+     *   <li>If the content type is amino acid, it filters and loads only coding features.</li>
+     *   <li>If the content type is nucleotide, it loads all features.</li>
+     * </ul>
+     * If no features are found:
+     * <ul>
+     *   <li>For amino acid content, an exception is thrown indicating no coding features are available.</li>
+     *   <li>For nucleotide content, all contigs are loaded instead.</li>
+     * </ul>
+     * The `contigRegions` map is initialized as empty in any case.
+     *
+     * @throws MusialException If no coding features are found for amino acid content.
+     */
+    private void loadLoci() throws MusialException {
+        // Check if the content type is amino acid
+        if (this.cli.content.equals(CLISequence.Content.AMINOACID)) {
+            // Load only coding features for amino acid content
+            this.features = this.storage.getFeatures().stream().filter(Feature::isCoding).collect(Collectors.toSet());
+        } else {
+            // Load all features for nucleotide content
+            this.features = new HashSet<>(this.storage.getFeatures());
         }
 
-        // Ensure at least one valid locus is specified
-        if (features.isEmpty() && contigs.isEmpty()) {
-            throw new MusialException("No valid loci were specified.");
+        // If no features are found, handle based on content type
+        if (this.features.isEmpty()) {
+            if (this.cli.content.equals(CLISequence.Content.AMINOACID)) {
+                // Throw an exception if no coding features are found for amino acid content
+                throw new MusialException("The storage does not contain any coding features required for amino acid sequence generation.");
+            } else {
+                // Load all contigs for nucleotide content
+                this.contigs = new HashSet<>(this.storage.getContigs());
+                this.contigRegions = Collections.emptyMap();
+            }
+        } else {
+            // Initialize contigs and contigRegions as empty if features are loaded
+            this.contigs = Collections.emptySet();
+            this.contigRegions = Collections.emptyMap();
         }
+    }
+
+    /**
+     * Formats a given sequence string into lines of a specified length.
+     * <p>
+     * This method splits the input sequence into lines of 80 characters each, making it suitable for formats that require line breaks, such
+     * as FASTA. The formatted sequence is returned as a single string with newline characters separating the lines.
+     *
+     * @param sequence The input sequence string to be formatted.
+     * @return A formatted sequence string with lines of 80 characters each.
+     */
+    private String formatSequence(String sequence) {
+        return String.join("\n", Splitter.fixedLength(80).splitToList(sequence));
     }
 
     /**
@@ -426,5 +626,81 @@ public class ExecutorSequence {
         throw new MusialException("Locus '%s' is not valid, it is neither a feature nor a contig.".formatted(locus));
     }
 
+    /**
+     * Validates the configuration settings provided in the command-line arguments.
+     * <p>
+     * This method performs several checks to ensure the configuration is valid:
+     * <ul>
+     *   <li>Ensures that loci without sequence information can only proceed if the variable option is enabled.</li>
+     *   <li>Validates that the merge option requires the storage to include typing information.</li>
+     *   <li>Checks that feature-based sequence generation requires typing information in the storage.</li>
+     *   <li>Ensures that amino acid sequence generation has at least one feature specified.</li>
+     * </ul>
+     * If any of these conditions are not met, a {@link MusialException} is thrown with an appropriate error message.
+     *
+     * @throws MusialException If the configuration is invalid based on the checks performed.
+     */
+    private void validateConfiguration() throws MusialException {
+        // Check if any contig is missing sequence information and the variable option is not enabled
+        if (!cli.variable && contigs.stream().anyMatch(contig -> !contig.hasSequence())) {
+            throw new MusialException("Loci without sequence information require the -v/--variable option to proceed. Please enable this " +
+                    "option and try again.");
+        }
+
+        // Validate the merge option and typing information
+        if (cli.merge && storage.parameters.skipTyping()) {
+            throw new MusialException("The -m/--merge option requires the storage to include typing information. Please recreate the " +
+                    "storage with typing information and try again.");
+        }
+
+        // Ensure merge option is only used with feature-based sequence generation.
+        if (cli.merge && !contigs.isEmpty()) {
+            throw new MusialException("The -m/--merge option is only applicable for feature-based sequence generation. Please remove " +
+                    "contigs from the loci and try again.");
+        }
+
+        // Validate feature-based sequence generation and typing information
+        if (!features.isEmpty() && storage.parameters.skipTyping()) {
+            throw new MusialException("Sequence generation of features requires the storage to include typing information. Please " +
+                    "recreate the storage with typing information and try again.");
+        }
+
+        // Ensure amino acid sequence generation has at least one feature specified
+        if (features.isEmpty() && cli.content.equals(CLISequence.Content.AMINOACID)) {
+            throw new MusialException("Amino acid sequence generation requires at least one feature to be specified.");
+        }
+    }
+
+    /**
+     * Validates the samples provided in the command-line arguments.
+     * <p>
+     * This method filters the samples specified in the command-line input to include only those that exist in the storage. If no valid
+     * samples are found, an exception is thrown. Additionally, it logs a warning if some specified samples do not exist in the storage and
+     * are removed.
+     * <p>
+     * If no samples are specified in the command-line input, all samples from the storage are used; this is indicated by an empty set.
+     *
+     * @throws MusialException If none of the specified samples exist in the storage.
+     */
+    private void validateSamples() throws MusialException {
+        if (cli.samples.isEmpty()) {
+            // If no samples are specified, use all samples from the storage.
+            this.sampleIdentifiers = storage.getSamples().stream().map(s -> s._id).collect(Collectors.toSet());
+        } else {
+            // Filter samples based on their existence in the storage.
+            this.sampleIdentifiers = cli.samples.stream().filter(storage::hasSample).collect(Collectors.toSet());
+        }
+
+        // Throw an exception if no valid samples exist.
+        if (this.sampleIdentifiers.isEmpty()) {
+            throw new MusialException("None of the specified samples exists in the storage.");
+        }
+
+        // Log a warning if some samples were removed
+        int removedSamples = cli.samples.size() - this.sampleIdentifiers.size();
+        if (removedSamples > 0) {
+            Logging.logWarning("%d of the specified samples do not exist in the storage and were removed.".formatted(removedSamples));
+        }
+    }
 
 }

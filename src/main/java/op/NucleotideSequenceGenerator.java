@@ -68,6 +68,11 @@ public class NucleotideSequenceGenerator implements SequenceGenerator {
     final Set<String> sampleIdentifiers;
 
     /**
+     * The name of the sequence generator, derived from the feature name or contig ID.
+     */
+    final String name;
+
+    /**
      * Constructs a new instance of the NucleotideSequenceGenerator class.
      * <p>
      * This constructor initializes the generator for a given contig and optional sample identifiers. It sets the interval to cover the
@@ -100,6 +105,7 @@ public class NucleotideSequenceGenerator implements SequenceGenerator {
         this.aligned = aligned;
         this.interval = new Tuple<>(1, contig.getSequenceLength());
         this.sampleIdentifiers = sampleIdentifiers;
+        this.name = contig._id;
 
         // Generate the nucleotide context based on the conserved flag.
         if (conserved) generateConservedContext();
@@ -142,6 +148,7 @@ public class NucleotideSequenceGenerator implements SequenceGenerator {
         this.aligned = aligned;
         this.interval = new Tuple<>(from, to);
         this.sampleIdentifiers = sampleIdentifiers;
+        this.name = "%s:g.%d_%d=".formatted(contig._id, from, to);
 
         // Generate the nucleotide context based on the conserved flag.
         if (conserved) generateConservedContext();
@@ -186,10 +193,28 @@ public class NucleotideSequenceGenerator implements SequenceGenerator {
         this.aligned = aligned;
         this.interval = new Tuple<>(feature.start, feature.end);
         this.sampleIdentifiers = sampleIdentifiers;
+        this.name = feature.name;
 
         // Generate the nucleotide context based on the conserved flag.
         if (conserved) generateConservedContext();
         else generateContext();
+    }
+
+    /**
+     * Retrieves the name of the sequence generator.
+     * <p>
+     * The name is derived from the associated feature name or contig ID, depending on the context in which the sequence generator was
+     * initialized.
+     *
+     * @return A {@link String} representing the name of the sequence generator.
+     */
+    public String getName(boolean forFile) {
+        if (forFile) {
+            //noinspection RegExpRedundantEscape
+            return this.name.replaceAll("[\\.\\:\\-]", Constants.UNDERSCORE);
+        } else {
+            return this.name;
+        }
     }
 
     /**
