@@ -59,10 +59,12 @@ tasks.withType(Test) {
     useJUnitPlatform()
 }
 
-tasks.whenTaskAdded { task ->
-    if (task.name == 'jar' || task.name == 'processResources') {
-        task.dependsOn unpackSnpEff
-    }
+tasks.named('processResources') {
+    dependsOn tasks.named('unpackSnpEff')
+}
+
+tasks.named('jar') {
+    dependsOn tasks.named('unpackSnpEff')
 }
 
 tasks.register('unpackSnpEff', Copy) {
