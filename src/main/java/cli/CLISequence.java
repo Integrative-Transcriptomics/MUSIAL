@@ -314,7 +314,7 @@ public class CLISequence implements CLI {
         String suffix = (this.align ? "-aligned" : "")
                 + (this.merge ? "-merged" : "")
                 + (this.variable ? "-variants" : "")
-                + (this.content == Content.NUCLEOTIDE ? ".fna" : ",faa");
+                + (this.content == Content.NUCLEOTIDE ? ".fna" : ".faa");
 
         try {
             // Determine the base output path. Use the specified output path if provided, otherwise use the parent directory of the input
