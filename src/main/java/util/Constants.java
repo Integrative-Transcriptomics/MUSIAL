@@ -45,6 +45,11 @@ public abstract class Constants {
     public static final String DOT = ".";
 
     /**
+     * Underscore string constant.
+     */
+    public static final String UNDERSCORE = "_";
+
+    /**
      * Equals sign string constant.
      */
     public static final String EQUAL = "=";
