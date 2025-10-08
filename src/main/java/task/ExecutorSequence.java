@@ -32,8 +32,6 @@ public class ExecutorSequence {
 
     /**
      * Storage instance to get genomic data.
-     *
-     * @noinspection FieldCanBeLocal
      */
     private final Storage storage;
 
@@ -260,7 +258,6 @@ public class ExecutorSequence {
      *   <li>Configuration: Ensures that the overall configuration settings are valid.</li>
      * </ul>
      * If any of these validations fail, a {@link MusialException} is thrown with an appropriate error message.
-     * </p>
      *
      * @throws MusialException If any of the validation checks fail.
      */
@@ -281,7 +278,6 @@ public class ExecutorSequence {
      *   <li>Ensures that amino acid sequence generation has at least one feature specified.</li>
      * </ul>
      * If any of these conditions are not met, a {@link MusialException} is thrown with an appropriate error message.
-     * </p>
      *
      * @throws MusialException If the configuration is invalid based on the checks performed.
      */

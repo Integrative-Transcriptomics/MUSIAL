@@ -41,8 +41,6 @@ import java.util.function.Consumer;
  * This class handles the analysis of VCF files, including the extraction of variant data, imputation of contigs, and integration of the
  * processed data into the storage system. It provides methods to analyze VCF files, process variant contexts, and track statistics such as
  * the number of processed, ignored, and filtered variant calls.
- *
- * @noinspection DuplicatedCode
  */
 public class VCFProcessor implements Closeable {
 

@@ -93,9 +93,13 @@ public class CLISequence implements CLI {
      * The content type to generate sequences of.
      */
     public enum Content {
-        // Genomic sequences.
+        /**
+         * Nucleotide/genomic sequences.
+         */
         NUCLEOTIDE,
-        // Protein sequences.
+        /**
+         * Protein sequences.
+         */
         AMINOACID
     }
 
@@ -209,6 +213,7 @@ public class CLISequence implements CLI {
      * @param arguments The {@link CommandLine} object containing the parsed command-line arguments.
      * @return A {@link Set} of loci (features or genomic ranges) specified by the user.
      * @throws IllegalArgumentException If no loci are provided in the command-line arguments.
+     * @throws MusialException          If an error occurs while parsing the loci.
      */
     private Set<String> parseLoci(CommandLine arguments) throws MusialException {
         String[] loci = arguments.getOptionValues("L");

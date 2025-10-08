@@ -20,7 +20,7 @@ import java.util.stream.Stream;
 /**
  * Common utility class for parsing configuration parameters and file paths.
  */
-final class Common {
+abstract class Common {
 
     /**
      * Parses the VCF (Variant Call Format) files from the configuration map.

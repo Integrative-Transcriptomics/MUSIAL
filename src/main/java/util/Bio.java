@@ -363,7 +363,7 @@ public final class Bio {
      * Supported CIGAR operations:
      * <ul>
      *     <li>M: Match or mismatch</li>
-     *     <li=: Match</li>
+     *     <li>=: Match</li>
      *     <li>X: Mismatch</li>
      *     <li>I: Insertion (adds gaps to the reference)</li>
      *     <li>D: Deletion (adds gaps to the query)</li>

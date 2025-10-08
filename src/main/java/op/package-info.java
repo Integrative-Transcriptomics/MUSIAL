@@ -1,7 +1,8 @@
 /**
- * This package is designed to implement actual atomic <b>operations</b> related to the core functionality of the application. It
- * encapsulates the operation logic from the higher-level business logic (see {@link main}), command-line interface (see {@link cli}), and
- * underlying genomic data storage model (see {@link model}). This ensures that each operation is as self-contained as possible, can be
+ * Implements atomic <b>operations</b> building the core functionality of the application.
+ * <p>
+ * It encapsulates the operation logic from the higher-level business logic (see {@link main}), command-line interface (see {@link cli}),
+ * and underlying genomic data storage model (see {@link model}). This ensures that each operation is as self-contained as possible, can be
  * reused in different contexts, can be tested independently, and the application remains modular and maintainable.
  * <p>
  * In contrast to static utility methods (see {@link util}), operations in this package are implemented as classes that can maintain

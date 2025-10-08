@@ -1,6 +1,5 @@
 /**
- * This package contains classes for the encapsulated management of command line argument parsing and validation per
- * {@link main.MusialTask}.
+ * Encapsulates management of command line argument parsing and validation for each {@link main.MusialTask}.
  * <p>
  * Each implemented class should be paired with one {@link main.MusialTask} and {@link task} class, and implement the {@link cli.CLI}
  * interface. Implemented classes are intended to be initialized in the {@link main.Musial#main} method.

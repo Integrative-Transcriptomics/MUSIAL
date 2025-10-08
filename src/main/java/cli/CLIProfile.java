@@ -74,11 +74,17 @@ public class CLIProfile implements CLI {
      * The content type to profile.
      */
     public enum Content {
-        // Per sample variants.
+        /**
+         * Per sample variants.
+         */
         VARIANTS,
-        // Per sample alleles of features.
+        /**
+         * Per sample alleles.
+         */
         ALLELES,
-        // Per sample proteoforms of features.
+        /**
+         * Per sample proteoforms.
+         */
         PROTEOFORMS
     }
 
