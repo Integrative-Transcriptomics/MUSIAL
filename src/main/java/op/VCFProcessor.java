@@ -1,6 +1,7 @@
 package op;
 
 import com.google.common.collect.Lists;
+import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;
 import htsjdk.tribble.index.IndexFactory;
 import htsjdk.variant.variantcontext.Genotype;
@@ -644,8 +645,9 @@ public class VCFProcessor implements Closeable {
                 boolean hasAD = genotype.hasAD();
                 boolean hasCOV = genotype.hasAnyAttribute("COV");
                 boolean hasDP4 = variantContext.hasAttribute("DP4")
-                        && genotype.getAlleles().size() == 2
+                        && variantContext.getNAlleles() == 2
                         && variantContext.getNSamples() == 1;
+
                 if (!(hasDP && (hasAD || hasCOV || hasDP4))) {
                     if (!genotype.isHomRef()) {
                         Logging.logWarningOnce("MISSING_AD_DP_ATTRIBUTES",
