@@ -4,7 +4,7 @@ import exceptions.MusialException;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
-import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.file.PathUtils;
 import util.Logging;
 
 import java.nio.file.Files;
@@ -25,15 +25,15 @@ public class CLISequence implements CLI {
      * <p>
      * The options include:
      * <ul>
-     *     <li><b>-I, --storage</b>: Specifies the path to the input storage file (required).</li>
-     *     <li><b>-C, --content</b>: Specifies whether to generate NUCLEOTIDE or AMINOACID sequences (required).</li>
-     *     <li><b>-L, --locations</b>: Specifies one or more feature identifiers or genomic ranges to generate sequence data for
-     *     (required).</li>
-     *     <li><b>-s, --samples</b>: Specifies one or more sample identifiers to retrieve sequences for (optional).</li>
-     *     <li><b>-m, --merge</b>: Indicates whether to merge identical sequences (optional, default: false).</li>
-     *     <li><b>-a, --align</b>: Indicates whether to align sequences (optional, default: false).</li>
-     *     <li><b>-v, --variable</b>: Indicates whether to consider only variable sites (optional, default: false).</li>
-     *     <li><b>-o, --output</b>: Specifies the path to write the output. If not provided, a default file will be created (optional).</li>
+     *     <li><b>-I, --storage</b>: The path to the input storage file (required).</li>
+     *     <li><b>-c, --content</b>: Whether to generate NUCLEOTIDE or AMINOACID sequences (default: NUCLEOTIDE).</li>
+     *     <li><b>-l, --locations</b>: One or more feature identifiers or genomic ranges to generate sequence data for (optional).</li>
+     *     <li><b>-s, --samples</b>: One or more sample identifiers to retrieve sequences for (optional).</li>
+     *     <li><b>-m, --merge</b>: Whether to merge identical sequences (optional, default: false).</li>
+     *     <li><b>-f, --split</b>: How to split output files (optional, default: FEATURE).</li>
+     *     <li><b>-a, --align</b>: Whether to align sequences (optional, default: false).</li>
+     *     <li><b>-v, --variable</b>: Whether to consider only variable sites (optional, default: false).</li>
+     *     <li><b>-o, --output</b>: Path to write the output. By default, files will be created in the input's directory (optional).</li>
      * </ul>
      *
      * @return An {@link Options} object containing the defined command-line options.
@@ -46,11 +46,11 @@ public class CLISequence implements CLI {
                 .hasArg()
                 .required()
                 .build());
-        options.addOption(Option.builder("L")
+        options.addOption(Option.builder("l")
                 .longOpt("locations")
-                .desc("One or multiple feature identifiers or genomic ranges (contig:start-end) to generate sequence data of.")
+                .desc("One or multiple feature identifiers or genomic ranges (contig:start-end) to generate sequence data of. If none are" +
+                        " provided, all features or full contig ranges will be considered.")
                 .hasArgs()
-                .required()
                 .build());
         options.addOption(Option.builder("c")
                 .longOpt("content")
@@ -66,6 +66,11 @@ public class CLISequence implements CLI {
                 .longOpt("merge")
                 .desc("Whether to merge identical sequences (optional, default: false).")
                 .build());
+        options.addOption(Option.builder("f")
+                .longOpt("split")
+                .desc("Whether to split output files by FEATURE, SAMPLE, BOTH, or NONE (optional, case-insensitive, default: FEATURE).")
+                .hasArg()
+                .build());
         options.addOption(Option.builder("a")
                 .longOpt("align")
                 .desc("Whether to align sequences (optional, default: false).")
@@ -76,9 +81,8 @@ public class CLISequence implements CLI {
                 .build());
         options.addOption(Option.builder("o")
                 .longOpt("output")
-                .desc("Path to write the output. If not provided, a file with default file name will be created next to the input file " +
-                        " for each specified location (default). If a directory is provided, a respective file is created there. If a " +
-                        "file is provided, all sequences will be written to the same file.")
+                .desc("Path to write the output. If not provided, the directory of the input storage is used. If a directory is provided," +
+                        " files are created there. If a file is provided, its parent directory is used.")
                 .hasArg()
                 .build());
         return options;
@@ -93,10 +97,36 @@ public class CLISequence implements CLI {
      * The content type to generate sequences of.
      */
     public enum Content {
-        // Genomic sequences.
+        /**
+         * Nucleotide/genomic sequences.
+         */
         NUCLEOTIDE,
-        // Protein sequences.
+        /**
+         * Protein sequences.
+         */
         AMINOACID
+    }
+
+    /**
+     * The mode to split output files by.
+     */
+    public enum Split {
+        /**
+         * Split output files by feature/genomic range.
+         */
+        FEATURE,
+        /**
+         * Split output files by sample (or sequence type) identifier.
+         */
+        SAMPLE,
+        /**
+         * Do not split output files.
+         */
+        NONE,
+        /**
+         * Split output files by both feature/genomic range and sample (or sequence type) identifier.
+         */
+        BOTH
     }
 
     /**
@@ -105,14 +135,14 @@ public class CLISequence implements CLI {
     public final Content content;
 
     /**
+     * The mode to split output files by.
+     */
+    public final Split split;
+
+    /**
      * Generator for output paths per specified locus.
      */
     public final Function<String, String> outputGenerator;
-
-    /**
-     * Indicates whether to append to existing output files.
-     */
-    public boolean append;
 
     /**
      * The set of loci (features or genomic ranges) provided by the user.
@@ -156,6 +186,9 @@ public class CLISequence implements CLI {
         // Parse the content type (NUCLEOTIDE or AMINOACID) from the arguments.
         this.content = parseContent(arguments);
 
+        // Parse the mode to split output files by from the arguments.
+        this.split = parseSplit(arguments);
+
         // Parse the loci (features or genomic ranges) from the arguments.
         this.loci = parseLoci(arguments);
 
@@ -164,6 +197,11 @@ public class CLISequence implements CLI {
 
         // Check if the merge option is enabled in the arguments.
         this.merge = arguments.hasOption("m");
+
+        // Validate that merging is not used with incompatible split modes.
+        if (this.merge && (this.split.equals(Split.SAMPLE))) {
+            throw new MusialException("Merging sequences is not compatible with splitting output files by SAMPLE.");
+        }
 
         // Check if the align option is enabled in the arguments.
         this.align = arguments.hasOption("a");
@@ -200,20 +238,45 @@ public class CLISequence implements CLI {
     }
 
     /**
+     * Parses the mode to split output files by from the command-line arguments.
+     * <p>
+     * This method checks if the `-f` or `--split` option is provided in the command-line arguments. If the option is not provided, it
+     * defaults to {@link Split#FEATURE}. If the option is provided, it attempts to parse the value as a valid {@link Split} enum.
+     *
+     * @param arguments The {@link CommandLine} object containing the parsed command-line arguments.
+     * @return The {@link Split} mode specified by the user, or {@link Split#FEATURE} if not specified.
+     * @throws IllegalArgumentException If the provided split mode is not one of the valid {@link Split} values.
+     */
+    private Split parseSplit(CommandLine arguments) {
+        if (!arguments.hasOption("f")) {
+            return Split.FEATURE;
+        } else {
+            String split = arguments.getOptionValue("f").toUpperCase();
+            try {
+                return Split.valueOf(split);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("The mode to split output files by must be one of FEATURE, SAMPLE, NONE, or BOTH " +
+                        "(case-insensitive).");
+            }
+        }
+    }
+
+    /**
      * Parses the loci (features or genomic ranges) provided in the command-line arguments.
      * <p>
-     * This method retrieves the values associated with the `-L` or `--locations` option from the command-line arguments. If no loci are
-     * provided, it throws an {@link IllegalArgumentException}. The values are returned as a {@link Set} for further processing. The values
-     * are not validated at this stage.
+     * This method retrieves the values associated with the `-l` or `--locations` option from the command-line arguments. If no loci are
+     * provided, an empty set is returned. The values are returned as a {@link Set} for further processing. The values are not validated at
+     * this stage.
      *
      * @param arguments The {@link CommandLine} object containing the parsed command-line arguments.
      * @return A {@link Set} of loci (features or genomic ranges) specified by the user.
-     * @throws IllegalArgumentException If no loci are provided in the command-line arguments.
      */
-    private Set<String> parseLoci(CommandLine arguments) throws MusialException {
-        String[] loci = arguments.getOptionValues("L");
-        if (loci == null || loci.length == 0) {
-            throw new MusialException("At least one location (feature ID or genomic range) must be specified.");
+    private Set<String> parseLoci(CommandLine arguments) {
+        String[] loci;
+        if (arguments.hasOption("l")) {
+            loci = arguments.getOptionValues("l");
+        } else {
+            loci = new String[0];
         }
         return Set.of(loci);
     }
@@ -237,45 +300,40 @@ public class CLISequence implements CLI {
     }
 
     /**
-     * Generates a function to determine the output file path for each locus based on the command-line arguments.
+     * Generates a function to construct output file names.
      * <p>
      * This method constructs a suffix for the output file name based on the content type, alignment, and merge options. It validates and
-     * creates the base output path, which can either be a directory or a file. If the base path is a directory, the output file path is
-     * generated per locus. If the base path is a file, all sequences are written to the same file.
+     * creates the base output path, which can either be a directory or a file.
      *
      * @param arguments The {@link CommandLine} object containing the parsed command-line arguments.
      * @return A {@link Function} that takes a locus identifier as input and returns the corresponding output file path.
      * @throws MusialException If the output path specified in the arguments is invalid or cannot be created.
      */
     private Function<String, String> parseOutput(CommandLine arguments) throws MusialException {
-        // Construct the suffix for the output file name based on content, alignment, and merge options.
-        String suffix =
-                (this.content == Content.NUCLEOTIDE ? "n" : "a")
-                        + (this.align ? "a" : "s")
-                        + (this.merge ? "m" : "")
-                        + (this.variable ? "v" : "");
+        // Construct the suffix for the output file name based on content type, alignment, and merge options.
+        String suffix = (this.align ? "-aligned" : "")
+                + (this.merge ? "-merged" : "")
+                + (this.variable ? "-variants" : "")
+                + (this.content == Content.NUCLEOTIDE ? ".fna" : ".faa");
 
         try {
             // Determine the base output path. Use the specified output path if provided, otherwise use the parent directory of the input
-            // file.
+            // or specified file.
             Path basePath = arguments.hasOption("o")
                     ? Path.of(arguments.getOptionValue("o"))
-                    : Path.of(arguments.getOptionValue("I")).getParent();
+                    : Path.of(arguments.getOptionValue("I"));
+
+            // Get the parent directory if the base path is a file.
+            if (PathUtils.isRegularFile(basePath)) {
+                basePath = basePath.getParent();
+            }
 
             // Ensure the parent directories for the base path exist.
-            FileUtils.createParentDirectories(basePath.toFile());
+            Files.createDirectories(basePath);
 
-            // If the base path is a directory, generate output paths per locus.
-            if (Files.isDirectory(basePath)) {
-                Logging.logConfig("`output` will be generated per locus at %s.".formatted(basePath));
-                this.append = false;
-                return s -> basePath.resolve("musial-%s-%s-%s.fasta".formatted(s, suffix, Logging.getDate())).toAbsolutePath().toString();
-            } else {
-                // If the base path is a file, use it as the output path for all sequences.
-                Logging.logConfig("`output` set to file %s.".formatted(basePath));
-                this.append = true;
-                return s -> basePath.toAbsolutePath().toString();
-            }
+            Logging.logConfig("`output` will be generated at %s.".formatted(basePath));
+            Path finalBasePath = basePath;
+            return s -> finalBasePath.resolve("%s%s".formatted(s, suffix)).toAbsolutePath().toString();
         } catch (Exception e) {
             // Throw an exception if the output path is invalid or cannot be created.
             throw new MusialException("Failed to validate path %s specified for `output`.".formatted(arguments.getOptionValue("o")));

@@ -16,4 +16,12 @@ public interface SequenceGenerator {
      */
     String getSequence(String sampleIdentifier) throws MusialException;
 
+    /**
+     * Retrieves the name of the sequence generator.
+     *
+     * @param forFile true to return a file-friendly name, false for the standard name.
+     * @return the name of the sequence generator.
+     */
+    String getName(boolean forFile);
+
 }

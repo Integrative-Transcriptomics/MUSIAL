@@ -16,6 +16,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.logging.Level;
 
@@ -62,6 +63,16 @@ public final class Musial {
     public static MusialTask task;
 
     /**
+     * Start time of the program.
+     */
+    public static long startTime;
+
+    /**
+     * Temporary directory for intermediate files.
+     */
+    public static File tempDir;
+
+    /**
      * File extension used for generated MUSIAL storage files.
      * <p>
      * This constant specifies the default file extension for storage files created or used by the MUSIAL application. It is marked as
@@ -71,16 +82,6 @@ public final class Musial {
      * compressed files.
      */
     public static final String OUTPUT_EXTENSION = ".json.gz";
-
-    /**
-     * Start time of the program.
-     */
-    public static long startTime;
-
-    /**
-     * Temporary directory for intermediate files.
-     */
-    public static File tempDir;
 
     /**
      * <b>Only relevant for development! For deployment this should be set to {@link Level#CONFIG}.</b>
@@ -114,15 +115,14 @@ public final class Musial {
             // Load metadata such as software id, version, and contact information.
             loadMetadata();
 
-            // Create temporary directory for intermediate files, if not present.
-            tempDir = Files.createTempDirectory(Path.of(System.getProperty("user.dir")), Musial.name.toLowerCase()).toFile();
-
             // Check if any arguments were provided; if not, display usage information and exit.
             if (args.length == 0) {
-                System.out.printf("No arguments were specified. Call `java -jar %s-%s.jar [-h|--help]` for more information.%n",
-                        Musial.name, Musial.version);
-                System.exit(0);
+                throw new MusialException("No arguments were specified. Call `java -jar %s-%s.jar [-h|--help]` for help."
+                        .formatted(Musial.name, Musial.version));
             }
+
+            // Create temporary directory for intermediate files, if not present.
+            tempDir = Files.createTempDirectory(Path.of(System.getProperty("user.dir")), Musial.name.toLowerCase()).toFile();
 
             // Parse the first argument to determine the task to execute.
             try {
@@ -195,7 +195,7 @@ public final class Musial {
                 Logging.logExit("An unexpected error has occurred: %s".formatted(e.getMessage()));
                 status = 2;
             }
-            if (LOG_VERBOSITY.intValue() <= Level.FINE.intValue()) e.printStackTrace();
+            e.printStackTrace();
         } finally {
             // Log the total execution time if the verbosity level is set to FINE or lower.
             if (LOG_VERBOSITY.intValue() <= Level.FINE.intValue()) {
@@ -205,11 +205,7 @@ public final class Musial {
             }
 
             // Clean up temporary directory.
-            try {
-                FileUtils.deleteDirectory(Musial.tempDir);
-            } catch (IOException e) {
-                Logging.logSevere(e.getMessage());
-            }
+            cleanTemp();
 
             System.exit(status);
         }
@@ -242,6 +238,10 @@ public final class Musial {
     private static void exitNotRecognized() {
         System.out.printf("Task \033[1;31m%s\033[0m not recognized. Call `java -jar %s-%s.jar [-h|--help]` for more information.%n",
                 Musial.task, Musial.name, Musial.version);
+
+        // Clean up temporary directory.
+        cleanTemp();
+
         System.exit(0);
     }
 
@@ -273,17 +273,19 @@ public final class Musial {
                 """.formatted(Musial.name, Musial.version);
 
         // If a task was specified, but is not recognized, adjust the help text.
-        if (Musial.task.equals(MusialTask.UNDEFINED)) {
-            helpText += """
+        if (!Objects.equals(args[0], "-h") && !Objects.equals(args[0], "--help")) {
+            if (Musial.task.equals(MusialTask.UNDEFINED)) {
+                helpText += """
 
-                    Task \033[1;31m%s\033[0m not recognized.
-                    """.formatted(args[0]);
-        } else {
-            // If a task was specified, add the command line arguments for that task.
-            helpText += """
+                        Task \033[1;31m%s\033[0m not recognized.
+                        """.formatted(args[0]);
+            } else {
+                // If a task was specified, add the command line arguments for that task.
+                helpText += """
 
-                    \033[47m\033[1;30m Command line arguments of task %s \033[0m
-                    """.formatted(Musial.task.toString().toLowerCase());
+                        \033[47m\033[1;30m Command line arguments of task %s \033[0m
+                        """.formatted(Musial.task.toString().toLowerCase());
+            }
         }
 
         // Print the help message with the specified options and arguments.
@@ -297,8 +299,29 @@ public final class Musial {
                 true
         );
 
+        // Clean up temporary directory.
+        cleanTemp();
+
         // Exit the program after displaying the help message.
         System.exit(0);
+    }
+
+    /**
+     * Cleans up the temporary directory used for intermediate files.
+     * <p>
+     * This method attempts to delete the temporary directory (`Musial.tempDir`) and its contents. If an `IOException` occurs during the
+     * deletion process, the error message is logged at the SEVERE level.
+     * <p>
+     * This method is typically called during the program's shutdown phase to ensure that temporary files do not persist after execution.
+     */
+    private static void cleanTemp() {
+        // Clean up temporary directory.
+        try {
+            FileUtils.deleteDirectory(Musial.tempDir);
+        } catch (IOException e) {
+            // Log the error message if the directory cannot be deleted.
+            Logging.logSevere(e.getMessage());
+        }
     }
 
 }

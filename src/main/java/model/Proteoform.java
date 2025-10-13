@@ -62,7 +62,12 @@ public class Proteoform extends SequenceType {
         this.alleles.add(alleleIdentifier);
     }
 
-    public boolean isDisrupted( ) {
+    /**
+     * Determines if the proteoform is disrupted based on its sequence ontology (SO) effects.
+     *
+     * @return {@code true} if the proteoform is disrupted (i.e., has "start_lost" or "stop_gained" SO effects), {@code false} otherwise.
+     */
+    public boolean isDisrupted() {
         Set<String> soEffects = getAttributeSet(Constants.AttributesKeys.SO_EFFECTS);
         return soEffects.contains("start_lost") || soEffects.contains("stop_gained");
     }

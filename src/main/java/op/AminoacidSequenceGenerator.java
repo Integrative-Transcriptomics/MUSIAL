@@ -14,6 +14,14 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * The {@code AminoacidSequenceGenerator} class is responsible for generating aminoacid sequences based on genomic data contained in a
+ * {@link Storage} instance.
+ * <p>
+ * This class extends the {@link NucleotideSequenceGenerator} and provides functionality to generate amino acid sequences for specified
+ * samples. It integrates variants associated with alleles and proteoforms to produce the final sequences. The class ensures that the
+ * provided feature is coding and that the associated contig has a reference sequence.
+ */
 public class AminoacidSequenceGenerator extends NucleotideSequenceGenerator {
 
     /**

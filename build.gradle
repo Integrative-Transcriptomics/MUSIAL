@@ -1,88 +1,23 @@
-/*
-Set meta-information for the project build.
-*/
-version 'v2.4.2'
-group 'de.tue.cs.ibmi.it'
+/* -------------------- Plugins and Toolchain -------------------- */
+plugins {
+    id 'java'
+}
 
-println "Name: $name"
-println "Project directory: $projectDir"
-println "Build directory: $buildDir"
-println "Version: $version"
-println "Group: $project.group"
-println "AntBuilder: $ant"
-
-/*
-The `buildscript` block defines properties (repositories, plugins, ...)
-used within the Gradle build process.
-*/
-buildscript {
-    repositories {
-        mavenCentral()
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
-/*
-Set JUnit platform for testing.
- */
-tasks.withType(Test) {
-    useJUnitPlatform()
-}
-
-/*
-Import plugins used during the build process.
-*/
-/*
-To prevent duplicate access to output directories a dependency-hierarchy is
-established on different tasks.
-*/
-tasks.whenTaskAdded { task ->
-    if (task.name == 'jar' || task.name == 'processResources') {
-        task.dependsOn unpackSnpEff
-    }
-}
-
-/*
-This task unzips SnpEff.
-*/
-task unpackSnpEff(type: Copy) {
-    from zipTree('src/main/resources/snpEff.zip')
-    into 'src/main/resources/'
-}
-
-/*
-After building, the Jar is copied into the `releases` directory.
-*/
-task copyJarToReleases(type: Copy) {
-    mkdir 'releases'
-    def jarName = "build/libs/" + rootProject.name + "-" + version + ".jar"
-    from jarName
-    into "releases"
-}
-
-/*
-Defines the repositories to look up dependencies.
-*/
+/* -------------------- Repositories -------------------- */
 repositories {
     mavenCentral()
-    maven {
-        url "https://repository.jboss.org/nexus/content/repositories/thirdparty-releases/"
-    }
-    maven {
-        url "https://bio.informatik.uni-jena.de/repository/libs-release-oss/"
-    }
-    maven {
-        url "https://artifactory.cronapp.io/public-release/"
-    }
+    maven { url "https://repository.jboss.org/nexus/content/repositories/thirdparty-releases/" }
+    maven { url "https://bio.informatik.uni-jena.de/repository/libs-release-oss/" }
+    maven { url "https://artifactory.cronapp.io/public-release/" }
 }
 
-/*
-The following plugins are used during the gradle build process.
-*/
-apply plugin: 'java'
-
-/*
-All project dependencies are defined in the following block.
-*/
+/* -------------------- Dependencies -------------------- */
 dependencies {
     implementation 'commons-cli:commons-cli:1.5.0'
     implementation 'commons-io:commons-io:2.14.0'
@@ -99,24 +34,52 @@ dependencies {
     implementation 'org.ehcache:ehcache:3.11.1'
     implementation 'uk.co.omega-prime:btreemap:1.2.0'
     implementation 'tech.tablesaw:tablesaw-core:0.44.4'
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:6.0.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:6.0.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:6.0.0'
 }
 
-/*
-In order to build a final FatJar, all entries from configurations.implementation (the above defined
-dependencies) are copied into configurations.includeJars.
-*/
-configurations {
-    includeJars.extendsFrom implementationjava
+dependencyLocking {
+    lockAllConfigurations()
 }
 
-sourceCompatibility = JavaVersion.VERSION_21
-targetCompatibility = JavaVersion.VERSION_21
+/* -------------------- Project Metadata -------------------- */
+version 'v2.4.2'
+group 'de.tue.cs.ibmi.it'
 
-/*
-Defines the source directories for the tasks executed by the `java` plugin.
-*/
+println "Name: $name"
+println "Project directory: $projectDir"
+println "Build directory: $buildDir"
+println "Version: $version"
+println "Group: $project.group"
+println "AntBuilder: $ant"
+
+/* -------------------- Task Definitions -------------------- */
+tasks.withType(Test) {
+    useJUnitPlatform()
+}
+
+tasks.named('processResources') {
+    dependsOn tasks.named('unpackSnpEff')
+}
+
+tasks.named('jar') {
+    dependsOn tasks.named('unpackSnpEff')
+}
+
+tasks.register('unpackSnpEff', Copy) {
+    from zipTree('src/main/resources/snpEff.zip')
+    into 'src/main/resources/'
+}
+
+tasks.register('copyJarToReleases', Copy) {
+    mkdir 'releases'
+    def jarName = "build/libs/" + rootProject.name + "-" + version + ".jar"
+    from jarName
+    into "releases"
+}
+
+/* -------------------- Source Sets and Resource Processing -------------------- */
 sourceSets {
     main {
         java {
@@ -128,11 +91,8 @@ sourceSets {
     }
 }
 
-/*
-Copies the title and version of the project into resources files.
-*/
 processResources {
-    duplicatesStrategy 'exclude' // If duplicated files exist, they are excluded.
+    duplicatesStrategy 'exclude'
     exclude('*.zip')
     filesMatching('version.properties') {
         expand projectVersion: version
@@ -142,8 +102,9 @@ processResources {
     }
 }
 
+/* -------------------- Jar Configuration -------------------- */
 jar {
-    duplicatesStrategy 'exclude' // If duplicated files exist, they are excluded.
+    duplicatesStrategy 'exclude'
     manifest {
         attributes("Implementation-Title": rootProject.name,
                 "Implementation-Version": archiveVersion,
@@ -151,20 +112,14 @@ jar {
     }
     doFirst {
         from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
-        // Collects all Jars from dependencies and builds a FatJar.
     }
 }
 
-/*
-Defines steps executed by calling `gradle clean`.
-*/
+/* -------------------- Build Finalization and Cleanup -------------------- */
 clean.doFirst {
     delete "${rootDir}/releases/"
     delete "${rootDir}/build/"
     delete "${rootDir}/src/main/resources/snpEff"
 }
 
-/*
-After building the FatJar, it is copied to the releases directory.
-*/
 build.finalizedBy(copyJarToReleases)

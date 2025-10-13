@@ -324,6 +324,7 @@ public class Storage {
      * @param type             The type of the feature (e.g., "gene", "mRNA").
      * @param attributes       A map of attributes associated with the feature. @throws MusialException If an error occurs while adding the
      *                         feature to the storage.
+     * @throws MusialException If an error occurs while adding the feature to the storage.
      */
     public void addFeature(String name, String contigIdentifier, Number start, Number end, char strand, String type,
                            Map<String, String> attributes) throws MusialException {

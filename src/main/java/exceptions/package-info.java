@@ -1,4 +1,4 @@
 /**
- * Contains classes that define application-specific exceptions to handle various error scenarios in a structured manner.
+ * Defines application-specific exceptions to handle internal error scenarios.
  */
 package exceptions;

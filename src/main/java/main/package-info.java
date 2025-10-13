@@ -1,4 +1,4 @@
 /**
- * Contains the core classes and entry points for the application. It serves as the root package for the project's workflows.
+ * Core classes and entry point for the application. This is the root package for the project's workflows.
  */
 package main;

@@ -1,6 +1,5 @@
 /**
- * This package contains classes for the execution and management of tasks within the application. It serves as the core module for
- * task-related operations.
+ * Implements <b>tasks</b> that represent high-level workflows of the application, each encapsulating a specific sequence of operations.
  * <p>
  * Each implemented class should be paired with one {@link main.MusialTask} and {@link cli.CLI} implementation, and implement a
  * {@code run()} method as well as at least a {@link model.Storage} instance as field. Instances of classes implemented in the {@link op}

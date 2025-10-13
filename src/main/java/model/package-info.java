@@ -1,4 +1,4 @@
 /**
- * Contains all classes that constitute the storage model of the MUSIAL application.
+ * Constitutes the storage model of the MUSIAL application.
  */
 package model;

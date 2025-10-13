@@ -12,13 +12,7 @@ import java.util.Arrays;
  * This class provides a centralized location for defining constants, ensuring consistency and reducing the risk of hardcoding values in
  * multiple places. The constants include symbols, sequence types, and other project-specific values.
  */
-public final class Constants {
-
-    /**
-     * Private constructor to prevent instantiation of this utility class.
-     */
-    private Constants() {
-    }
+public abstract class Constants {
 
     /**
      * Empty string constant.
@@ -49,6 +43,11 @@ public final class Constants {
      * Dot string constant.
      */
     public static final String DOT = ".";
+
+    /**
+     * Underscore string constant.
+     */
+    public static final String UNDERSCORE = "_";
 
     /**
      * Equals sign string constant.
@@ -122,7 +121,6 @@ public final class Constants {
 
     /**
      * SnpEff annotation field names.
-     * <p>
      * <ul>
      *     <li>0 = allele</li>
      *     <li>1 = effect</li>
@@ -158,7 +156,7 @@ public final class Constants {
      * risk of hardcoding values in multiple places. These keys are used to store and retrieve metadata for samples, features, sequence
      * types, and variants.
      */
-    public static final class AttributesKeys {
+    public abstract static class AttributesKeys {
 
         /**
          * Key representing the fraction of reference alleles with respect to a {@link model.Sample} or {@link model.Feature}.

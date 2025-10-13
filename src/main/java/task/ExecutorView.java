@@ -1,7 +1,6 @@
 package task;
 
 import cli.CLIView;
-import model.Storage;
 import op.StorageFactory;
 import op.StorageTable;
 import util.Logging;
@@ -23,13 +22,6 @@ public class ExecutorView {
     private final CLIView cli;
 
     /**
-     * Storage instance to get genomic data.
-     *
-     * @noinspection FieldCanBeLocal
-     */
-    private final Storage storage;
-
-    /**
      * Storage table for managing and displaying data.
      */
     private final StorageTable storageTable;
@@ -45,8 +37,7 @@ public class ExecutorView {
     public ExecutorView(CLIView cli) throws IOException {
         this.cli = cli;
         Logging.logInfo("Load storage.");
-        this.storage = StorageFactory.fromPath(cli.input);
-        this.storageTable = new StorageTable(storage);
+        this.storageTable = new StorageTable(StorageFactory.fromPath(cli.input));
         Logging.logDone("");
     }
 

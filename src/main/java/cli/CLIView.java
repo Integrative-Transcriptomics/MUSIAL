@@ -65,11 +65,17 @@ public class CLIView implements CLI {
      * The content type to view.
      */
     public enum Content {
-        // The features of the storage.
+        /**
+         * The features of the storage.
+         */
         FEATURES,
-        // The samples of the storage.
+        /**
+         * The samples of the storage.
+         */
         SAMPLES,
-        // The variants of the storage.
+        /**
+         * The variants of the storage.
+         */
         VARIANTS
     }
 

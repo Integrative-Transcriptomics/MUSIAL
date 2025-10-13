@@ -219,6 +219,16 @@ public record VariantCall(Flag flag, short depth, float entropy, List<CallAltern
 
         /**
          * Constructs a new {@link VariantCallSerializer} instance.
+         * <p>
+         * This constructor initializes the serializer without any special configuration.
+         */
+        public VariantCallSerializer() {
+            // No special initialization required
+            super();
+        }
+
+        /**
+         * Serializes a {@link VariantCall} object into a {@link ByteBuffer}.
          *
          * @param object The instance to serialize.
          * @return A {@link ByteBuffer} containing the serialized data of the {@link VariantCall} object.
