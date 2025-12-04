@@ -7,7 +7,7 @@ import htsjdk.samtools.util.Tuple;
 import model.Contig;
 import model.Feature;
 import model.Storage;
-import op.AminoacidSequenceGenerator;
+import op.AminoAcidSequenceGenerator;
 import op.NucleotideSequenceGenerator;
 import op.SequenceGenerator;
 import op.StorageFactory;
@@ -108,16 +108,16 @@ public class ExecutorSequence {
      * </ul>
      * Depending on the `split` mode, the appropriate processing method is invoked.
      *
-     * @param isAminoAcid A boolean indicating whether the content type is amino acid (`true`) or nucleotide (`false`).
+     * @param asAminoAcid A boolean indicating whether the content type is amino acid (`true`) or nucleotide (`false`).
      * @throws IOException     If an I/O error occurs while writing to the file.
      * @throws MusialException If an error occurs during sequence generation.
      */
-    private void processFeatures(boolean isAminoAcid) throws IOException, MusialException {
+    private void processFeatures(boolean asAminoAcid) throws IOException, MusialException {
         switch (cli.split) {
-            case FEATURE -> processFeaturesByLocus(isAminoAcid); // Process features into one file per feature.
-            case SAMPLE -> processFeaturesBySample(isAminoAcid);  // Process features into one file per sample.
-            case NONE -> processFeaturesInOneFile(isAminoAcid);   // Process all features into a single file.
-            case BOTH -> processFeaturesIndividually(isAminoAcid); // Process each sequence into its own file.
+            case FEATURE -> processFeaturesByLocus(asAminoAcid); // Process features into one file per feature.
+            case SAMPLE -> processFeaturesBySample(asAminoAcid);  // Process features into one file per sample.
+            case NONE -> processFeaturesInOneFile(asAminoAcid);   // Process all features into a single file.
+            case BOTH -> processFeaturesIndividually(asAminoAcid); // Process each sequence into its own file.
         }
     }
 
@@ -125,7 +125,7 @@ public class ExecutorSequence {
      * Creates a sequence generator based on the specified content type (amino acid or nucleotide).
      * <p>
      * This method initializes and returns an appropriate sequence generator for the given feature and contig. If the content type is amino
-     * acid, an {@link AminoacidSequenceGenerator} is created. Otherwise, a {@link NucleotideSequenceGenerator} is created. The generator is
+     * acid, an {@link AminoAcidSequenceGenerator} is created. Otherwise, a {@link NucleotideSequenceGenerator} is created. The generator is
      * configured based on the command-line options provided in the {@code cli} object.
      *
      * @param isAminoAcid A boolean indicating whether the content type is amino acid (`true`) or nucleotide (`false`).
@@ -138,7 +138,7 @@ public class ExecutorSequence {
     private SequenceGenerator createFeatureSequenceGenerator(boolean isAminoAcid, Contig contig, Feature feature) throws IOException,
             MusialException {
         return isAminoAcid
-                ? new AminoacidSequenceGenerator(storage, contig, feature, !cli.variable, cli.align, sampleIdentifiers)
+                ? new AminoAcidSequenceGenerator(storage, contig, feature, !cli.variable, cli.align, sampleIdentifiers)
                 : new NucleotideSequenceGenerator(storage, contig, feature, !cli.variable, cli.align, sampleIdentifiers);
     }
 
@@ -365,8 +365,10 @@ public class ExecutorSequence {
     private void processContigsByLocus() throws IOException, MusialException {
         for (Contig contig : contigs) {
             SequenceGenerator generator = createContigSequenceGenerator(contig);
+            int bufferSize = estimateBufferSize(generator);
             try (BufferedWriter writer =
-                         new BufferedWriter(new FileWriter(cli.outputGenerator.apply(generator.getName(true)), false))) {
+                         new BufferedWriter(new FileWriter(cli.outputGenerator.apply(generator.getName(true)), false),
+                                 bufferSize)) {
                 for (String sampleIdentifier : sampleIdentifiers) {
                     writer.write(">lcl|%s|%s%n%s%n".formatted(sampleIdentifier, generator.getName(false),
                             formatSequence(generator.getSequence(sampleIdentifier))));
@@ -386,10 +388,11 @@ public class ExecutorSequence {
     private void processContigsBySample() throws IOException, MusialException {
         for (Contig contig : contigs) {
             SequenceGenerator generator = createContigSequenceGenerator(contig);
+            int bufferSize = estimateBufferSize(generator);
             for (String sampleIdentifier : sampleIdentifiers) {
                 try (BufferedWriter writer =
                              new BufferedWriter(new FileWriter(cli.outputGenerator.apply("%s-sequences".formatted(sampleIdentifier)),
-                                     true))) {
+                                     true), bufferSize)) {
                     writer.write(">lcl|%s|%s%n%s%n".formatted(sampleIdentifier, generator.getName(false),
                             formatSequence(generator.getSequence(sampleIdentifier))));
                 }
@@ -404,7 +407,7 @@ public class ExecutorSequence {
      * @throws MusialException If an error occurs during sequence generation.
      */
     private void processContigsInOneFile() throws IOException, MusialException {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(cli.outputGenerator.apply("musial-sequences"), true))) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(cli.outputGenerator.apply("musial-sequences"), true), 1048576)) {
             for (Contig contig : contigs) {
                 SequenceGenerator generator = createContigSequenceGenerator(contig);
                 for (String sampleIdentifier : sampleIdentifiers) {
@@ -424,10 +427,11 @@ public class ExecutorSequence {
     private void processContigsIndividually() throws IOException, MusialException {
         for (Contig contig : contigs) {
             SequenceGenerator generator = createContigSequenceGenerator(contig);
+            int bufferSize = estimateBufferSize(generator);
             for (String sampleIdentifier : sampleIdentifiers) {
                 try (BufferedWriter writer =
                              new BufferedWriter(new FileWriter(cli.outputGenerator.apply("%s-%s".formatted(sampleIdentifier,
-                                     generator.getName(true))), false))) {
+                                     generator.getName(true))), false), bufferSize)) {
                     writer.write(">lcl|%s|%s%n%s%n".formatted(sampleIdentifier, generator.getName(false),
                             formatSequence(generator.getSequence(sampleIdentifier))));
                 }
@@ -470,6 +474,11 @@ public class ExecutorSequence {
         return alleleIdentifier.equals(Constants.REFERENCE)
                 ? Constants.SYNONYMOUS
                 : feature.getAllele(alleleIdentifier).getRelatedProteoform();
+    }
+
+    private int estimateBufferSize(SequenceGenerator generator) {
+        int opt = (int) Math.pow(2, Math.ceil(Math.log(generator.getSize()) / Math.log(2)));
+        return Math.clamp(opt, 8192, 1048576);
     }
 
     /**

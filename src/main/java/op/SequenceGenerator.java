@@ -24,4 +24,18 @@ public interface SequenceGenerator {
      */
     String getName(boolean forFile);
 
+    /**
+     * Returns the length of the sequences that can be generated.
+     *
+     * @return the length of the generated sequence as an integer.
+     */
+    int getSize();
+
+    /**
+     * Indicates whether this generator has a specific feature.
+     *
+     * @return true if the generator has the feature, false otherwise.
+     */
+    boolean hasFeature();
+
 }

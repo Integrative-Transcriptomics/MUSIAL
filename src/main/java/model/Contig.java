@@ -184,64 +184,75 @@ public class Contig extends Attributes {
     /**
      * Retrieves all variants associated with this contig.
      * <p>
-     * This method flattens the {@code variants} map, which organizes variants by their positions, into a single list of {@link Variant}
-     * objects. The returned list is unmodifiable.
+     * This method iterates over the {@code variants} map, which organizes variants by their positions, and collects all {@link Variant}
+     * objects into a single list. The returned list is unmodifiable.
      *
      * @return A {@link List} containing all {@link Variant} objects associated with this contig.
      */
     public List<Variant> getAllVariants() {
-        return this.variants.values().stream()
-                .flatMap(variantMap -> variantMap.values().stream())
-                .toList();
+        List<Variant> result = new ArrayList<>();
+        for (Map<String, Variant> variantMap : this.variants.values()) {
+            result.addAll(variantMap.values());
+        }
+        return Collections.unmodifiableList(result);
     }
 
     /**
      * Retrieves all active variants associated with this contig.
      * <p>
-     * This method flattens the {@code variants} map, which organizes variants by their positions, into a single list of {@link Variant}
-     * objects. It then filters the list to include only those variants that are marked as active (i.e., have the {@code active} property
-     * set to {@code true}). The returned list is unmodifiable.
+     * This method iterates over the {@code variants} map, which organizes variants by their positions, and collects all active
+     * {@link Variant} objects (i.e., those with the {@code active} property set to {@code true}) into a single list. The returned list is
+     * unmodifiable.
      *
      * @return A {@link List} containing all active {@link Variant} objects associated with this contig.
      */
     public List<Variant> getActiveVariants() {
-        return this.variants.values().stream()
-                .flatMap(variantMap -> variantMap.values().stream())
-                .filter(v -> v.active)
-                .toList();
+        List<Variant> result = new ArrayList<>();
+        for (Map<String, Variant> variantMap : this.variants.values()) {
+            for (Variant variant : variantMap.values()) {
+                if (variant.active) {
+                    result.add(variant);
+                }
+            }
+        }
+        return Collections.unmodifiableList(result);
     }
 
     /**
      * Retrieves variants within the specified range of positions.
      * <p>
-     * This method retrieves variants from the {@code variants} map that fall within the specified start and end positions (inclusive of
-     * start, exclusive of end). The resulting variants are flattened into a single list. The returned list is unmodifiable.
+     * This method iterates over the {@code variants} map for the specified range and collects all {@link Variant} objects into a single
+     * list. The returned list is unmodifiable.
      *
      * @param start The 1-based start position of the range (inclusive).
      * @param end   The 1-based end position of the range (exclusive).
      * @return A {@link List} of {@link Variant} objects within the specified range.
      */
     public List<Variant> getVariantsWithin(int start, int end) {
-        return this.variants.subMap(start, end + 1).values().stream()
-                .flatMap(variantMap -> variantMap.values().stream())
-                .toList();
+        List<Variant> result = new ArrayList<>();
+        for (Map<String, Variant> variantMap : this.variants.subMap(start, end + 1).values()) {
+            result.addAll(variantMap.values());
+        }
+        return Collections.unmodifiableList(result);
     }
 
     /**
      * Retrieves variants at the specified positions.
      * <p>
-     * This method retrieves variants from the {@code variants} map that are located at the specified positions. The resulting variants are
-     * flattened into a single list. The returned list is unmodifiable.
+     * This method iterates over the {@code variants} map for the specified positions and collects all {@link Variant} objects into a single
+     * list. The returned list is unmodifiable.
      *
      * @param positions An array of 1-based positions to retrieve variants from.
      * @return A {@link List} of {@link Variant} objects located at the specified positions.
      */
     public List<Variant> getVariantsAt(int... positions) {
-        return Arrays.stream(positions)
-                .boxed()
-                .filter(this.variants::containsKey)
-                .flatMap(pos -> this.variants.get(pos).values().stream())
-                .toList();
+        List<Variant> result = new ArrayList<>();
+        for (int position : positions) {
+            if (this.variants.containsKey(position)) {
+                result.addAll(this.variants.get(position).values());
+            }
+        }
+        return Collections.unmodifiableList(result);
     }
 
     /**
@@ -254,10 +265,18 @@ public class Contig extends Attributes {
      * @return A {@link List} of {@link Variant} objects associated with the specified sample identifiers.
      */
     public List<Variant> getVariantsOfSamples(Collection<String> sampleIdentifiers) {
-        return this.variants.values().stream()
-                .flatMap(variantMap -> variantMap.values().stream())
-                .filter(variant -> variant.ofSamples(sampleIdentifiers))
-                .toList();
+        if (sampleIdentifiers.isEmpty()) return List.of();
+        List<Variant> result = new ArrayList<>();
+
+        for (Map<String, Variant> variantMap : this.variants.values()) {
+            for (Variant variant : variantMap.values()) {
+                if (variant.ofSamples(sampleIdentifiers)) {
+                    result.add(variant);
+                }
+            }
+        }
+
+        return Collections.unmodifiableList(result);
     }
 
     /**
@@ -273,10 +292,19 @@ public class Contig extends Attributes {
      * @return A {@link List} of {@link Variant} objects associated with the specified sample identifiers within the given range.
      */
     public List<Variant> getVariantsOfSamplesWithin(int start, int end, Collection<String> sampleIdentifiers) {
-        return this.variants.subMap(start, end + 1).values().stream()
-                .flatMap(variantMap -> variantMap.values().stream())
-                .filter(variant -> variant.ofSamples(sampleIdentifiers))
-                .toList();
+        if (sampleIdentifiers.isEmpty()) return List.of();
+        List<Variant> result = new ArrayList<>();
+
+        // Iterate over the sub-map for the specified range
+        for (Map<String, Variant> variantMap : this.variants.subMap(start, end + 1).values()) {
+            for (Variant variant : variantMap.values()) {
+                if (variant.ofSamples(sampleIdentifiers)) {
+                    result.add(variant);
+                }
+            }
+        }
+
+        return Collections.unmodifiableList(result);
     }
 
     /**

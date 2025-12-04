@@ -71,7 +71,7 @@ public class CLIBuild implements CLI {
     public final double minimalFrequency;
 
     /**
-     * If filtered variants should be treated as missing data (masked) or ignored.
+     * If filtered variants should be treated as ambiguous data (masked) or ignored.
      */
     public final boolean maskFiltered;
 
@@ -86,9 +86,9 @@ public class CLIBuild implements CLI {
     public final boolean skipTyping;
 
     /**
-     * A map containing the masked positions, with the contig ID as the key and a set of excluded positions as the value.
+     * A map containing the excluded positions, with the contig ID as the key and a set of excluded positions as the value.
      */
-    public final Map<String, Set<Integer>> maskedPositions;
+    public final Map<String, Set<Integer>> excludedPositions;
 
     /**
      * The reference sequence file used for variant annotation and typing.
@@ -138,7 +138,7 @@ public class CLIBuild implements CLI {
         this.maskFiltered = parseMaskFiltered(configuration);
         this.skipAnnotation = parseSkipAnnotation(configuration);
         this.skipTyping = parseSkipTyping(configuration);
-        this.maskedPositions = parseMaskedPositions(configuration);
+        this.excludedPositions = parseMaskedPositions(configuration);
         this.reference = parseReference(configuration);
         this.featureList = parseAnnotation(configuration);
         this.output = Common.parseOutputStorageFile(configuration);
@@ -318,15 +318,15 @@ public class CLIBuild implements CLI {
     }
 
     /**
-     * Parses the masked positions from the configuration map.
+     * Parses the excluded positions from the configuration map.
      * <p>
-     * This method reads a BED file specified in the "mask" parameter of the configuration map and extracts the masked positions. The
-     * positions are stored in a map where the key is the contig ID, and the value is a set of excluded positions. If the "mask" parameter
-     * is not specified or the file is invalid, an empty map is returned.
+     * This method reads a BED file specified in the "exclude" parameter of the configuration map and extracts the excluded positions. The
+     * positions are stored in a map where the key is the contig ID, and the value is a set of excluded positions. If the "exclude"
+     * parameter is not specified or the file is invalid, an empty map is returned.
      * <p>
      * The method performs the following steps:
      * <ul>
-     *     <li>Checks if the "mask" parameter exists in the configuration map.</li>
+     *     <li>Checks if the "exclude" parameter exists in the configuration map.</li>
      *     <li>Validates the file path to ensure it is a regular, non-empty file.</li>
      *     <li>Reads the BED file line by line, decodes each line into a {@link BEDFeature}, and extracts
      *         the start and end positions.</li>
@@ -335,22 +335,23 @@ public class CLIBuild implements CLI {
      * <p>
      * If the file is invalid or empty, a {@link MusialException} is thrown.
      *
-     * @param configuration A {@link Map} containing the configuration parameters. The "mask" parameter specifies the path to the BED file.
+     * @param configuration A {@link Map} containing the configuration parameters. The "exclude" parameter specifies the path to the BED
+     *                      file.
      * @return A {@link Map} where the key is the contig ID, and the value is a set of excluded positions.
      * @throws IOException     If an I/O error occurs while reading the file.
-     * @throws MusialException If the "mask" file is invalid or not a regular file.
+     * @throws MusialException If the "exclude" file is invalid or not a regular file.
      */
     private Map<String, Set<Integer>> parseMaskedPositions(Map<String, Object> configuration) throws IOException, MusialException {
         // Initialize a map to store excluded positions, with the contig id as the key.
-        Map<String, Set<Integer>> maskedPositions = new HashMap<>();
+        Map<String, Set<Integer>> excludedPositions = new HashMap<>();
         BEDCodec codec = new BEDCodec();
         int m = 0;
 
-        // Check if a mask file is specified in the configuration; if not, return an empty map.
-        if (!configuration.containsKey("mask"))
-            return maskedPositions;
+        // Check if an exclude file is specified in the configuration; if not, return an empty map.
+        if (!configuration.containsKey("exclude"))
+            return excludedPositions;
 
-        Path path = Path.of((String) configuration.get("mask"));
+        Path path = Path.of((String) configuration.get("exclude"));
         // Check if the path is null or blank; if so, return an empty map.
         if (PathUtils.isRegularFile(path) && !PathUtils.isDirectory(path) && !PathUtils.isEmptyFile(path)) {
             File file = path.toFile();
@@ -359,7 +360,7 @@ public class CLIBuild implements CLI {
                 while (line != null) {
                     BEDFeature bedFeature = codec.decode(line);
                     if (bedFeature != null) {
-                        maskedPositions
+                        excludedPositions
                                 .computeIfAbsent(bedFeature.getContig(), k -> new HashSet<>())
                                 .addAll(IntStream.rangeClosed(bedFeature.getStart(), bedFeature.getEnd())
                                         .boxed()
@@ -369,12 +370,12 @@ public class CLIBuild implements CLI {
                     line = reader.readLine();
                 }
             }
-            Logging.logConfig("`mask` set to %d positions.".formatted(m));
+            Logging.logConfig("`exclude` set to %d positions.".formatted(m));
         } else {
-            throw new MusialException("File specified for `mask` %s is empty or no regular file.".formatted(path));
+            throw new MusialException("File specified for `exclude` %s is empty or no regular file.".formatted(path));
         }
         // Return the populated map of excluded positions.
-        return maskedPositions;
+        return excludedPositions;
     }
 
     /**

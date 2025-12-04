@@ -166,7 +166,7 @@ abstract class Common {
 
         Path path = Path.of((String) configuration.get("output"));
         try {
-            // Note: The behavior of this method is slightly different than expected, as the toFile() transformation seems to remove
+            // Note: The behavior of this method is slightly different from expected, as the toFile() transformation seems to remove
             //  trailing file separator symbols from the path.
             FileUtils.createParentDirectories(path.toFile());
             if (Files.isDirectory(path))

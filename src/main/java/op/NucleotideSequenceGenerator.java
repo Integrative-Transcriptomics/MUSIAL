@@ -60,7 +60,7 @@ public class NucleotideSequenceGenerator implements SequenceGenerator {
     /**
      * The nucleotide context for sequence generation.
      */
-    NavigableMap<Integer, Bio.ReferenceContext> context;
+    Bio.ReferenceContext[] context;
 
     /**
      * Sample identifiers to which the sequence generation is restricted.
@@ -103,7 +103,7 @@ public class NucleotideSequenceGenerator implements SequenceGenerator {
         this.cache = null;
         this.conserved = conserved;
         this.aligned = aligned;
-        this.interval = new Tuple<>(1, contig.getSequenceLength());
+        this.interval = null;
         this.sampleIdentifiers = sampleIdentifiers;
         this.name = contig._id;
 
@@ -231,6 +231,42 @@ public class NucleotideSequenceGenerator implements SequenceGenerator {
     }
 
     /**
+     * Retrieves the size of the nucleotide context.
+     * <p>
+     * This corresponds to the length of the generated nucleotide sequences.
+     *
+     * @return An {@code int} representing the size of the nucleotide context.
+     */
+    public int getSize() {
+        return this.context.length;
+    }
+
+    /**
+     * Checks if the sequence generator is associated with a feature.
+     * <p>
+     * This method returns {@code true} if a feature is defined for the sequence generator, indicating that sequences will be generated
+     * based on that feature. Otherwise, it returns {@code false}.
+     *
+     * @return {@code true} if a feature is defined, {@code false} otherwise.
+     */
+    public boolean hasFeature() {
+        return Objects.nonNull(feature);
+    }
+
+    /**
+     * Generates the reference nucleotide sequence by integrating no variants into the context.
+     * <p>
+     * This method utilizes the {@link Bio#integrateVariants} function to create a nucleotide sequence based solely on the reference
+     * context, without incorporating any variants.
+     *
+     * @return A {@link String} representing the reference nucleotide sequence.
+     * @throws MusialException From {@link Bio#integrateVariants}.
+     */
+    public String getReferenceSequence() throws MusialException {
+        return Bio.integrateVariants(context, Collections.emptyNavigableMap(), !aligned);
+    }
+
+    /**
      * Generates a nucleotide sequence for a given sample identifier based on the associated feature.
      * <p>
      * This method retrieves the allele identifier related to the specified sample and feature. If the sequence for the allele is already
@@ -261,7 +297,7 @@ public class NucleotideSequenceGenerator implements SequenceGenerator {
 
         // Determine the sequence based on the allele identifier.
         String sequence = alleleIdentifier.equals(Constants.REFERENCE)
-                ? Bio.integrateVariants(context, Collections.emptyMap(), !aligned)
+                ? getReferenceSequence()
                 : Bio.integrateVariants(context, feature.getAllele(alleleIdentifier).getVariants(), !aligned);
 
         // Cache the generated sequence and return it.
@@ -285,15 +321,20 @@ public class NucleotideSequenceGenerator implements SequenceGenerator {
         validateSample(sampleIdentifier);
 
         // Retrieve variants for the given sample within the interval.
-        List<Variant> variants = contig.getVariantsOfSamplesWithin(interval.a, interval.b, Collections.singleton(sampleIdentifier));
+        List<Variant> variants;
+        if (Objects.isNull(interval)) {
+            variants = contig.getVariantsOfSamples(Collections.singleton(sampleIdentifier));
+        } else {
+            variants = contig.getVariantsOfSamplesWithin(interval.a, interval.b, Collections.singleton(sampleIdentifier));
+        }
 
         // If no variants are found, return the integrated reference sequence.
         if (variants.isEmpty()) {
-            return Bio.integrateVariants(context, Collections.emptyMap(), !aligned);
+            return getReferenceSequence();
         }
 
-        // Map variants to their positions and alternative alleles.
-        Map<Integer, String> variantsMap = new HashMap<>();
+        // Construct sorted map from position to alternative allele of variants.
+        BTreeMap<Integer, String> variantsMap = BTreeMap.create();
         for (Variant variant : variants) {
             boolean isFiltered = variant.isFiltered(sampleIdentifier);
             if (isFiltered && storage.parameters.maskFiltered()) {
@@ -363,17 +404,6 @@ public class NucleotideSequenceGenerator implements SequenceGenerator {
     }
 
     /**
-     * Determines if a given variant is filtered. A variant is considered filtered if (1.) there are sample identifiers provided, and the
-     * variant is filtered for those samples or (2.) the variant is filtered globally.
-     *
-     * @param variant The variant to check.
-     * @return true if the variant is filtered, false otherwise.
-     */
-    private boolean filtered(Variant variant) {
-        return (!sampleIdentifiers.isEmpty() && variant.isFiltered(sampleIdentifiers)) || variant.isFiltered();
-    }
-
-    /**
      * Checks if a given variant is unrelated to the current sample identifiers. A variant is considered unrelated if there are sample
      * identifiers provided and the variant is not associated with those sample identifiers.
      *
@@ -387,14 +417,14 @@ public class NucleotideSequenceGenerator implements SequenceGenerator {
     /**
      * Generates the nucleotide context for the sequence generator.
      * <p>
-     * This method initializes the `context` map by processing variants within the specified interval or the entire contig if no interval is
-     * defined. It handles different types of variants (SNV, DELETION, INSERTION) and integrates them into the context map.
+     * This method initializes the {@link #context} array by processing variants within the specified interval or the entire contig if no
+     * interval is defined. Variants that are unrelated or filtered (and not masked) are skipped.
      * <p>
-     * Variants that are unrelated or filtered (and not masked) are skipped. The context map is implemented using a BTreeMap for efficient
-     * storage and retrieval.
+     * This first creates a context map using a {@link BTreeMap} that aggregates the relevant variants, ensuring correct indexing and
+     * handling of insertions and deletions. The final context array is constructed from the values of the context map.
      *
-     * @throws IOException           See {@link AminoacidSequenceGenerator#generateContext()}.
-     * @throws MusialException       See {@link AminoacidSequenceGenerator#generateContext()}.
+     * @throws IOException           See {@link AminoAcidSequenceGenerator#generateContext()}.
+     * @throws MusialException       See {@link AminoAcidSequenceGenerator#generateContext()}.
      * @throws IllegalStateException If an unexpected variant type is encountered.
      */
     void generateContext() throws IOException, MusialException {
@@ -405,50 +435,55 @@ public class NucleotideSequenceGenerator implements SequenceGenerator {
                 ? contig.getVariantsWithin(interval.a, interval.b)
                 : contig.getAllVariants();
 
-        // Initialize the context map using a BTreeMap.
-        context = BTreeMap.create();
+        // Processed variants are stored in an BTreeMap to ensure correct order.
+        BTreeMap<Integer, Bio.ReferenceContext> contextMap = BTreeMap.create();
 
         // Process each variant in the list.
         for (Variant variant : variants) {
             // Skip unrelated or filtered variants if masking is not enabled.
-            if (unrelated(variant) || (filtered(variant) && !storage.parameters.maskFiltered())) continue;
+            if (unrelated(variant) || (variant.isFiltered() && !storage.parameters.maskFiltered())) continue;
 
             // Handle the variant based on its type.
             switch (variant.type) {
                 case SNV ->
                     // Merge single nucleotide variants (SNVs) into the context map.
-                        context.merge(variant.position, new Bio.ReferenceContext(variant.reference.charAt(0), 0),
-                                (x, y) -> new Bio.ReferenceContext(variant.reference.charAt(0), Math.max(x.extension(), y.extension())));
+                        contextMap.merge(variant.position, new Bio.ReferenceContext(variant.position, variant.reference.charAt(0), 0),
+                                (x, y) -> new Bio.ReferenceContext(variant.position, variant.reference.charAt(0), Math.max(x.extension(),
+                                        y.extension())));
                 case DELETION -> {
                     // Handle deletions by iterating through the reference sequence.
                     for (int i = 0; i < variant.reference.length(); i++) {
                         char c = variant.reference.charAt(i);
-                        context.merge(variant.position + i, new Bio.ReferenceContext(c, 0),
-                                (x, y) -> new Bio.ReferenceContext(c, Math.max(x.extension(), y.extension())));
+                        contextMap.merge(variant.position + i, new Bio.ReferenceContext(variant.position, c, 0),
+                                (x, y) -> new Bio.ReferenceContext(variant.position, c, Math.max(x.extension(), y.extension())));
                     }
                 }
                 case INSERTION -> {
                     // Handle insertions by calculating the insertion length.
-                    int insertionLength = filtered(variant) ? 0 : variant.alternative.length() - 1;
-                    context.merge(variant.position, new Bio.ReferenceContext(variant.reference.charAt(0), insertionLength),
-                            (x, y) -> new Bio.ReferenceContext(variant.reference.charAt(0), Math.max(x.extension(), y.extension())));
+                    int insertionLength = variant.isFiltered() ? 0 : variant.alternative.length() - 1;
+                    contextMap.merge(variant.position, new Bio.ReferenceContext(variant.position, variant.reference.charAt(0),
+                                    insertionLength),
+                            (x, y) -> new Bio.ReferenceContext(variant.position, variant.reference.charAt(0), Math.max(x.extension(),
+                                    y.extension())));
                 }
                 default ->
                     // Throw an exception for unexpected variant types.
                         throw new IllegalStateException("Unexpected variant type " + variant.type);
             }
         }
+
+        this.context = contextMap.values().toArray(new Bio.ReferenceContext[0]);
     }
 
     /**
      * Sets the nucleotide context for the sequence generator.
      * <p>
-     * This method initializes the `context` map including conserved positions. It processes the reference sequence and calculates the
-     * maximum insertion length for each position. Variants of type INSERTION are checked at each position, and their lengths are used to
-     * update the context. The context map is implemented using a BTreeMap for efficient storage and retrieval.
+     * This method initializes the `context` array with conserved positions. It processes the reference sequence and calculates the maximum
+     * insertion length for each position. Variants of type INSERTION are checked at each position, and their lengths are used to update the
+     * context.
      *
-     * @throws IOException     See {@link AminoacidSequenceGenerator#generateConservedContext()}.
-     * @throws MusialException See {@link AminoacidSequenceGenerator#generateConservedContext()}.
+     * @throws IOException     See {@link AminoAcidSequenceGenerator#generateConservedContext()}.
+     * @throws MusialException See {@link AminoAcidSequenceGenerator#generateConservedContext()}.
      */
     void generateConservedContext() throws IOException, MusialException {
         // Define the start and end positions of the sequence.
@@ -466,8 +501,8 @@ public class NucleotideSequenceGenerator implements SequenceGenerator {
                 ? contig.getSequence(interval.a, interval.b).toCharArray()
                 : contig.getSequence().toCharArray();
 
-        // Initialize the context map with the size of the reference sequence.
-        context = BTreeMap.create();
+        // Initialize context array.
+        Bio.ReferenceContext[] context = new Bio.ReferenceContext[referenceCharacters.length];
 
         // Iterate through the sequence positions.
         for (int i = start, x = 0; i <= end; i++, x++) {
@@ -476,14 +511,17 @@ public class NucleotideSequenceGenerator implements SequenceGenerator {
             // Check for insertion variants at the current position.
             for (Variant variant : contig.getVariantsAt(i)) {
                 // If the variant is an insertion and not filtered, update the maximum insertion length.
-                if (variant.type.equals(Variant.Type.INSERTION) && !filtered(variant)) {
+                if (variant.type.equals(Variant.Type.INSERTION) && !variant.isFiltered()) {
                     maxInsertionLength = Math.max(maxInsertionLength, variant.alternative.length() - 1);
                 }
             }
 
             // Add the base and maximum insertion length to the context.
-            context.put(i, new Bio.ReferenceContext(referenceCharacters[x], maxInsertionLength));
+            context[x] = new Bio.ReferenceContext(i, referenceCharacters[x], maxInsertionLength);
         }
+
+        // Set the generated context.
+        this.context = context;
     }
 
 }

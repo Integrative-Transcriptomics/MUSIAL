@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
  * samples. It integrates variants associated with alleles and proteoforms to produce the final sequences. The class ensures that the
  * provided feature is coding and that the associated contig has a reference sequence.
  */
-public class AminoacidSequenceGenerator extends NucleotideSequenceGenerator {
+public class AminoAcidSequenceGenerator extends NucleotideSequenceGenerator {
 
     /**
      * Reference amino acid sequence of the feature.
@@ -54,7 +54,7 @@ public class AminoacidSequenceGenerator extends NucleotideSequenceGenerator {
      * @throws IOException     If an error occurs during sequence retrieval.
      * @throws MusialException If an error occurs during initialization.
      */
-    public AminoacidSequenceGenerator(Storage storage, Contig contig, Feature feature, boolean conserved, boolean aligned,
+    public AminoAcidSequenceGenerator(Storage storage, Contig contig, Feature feature, boolean conserved, boolean aligned,
                                       Set<String> sampleIdentifiers) throws IOException, MusialException {
         super(storage, contig, feature, conserved, aligned, sampleIdentifiers);
     }
@@ -93,7 +93,7 @@ public class AminoacidSequenceGenerator extends NucleotideSequenceGenerator {
 
         // Generate the sequence based on the proteoform identifier.
         String sequence = proteoformIdentifier.equals(Constants.SYNONYMOUS)
-                ? Bio.integrateVariants(context, Collections.emptyMap(), !aligned)
+                ? Bio.integrateVariants(context, Collections.emptyNavigableMap(), !aligned)
                 : Bio.integrateVariants(context, feature.getProteoform(proteoformIdentifier).getVariants(), !aligned);
 
         // Cache the generated sequence and return it.
@@ -147,10 +147,12 @@ public class AminoacidSequenceGenerator extends NucleotideSequenceGenerator {
     /**
      * Generates the amino acid context for the sequence generator.
      * <p>
-     * This method initializes the `context` map by processing variants related to the {@link #alleleIdentifiers} inferred from the
-     * {@link #sampleIdentifiers} and the associated {@link #feature}. It collects variants from the proteoforms of the feature, filters
-     * them based on their relation to the allele identifiers, and processes each variant to update the context map. The context map is
-     * implemented using a BTreeMap for efficient storage and retrieval.
+     * This method initializes the {@link #context} array by processing variants related to the {@link #alleleIdentifiers} inferred from the
+     * {@link #sampleIdentifiers} and the associated {@link #feature}. Actual variants are collected from each
+     * {@link model.Allele#proteoform}.
+     * <p>
+     * This first creates a context map using a {@link BTreeMap} that aggregates the relevant variants, ensuring correct indexing and
+     * handling of insertions and deletions. The final context array is constructed from the values of the context map.
      *
      * @throws IOException     If an error occurs during initialization or sequence retrieval.
      * @throws MusialException If an error occurs during initialization or variant processing.
@@ -167,28 +169,28 @@ public class AminoacidSequenceGenerator extends NucleotideSequenceGenerator {
                 .map(entry -> new Variant.Stub(entry.getKey(), entry.getValue()))
                 .collect(Collectors.toSet());
 
-        // Initialize the context map using a BTreeMap.
-        context = BTreeMap.create();
+        // Processed variants are stored in an BTreeMap to ensure correct order.
+        BTreeMap<Integer, Bio.ReferenceContext> contextMap = BTreeMap.create();
 
         // Process each variant in the list.
         for (Variant.Stub variant : variants) {
             char r = reference[variant.position() - 1];
             if (Bio.isSubstitution(variant.alternative())) {
                 // Handle substitution variants.
-                context.merge(variant.position(), new Bio.ReferenceContext(r, 0),
-                        (x, y) -> new Bio.ReferenceContext(r, Math.max(x.extension(), y.extension())));
+                contextMap.merge(variant.position(), new Bio.ReferenceContext(variant.position(), r, 0),
+                        (x, y) -> new Bio.ReferenceContext(variant.position(), r, Math.max(x.extension(), y.extension())));
             } else if (Bio.isDeletion(variant.alternative())) {
                 // Handle deletion variants by iterating through the alternative sequence.
                 for (int i = 0; i < variant.alternative().length(); i++) {
                     char refChar = reference[variant.position() - 1 + i];
-                    context.merge(variant.position() + i, new Bio.ReferenceContext(refChar, 0),
-                            (x, y) -> new Bio.ReferenceContext(refChar, Math.max(x.extension(), y.extension())));
+                    contextMap.merge(variant.position() + i, new Bio.ReferenceContext(variant.position(), refChar, 0),
+                            (x, y) -> new Bio.ReferenceContext(variant.position(), refChar, Math.max(x.extension(), y.extension())));
                 }
             } else if (Bio.isInsertion(variant.alternative())) {
                 // Handle insertion variants by calculating the insertion length.
                 int insertionLength = variant.alternative().length() - 1;
-                context.merge(variant.position(), new Bio.ReferenceContext(r, insertionLength),
-                        (x, y) -> new Bio.ReferenceContext(r, Math.max(x.extension(), y.extension())));
+                contextMap.merge(variant.position(), new Bio.ReferenceContext(variant.position(), r, insertionLength),
+                        (x, y) -> new Bio.ReferenceContext(variant.position(), r, Math.max(x.extension(), y.extension())));
             } else {
                 // Throw an exception for unsupported variant types.
                 throw new IllegalStateException("Unable to determine type for variant %s:p.%d?>%s.".formatted(
@@ -223,12 +225,15 @@ public class AminoacidSequenceGenerator extends NucleotideSequenceGenerator {
                         Math::max
                 ));
 
-        // Initialize the context map and populate it with reference bases and insertion lengths.
-        context = BTreeMap.create();
-        for (int i = interval.a; i <= interval.b; i++) {
+        // Initialize context array.
+        Bio.ReferenceContext[] context = new Bio.ReferenceContext[reference.length];
+        for (int i = interval.a, x = 0; i <= interval.b; i++, x++) {
             int insertionLength = maximalInsertionLengths.getOrDefault(i, 0);
-            context.put(i, new Bio.ReferenceContext(reference[i - 1], insertionLength));
+            context[x] = new Bio.ReferenceContext(i, reference[x], insertionLength);
         }
+
+        // Set the generated context.
+        this.context = context;
     }
 
     /**

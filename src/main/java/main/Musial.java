@@ -260,7 +260,7 @@ public final class Musial {
         // NOTE: New tasks need to be added here.
         String helpText = """
 
-                MUSIAL aggregates and analyzes variant calls from multiple samples of a prokaryotic species and provides an interface to generate comprehensive statistics and alignments at the genome, gene and protein level.
+                MUSIAL analyzes and aggregates variants of multiple samples of a prokaryotic species from VCF files and provides an interface to generate comprehensive statistics, alignments, and sequence type profiles at the genome, gene and protein level.
 
                 Available tasks are:
                 \033[47m\033[1;30m build    \033[0m : Build a local database file (storage) in JSON format from variant calls; the mandatory input for other tasks.

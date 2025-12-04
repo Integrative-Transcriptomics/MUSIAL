@@ -45,10 +45,10 @@ public final class IO {
     /**
      * A DecimalFormat instance for formatting numbers with up to three decimal places.
      * <p>
-     * The format uses up to two digits before the decimal point and three digits after (e.g., "12.345"). The locale is set to US for
+     * The format uses up to two digits before the decimal point and three digits after (e.g., "12.3456"). The locale is set to US for
      * consistent decimal and grouping symbols.
      */
-    private static final DecimalFormat decimalFormat = new DecimalFormat("##.###", DecimalFormatSymbols.getInstance(Locale.US));
+    private static final DecimalFormat decimalFormat = new DecimalFormat("##.####", DecimalFormatSymbols.getInstance(Locale.US));
 
     /**
      * A RandomStringUtils instance for generating random strings.
@@ -62,18 +62,23 @@ public final class IO {
      * <p>
      * This method formats the given frequency value using the {@link #frequencyFormat}. If the formatted value equals ".10E1", it is
      * replaced with "1.00E0" for consistency.
+     * <p>
+     * The following old code snippet has been deprecated and this method is currently identical to {@link #formatNumber(double)}:
+     * <pre>
+     * String formattedValue = frequencyFormat.format(value);
+     *     if (formattedValue.equals(".10E1"))
+     *         return "1.00";
+     *     else if (formattedValue.equals(".00E0"))
+     *         return "0.00";
+     *     else
+     *         return formattedValue;
+     * </pre>
      *
      * @param value The frequency value to format.
      * @return A {@link String} representing the formatted frequency in scientific notation.
      */
     public static String formatFrequency(double value) {
-        String formattedValue = frequencyFormat.format(value);
-        if (formattedValue.equals(".10E1"))
-            return "1.00";
-        else if (formattedValue.equals(".00E0"))
-            return "0.00";
-        else
-            return formattedValue;
+        return decimalFormat.format(value);
     }
 
     /**

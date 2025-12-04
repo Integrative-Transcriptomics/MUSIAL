@@ -96,7 +96,7 @@ public class Attributes {
     }
 
     /**
-     * Converts the attributes of this entity to a string representation..
+     * Converts the attributes of this entity to a string representation.
      *
      * @param separator The separator to use between key-value pairs.
      * @return A string representation of the attributes.

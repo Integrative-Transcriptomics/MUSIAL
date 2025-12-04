@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
  * processing the output to update the storage with annotated variants. It handles temporary file management and error logging to ensure a
  * smooth annotation process.
  */
+@SuppressWarnings("ClassCanBeRecord")
 public class VariantAnnotator {
 
     /**

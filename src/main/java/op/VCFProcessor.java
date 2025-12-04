@@ -1,7 +1,6 @@
 package op;
 
 import com.google.common.collect.Lists;
-import exceptions.MusialException;
 import htsjdk.samtools.util.Tuple;
 import htsjdk.tribble.index.IndexFactory;
 import htsjdk.variant.variantcontext.Genotype;
@@ -486,6 +485,12 @@ public class VCFProcessor implements Closeable {
                     int position = entry.a; // Extract the position of the variant.
                     VariantCall variantCall = entry.b; // Extract the variant call.
 
+                    // Resolve previous variant, if the current position is outside the stored upstream deletion range.
+                    if (position > deletionExtension && !referenceBuilder.isEmpty() && !alternativeBuilder.isEmpty()) {
+                        resolve.accept(variantStartPosition);
+                        deletionExtension = 0;
+                    }
+
                     // Resolves the reference and alternative alleles for a variant call, handling special cases.
                     String reference = variantCall.isFiltered() && variantCall.flag() == VariantCall.Flag.MISSING_UPSTREAM_DELETION
                             ? variantCall.getReference(1) // Retrieve the reference content for the second alternative if flagged.
@@ -499,14 +504,8 @@ public class VCFProcessor implements Closeable {
                         alternative = Constants.ANY_NUCLEOTIDE;
                     }
 
-                    // Resolve previous variant, if the current position is outside the stored upstream deletion range.
-                    if (position > deletionExtension && referenceBuilder.length() > 0 && alternativeBuilder.length() > 0) {
-                        resolve.accept(variantStartPosition);
-                        deletionExtension = 0;
-                    }
-
                     // Start processing a new variant if no ongoing deletion exists.
-                    if (deletionExtension == 0 && referenceBuilder.length() == 0 && alternativeBuilder.length() == 0) {
+                    if (deletionExtension == 0 && referenceBuilder.isEmpty() && alternativeBuilder.isEmpty()) {
                         if (Bio.isDeletion(reference, alternative, true)) {
                             referenceBuilder.append(reference);
                             alternativeBuilder.append(alternative);
@@ -554,7 +553,7 @@ public class VCFProcessor implements Closeable {
                 }
 
                 // Resolve any remaining variants in the builders after processing all variants.
-                if (referenceBuilder.length() > 0 && alternativeBuilder.length() > 0) {
+                if (!referenceBuilder.isEmpty() && !alternativeBuilder.isEmpty()) {
                     resolve.accept(variantStartPosition);
                 }
             }
@@ -626,7 +625,7 @@ public class VCFProcessor implements Closeable {
             String contigIdentifier = variantContext.getContig();
 
             // Skip positions excluded by the configuration.
-            if (storage.parameters.isPositionMasked(contigIdentifier, variantContext.getStart())) {
+            if (storage.parameters.isPositionExcluded(contigIdentifier, variantContext.getStart())) {
                 ignoredCallsCount++; // Ignore calls in masked positions.
                 continue;
             }
@@ -755,7 +754,7 @@ public class VCFProcessor implements Closeable {
                                         alignment = Bio.alignByCigar(REF, ALT, cigars[i - 1], 0);
                                     }
                                 } else {
-                                    alignment = Bio.globalNucleotideSequenceAlignment(REF, ALT, 2, 1, true, false, 0);
+                                    alignment = Bio.globalNucleotideSequenceAlignment(REF, ALT, 3, 1, true, false, 0);
                                 }
 
                                 // Process alignment if available.
@@ -809,6 +808,7 @@ public class VCFProcessor implements Closeable {
      * @param position         The genomic position of the variant call.
      * @param alternatives     A list of {@link VariantCall.CallAlternative} objects representing the alleles.
      */
+    @SuppressWarnings("ExtractMethodRecommender")
     private void processVariantCall(String sampleIdentifier, String contigIdentifier, int position,
                                     List<VariantCall.CallAlternative> alternatives) {
         // Ensure that the list of alternatives is not empty.
@@ -852,14 +852,14 @@ public class VCFProcessor implements Closeable {
             // Iterate through each alternative allele to compute entropy.
             for (VariantCall.CallAlternative alternative : alternatives) {
                 float frequency = (float) alternative.depth() / depth;
-                entropy += frequency * Math.log10(frequency);
+                entropy += (float) (frequency * Math.log10(frequency));
             }
             // Normalize the entropy value based on the number of non-zero depth alleles.
             entropy = (float) (-entropy / Math.log10(alternatives.size())) + (float) 0.0;
         }
 
         // Access the allele with the highest depth of coverage.
-        VariantCall.CallAlternative allele = alternatives.get(0);
+        VariantCall.CallAlternative allele = alternatives.getFirst();
         VariantCall.Flag flag = allele.alternative().equals(Constants.DOT) ? VariantCall.Flag.REFERENCE_CALL : VariantCall.Flag.PASS;
 
         // Compute the actual frequency of the selected allele.

@@ -2,6 +2,7 @@ package model;
 
 import org.ehcache.spi.serialization.Serializer;
 import org.ehcache.spi.serialization.SerializerException;
+import org.jspecify.annotations.NonNull;
 import util.Constants;
 import util.IO;
 
@@ -108,6 +109,7 @@ public record VariantCall(Flag flag, short depth, float entropy, List<CallAltern
          *
          * @return A {@link String} representing the alternative allele.
          */
+        @NonNull
         public String toString() {
             return reference + Constants.GREATER_THAN + alternative;
         }
@@ -167,7 +169,7 @@ public record VariantCall(Flag flag, short depth, float entropy, List<CallAltern
      * @return The reference content of the called alternative as {@link String}.
      */
     public String getReference() {
-        return alternatives.get(0).reference;
+        return alternatives.getFirst().reference;
     }
 
     /**
@@ -192,7 +194,7 @@ public record VariantCall(Flag flag, short depth, float entropy, List<CallAltern
      * @return The alternative content of the called alternative as {@link String}.
      */
     public String getAlternative() {
-        return alternatives.get(0).alternative;
+        return alternatives.getFirst().alternative;
     }
 
     /**
@@ -363,6 +365,7 @@ public record VariantCall(Flag flag, short depth, float entropy, List<CallAltern
      *
      * @return A {@link String} representing the variant call.
      */
+    @NonNull
     public String toString() {
         StringBuilder sb =
                 new StringBuilder(flag.name().toLowerCase()).append(Constants.SEMICOLON).append(depth).append(Constants.SEMICOLON)

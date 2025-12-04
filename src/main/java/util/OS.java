@@ -31,13 +31,13 @@ public final class OS {
     public static void runCommand(String[] command, String errorLog, String output, String runInDir) throws RuntimeException {
         try {
             ProcessBuilder pb = new ProcessBuilder(command);
-            if (errorLog.length() > 0) {
+            if (!errorLog.isEmpty()) {
                 pb = pb.redirectError(new File(errorLog));
             }
-            if (output.length() > 0) {
+            if (!output.isEmpty()) {
                 pb = pb.redirectOutput(new File(output));
             }
-            if (runInDir.length() > 0) {
+            if (!runInDir.isEmpty()) {
                 pb.directory(new File(runInDir));
             }
             Process process = pb.start();

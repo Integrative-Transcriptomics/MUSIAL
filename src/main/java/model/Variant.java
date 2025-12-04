@@ -1,6 +1,7 @@
 package model;
 
 import htsjdk.samtools.util.Tuple;
+import org.jspecify.annotations.NonNull;
 import util.Bio;
 import util.Constants;
 
@@ -40,6 +41,7 @@ public class Variant extends Attributes {
          *
          * @return A {@link String} representing the variant stub.
          */
+        @NonNull
         public String toString() {
             return "%d%s%s".formatted(position, Constants.GREATER_THAN, alternative);
         }
@@ -76,7 +78,7 @@ public class Variant extends Attributes {
     /**
      * The 1-based position of this variant on a contig.
      */
-    public final int position;
+    public final Integer position;
 
     /**
      * The reference base content of this variant.
@@ -146,7 +148,7 @@ public class Variant extends Attributes {
      * @param alternative The alternative base content of the variant.
      * @throws IllegalArgumentException If the reference and alternative content do not match any padded canonical content type.
      */
-    protected Variant(int position, String reference, String alternative) {
+    protected Variant(Integer position, String reference, String alternative) {
         super();
         this.position = position;
         this.reference = reference;
@@ -184,7 +186,10 @@ public class Variant extends Attributes {
      * @return {@code true} if the variant is associated with at least one of the given sample identifiers, {@code false} otherwise.
      */
     public boolean ofSamples(Collection<String> sampleIdentifiers) {
-        return sampleIdentifiers.stream().anyMatch(this.samples::containsKey);
+        for (String sampleIdentifier : sampleIdentifiers) {
+            if (ofSample(sampleIdentifier)) return true;
+        }
+        return false;
     }
 
     /**
@@ -207,7 +212,10 @@ public class Variant extends Attributes {
      * @return {@code true} if the variant is associated with at least one of the given feature identifiers, {@code false} otherwise.
      */
     public boolean ofFeatures(Collection<String> featureIdentifiers) {
-        return featureIdentifiers.stream().anyMatch(this.features::containsKey);
+        for (String featureIdentifier : featureIdentifiers) {
+            if (ofFeature(featureIdentifier)) return true;
+        }
+        return false;
     }
 
     /**
@@ -254,7 +262,10 @@ public class Variant extends Attributes {
      * @return {@code true} if the variant is filtered for all specified samples; {@code false} otherwise.
      */
     public boolean isFiltered(Collection<String> sampleIdentifiers) {
-        return sampleIdentifiers.stream().allMatch(this::isFiltered);
+        for (String sampleIdentifier : sampleIdentifiers) {
+            if (!isFiltered(sampleIdentifier)) return false;
+        }
+        return true;
     }
 
     /**

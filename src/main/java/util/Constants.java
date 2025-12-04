@@ -112,11 +112,13 @@ public abstract class Constants {
     /**
      * Base symbols of the IUPAC nucleotide and amino acid code.
      */
+    @SuppressWarnings("SpellCheckingInspection")
     public static final String BASE_SYMBOLS = "ARNDCQEGHILKMFPSTWYVBJZX*";
 
     /**
      * Prefix for SnpEff attribute keys.
      */
+    @SuppressWarnings("SpellCheckingInspection")
     public static final String SNP_EFF_PREFIX = "snpeff_";
 
     /**
@@ -147,7 +149,7 @@ public abstract class Constants {
     /**
      * System-dependent line separator string.
      */
-    public static final String LINE_SEPARATOR = System.getProperty("line.separator");
+    public static final String LINE_SEPARATOR = System.lineSeparator();
 
     /**
      * A nested utility class that defines keys for various attributes used in the application.

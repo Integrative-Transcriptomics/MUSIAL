@@ -174,7 +174,6 @@ public class CLISequence implements CLI {
      * <p>
      * This constructor parses and validates the command-line arguments to initialize the fields required for the {@code sequence} task. It
      * sets the input storage file, content type, loci, samples, merge and align options, and the output path generator.
-     * </p>
      *
      * @param arguments The {@link CommandLine} object containing the parsed command-line arguments.
      * @throws MusialException If there is an error parsing the output path or validating the input storage file.

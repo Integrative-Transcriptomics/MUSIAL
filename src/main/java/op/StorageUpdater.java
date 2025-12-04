@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
  * The single update methods should be called only once the relevant data is loaded into the {@link Storage} instance, e.g.
  * {@link #updateSequenceTypes()} without prior processing of VCF files will not have any effect.
  */
+@SuppressWarnings("ClassCanBeRecord")
 public class StorageUpdater {
 
     /**
@@ -157,25 +158,25 @@ public class StorageUpdater {
                     if (proteoformIdentifier != null) continue;
 
                     // Construct a position-sorted map of variants/stubs of the allele.
-                    NavigableMap<Integer, String> variants = new TreeMap<>();
+                    Map<Integer, String> variants = new HashMap<>();
                     allele.getStubs().forEach(stub -> variants.put(stub.position() - feature.start, stub.alternative()));
 
                     // Translate the reference and allele sequences.
                     String referenceNucleotideSequence = contig.getSequence(feature.start, feature.end);
-                    String referenceAminoacidSequence = Bio.translateSequence(referenceNucleotideSequence, feature.isReverse());
-                    String proteoformSequence = Bio.translateSequence(Bio.integrateVariants(referenceNucleotideSequence, variants, true),
+                    String referenceAminoAcidSequence = Bio.translateSequence(referenceNucleotideSequence, feature.isReverse());
+                    String proteoformSequence = Bio.translateSequence(Bio.integrateVariants(referenceNucleotideSequence, variants),
                             feature.isReverse());
                     assert proteoformSequence != null;
 
                     // Check if the proteoform sequence is synonymous with the reference sequence.
-                    if (referenceAminoacidSequence.equals(proteoformSequence)) {
+                    if (referenceAminoAcidSequence.equals(proteoformSequence)) {
                         proteoformIdentifier = Constants.SYNONYMOUS;
                     } else {
                         // Align sequences and extract amino acid variants.
                         Tuple<String, String> alignment = Bio.globalProteinSequenceAlignment(
-                                referenceAminoacidSequence, proteoformSequence, Math.max(referenceAminoacidSequence.length(),
+                                referenceAminoAcidSequence, proteoformSequence, Math.max(referenceAminoAcidSequence.length(),
                                         proteoformSequence.length()),
-                                6, true, false, Math.abs(referenceAminoacidSequence.length() - proteoformSequence.length())
+                                6, true, false, Math.abs(referenceAminoAcidSequence.length() - proteoformSequence.length())
                         );
 
                         List<Variant.Stub> aaVariants = Bio.getCanonicalVariants(alignment.a, alignment.b).stream()
@@ -206,7 +207,7 @@ public class StorageUpdater {
                             if (aaVariants.stream().anyMatch(aav -> Bio.isSubstitution(aav.alternative()))) {
                                 effects.add("amino_acid_substitution");
                             }
-                            if (proteoform.hasVariantAt(1) && proteoform.getVariant(1).charAt(0) != referenceAminoacidSequence.charAt(0)) {
+                            if (proteoform.hasVariantAt(1) && proteoform.getVariant(1).charAt(0) != referenceAminoAcidSequence.charAt(0)) {
                                 effects.add("start_lost");
                             }
                             aaVariants.stream()
@@ -215,7 +216,7 @@ public class StorageUpdater {
                                     .ifPresent(stopCodonVariant -> {
                                         int stopCodonPosition = stopCodonVariant.position() +
                                                 stopCodonVariant.alternative().indexOf(Constants.TERMINAL_AA);
-                                        String effect = stopCodonPosition <= referenceAminoacidSequence.length() ? "stop_gained" :
+                                        String effect = stopCodonPosition <= referenceAminoAcidSequence.length() ? "stop_gained" :
                                                 "redundant_inserted_stop_gained";
                                         effects.add(effect);
                                     });

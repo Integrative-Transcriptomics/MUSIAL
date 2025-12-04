@@ -96,7 +96,7 @@ public class Storage {
      *                         if annotation is not required.
      * @param skipTyping       Whether to skip proteoform inference. If true, the inference of proteoforms (protein isoforms) is not
      *                         performed, which can be useful for non-coding regions.
-     * @param masked           A map associating contig names with sets of positions to exclude from storage. Cannot be null but can be
+     * @param excluded         A map associating contig names with sets of positions to exclude from storage. Cannot be null but can be
      *                         empty. This allows specific genomic positions to be ignored during analysis.
      */
     public record Parameters(
@@ -105,7 +105,7 @@ public class Storage {
             boolean maskFiltered, // Whether to mask filtered variants in the analysis.
             boolean skipAnnotation, // Flag to determine whether SnpEff annotation should be skipped.
             boolean skipTyping, // Flag to determine whether proteoform inference should be skipped.
-            Map<String, Set<Integer>> masked // Map of contig names to sets of positions to exclude from analysis.
+            Map<String, Set<Integer>> excluded // Map of contig names to sets of positions to exclude from analysis.
     ) {
         // Compact constructor with validation logic omitted for simplicity.
 
@@ -116,8 +116,8 @@ public class Storage {
          * @param position Position to check for exclusion.
          * @return True if {@code position} on {@code contig} is excluded from analysis.
          */
-        public boolean isPositionMasked(String contig, int position) {
-            return masked.containsKey(contig) && masked.get(contig).contains(position);
+        public boolean isPositionExcluded(String contig, int position) {
+            return excluded.containsKey(contig) && excluded.get(contig).contains(position);
         }
 
     }
@@ -170,6 +170,7 @@ public class Storage {
      * @return {@code true} if the {@link #reference} field is non-null, indicating that the reference sequence is set; {@code false}
      * otherwise.
      */
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean hasReference() {
         return Objects.nonNull(this.reference);
     }

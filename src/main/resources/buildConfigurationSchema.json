@@ -27,10 +27,10 @@
       "description": "If set to true, proteoform inference will be skipped.",
       "type": "boolean"
     },
-    "mask": {
+    "exclude": {
       "description": "Path to a BED file (no header row, rows starting with # are ignored); Only obligatory columns one (chrom), two (start) and three (end) are considered. Specification of positions to be excluded from the analysis.",
       "type": "string",
-      "pattern": "^.+.bed|.+.tsv|.+.csv$"
+      "pattern": "^.+.bed$"
     },
     "reference": {
       "description": "Path to a FASTA file. Content will be used as the reference sequences.",

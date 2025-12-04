@@ -85,7 +85,7 @@ public class StorageFactory {
 
         // Initialize storage parameters using the CLI-provided values.
         Storage.Parameters parameters = new Storage.Parameters(cli.minimalCoverage, cli.minimalFrequency, cli.maskFiltered,
-                cli.skipAnnotation, cli.skipTyping, cli.maskedPositions);
+                cli.skipAnnotation, cli.skipTyping, cli.excludedPositions);
         Storage storage = new Storage(parameters);
 
         // Populate contigs from the reference file, if provided.

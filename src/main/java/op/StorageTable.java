@@ -655,8 +655,10 @@ public class StorageTable {
      * @param separator The character to use as the separator in the file.
      */
     public void write(String file, char separator) {
-        if (Objects.isNull(table) || table.isEmpty())
+        if (Objects.isNull(table))
             throw new IllegalStateException("The table is not populated. Please call one of the populate methods before writing.");
+        if (table.isEmpty())
+            Logging.logWarning("The table is empty.");
         table.write().csv(CsvWriteOptions.builder(file).separator(separator).build());
     }
 
@@ -666,8 +668,10 @@ public class StorageTable {
      * If the table is not populated (i.e., it is {@code null} or empty), an {@link IllegalStateException} is thrown.
      */
     public void write() {
-        if (Objects.isNull(table) || table.isEmpty())
+        if (Objects.isNull(table))
             throw new IllegalStateException("The table is not populated. Please call one of the populate methods before writing.");
+        if (table.isEmpty())
+            Logging.logWarning("The table is empty.");
         write(Musial.tempDir.getParentFile().getAbsolutePath() + "/" + this.table.name() + ".tsv", '\t');
     }
 
@@ -682,10 +686,12 @@ public class StorageTable {
      * @throws IllegalStateException If the table is not populated or is empty.
      */
     public void print(boolean all) {
-        if (Objects.isNull(table) || table.isEmpty())
+        if (Objects.isNull(table))
             throw new IllegalStateException("The table is not populated. Please call one of the populate methods before printing.");
+        if (table.isEmpty())
+            Logging.logWarning("The table is empty.");
         if (all) {
-            System.out.println(table.printAll());
+            table.write().csv(System.out);
         } else {
             System.out.println(table.print());
         }
